@@ -56,6 +56,59 @@ Every quote is a **P25–P75 range** over `K ≥ 20` rolling sub-windows and a *
 parameter fit is poor. A quote engine that returns a point estimate is misquoting you — which is the
 entire thesis of the product.
 
+## A7 · The volatility estimator does two things the spec doesn't mention
+
+**Added.** Spec §5.1 specifies "EWMA of 1-minute log-returns of pool price, half-life 6h, scaled to
+per-√hour". The implementation adds two transforms, both of which change the number materially, so
+both are disclosed here rather than buried in a docstring.
+
+**Winsorising** clips each return at 5× the median absolute return. A thin-liquidity pool can print
+one swap that moves price several percent and immediately reverts; left alone that single bar
+dominates a six-hour EWMA and the agent widens its range for the rest of the day on the strength of
+one trade. The threshold is median-based rather than standard-deviation-based on purpose — a
+standard deviation would itself be inflated by the outlier it is meant to clip.
+
+**Shrinkage toward a prior of σ = 0.02** with weight `n/(n+20)`. This is *not* a small correction: at
+the 30-bar readiness threshold the published σ is only 41% of the way from the prior to the sample
+estimate. It stops the first hour after a restart producing a confidently wrong volatility, at the
+cost of biasing thin-sample estimates toward the prior. The prior itself implies roughly 190%
+annualised, which is hot for BNB (typically 50–70%), so the standing bias is toward **wider** ranges.
+
+**Irregular sampling is handled explicitly.** Bars exist only where a swap arrived, so consecutive
+bars can be an hour apart. Each return is rescaled to its per-bar equivalent (`r/√span`) and the EWMA
+decay ages by elapsed time (`decay^span`), because variance is additive in time. Without this a pool
+trading once an hour reported *identical* volatility to one making the same moves every minute —
+measured, not hypothesised.
+
+## A8 · The κ estimator fits a form the data does not have
+
+**Added.** Spec §5.2 fits `ln(rate) = ln A − κδ` — an exponential decay of swap frequency with tick
+depth. For a random walk, excursion frequency decays as a **power law (δ⁻²)**, not exponentially.
+Fitting an exponential to simulated Brownian data yields **r² ≈ 0.84**, which comfortably clears the
+spec's own r² ≥ 0.5 gate while being the wrong functional form. So κ is not a stable parameter: its
+value depends on which depth range happens to be bucketed.
+
+There is a deeper mismatch. In Avellaneda–Stoikov, λ(δ) is the rate at which *an order you placed at
+depth δ* gets hit. A liquidity provider places no order at a chosen depth; it is filled continuously
+at every depth inside its range. So equation (2)'s second term may be substantially re-measuring
+volatility rather than providing an independent fill-rate trade-off.
+
+**Every card that uses κ shows its r² and whether the fallback was used.** We treat κ as a labelled
+weak parameter rather than a measured one. The honest summary: the range width is driven mainly by
+the volatility term, and the κ term is a disclosed approximation.
+
+## A9 · Equation (2) prices no adverse selection
+
+**Added.** Baseline Avellaneda–Stoikov assumes the mid is an exogenous martingale and that fill
+intensity is uninformed — there is no adverse-selection term anywhere in the optimal-spread formula.
+On a venue where the dominant flow is arbitrage, which spec §3.4 explicitly identifies, this means
+the widths equation (2) produces are systematically **too narrow**: they price inventory risk and
+fill rate, but never the cost of being picked off.
+
+The toxicity pull (§3.4) and the realized-LVR accounting (§4) address this after the fact rather than
+in the width itself. Alongside A2, this is the second assumption on this sheet that does not flatter
+us.
+
 ## A6 · Showcase Mode is a labeled counterfactual
 
 **Added.** The showcase position **was not held.** The pool history is real, every swap traces to a

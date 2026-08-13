@@ -38,9 +38,11 @@ WINSOR_K = 5.0
 
 
 def log_returns(prices: list[float]) -> list[float]:
-    """Consecutive log price changes. Non-positive prices are dropped, not
-    tolerated: a zero price is a data defect, and `log(0)` would poison the
-    whole window."""
+    """Consecutive log price changes, assuming the prices are evenly spaced.
+
+    Non-positive prices are dropped, not tolerated: a zero price is a data
+    defect, and `log(0)` would poison the whole window.
+    """
     out: list[float] = []
     for previous, current in zip(prices, prices[1:], strict=False):
         if previous > 0.0 and current > 0.0:
@@ -48,13 +50,65 @@ def log_returns(prices: list[float]) -> list[float]:
     return out
 
 
+def log_returns_with_gaps(bars: list[tuple[int, float]]) -> list[tuple[float, int]]:
+    """Log returns paired with how many bars each one actually spans.
+
+    A pool does not trade every minute. Bars only exist where a swap arrived, so
+    consecutive bars can be an hour apart — and treating that hour as a
+    one-minute return is what makes a quiet pool look violently volatile.
+    """
+    out: list[tuple[float, int]] = []
+    for (index0, price0), (index1, price1) in zip(bars, bars[1:], strict=False):
+        span = index1 - index0
+        if price0 > 0.0 and price1 > 0.0 and span > 0:
+            out.append((math.log(price1 / price0), span))
+    return out
+
+
 def ewma_variance(returns: list[float], decay: float) -> float:
-    """v_t = decay * v_{t-1} + (1 - decay) * r_t^2, seeded from the first return."""
+    """v_t = decay * v_{t-1} + (1 - decay) * r_t^2, seeded from the first return.
+
+    Assumes evenly spaced observations. `ewma_variance_over_gaps` is what the
+    estimator actually uses; this remains as the building block it generalises.
+    """
     if not returns:
         return 0.0
     variance = returns[0] ** 2
     for r in returns[1:]:
         variance = decay * variance + (1.0 - decay) * r * r
+    return variance
+
+
+def to_per_bar(returns: list[tuple[float, int]]) -> list[float]:
+    """Rescale returns to the magnitude they would have had over a single bar.
+
+    Variance is additive in time, so a return realised over `span` bars carries
+    `span` bars' worth of it and the per-bar equivalent is `r / sqrt(span)`.
+    Without this a pool trading once an hour reports the same volatility as one
+    making identical moves every minute, though the hourly series is sqrt(60)
+    less volatile per unit time. That was measured, not hypothesised.
+    """
+    return [r / math.sqrt(span) for r, span in returns]
+
+
+def ewma_variance_over_gaps(per_bar_returns: list[tuple[float, int]], decay: float) -> float:
+    """EWMA variance over irregularly spaced observations.
+
+    Each input is `(per-bar return, bars spanned)`. The return must already be
+    normalised by `to_per_bar` — this function does not rescale it again, it
+    only uses the span to age the decay.
+
+    Aging by elapsed time rather than by observation count is the second half of
+    the fix: a long silence should discount the past as much as the same
+    interval filled with trades would. Hence `decay ** span`, not `decay`.
+    """
+    if not per_bar_returns:
+        return 0.0
+    r0, _ = per_bar_returns[0]
+    variance = r0 * r0
+    for r, span in per_bar_returns[1:]:
+        weight = decay**span
+        variance = weight * variance + (1.0 - weight) * r * r
     return variance
 
 
@@ -123,7 +177,10 @@ class SigmaEstimator(TrailingEstimator):
         self._decay = decay
         self._prior = prior_sigma
         self._max_bars = max_bars
-        self._bars: deque[float] = deque(maxlen=max_bars)
+        # (bar index, closing price). The index is retained, not just the price:
+        # without it a gap between trades is indistinguishable from a minute of
+        # trading, which is exactly the error this estimator used to make.
+        self._bars: deque[tuple[int, float]] = deque(maxlen=max_bars)
         self._bar_index: int | None = None
         self._bar_price: float | None = None
 
@@ -142,11 +199,13 @@ class SigmaEstimator(TrailingEstimator):
             self._bar_price = price  # last price wins within a bar
             return
 
-        # A new bar started, so the previous one is final. Gaps are left as gaps
-        # rather than forward-filled: a pool with no trades for an hour was not
-        # volatile during it, and inventing bars would say otherwise.
+        # A new bar started, so the previous one is final. Gaps stay gaps rather
+        # than being forward-filled — a pool with no trades for an hour was not
+        # volatile during it — but the *index* is kept so the gap is visible
+        # downstream. Dropping the bar without recording when it happened does
+        # not neutralise that hour, it compresses it into a one-minute return.
         if self._bar_price is not None:
-            self._bars.append(self._bar_price)
+            self._bars.append((self._bar_index, self._bar_price))
         self._bar_index, self._bar_price = index, price
 
     @property
@@ -162,16 +221,25 @@ class SigmaEstimator(TrailingEstimator):
 
         The EWMA is computed over one-minute bars, so its square root is a
         per-minute figure; multiplying by sqrt(60) rescales it to the per
-        sqrt-hour unit that equations (1) and (2) are written in.
+        sqrt-hour unit equations (1) and (2) are written in. That scale factor
+        is pinned by a test — without one, changing it to sqrt(3600) leaves the
+        suite green while every range width in the system changes.
         """
-        prices = list(self._bars)
-        if self._bar_price is not None:
-            prices.append(self._bar_price)  # include the bar in progress
+        bars = list(self._bars)
+        if self._bar_index is not None and self._bar_price is not None:
+            bars.append((self._bar_index, self._bar_price))  # the bar in progress
 
-        returns = winsorise(log_returns(prices))
-        if not returns:
+        raw = log_returns_with_gaps(bars)
+        if not raw:
             return self._prior
 
-        per_minute = math.sqrt(ewma_variance(returns, self._decay))
+        # Normalise to per-bar magnitude before winsorising, so the clip
+        # threshold compares like with like: a large move earned over an hour is
+        # not the outlier that the same move in one minute would be.
+        spans = [span for _r, span in raw]
+        clipped = winsorise(to_per_bar(raw))
+        returns = list(zip(clipped, spans, strict=True))
+
+        per_minute = math.sqrt(ewma_variance_over_gaps(returns, self._decay))
         per_sqrt_hour = per_minute * math.sqrt(SECONDS_PER_HOUR / BAR_SECONDS)
         return shrink(per_sqrt_hour, self._prior, len(returns))

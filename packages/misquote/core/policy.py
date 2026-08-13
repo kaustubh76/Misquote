@@ -1,15 +1,24 @@
-"""The Warden's policy: Avellaneda-Stoikov, mapped term by term onto v3 ranges.
+"""The Warden's policy: Avellaneda-Stoikov, mapped onto v3 ranges.
 
-The isomorphism the whole agent rests on: a concentrated-liquidity position on
-[P_l, P_u] *is* a pair of limit orders. As price rises through the range the
-position continuously sells the risk asset — an ask ladder; as it falls, it
-continuously buys. So the market-making solution maps across directly:
+The design heuristic the agent is built on: a concentrated-liquidity position on
+[P_l, P_u] behaves *like* a pair of limit orders. As price rises through the
+range the position continuously sells the risk asset, as it falls it continuously
+buys. So the market-making solution maps across term by term:
 
     reservation price r    ->  range centre, inventory-skewed
     optimal half-spread    ->  range half-width
     inventory penalty      ->  the recentre trigger
     adverse selection      ->  LVR, since arbitrage flow is the informed flow
     quote pull on toxicity ->  range withdrawal
+
+**A heuristic, not an isomorphism** — matrix item P-5. Uniswap's own documentation
+says range orders "approximate" limit orders and rules out stops entirely, and
+the literature characterises AMMs as market makers that *do not* update their
+quotes: inventory here is a deterministic function of price rather than a
+controlled state, and there is no queue, no cancellation, and no declining a
+fill. The mapping motivates the design and produces sane ranges; it does not make
+the two objects the same. Equation (2) also prices no adverse selection at all
+(assumption A9), which is why sections 3.4 and 4 exist.
 
 Everything here is pure. `decide()` takes an Observation of scalars and returns
 a Decision; it cannot read a clock, a socket, or a database, which is what makes
@@ -28,6 +37,7 @@ from __future__ import annotations
 
 import math
 
+from misquote.core.errors import AssumptionViolated
 from misquote.core.tickmath import MAX_TICK, MIN_TICK, nearest_usable_tick
 from misquote.core.types import Action, Decision, Observation, Params, PoolMeta, Tick
 
@@ -138,6 +148,16 @@ def inventory_imbalance(value0_quote: float, value1_quote: float) -> float:
     return (value0_quote - value1_quote) / total
 
 
+def _distance_to_edge(centre: Tick, tick_spacing: int) -> int:
+    """How wide a symmetric range around `centre` can be and stay usable.
+
+    Bounded by the nearest representable tick on either side, rounded down to the
+    spacing grid so both bounds remain mintable.
+    """
+    room = min(centre - MIN_TICK, MAX_TICK - centre)
+    return (room // tick_spacing) * tick_spacing
+
+
 def target_range(
     obs: Observation, params: Params, meta: PoolMeta
 ) -> tuple[Tick, Tick, Tick, int, float, float]:
@@ -153,9 +173,30 @@ def target_range(
     centre = center_tick(r, meta.tick_spacing)
     width = half_width_ticks(delta_star, meta.tick_spacing, params.w_min_mult)
 
-    lower = max(MIN_TICK, centre - width)
-    upper = min(MAX_TICK, centre + width)
-    return lower, upper, centre, width, r, delta_star
+    # Shrink the width until both bounds fit, rather than clamping them.
+    #
+    # MIN_TICK and MAX_TICK are +/-887272, which is not a multiple of any Pancake
+    # tick spacing (887272 % 10 == 2). Clamping a bound to them therefore
+    # produces a tick the pool rejects, so the mint reverts — and it also
+    # destroys the symmetry that R1 relies on, since `(lower + upper) // 2` would
+    # no longer be the centre the policy computed, and drift would be measured
+    # against a range that does not exist.
+    w_min = params.w_min_mult * meta.tick_spacing
+    room = _distance_to_edge(centre, meta.tick_spacing)
+    if room < w_min:
+        # No symmetric range of the minimum legal width fits. This is not a
+        # degenerate rounding case — it means the price is pinned against the
+        # edge of representable tick space, which is what a pool initialized at
+        # MAX_TICK and never seeded looks like. Chapel's WBNB/USDT 0.05% pool is
+        # in exactly this state. Quoting anything here would be inventing a
+        # position that cannot be minted, so refuse.
+        raise AssumptionViolated(
+            f"price at tick {centre} leaves only {room} ticks to the edge of tick space, "
+            f"less than w_min={w_min}: no mintable range exists"
+        )
+
+    width = max(w_min, min(width, room))
+    return centre - width, centre + width, centre, width, r, delta_star
 
 
 # --- section 3.4: the toxicity pull ----------------------------------------

@@ -178,6 +178,309 @@ def test_an_empty_position_is_balanced_rather_than_undefined() -> None:
     assert inventory_imbalance(0.0, 0.0) == 0.0
 
 
+# --- the tick range must stay mintable at the edges -------------------------
+
+
+@pytest.mark.parametrize("centre_tick", [-887200, -880000, 0, 880000, 887200])
+def test_a_range_near_the_edge_of_tick_space_stays_mintable(centre_tick: int) -> None:
+    """MIN_TICK and MAX_TICK are not multiples of any Pancake tick spacing.
+
+    `887272 % 10 == 2`, so clamping a bound to them yields a tick the pool
+    rejects and the mint reverts. Worse, it breaks symmetry, so R1 would measure
+    drift against a centre the policy never chose. The width shrinks instead.
+    """
+    from misquote.core.policy import target_range
+    from misquote.core.tickmath import MAX_TICK, MIN_TICK
+    from misquote.core.types import Observation, Params, PoolMeta, PositionState
+
+    meta = PoolMeta(
+        address="0x0",
+        chain_id=56,
+        token0="0x1",
+        token1="0x2",
+        dec0=18,
+        dec1=18,
+        fee_pips=500,
+        tick_spacing=SPACING,
+        fee_protocol=3400,
+    )
+    position = PositionState(
+        lower=None,
+        upper=None,
+        liquidity=0,
+        token_id=None,
+        minted_ts=0,
+        last_rebalance_ts=0,
+        rebalances_today=0,
+    )
+    obs = Observation(
+        t=0,
+        tick=centre_tick,
+        y=centre_tick * LN_TICK_BASE,
+        sqrt_price_x96=get_sqrt_ratio_at_tick(centre_tick),
+        pool_liquidity=10**24,
+        q=0.0,
+        sigma=0.5,  # deliberately violent, to push the width outward
+        kappa=20.0,
+        kappa_r2=0.9,
+        kappa_is_fallback=False,
+        T_t=24.0,
+        gas_cost_quote=0.0,
+        slippage_quote=0.0,
+        fee_rate_per_liquidity_target=0.0,
+        fee_rate_per_liquidity_current=0.0,
+        target_liquidity=0,
+        position_value_quote=0.0,
+        rebalance_notional_quote=0.0,
+        cex_gap=0.0,
+        swap_imbalance_z=0.0,
+        lvr_rate=0.0,
+        fee_rate=0.0,
+        toxic_streak=0,
+        clear_streak=0,
+        position=position,
+    )
+
+    lower, upper, centre, width, _, _ = target_range(obs, Params(), meta)
+
+    assert MIN_TICK <= lower < upper <= MAX_TICK
+    assert lower % SPACING == 0 and upper % SPACING == 0
+    assert upper - centre == centre - lower == width, "symmetry is what R1 measures against"
+    assert width >= W_MIN
+
+
+def test_a_price_pinned_against_the_edge_is_refused_rather_than_quoted() -> None:
+    """Not a degenerate rounding case — it is what a broken pool looks like.
+
+    Chapel's WBNB/USDT 0.05% pool was initialized at MAX_TICK and never seeded,
+    and sits at tick 887271 with zero liquidity. There is no room for even a
+    minimum-width symmetric range, so quoting one would invent a position that
+    cannot be minted. `AssumptionViolated` exists for exactly this and had never
+    been raised anywhere.
+    """
+    from misquote.core.errors import AssumptionViolated
+    from misquote.core.policy import _distance_to_edge, target_range
+    from misquote.core.tickmath import MAX_TICK
+    from misquote.core.types import Observation, Params, PoolMeta, PositionState
+
+    assert _distance_to_edge(MAX_TICK - 2, SPACING) < W_MIN
+
+    meta = PoolMeta(
+        address="0x0",
+        chain_id=97,
+        token0="0x1",
+        token1="0x2",
+        dec0=18,
+        dec1=18,
+        fee_pips=500,
+        tick_spacing=SPACING,
+        fee_protocol=3400,
+    )
+    pinned = MAX_TICK - 2
+    obs = Observation(
+        t=0,
+        tick=pinned,
+        y=pinned * LN_TICK_BASE,
+        sqrt_price_x96=get_sqrt_ratio_at_tick(pinned),
+        pool_liquidity=0,
+        q=0.0,
+        sigma=0.02,
+        kappa=500.0,
+        kappa_r2=0.0,
+        kappa_is_fallback=True,
+        T_t=24.0,
+        gas_cost_quote=0.0,
+        slippage_quote=0.0,
+        fee_rate_per_liquidity_target=0.0,
+        fee_rate_per_liquidity_current=0.0,
+        target_liquidity=0,
+        position_value_quote=0.0,
+        rebalance_notional_quote=0.0,
+        cex_gap=0.0,
+        swap_imbalance_z=0.0,
+        lvr_rate=0.0,
+        fee_rate=0.0,
+        toxic_streak=0,
+        clear_streak=0,
+        position=PositionState(
+            lower=None,
+            upper=None,
+            liquidity=0,
+            token_id=None,
+            minted_ts=0,
+            last_rebalance_ts=0,
+            rebalances_today=0,
+        ),
+    )
+
+    with pytest.raises(AssumptionViolated, match="no mintable range"):
+        target_range(obs, Params(), meta)
+
+
+# --- sigma's units, and the scale factor nothing was guarding ---------------
+
+
+def _oscillating_swaps(spacing_s: int, count: int, amplitude_ticks: int = 100):
+    """A price alternating by a fixed amount, sampled every `spacing_s` seconds."""
+    from misquote.core.types import Event
+
+    for i in range(count):
+        tick = -64180 + (amplitude_ticks if i % 2 else -amplitude_ticks)
+        yield Event(
+            block=i + 1,
+            log_index=0,
+            ts=i * spacing_s,
+            kind="swap",
+            tx=f"0x{i:064x}",
+            amount0=10**18,
+            amount1=-(10**18),
+            sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
+            liquidity=10**24,
+            tick=tick,
+        )
+
+
+def _sigma_at(spacing_s: int, count: int = 400) -> float:
+    from misquote.estimators.sigma import SigmaEstimator
+
+    est = SigmaEstimator()
+    est.set_decision_time(count * spacing_s)
+    for event in _oscillating_swaps(spacing_s, count):
+        est.ingest(event)
+    return est.value()
+
+
+def test_the_same_moves_spread_over_more_time_are_less_volatile() -> None:
+    """Variance is additive in time, so identical moves arriving an hour apart
+    describe a calmer pool than the same moves a minute apart.
+
+    Before this was fixed, all four of these returned *exactly* the same number:
+    bars were appended only when a swap arrived, so an hour of silence became a
+    single one-minute return and sigma was overstated by up to sqrt(gap).
+    """
+    per_minute = _sigma_at(60)
+    per_five = _sigma_at(300)
+    per_hour = _sigma_at(3600)
+
+    assert per_minute > per_five > per_hour
+    assert per_five / per_minute == pytest.approx(1 / math.sqrt(5), rel=0.15)
+    assert per_hour / per_minute == pytest.approx(1 / math.sqrt(60), rel=0.20)
+
+
+def test_the_per_sqrt_hour_scale_factor_is_pinned() -> None:
+    """Nothing used to guard this.
+
+    `SigmaEstimator.value()` multiplies a per-minute figure by
+    `sqrt(3600/60) = sqrt(60)`. Changing that to `sqrt(3600)` — or deleting it —
+    left the entire suite green while every range width in the system changed,
+    because every other sigma assertion was an ordering or a one-sided bound.
+
+    Here a series with a known per-minute volatility `r` is fed in, so the ratio
+    of the output to `r` must be sqrt(60) = 7.75. sqrt(3600) would give 60 and
+    no conversion at all would give 1; both are far outside the band.
+    """
+    from misquote.estimators.sigma import SigmaEstimator
+
+    # The tick alternates +/-100 about a centre, so each *step* moves 200 ticks.
+    # Every bar-to-bar log return therefore has magnitude 200 * ln(1.0001), the
+    # EWMA variance is that squared, and the per-minute sigma is exactly it.
+    amplitude = 100
+    r = 2 * amplitude * LN_TICK_BASE
+    est = SigmaEstimator(prior_sigma=r * math.sqrt(60))  # neutralise shrinkage
+    est.set_decision_time(4000 * 60)
+    for event in _oscillating_swaps(60, 4000, amplitude_ticks=amplitude):
+        est.ingest(event)
+
+    ratio = est.value() / r
+    assert ratio == pytest.approx(math.sqrt(60), rel=0.02)
+    assert not (50 < ratio < 70), "sqrt(3600) would land here"
+    assert ratio > 5, "no conversion at all would land near 1"
+
+
+# --- the integration nothing tested ----------------------------------------
+
+
+def test_an_estimator_chain_end_to_end_produces_a_usable_range() -> None:
+    """No test connected an estimator to the policy, which is precisely why a
+    10,000x unit error in kappa was invisible to a green suite.
+
+    This drives real swap events through both estimators, builds an Observation
+    the way a driver would, and asserts the resulting range is one a pool would
+    accept.
+    """
+    from misquote.core.policy import decide
+    from misquote.core.types import Observation, Params, PoolMeta, PositionState
+    from misquote.estimators.kappa import KappaEstimator
+    from misquote.estimators.sigma import SigmaEstimator
+
+    meta = PoolMeta(
+        address=TARGET_POOL.address,
+        chain_id=TARGET_POOL.chain_id,
+        token0=TARGET_POOL.token0,
+        token1=TARGET_POOL.token1,
+        dec0=TARGET_POOL.dec0,
+        dec1=TARGET_POOL.dec1,
+        fee_pips=TARGET_POOL.fee_pips,
+        tick_spacing=TARGET_POOL.tick_spacing,
+        fee_protocol=TARGET_POOL.fee_protocol,
+    )
+
+    sigma_est, kappa_est = SigmaEstimator(), KappaEstimator()
+    horizon = 3000 * 60
+    sigma_est.set_decision_time(horizon)
+    kappa_est.set_decision_time(horizon)
+
+    # Enough swaps, moving enough, for both estimators to be ready.
+    for event in _oscillating_swaps(60, 3000, amplitude_ticks=40):
+        sigma_est.ingest(event)
+        kappa_est.ingest(event)
+
+    assert sigma_est.ready and kappa_est.ready
+
+    position = PositionState(
+        lower=-64400,
+        upper=-64000,
+        liquidity=10**22,
+        token_id=1,
+        minted_ts=0,
+        last_rebalance_ts=0,
+        rebalances_today=0,
+    )
+    obs = Observation(
+        t=horizon,
+        tick=-64183,
+        y=-64183 * LN_TICK_BASE,
+        sqrt_price_x96=get_sqrt_ratio_at_tick(-64183),
+        pool_liquidity=10**24,
+        q=0.0,
+        sigma=sigma_est.value(),
+        kappa=kappa_est.value(),  # must already be per log-price
+        kappa_r2=kappa_est.fit().r_squared,
+        kappa_is_fallback=kappa_est.fit().is_fallback,
+        T_t=24.0,
+        gas_cost_quote=0.5,
+        slippage_quote=0.2,
+        fee_rate_per_liquidity_target=1e-20,
+        fee_rate_per_liquidity_current=0.0,
+        target_liquidity=10**22,
+        position_value_quote=200.0,
+        rebalance_notional_quote=40.0,
+        cex_gap=0.0,
+        swap_imbalance_z=0.0,
+        lvr_rate=0.0,
+        fee_rate=1.0,
+        toxic_streak=0,
+        clear_streak=99,
+        position=position,
+    )
+
+    decision = decide(obs, Params(), meta)
+    assert PLAUSIBLE_MIN_TICKS <= decision.half_width_ticks <= PLAUSIBLE_MAX_TICKS, (
+        f"estimator chain produced a {decision.half_width_ticks}-tick half-width"
+    )
+    assert decision.half_width_ticks % SPACING == 0
+
+
 def test_q_spans_the_full_range_across_a_real_position() -> None:
     """Walk a real v3 position from below its range to above it and confirm q
     sweeps -1 to +1 monotonically."""

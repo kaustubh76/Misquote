@@ -135,6 +135,218 @@ is live.
 
 ---
 
+## V — defects found by verification, and fixed
+
+Three independent verification passes ran before Step 8: a dimensional analysis, a line-by-line
+conformance audit against this spec, and a check of the quant claims against the primary literature
+and the Pancake contracts against their source. **Every defect below passed the 156 tests that
+existed at the time.** The suite checked that formulas were implemented; it never checked that they
+were fed the right things.
+
+### V-1 · κ was fitted per tick and consumed per log-price — **the worst one**
+
+§5.2 fits `ln(rate) = ln A − κδ` with δ "in ticks", so κ is per tick. Equation (2) evaluates
+`ln(1 + γ/κ)`, which is only meaningful if that ratio is dimensionless — requiring κ per log-price,
+because `(2/γ)` must come out in the same units as the half-width. One tick is `ln(1.0001) ≈ 1e-4`,
+so **the two differ by 10,000×**.
+
+Fed the per-tick value, `γ/κ` was 16 instead of 0.0016; the fill term stopped being a correction and
+became the whole answer. `decide()` returned a half-width of **35,450 ticks — a ±3,363% price band**,
+a position spanning 33× in price in each direction. Effectively full-range, earning almost nothing
+while claiming to be concentrated liquidity, and a positive finite number that would have minted
+without reverting.
+
+**This is a contradiction inside the frozen spec**, not only in the implementation: §5.2 and §3.2
+cannot both be read literally. It is the first conflict recorded here that lives in the math rather
+than in the reuse manifest.
+
+**Resolution.** `KappaFit` carries `kappa_per_tick` (as §5.2 measures it, published in the appendix)
+and `kappa_per_logprice` (what the policy consumes), with one named conversion between them.
+`tests/core/test_units.py` asserts the round trip, the plausibility band, and that the unconverted
+value is still absurd — so the bug cannot return quietly.
+
+### V-2 · `κ_default` was an invented number — **provisional pending Step 8**
+
+§5.2 says "fall back to `κ_default` and label it"; the §8 parameter table has no κ row at all. The
+implementation used 50.0, an unpublished number that was the dominant driver of range width whenever
+the fallback path was taken — a direct breach of `Readme.md` rule 6.
+
+**Resolution.** Renamed `PROVISIONAL_KAPPA_PER_LOGPRICE` with its basis stated in the source. Step 8
+fits κ on 30 days of the target pool's real history and publishes the measured value as **G-4** with
+its r². A default derived from the pool it will be used on is defensible; a round number is not.
+
+### V-3 · `float("nan")` made every `Decision` unequal to itself — **would have blocked T1**
+
+On the CEX-feed-down path the toxicity terms carried `float("nan")`. `Decision` is frozen and
+hashable specifically so test **T1** can compare decision sequences bitwise, and NaN is not equal to
+itself: twenty calls to `decide()` on one identical `Observation` produced twenty mutually unequal,
+mutually unhashable objects. **T1 could never have passed on any decision taken while the feed was
+down**, and T1 is the week-2 protected item. Now a `-1.0` sentinel, unambiguous because a gap is a
+magnitude.
+
+### V-4 · R2 tested absolute fees where §3.3 asks for fee *gain*
+
+The gate computed `fees(target) > cost` rather than `fees(target) − fees(current) > cost`. That is
+strictly weaker: it authorises rebalances the spec forbids, spending gas, slippage and a 10 bps MEV
+haircut when the current range is already earning nearly as much. R2 is the economic gate — the
+optimal-stopping threshold the spec is careful to justify — so this was the most consequential of the
+policy-logic deviations. `Observation` now carries both fee rates and the target liquidity.
+
+### V-5 · The MEV haircut was charged on position value, not rebalanced notional
+
+Assumption A4 says 10 bps **of rebalanced notional**. A recentre swaps only enough to restore target
+composition, typically a fraction of the position, so charging the full value overstated the cost
+several-fold. Conservative in direction, but not what the published assumption says — and the
+assumption sheet is a promise about how numbers were made.
+
+### V-6 · Rounding: `w_t` floored, and `c_t` rounded twice
+
+§3.2 says `round_to_spacing`; the code floored, making every range systematically narrower — average
+4.4 ticks, up to a full spacing, always toward more rebalancing and more gas. §3.1 names the same
+operation for the centre, but the code rounded to an integer tick and *then* to the grid, which
+disagrees with a single `round_to_spacing` on **4.95% of inputs**, each by a full spacing. Both now
+use one shared `_round_to_spacing`.
+
+### V-7 · `q` was undefined in practice — the spec contradicts itself
+
+§2 gives a formula yielding `[−0.5, +0.5]` and states the range is `[−1, 1]`. A position entirely in
+token0 gives 0.5 under the formula, 1 under the stated range. Since `q` multiplies straight into
+equation (1), the two readings skew the centre by a factor of two. **The stated range wins**, being
+the testable claim: `q = (v0 − v1)/(v0 + v1)`.
+
+### V-8 · The σ estimator compressed silence into volatility
+
+Bars were appended only when a swap arrived, so an hour with no trades became a single one-minute
+return. Measured: identical price oscillations arriving every minute and every six hours produced
+**exactly the same σ**, though the six-hourly series is √360 less volatile per unit time. Returns are
+now rescaled to per-bar magnitude and the EWMA decay ages by elapsed time. Disclosed as **A7**.
+
+### V-9 · Two tests asserted nothing
+
+`assert fit.kappa > 0.0 or fit.is_fallback` — both branches of `fit_kappa` return something positive,
+so the left disjunct was unconditionally true and the assertion could not fail for any input. Its
+fixture produced exactly the per-tick κ that yields a 35,000-tick range.
+
+`assert got == pytest.approx(expected, abs=10)` on a 10-tick grid — a tolerance equal to the largest
+possible disagreement, which made the assertion vacuous. It computed the spec's answer, the code
+floored, and the tolerance swallowed the difference. **It was the only test standing between the
+codebase and V-6.**
+
+Also missing entirely: anything pinning σ's per-√hour scale factor (changing `√60` to `√3600` left
+the suite green while every range width changed), and any test connecting an estimator's output to
+the policy's input — which is the single gap that made V-1 invisible.
+
+### V-10 · No validation on `Observation`, and an unmintable clamp
+
+A negative `T_t` silently inverted the inventory skew: excess token0 would push the range *up*,
+making the position a keener buyer of what it already held too much of, producing a plausible range
+on the wrong side of the market with no exception and no NaN. `Observation` now validates on
+construction.
+
+`target_range` clamped bounds to `MIN_TICK`/`MAX_TICK`, which are **not multiples of any Pancake tick
+spacing** (`887272 % 10 == 2`), so a clamped bound was a tick the pool rejects and the mint would
+revert. It also broke the symmetry R1 measures drift against. The width now shrinks instead, and a
+price pinned against the edge — which is exactly what chapel's unseeded WBNB/USDT pool looks like —
+raises `AssumptionViolated` rather than quoting an unmintable position.
+
+---
+
+## P — protocol and domain findings
+
+### P-1 · PancakeSwap takes 34% of every fee, and the spec never mentions it
+
+Read from the target pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions.
+**Liquidity providers keep 66%**, so the effective fee is **0.033%, not 0.05%**. Uniswap v3 defaults
+this to zero; Pancake sets it at `initialize()` and subtracts it *before* the fee-growth accumulators
+update.
+
+Reconstructing fees from `Swap` events × fee tier — the natural way to write the replay engine —
+**overstates LP earnings by 1.52×**, landing directly on NetFeeAPR, the headline number on every
+card, and on the R2 gate. `PoolMeta.fee_protocol` has no default, so a pool cannot be constructed
+without stating it. Fee growth read from `feeGrowthInside` is already net; the two paths must not
+both deduct. Test T2's conservation bound must include the factor or it is 1.52× too loose to catch
+the error it exists for.
+
+### P-2 · Swap event amounts are gross of the fee
+
+Forming `(Δx, Δy)` from raw event amounts computes `LVR_k − fee_k`, which loses equation (3)'s `≥ 0`
+guarantee and double-counts against `F` in equation (4). Strip the fee first; the post-swap
+`sqrtPriceX96` is already fee-exclusive and is the correct `P_k`. Lands in Step 9.
+
+### P-3 · LVR needs range clamping, worth up to 53×
+
+Without clamping both price endpoints to `[P_l, P_u]`, a swap crossing the range entirely overstates
+LVR by 3× typically and **53×** in the measured worst case. Above `P_u` the position holds zero
+token0 — nothing left to pick off — and the benchmark has also sold out. Since Warden runs narrow
+ranges by design this is the common case, not a corner. This is what D-1's clamped-curve approach
+already prescribes; the magnitude is recorded so it is never treated as a rounding detail.
+
+### P-4 · Equation (3) is an upper bound on LVR, not a model-free measurement
+
+It is guaranteed non-negative for every swap regardless of counterparty, which is the tell that it is
+not measuring adverse selection: it assumes the post-swap **pool** price is fair. On a round trip
+`P₀→P₁→P₀` the LP is flat and collected two fees, yet equation (3) books a loss. It therefore
+overstates LVR in churny pools by folding in reversion round trips.
+
+**Resolution.** The tearsheet labels it *realized convexity cost (upper bound on LVR)*. Since §3.4
+already computes the CEX gap, a second series measured against `P_cex` — which is LVR proper and can
+be either sign — costs almost nothing and is strictly more honest. Also: the canonical LVR paper
+contains no per-swap formula, so equation (3) is this spec's own (correct) discretisation and should
+be presented as such rather than attributed.
+
+### P-5 · The isomorphism claim is stronger than the literature supports — **docs**
+
+§1 says a v3 position **"is"** a pair of limit orders and calls the mapping an **"isomorphism"**.
+Uniswap's own documentation says range orders *"approximate"* limit orders and rules out stops
+entirely. Milionis et al. characterise AMMs as market makers who *"do not proactively update their
+price quotes"*, which is the negation of the A-S mechanism. Inventory is a deterministic function of
+price rather than a controlled state, and the payoff is concave for every CFMM.
+
+**Resolution.** Reframe §1 as a **design heuristic**, matching the tone §3.3 already uses ("no
+pretending it's the exact QVI solution"). Costs no code. The correct reference for optimal v3
+provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
+([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
+and reuses none of A-S's equations.
+
+### P-6 · Confirmed correct — worth recording, since Week 2 rests on it
+
+- Equations (1) and (2) are **Avellaneda–Stoikov (2008) Eqs. 29 and 30 transcribed exactly**, and the
+  ½ is right — Eq. 30 gives the *total* spread. This is the detail most implementations get wrong.
+- **Pancake's core math is byte-identical to Uniswap v3-core** (TickMath, SqrtPriceMath, SwapMath,
+  Tick, Position, FullMath), so differential-testing against Uniswap is valid for Pancake.
+- Fee tiers **100→1, 500→10, 2500→50, 10000→200**, and no 3000→60, confirmed from the factory
+  constructor.
+- Equation (3)'s sign convention is correct and the **post-swap price is required** — substituting
+  the pre-swap price makes every swap look profitable for the LP.
+- **MasterChefV3 takes ERC-721 ownership on stake**, so direct NFPM calls revert and kill switch (b)
+  would silently fail on a staked position. Our never-stake non-goal is validated.
+- **Pancake derives pool addresses from a separate `PancakeV3PoolDeployer` with a different init code
+  hash**, so Uniswap's `computeAddress` constants give wrong addresses. We resolve via
+  `factory.getPool()` over RPC and must keep doing so.
+- Pancake's pool **callbacks are renamed** (`pancakeV3MintCallback`), so calling pools directly with
+  Uniswap-named callbacks reverts. Go through NPM and the Router.
+
+Citation corrections for the tearsheet: the Cartea–Jaimungal–Penalva page references are doubtful and
+that book's market-making chapter uses a linear-quadratic framework that is **not** the A-S formula,
+so cite Avellaneda–Stoikov 2008 Eqs. 29/30 directly; and arXiv:2106.12033 has no author "Fritschi".
+
+---
+
+## E — external facts, verified from primary sources
+
+| Claim in the docs | Verdict |
+|---|---|
+| Submission Sep 4 | **Wrong — it is Sep 9.** Build 5 Aug – 9 Sep, judging 9–23 Sep, winners 5 Nov. The frozen spec said Sep 9 all along. |
+| "$30K = total pool" | **Partly wrong.** $30K is BNB Chain's main track; total is **$40,000+** — TermiX $10K (split unverified), PancakeSwap 1,000 CAKE, Altana 50,000 XP. |
+| ERC-8004 is an agent identity registry | **Correct but incomplete.** Draft EIP, live on BSC mainnet (`0x8004A169…`) and testnet (`0x8004A818…`). It is **three** registries; identity is an ERC-721 whose descriptive metadata lives **off-chain** at `agentURI`, so indexing yields IDs and URIs, not agent cards. Do not build on the Validation registry — still under active revision. |
+| ERC-8183 is a "hire interface" | **Mischaracterised.** It is **Agentic Commerce**: an escrowed four-state job protocol. There is no `hire()`. Hiring is `createJob` → `setBudget` → `fund` plus an ERC-20 approve plus later settlement — **3–4 transactions**. `createJob` takes a **mandatory `evaluator`**, and only that evaluator can complete a job, so "who evaluates" is an open product question. Live on both BSC networks. |
+| "<~15 real agents → demote to registry view" | **Wrong by four orders of magnitude, and the real finding is better.** BNB Chain has **266,191** ERC-8004 agents, more than any chain by 4×. But only about **4% expose a working endpoint**, and after removing Sybil-flagged feedback **77.9% of rated BSC agents had no valid feedback left** — 29,444 reviews from **76 unique reviewers** (arXiv:2606.26028). **Invert the rule**: resolve each `agentURI`, rank by what responds, and decline to display on-chain reputation credulously — saying why, on the card. That is this product's thesis with independent evidence attached. Agent0 subgraphs already index ERC-8004 on BNB Chain, so discovery is a query. |
+| `bnbagent==0.3.5` | **Stale.** Current is **0.4.2** under an explicit breaking-changes warning. Do not pin a June API for a September submission. |
+| `studio.bnbchain.org/install` | **Dead — DNS does not resolve.** Two rival CLIs both called `bag`; the npm `@bnbagent/studio-cli` is current, the PyPI `bnbagent-studio` is stale. |
+| Altana caps subset: allowlist, spend cap, expiry, Keystore, one-tx revoke | **Partly verified.** Budget, expiry, keystore issuance and explicit revoke are confirmed in the official CLI. **The allowlist and the "one-tx" characterisation are not** — the allowlist we were thinking of lives in `X402Signer`. Altana also cannot perform the generic ERC-8004 registration signature. Claim only what is demonstrated. |
+
+---
+
 ## G — gaps in the frozen spec (values proposed and published)
 
 The spec leaves these unspecified. Each proposed value is published in `ASSUMPTIONS.md` and rendered
@@ -145,6 +357,7 @@ in the UI, so a reader can disagree with the number without having to reverse-en
 | **G-1** | `M` | §3.4, trailing swap count for the imbalance z-score | **50** | Long enough for a stable z-score on a busy pool, short enough to react within minutes. |
 | **G-2** | `arb_cost_bps` | §3.4, toxicity threshold | **5 bps** | BSC gas plus a CEX taker fee, the round-trip cost an arbitrageur must clear. |
 | **G-3** | `N` | §4.2, InRange% floor for the bonded instrument | **70%** | Binary and chain-checkable, per §4.2's requirement that the floor need no counterfactual. |
+| **G-4** | `κ_default` | §5.2, referenced but never given a value | *pending Step 8* | Will be the value fitted on 30 days of the target pool's real history, published with its r². Held as `PROVISIONAL_KAPPA_PER_LOGPRICE = 500` until then, and labelled as provisional on every card that uses it. See V-2. |
 
 ---
 
