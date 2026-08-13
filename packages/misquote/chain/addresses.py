@@ -55,7 +55,18 @@ class PoolRef:
     dec1: int
     fee_pips: int
     tick_spacing: int
+    fee_protocol: int  # numerator out of 10,000, from slot0.feeProtocol
     label: str
+
+    @property
+    def lp_fee_share(self) -> float:
+        """Fraction of each swap fee that reaches liquidity providers.
+
+        PancakeSwap's protocol fee is on by default; Uniswap's is not. Assuming
+        LPs keep the whole fee overstates earnings by 1/0.66 on this pool, and
+        that error lands on NetFeeAPR, the headline number.
+        """
+        return 1.0 - self.fee_protocol / 10_000.0
 
     @property
     def w_min_ticks(self) -> int:
@@ -105,6 +116,7 @@ TARGET_POOL = PoolRef(
     dec1=18,
     fee_pips=500,
     tick_spacing=10,
+    fee_protocol=3400,  # LPs keep 66%; effective fee 0.033%, not 0.05%
     label="PancakeSwap v3 WBNB/USDT 0.05%",
 )
 
@@ -123,6 +135,7 @@ TESTNET_MIRROR_POOL = PoolRef(
     dec1=18,
     fee_pips=500,
     tick_spacing=10,
+    fee_protocol=3400,
     label="PancakeSwap v3 WBNB/BUSD 0.05% (chapel mirror)",
 )
 

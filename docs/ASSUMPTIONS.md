@@ -125,6 +125,25 @@ answers, and its answers agree with the other contracts' — rather than copied 
 is read from `decimals()` rather than assumed, because assuming 6 would misprice every position by
 twelve orders of magnitude.
 
+### The protocol fee: an LP does not keep 0.05%
+
+**PancakeSwap's protocol fee is on by default. Uniswap's is not.** Read from this pool's `slot0` on
+2026-08-13: `feeProtocol = 3400` in both directions, so **the protocol takes 34% and liquidity
+providers keep 66%.**
+
+| | |
+|---|---|
+| Nominal fee tier | 0.05% |
+| Protocol share | 34% |
+| **What an LP actually earns** | **0.033%** |
+
+Every fee number this product displays is computed on 0.033%, not 0.05%. Reconstructing fees from
+swap volume times the fee tier — the natural way to write a replay engine, and what most analytics
+do — overstates LP earnings by a factor of **1.52**, and that error lands directly on NetFeeAPR,
+which is the headline figure on every card. The value is settable per pool by governance, so it is
+read from chain rather than hardcoded, and fee growth read from `feeGrowthInside` is already net of
+it (the two paths must not both apply the deduction).
+
 **Testnet mirror.** Burn-in runs on chapel's **WBNB/BUSD 0.05%** pool
 ([`0xEF15…d11d`](https://testnet.bscscan.com/address/0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d)),
 not WBNB/USDT: chapel's WBNB/USDT pool at this tier exists but was initialized at `MAX_TICK` and

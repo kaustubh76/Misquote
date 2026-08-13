@@ -14,11 +14,14 @@ from hypothesis import strategies as st
 from misquote.core.fees import (
     MASK256,
     Q128,
-    fee_amount_for_swap,
+    fee_amount_from_gross,
+    fee_amount_from_net,
     fee_growth_inside,
     liquidity_share,
+    lp_share_of_fee,
     sub256,
     tokens_owed,
+    unpack_fee_protocol,
 )
 
 uint256 = st.integers(min_value=0, max_value=MASK256)
@@ -179,15 +182,70 @@ def test_inside_growth_stays_inside_the_word(
 
 def test_fee_amount_matches_the_tier() -> None:
     """500 pips is 0.05%, charged on the gross input."""
-    assert fee_amount_for_swap(10**18, 500) == 5 * 10**14
-    assert fee_amount_for_swap(10**18, 100) == 10**14
-    assert fee_amount_for_swap(10**18, 0) == 0
+    assert fee_amount_from_gross(10**18, 500) == 5 * 10**14
+    assert fee_amount_from_gross(10**18, 100) == 10**14
+    assert fee_amount_from_gross(10**18, 0) == 0
+
+
+def test_the_net_form_uses_v3s_denominator_not_the_obvious_one() -> None:
+    """v3 SwapMath's target-reached branch divides by `1e6 - feePips`.
+
+    Given the amount that actually reached the curve, applying the gross formula
+    understates the fee. Small, but it is on every swap that crosses a tick,
+    which on a 0.05% pool is most of the large ones.
+    """
+    net = 10**18
+    assert fee_amount_from_net(net, 500) == -(-(net * 500) // 999_500)
+    assert fee_amount_from_net(net, 500) > fee_amount_from_gross(net, 500)
+
+
+def test_the_two_fee_forms_describe_the_same_swap() -> None:
+    """gross = net + fee, so the forms must agree when applied consistently."""
+    gross = 10**18
+    fee = fee_amount_from_gross(gross, 500)
+    assert fee_amount_from_net(gross - fee, 500) == pytest.approx(fee, rel=1e-9)
 
 
 def test_absurd_fee_tiers_are_refused() -> None:
     for bad in (-1, 1_000_000, 2_000_000):
         with pytest.raises(ValueError, match="outside"):
-            fee_amount_for_swap(10**18, bad)
+            fee_amount_from_gross(10**18, bad)
+        with pytest.raises(ValueError, match="outside"):
+            fee_amount_from_net(10**18, bad)
+
+
+# --- the protocol fee ------------------------------------------------------
+
+
+def test_pancake_takes_a_protocol_cut_and_uniswap_does_not() -> None:
+    """Read from the live target pool: slot0.feeProtocol = 3400, so LPs keep 66%.
+
+    Uniswap v3 defaults this to zero. Assuming the Uniswap default on a Pancake
+    pool overstates LP earnings by 1/0.66 = 1.52x, and that error lands directly
+    on NetFeeAPR, the headline number on every card.
+    """
+    total = 10**15
+    assert lp_share_of_fee(total, 0) == total  # the Uniswap default
+    assert lp_share_of_fee(total, 3400) == 66 * 10**13  # our pool
+    assert lp_share_of_fee(total, 3200) == 68 * 10**13  # the 0.25% tier
+
+
+def test_the_overstatement_from_ignoring_the_protocol_fee_is_material() -> None:
+    total = 10**18
+    assert total / lp_share_of_fee(total, 3400) == pytest.approx(1.515, rel=1e-3)
+
+
+def test_slot0_packs_both_directions_into_one_word() -> None:
+    """The value the live pool actually reports."""
+    assert unpack_fee_protocol(222_825_800) == (3400, 3400)
+    assert unpack_fee_protocol(209_718_400) == (3200, 3200)
+    assert unpack_fee_protocol(0) == (0, 0)
+
+
+def test_an_impossible_protocol_fee_is_refused() -> None:
+    for bad in (-1, 10_001):
+        with pytest.raises(ValueError, match="outside"):
+            lp_share_of_fee(10**15, bad)
 
 
 def test_the_two_share_conventions_differ_and_the_default_is_the_cautious_one() -> None:

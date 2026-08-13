@@ -35,6 +35,7 @@ META = PoolMeta(
     dec1=18,
     fee_pips=500,
     tick_spacing=10,
+    fee_protocol=3400,
 )
 PARAMS = Params()
 

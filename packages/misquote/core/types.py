@@ -33,10 +33,22 @@ class PoolMeta:
     fee_pips: int  # 100 | 500 | 2500 | 10000 on Pancake v3
     tick_spacing: int  # 1   | 10  | 50   | 200
 
+    # Pancake's protocol fee, as a numerator out of 10,000, read from
+    # `slot0.feeProtocol`. Unlike Uniswap it is ON by default — 3400 on our
+    # target pool, so LPs keep 66% of every swap fee. Defaulting to 0 here would
+    # quietly reinstate the 1.52x overstatement this field exists to prevent, so
+    # it has no default and must be read from chain.
+    fee_protocol: int
+
     @property
     def fee_bps(self) -> float:
         """The fee tier in basis points, the unit the toxicity rule compares in."""
         return self.fee_pips / 100.0
+
+    @property
+    def lp_fee_bps(self) -> float:
+        """What an LP actually earns, after the protocol takes its share."""
+        return self.fee_bps * (1.0 - self.fee_protocol / 10_000.0)
 
 
 @dataclass(frozen=True, slots=True)

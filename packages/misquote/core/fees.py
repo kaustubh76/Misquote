@@ -93,16 +93,72 @@ def tokens_owed(
     return (sub256(fee_growth_inside_now_x128, fee_growth_inside_last_x128) * liquidity) >> 128
 
 
-def fee_amount_for_swap(amount_in: int, fee_pips: int) -> int:
-    """The fee a swap of `amount_in` pays, in input-token units.
+PROTOCOL_FEE_DENOMINATOR = 10_000
 
-    Pancake charges the fee on the way in, so this is a fraction of the gross
-    input rather than of the amount that reaches the curve. `fee_pips` is
-    hundredths of a basis point: 500 is 0.05%.
+
+def fee_amount_from_gross(amount_in_gross: int, fee_pips: int) -> int:
+    """Total fee on a swap, given the *gross* input the trader sent.
+
+    `fee_pips` is hundredths of a basis point: 500 is 0.05%.
     """
     if not 0 <= fee_pips < 1_000_000:
         raise ValueError(f"fee_pips {fee_pips} outside [0, 1e6)")
-    return amount_in * fee_pips // 1_000_000
+    return amount_in_gross * fee_pips // 1_000_000
+
+
+def fee_amount_from_net(amount_in_net: int, fee_pips: int) -> int:
+    """Total fee, given the amount that actually reached the curve.
+
+    This is v3 `SwapMath`'s target-reached branch, and the denominator is
+    `1e6 - feePips`, not `1e6`:
+
+        feeAmount = mulDivRoundingUp(amountIn, feePips, 1e6 - feePips)
+
+    Because gross = net + fee, the two forms describe the same fee — but applying
+    the gross formula to a net amount understates it by a factor of
+    `(1e6 - feePips)/1e6`, which on a 0.05% pool is 0.05% of the fee on every
+    swap that crosses a tick. Rounding is up, as the contract does.
+    """
+    if not 0 <= fee_pips < 1_000_000:
+        raise ValueError(f"fee_pips {fee_pips} outside [0, 1e6)")
+    denominator = 1_000_000 - fee_pips
+    return -(-(amount_in_net * fee_pips) // denominator)
+
+
+def lp_share_of_fee(total_fee: int, fee_protocol: int) -> int:
+    """The part of a swap's fee that reaches liquidity providers.
+
+    **PancakeSwap's protocol fee is on by default, and Uniswap's is not.** Our
+    target pool (WBNB/USDT, 0.05%) reports `slot0.feeProtocol = 3400`, so the
+    protocol takes 34% and LPs keep 66% — an effective fee of 0.033%, not 0.05%.
+    Read from chain, not assumed: it is settable by governance per pool.
+
+    This matters more than its size suggests. Reconstructing fees from `Swap`
+    events times the fee tier — the natural way to write the replay engine —
+    overstates what an LP actually earns by `1/0.66 = 1.52x`, and that error
+    lands directly on NetFeeAPR, which is the headline number on every card. It
+    also flows into the R2 recentre gate, making the agent rebalance more eagerly
+    than the economics justify.
+
+    Fee growth read from `feeGrowthInside` on chain is already net of this, so
+    the two paths must not both apply it.
+
+    v3 subtracts the protocol's share *before* updating the accumulators, so
+    this rounds the same way the contract does — down, in the protocol's favour.
+    """
+    if not 0 <= fee_protocol <= PROTOCOL_FEE_DENOMINATOR:
+        raise ValueError(f"fee_protocol {fee_protocol} outside [0, {PROTOCOL_FEE_DENOMINATOR}]")
+    protocol_cut = total_fee * fee_protocol // PROTOCOL_FEE_DENOMINATOR
+    return total_fee - protocol_cut
+
+
+def unpack_fee_protocol(slot0_fee_protocol: int) -> tuple[int, int]:
+    """`slot0.feeProtocol` -> (token0 numerator, token1 numerator), each out of 10,000.
+
+    Pancake packs the two directions into one word, low half for token0. Our
+    target pool reads 222,825,800, which unpacks to (3400, 3400).
+    """
+    return slot0_fee_protocol & 0xFFFF, slot0_fee_protocol >> 16
 
 
 def liquidity_share(position_liquidity: int, pool_liquidity: int, *, includes_self: bool) -> float:
