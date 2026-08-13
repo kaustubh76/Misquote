@@ -76,6 +76,13 @@ class Event:
     tick_lower: Tick | None = None  # mint and burn only
     tick_upper: Tick | None = None
 
+    # PancakeSwap's Swap event carries two fields Uniswap's does not: how much
+    # of this swap's fee the protocol took before liquidity providers saw any of
+    # it. That makes the 34% cut a chain-sourced number per swap rather than a
+    # governance parameter we model. Zero on mints and burns.
+    protocol_fee0: int = 0
+    protocol_fee1: int = 0
+
     @property
     def key(self) -> tuple[int, int]:
         return (self.block, self.log_index)
