@@ -1,0 +1,23 @@
+{
+ "source": "Uniswap v3-core / v3-periphery, commits in ops/forge_deps.txt",
+ "generated_by": "scripts/gen_vectors.py",
+ "seed": 20260813,
+ "cases": [
+  {
+   "name": "MIN_TICK",
+   "expected": "-887272"
+  },
+  {
+   "name": "MAX_TICK",
+   "expected": "887272"
+  },
+  {
+   "name": "MIN_SQRT_RATIO",
+   "expected": "4295128739"
+  },
+  {
+   "name": "MAX_SQRT_RATIO",
+   "expected": "1461446703485210103287273052203988822378723970342"
+  }
+ ]
+}

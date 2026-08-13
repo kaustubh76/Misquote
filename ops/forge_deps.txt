@@ -1,0 +1,12 @@
+# Solidity reference sources for the differential test
+#
+# These are the implementation Misquote's tick math is checked against.
+# PancakeSwap v3 uses Uniswap v3's core math unchanged, so upstream Uniswap
+# is the faithful reference. Pinned so a vector regenerated next month is
+# regenerated from the same code.
+#
+# 'make setup' re-clones these; vetting/forge/lib is gitignored.
+
+forge-std      467ffd422ca01fed5797a4c766a1e4e3a5327902  2026-08-10
+v3-core        d0831dc6b8a318df3872b6d68f6de135c9f3ec29  2026-04-30
+v3-periphery   0682387198a24c7cd63566a2c58398533860a5d1  2024-07-25
