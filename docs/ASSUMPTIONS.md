@@ -112,8 +112,25 @@ and whether the κ fallback was used. **A quote computed with a fallback κ says
 |---|---|
 | Pool | PancakeSwap v3 **WBNB/USDT, 0.05% fee tier** |
 | Chain | BSC mainnet (56) |
+| Address | [`0x36696169C63e42cd08ce11f5deeBbCeBae652050`](https://bscscan.com/address/0x36696169C63e42cd08ce11f5deeBbCeBae652050) |
+| token0 / token1 | USDT `0x55d3…7955` / WBNB `0xbb4C…095c`, **both 18 decimals** |
 | Tick spacing | 10 → `w_min` = **40 ticks** |
-| Address | *filled in at Step 3, verified by live `eth_call`* |
+| Verified | 2026-08-13, block 115,653,558, by `scripts/verify_addresses.py` |
+
+Every address the system points at was checked three ways on-chain — bytecode present, its interface
+answers, and its answers agree with the other contracts' — rather than copied from documentation. Run
+`uv run python scripts/verify_addresses.py --chain 56` to reproduce.
+
+**Note on decimals.** BSC's USDT is an 18-decimal token, unlike Ethereum's 6-decimal USDT. The value
+is read from `decimals()` rather than assumed, because assuming 6 would misprice every position by
+twelve orders of magnitude.
+
+**Testnet mirror.** Burn-in runs on chapel's **WBNB/BUSD 0.05%** pool
+([`0xEF15…d11d`](https://testnet.bscscan.com/address/0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d)),
+not WBNB/USDT: chapel's WBNB/USDT pool at this tier exists but was initialized at `MAX_TICK` and
+never seeded, so it holds zero liquidity. The mirror shares the fee tier, and therefore the tick
+spacing and `w_min`, so a range computed on chapel is structurally the range that will be computed on
+mainnet.
 
 *Why this pool:* deepest BSC v3 pool, so the κ fit in §5.2 has the best chance of clearing its r² ≥ 0.5
 bar on real data, and the swap stream is dense enough for the toxicity imbalance signal to mean
