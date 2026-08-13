@@ -127,17 +127,59 @@ class Observation:
 
     gas_cost_quote: float  # trailing median gas x current price, in token1
     slippage_quote: float
-    fee_rate_per_liquidity: float  # trailing fee per unit L per hour, target range
+    # Two fee rates, because R2 asks for a *gain*: what the target range would
+    # earn against what staying put would earn. One rate alone cannot express a
+    # difference.
+    fee_rate_per_liquidity_target: float  # trailing fee per unit L per hour, target range
+    fee_rate_per_liquidity_current: float  # ... and the range we are in now
+    target_liquidity: int  # what the same capital buys at the target width
     position_value_quote: float
+    rebalance_notional_quote: float  # what a recentre would actually swap (A4's base)
 
     cex_gap: float | None  # None means the feed is down; the fallback rule applies
     swap_imbalance_z: float
     lvr_rate: float  # trailing realized LVR per hour
     fee_rate: float  # trailing realized fees per hour
+
+    # Consecutive *prior* samples on which the currently-active gap rule held —
+    # the CEX-gap rule when the feed is up, the LVR-vs-fees rule when it is not.
+    # The current sample is not included, which is why the policy tests
+    # `toxic_streak + 1 >= m`.
+    #
+    # The driver's contract, and it is easy to get wrong: this counts the *gap
+    # arm only*. Section 3.4 requires the gap rule to persist for `m` samples
+    # while the imbalance rule fires instantly, so incrementing this on the
+    # overall toxic verdict would let a single imbalance spike satisfy the gap
+    # arm's persistence requirement. It must also reset when the feed goes down
+    # or comes back, since a streak accumulated under one rule says nothing
+    # about the other.
     toxic_streak: int
-    clear_streak: int
+    clear_streak: int  # consecutive samples with no toxicity at all
 
     position: PositionState
+
+    def __post_init__(self) -> None:
+        """Refuse states that would invert the strategy rather than fail.
+
+        A negative horizon flips the sign of the inventory skew: excess token0
+        would push the range *up*, making the position a keener buyer of what it
+        already holds too much of — the exact inverse of the intended economics,
+        and it produces a perfectly plausible range on the wrong side of the
+        market. No exception, no NaN, nothing to notice. Given that everything
+        else here fails loudly on a broken invariant, this should too.
+        """
+        if self.T_t < 0.0:
+            raise ValueError(f"T_t must not be negative, got {self.T_t}: the skew would invert")
+        if self.sigma < 0.0:
+            raise ValueError(f"sigma must not be negative, got {self.sigma}")
+        if self.kappa <= 0.0:
+            raise ValueError(
+                f"kappa must be positive, got {self.kappa}: equation (2) divides by it"
+            )
+        if not -1.0 <= self.q <= 1.0:
+            raise ValueError(f"q must lie in [-1, 1] per spec section 2, got {self.q}")
+        if self.toxic_streak < 0 or self.clear_streak < 0:
+            raise ValueError("streak counters cannot be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +201,16 @@ class Params:
     window_hours: float = 24.0
     max_rebalances_per_day: int = 8
 
-    kappa_default: float = 50.0
+    # Spec section 8's Δs. Published in the assumption sheet but previously
+    # absent from the code, which made that row trace to nothing — and made `m`
+    # dimensionless: "3 consecutive samples" only means 15 seconds if the
+    # sampler actually runs every 5.
+    sample_interval_s: int = 5
+
+    # Spec assumption A5's K: the number of rolling sub-windows a P25-P75 range
+    # is computed over.
+    replay_windows: int = 20
+
     kappa_r2_floor: float = 0.5
 
     arb_cost_bps: float = 5.0  # G-2
@@ -174,6 +225,10 @@ class Params:
             raise ValueError("theta must be positive")
         if self.m_toxic < 1 or self.m_clear < 1:
             raise ValueError("toxicity sample counts must be at least 1")
+        if self.sample_interval_s < 1:
+            raise ValueError("sample interval must be at least a second")
+        if self.replay_windows < 20:
+            raise ValueError("assumption A5 requires at least 20 sub-windows for a P25-P75 range")
 
 
 class Action(StrEnum):

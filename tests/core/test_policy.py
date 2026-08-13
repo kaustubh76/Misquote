@@ -68,8 +68,11 @@ def make_obs(**overrides: object) -> Observation:
         "T_t": 24.0,
         "gas_cost_quote": 0.5,
         "slippage_quote": 0.2,
-        "fee_rate_per_liquidity": 1e-20,
+        "fee_rate_per_liquidity_target": 1e-20,
+        "fee_rate_per_liquidity_current": 0.0,
+        "target_liquidity": 10**22,
         "position_value_quote": 200.0,
+        "rebalance_notional_quote": 200.0,
         "cex_gap": 0.0,
         "swap_imbalance_z": 0.0,
         "lvr_rate": 0.0,
@@ -203,10 +206,21 @@ def test_half_width_is_floored_at_w_min() -> None:
 
 
 def test_half_width_beyond_the_floor_snaps_to_spacing() -> None:
-    got = half_width_ticks(0.0598416928, 10, 4)
-    assert got % 10 == 0
-    assert got > 40
-    assert got == pytest.approx(round(0.0598416928 / LN_TICK_BASE / 10) * 10, abs=10)
+    """Exact equality, not `approx(..., abs=10)`.
+
+    The previous version of this test allowed a tolerance of exactly one tick
+    spacing — the largest possible disagreement on a 10-tick grid — which made
+    the assertion vacuous. It computed the *spec's* answer (round to nearest,
+    590 -> 600), the implementation floored (590), and the tolerance swallowed
+    the difference. It was the only test standing between the codebase and the
+    floor-versus-round defect, and it let it through.
+
+    A tolerance equal to the grid quantum can never fail on a grid-rounding
+    assertion. Grid arithmetic is exact, so the test should be too.
+    """
+    delta_star = 0.0598416928
+    expected = round(delta_star / LN_TICK_BASE / 10) * 10
+    assert half_width_ticks(delta_star, 10, 4) == expected == 600
 
 
 def test_the_target_range_is_symmetric_around_the_centre() -> None:
@@ -297,14 +311,14 @@ def test_r1_blocks_a_range_that_has_barely_moved() -> None:
 
 
 def test_r2_blocks_a_rebalance_that_costs_more_than_it_earns() -> None:
-    _, terms = _gates(fee_rate_per_liquidity=0.0, gas_cost_quote=5.0)
+    _, terms = _gates(fee_rate_per_liquidity_target=0.0, gas_cost_quote=5.0)
     assert terms["R2"] == 0.0
     assert terms["R2_net"] < 0
 
 
 def test_r2_charges_the_published_mev_haircut() -> None:
     """Assumption A4: 10 bps of rebalanced notional, on a $200 position."""
-    _, terms = _gates(position_value_quote=200.0)
+    _, terms = _gates(rebalance_notional_quote=200.0)
     assert terms["R2_mev_haircut"] == pytest.approx(0.20)
 
 
@@ -333,7 +347,7 @@ def test_r4_blocks_while_flow_is_toxic() -> None:
 def test_a_drifted_range_with_every_gate_open_recenters() -> None:
     obs = make_obs(
         position=make_position(lower=-70000, upper=-69600),
-        fee_rate_per_liquidity=1e-15,
+        fee_rate_per_liquidity_target=1e-15,
     )
     decision = decide(obs, PARAMS, META)
     assert decision.action is Action.RECENTER

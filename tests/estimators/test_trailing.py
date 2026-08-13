@@ -18,7 +18,9 @@ from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import Event
 from misquote.estimators.base import TrailingEstimator
 from misquote.estimators.kappa import (
-    KAPPA_DEFAULT,
+    PROVISIONAL_KAPPA_PER_LOGPRICE,
+    PROVISIONAL_KAPPA_PER_TICK,
+    TICK_IN_LOGPRICE,
     KappaEstimator,
     fit_kappa,
     least_squares,
@@ -239,14 +241,14 @@ def test_kappa_is_recovered_from_a_synthetic_exponential_decay() -> None:
 
     fit = fit_kappa(swaps)
     assert not fit.is_fallback
-    assert fit.kappa == pytest.approx(true_kappa, rel=0.35)
+    assert fit.kappa_per_tick == pytest.approx(true_kappa, rel=0.35)
     assert fit.r_squared > 0.9
 
 
 def test_too_few_swaps_falls_back_and_says_so() -> None:
     fit = fit_kappa([(5, 0)] * 10)
     assert fit.is_fallback
-    assert fit.kappa == KAPPA_DEFAULT
+    assert fit.kappa_per_tick == PROVISIONAL_KAPPA_PER_TICK
     assert "default" in fit.label
 
 
@@ -260,20 +262,38 @@ def test_a_depth_distribution_with_no_decay_falls_back() -> None:
     """
     fit = fit_kappa([(500, 0)] * 400)
     assert fit.is_fallback
-    assert fit.kappa == KAPPA_DEFAULT
+    assert fit.kappa_per_tick == PROVISIONAL_KAPPA_PER_TICK
     assert fit.r_squared == 0.0
 
 
-def test_deep_swaps_being_commoner_than_shallow_ones_is_refused() -> None:
-    """A negative kappa is not a market, it is a broken window.
+def test_a_real_fit_is_reported_in_both_units_and_only_the_right_one_is_usable() -> None:
+    """This test used to read `assert fit.kappa > 0.0 or fit.is_fallback`.
 
-    Buckets are cumulative, so counts can only decrease with depth — the only
-    way to reach a non-positive slope is degenerate data, and the estimator
-    should say so rather than hand equation (2) a widening term with the wrong
-    sign.
+    Both branches of `fit_kappa` return something positive — a fitted kappa that
+    has already passed its own `<= 0` guard, or the positive default — so the
+    left disjunct was unconditionally true and the assertion could not fail for
+    any input whatsoever. It sat there looking like coverage.
+
+    Worse, the fixture it was given produces a *successfully fitted, non-fallback*
+    per-tick kappa near 0.01, which is exactly the value that, fed straight into
+    equation (2), yields a 35,000-tick range. A tautology was standing guard over
+    the one number that most needed guarding.
     """
     fit = fit_kappa([(d, 0) for d in (1, 2, 5, 10, 20, 50, 100, 200) for _ in range(50)])
-    assert fit.kappa > 0.0 or fit.is_fallback
+
+    assert not fit.is_fallback
+    assert 0.001 < fit.kappa_per_tick < 0.1, "a plausible per-tick decay for this shape"
+    assert fit.kappa_per_logprice == pytest.approx(fit.kappa_per_tick / TICK_IN_LOGPRICE)
+
+    # The property that actually matters, rather than a threshold on the number
+    # itself: the converted value has to produce a range a pool would accept,
+    # and the unconverted one must not.
+    from misquote.core.policy import half_width_logprice, half_width_ticks
+
+    good = half_width_ticks(half_width_logprice(0.8, 0.02, 24.0, fit.kappa_per_logprice), 10, 4)
+    bad = half_width_ticks(half_width_logprice(0.8, 0.02, 24.0, fit.kappa_per_tick), 10, 4)
+    assert 40 <= good <= 2500
+    assert bad > 30_000
 
 
 def test_the_label_distinguishes_a_fitted_kappa_from_a_guessed_one() -> None:
@@ -300,7 +320,7 @@ def test_the_estimator_evicts_swaps_older_than_its_window() -> None:
 
     est.set_decision_time(100_000)  # far beyond the one-hour window
     assert not est.ready
-    assert est.value() == KAPPA_DEFAULT
+    assert est.value() == pytest.approx(PROVISIONAL_KAPPA_PER_LOGPRICE)
 
 
 def test_refitting_at_the_same_instant_cannot_change_the_answer() -> None:
@@ -321,7 +341,7 @@ def test_kappa_uses_swap_depth_not_absolute_tick() -> None:
     for i in range(500):
         est.ingest(swap(i + 1, i, -64180))
     assert not est.ready  # no swap moved the price, so there is nothing to fit
-    assert est.value() == KAPPA_DEFAULT
+    assert est.value() == pytest.approx(PROVISIONAL_KAPPA_PER_LOGPRICE)
 
 
 # --- price conversion -------------------------------------------------------

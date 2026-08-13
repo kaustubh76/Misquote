@@ -34,6 +34,11 @@ from misquote.core.types import Action, Decision, Observation, Params, PoolMeta,
 # One tick is a factor of 1.0001 in price, so this converts log-price to ticks.
 LN_TICK_BASE = math.log(1.0001)
 
+# Sentinel for "the CEX feed was down, so no gap was measured". A gap is an
+# absolute magnitude and is never negative, so this cannot collide with a real
+# reading. Deliberately not NaN — see `toxicity`.
+GAP_NOT_MEASURED = -1.0
+
 
 # --- equations (1) and (2) -------------------------------------------------
 
@@ -75,24 +80,62 @@ def half_width_logprice(gamma: float, sigma: float, t_remaining: float, kappa: f
     return 0.5 * (inventory_term + fill_term)
 
 
+def _round_to_spacing(value: float, tick_spacing: int) -> int:
+    """The spec's `round_to_spacing`: nearest multiple of the spacing, once.
+
+    Rounding to an integer tick first and *then* to the spacing grid is not the
+    same function — the intermediate rounding can push a value across the
+    midpoint between two grid points. Measured over 200,000 draws, the
+    double-rounded form disagreed with this one on 4.95% of inputs, each by a
+    full tick spacing. Sections 3.1 and 3.2 both name the same operation, so it
+    is defined once here and used by both.
+    """
+    return int(round(value / tick_spacing)) * tick_spacing
+
+
 def center_tick(r: float, tick_spacing: int) -> Tick:
-    """Log-price -> the usable tick nearest it."""
-    raw = int(round(r / LN_TICK_BASE))
-    return nearest_usable_tick(max(MIN_TICK, min(MAX_TICK, raw)), tick_spacing)
+    """Log-price -> the usable tick nearest it (spec section 3.1)."""
+    raw = r / LN_TICK_BASE
+    snapped = _round_to_spacing(max(float(MIN_TICK), min(float(MAX_TICK), raw)), tick_spacing)
+    return nearest_usable_tick(max(MIN_TICK, min(MAX_TICK, snapped)), tick_spacing)
 
 
 def half_width_ticks(delta_star: float, tick_spacing: int, w_min_mult: int) -> int:
     """Half-width in log-price -> half-width in ticks, floored against dust.
 
-    `w_min = w_min_mult * tick_spacing` (spec section 3.2). The floor is not a
-    rounding detail: a range narrower than this earns fees on a position too
-    small to matter while still paying a full rebalance in gas every time price
-    drifts, so the policy must never propose one.
+    Spec section 3.2: `w_t = max(w_min, round_to_spacing(δ*/ln(1.0001)))`. It
+    rounds, and it used to floor here — which made every range systematically
+    narrower than specified, by an average of 4.4 ticks and up to a full
+    spacing. Narrower means more time out of range, so the bias was toward more
+    rebalancing and more gas, silently.
+
+    `w_min = w_min_mult * tick_spacing`. That floor is not a rounding detail: a
+    range narrower than it earns fees on a position too small to matter while
+    still paying a full rebalance in gas every time price drifts.
     """
     w_min = w_min_mult * tick_spacing
-    raw = int(round(delta_star / LN_TICK_BASE))
-    snapped = (raw // tick_spacing) * tick_spacing
-    return max(w_min, snapped)
+    return max(w_min, _round_to_spacing(delta_star / LN_TICK_BASE, tick_spacing))
+
+
+def inventory_imbalance(value0_quote: float, value1_quote: float) -> float:
+    """Spec section 2's `q`, normalised so it actually spans [-1, 1].
+
+        q = (v0 - v1) / (v0 + v1)
+
+    The spec states two incompatible things: this quantity is "(value of token0
+    held − target 50/50 value) / total position value", *and* it lies in
+    [−1, 1]. Read literally the formula gives [−0.5, +0.5] — a position entirely
+    in token0 yields 0.5, not 1. Since `q` multiplies straight into equation (1),
+    the two readings skew the range centre by a factor of two.
+
+    The stated range is the more testable claim and the one adopted, so a
+    position entirely in token0 gives exactly +1 and one entirely in token1
+    gives −1. Recorded in the requirements matrix.
+    """
+    total = value0_quote + value1_quote
+    if total <= 0.0:
+        return 0.0
+    return (value0_quote - value1_quote) / total
 
 
 def target_range(
@@ -154,7 +197,14 @@ def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, di
         # Fallback: on-chain only. Bleeding more to arbitrage than we earn in
         # fees is the observable consequence of toxic flow, after the fact.
         gap_toxic = obs.lvr_rate > obs.fee_rate and obs.toxic_streak + 1 >= params.m_toxic
-        terms["cex_gap_bps"] = float("nan")
+        # NOT NaN. A gap is a magnitude and can never be negative, so -1 is an
+        # unambiguous "not measured" — and unlike NaN it compares equal to
+        # itself. `Decision` is frozen and hashable precisely so test T1 can
+        # compare decision sequences bitwise; a NaN anywhere in `reasons` makes
+        # every decision unequal to itself, so T1 could never pass on any
+        # decision taken while the feed was down. `using_onchain_fallback`
+        # carries the real signal.
+        terms["cex_gap_bps"] = GAP_NOT_MEASURED
         terms["using_onchain_fallback"] = 1.0
         terms["lvr_rate"] = obs.lvr_rate
         terms["fee_rate"] = obs.fee_rate
@@ -198,13 +248,28 @@ def recenter_gates(
     r1_threshold = params.theta * width
     r1 = drift >= r1_threshold
 
-    # R2 — does the expected fee gain clear the cost of capturing it?
-    # Trailing fee rate only. A forward estimate here would be look-ahead
-    # wearing a hat.
-    expected_fees = obs.fee_rate_per_liquidity * obs.position.liquidity * obs.T_t
-    mev = obs.position_value_quote * params.mev_haircut_bps / 10_000.0
+    # R2 — does the expected fee GAIN clear the cost of capturing it?
+    #
+    # Gain, not absolute fees. Spec section 3.3 asks for "E[fee gain over
+    # remaining window]", which is what the target range would earn *minus what
+    # the current one would earn if left alone*. Testing absolute fees instead
+    # is a strictly weaker gate: it authorises a rebalance whenever the target
+    # earns more than the cost, even when the position is already earning nearly
+    # as much where it stands — spending gas, slippage and a 10 bps MEV haircut
+    # to buy almost nothing.
+    #
+    # Trailing rates only, both of them. A forward estimate here would be
+    # look-ahead wearing a hat.
+    fees_at_target = obs.fee_rate_per_liquidity_target * obs.target_liquidity * obs.T_t
+    fees_if_we_stay = obs.fee_rate_per_liquidity_current * obs.position.liquidity * obs.T_t
+    expected_gain = fees_at_target - fees_if_we_stay
+
+    # Assumption A4 charges the haircut on the *rebalanced notional* — what the
+    # recentre actually swaps to restore target composition — not on the whole
+    # position, which would overstate it several-fold.
+    mev = obs.rebalance_notional_quote * params.mev_haircut_bps / 10_000.0
     cost = obs.gas_cost_quote + obs.slippage_quote + mev
-    r2 = expected_fees - cost > 0
+    r2 = expected_gain - cost > 0
 
     # R3 — anti-churn: the cooldown and the daily budget.
     since_last = obs.t - obs.position.last_rebalance_ts
@@ -219,11 +284,13 @@ def recenter_gates(
         "R1_drift_ticks": float(drift),
         "R1_threshold_ticks": r1_threshold,
         "R1": float(r1),
-        "R2_expected_fees": expected_fees,
+        "R2_fees_at_target": fees_at_target,
+        "R2_fees_if_we_stay": fees_if_we_stay,
+        "R2_expected_gain": expected_gain,
         "R2_gas": obs.gas_cost_quote,
         "R2_slippage": obs.slippage_quote,
         "R2_mev_haircut": mev,
-        "R2_net": expected_fees - cost,
+        "R2_net": expected_gain - cost,
         "R2": float(r2),
         "R3_seconds_since_rebalance": float(since_last),
         "R3_cooldown_s": float(params.tau_cool_s),
