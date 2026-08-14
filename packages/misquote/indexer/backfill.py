@@ -102,6 +102,7 @@ def main() -> int:
     ap.add_argument("--db", default="data/misquote.db")
     ap.add_argument("--chunk", type=int, default=DEFAULT_CHUNK)
     ap.add_argument("--from-block", type=int, default=None)
+    ap.add_argument("--to-block", type=int, default=None, help="stop here instead of at the head")
     ap.add_argument(
         "--pace",
         type=float,
@@ -152,17 +153,19 @@ def main() -> int:
     print(f"chain  {args.chain}   head {head:,}   settled {safe:,} (head - {reader.confirmations})")
     print(f"       {len(endpoints)} endpoint(s), pacing {args.pace:.2f}s")
     print(f"       {block_seconds:.3f} s/block, measured")
-    print(f"range  {start:,} -> {safe:,}  ({safe - start + 1:,} blocks, ~{args.days:g}d)")
+    target = min(safe, args.to_block) if args.to_block else safe
+    print(f"range  {start:,} -> {target:,}  ({target - start + 1:,} blocks)")
     if resume is not None:
         print(f"resume from cursor at {resume:,}")
     print()
 
     began = time.monotonic()
     try:
-        result = backfill(conn, reader, pool, start, safe, chunk=args.chunk)
+        result = backfill(conn, reader, pool, start, target, chunk=args.chunk)
     except Exception as error:  # noqa: BLE001 — the message matters more than the trace
         done = store.cursor_for(conn, pool)
-        print(f"\nstopped at block {done:,} after {time.monotonic() - began:.0f}s")
+        where = f"block {done:,}" if done is not None else "the start (nothing written yet)"
+        print(f"\nstopped at {where} after {time.monotonic() - began:.0f}s")
         print(f"  {type(error).__name__}: {str(error)[:120]}")
         print()
         print("  Free BSC endpoints will not sustain a multi-day backfill: they cap")

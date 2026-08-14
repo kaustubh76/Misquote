@@ -233,6 +233,11 @@ def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, di
 
     imbalance_toxic = obs.swap_imbalance_z > params.z_pull
     terms["imbalance_toxic"] = float(imbalance_toxic)
+    # The threshold the gap is being compared against, recorded so the journal
+    # says what the rule actually applied rather than only what it concluded —
+    # and so a driver can tell whether the *condition* held on this sample,
+    # which is what advances the persistence streak.
+    terms["gap_threshold_bps"] = threshold_bps
 
     if obs.cex_gap is None:
         # Fallback: on-chain only. Bleeding more to arbitrage than we earn in
