@@ -7,13 +7,13 @@
   "capital_quote": 1000.0,
   "summary": {
     "tasks": 3,
-    "quotable": 0,
-    "withheld": 3,
-    "agent_ahead": 0,
-    "diy_ahead": 0,
+    "quotable": 3,
+    "withheld": 0,
+    "agent_ahead": 2,
+    "diy_ahead": 1,
     "indistinguishable": 0,
     "bands_overlap": 0,
-    "separated": 0,
+    "separated": 3,
     "categories": [
       "security",
       "trading"
@@ -25,7 +25,7 @@
   },
   "overall": {
     "called": false,
-    "label": "no verdict (0 observations, need 30)"
+    "label": "no verdict (3 observations, need 30)"
   },
   "tasks": [
     {
@@ -35,33 +35,33 @@
       "metric": "net return on capital (fees \u2212 realized convexity cost \u2212 costs), P25\u2013P75",
       "without_agent": "mint once at the same width, never touch it (passive_policy)",
       "with_agent": "Warden \u2014 Avellaneda\u2013Stoikov recentring",
-      "quotable": false,
-      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "quotable": true,
+      "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.0735,
+        "p25": 5.627897,
+        "p50": 9.989785,
+        "p75": 26.051098,
+        "in_range": 0.0242,
         "fees": 32.12313376,
         "lvr_upper_bound": 0.01071551,
         "costs": 2.0,
         "moves": 1
       },
       "agent": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.5891,
-        "fees": 277.87467512,
-        "lvr_upper_bound": 0.08548728,
-        "costs": 24.0,
-        "moves": 15
+        "p25": 36.87664,
+        "p50": 37.742212,
+        "p75": 38.715155,
+        "in_range": 0.5956,
+        "fees": 865.43018362,
+        "lvr_upper_bound": 0.24968491,
+        "costs": 80.0,
+        "moves": 56
       },
-      "delta_pp": 0.0,
-      "ranges_overlap": true,
-      "material": false,
-      "separated": false,
-      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+      "delta_pp": 27.752428,
+      "ranges_overlap": false,
+      "material": true,
+      "separated": true,
+      "verdict": "agent beats DIY by 27.75pp, bands do not overlap"
     },
     {
       "task": "Protect \u2014 avoid being picked off by one-way flow",
@@ -70,33 +70,33 @@
       "metric": "net return on capital, P25\u2013P75 (the cost of the withdrawals is charged in full)",
       "without_agent": "the same wide band, held through everything (withdrawal disabled)",
       "with_agent": "Sentinel \u2014 withdraw on \u00a73.4 toxicity, re-enter after m_clear",
-      "quotable": false,
-      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "quotable": true,
+      "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.9992,
-        "fees": 60.68250719,
-        "lvr_upper_bound": 0.01843188,
+        "p25": 8.912059,
+        "p50": 8.998063,
+        "p75": 9.050168,
+        "in_range": 0.9997,
+        "fees": 186.18079135,
+        "lvr_upper_bound": 0.05469085,
         "costs": 4.0,
         "moves": 2
       },
       "agent": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.989,
-        "fees": 59.95839078,
-        "lvr_upper_bound": 0.01820992,
-        "costs": 10.0,
-        "moves": 8
+        "p25": 7.126197,
+        "p50": 7.223623,
+        "p75": 7.306338,
+        "in_range": 0.9844,
+        "fees": 181.49644852,
+        "lvr_upper_bound": 0.05328668,
+        "costs": 32.0,
+        "moves": 30
       },
-      "delta_pp": 0.0,
-      "ranges_overlap": true,
-      "material": false,
-      "separated": false,
-      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+      "delta_pp": -1.774439,
+      "ranges_overlap": false,
+      "material": true,
+      "separated": true,
+      "verdict": "agent loses to DIY by 1.77pp, bands do not overlap"
     },
     {
       "task": "Choose \u2014 which pool to provide liquidity to",
@@ -105,33 +105,33 @@
       "metric": "net return on capital of the same agent on the chosen venue, P25\u2013P75",
       "without_agent": "pick the deepest pool (the obvious heuristic: more TVL is safer)",
       "with_agent": "pick the pool whose flow is not one-way (\u00a73.4 imbalance screen)",
-      "quotable": false,
-      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "quotable": true,
+      "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.0212,
-        "fees": 7.06993053,
-        "lvr_upper_bound": 0.00816249,
-        "costs": 18.0,
-        "moves": 18
+        "p25": -1.867177,
+        "p50": -1.515764,
+        "p75": -1.35739,
+        "in_range": 0.0255,
+        "fees": 40.53599651,
+        "lvr_upper_bound": 0.07378198,
+        "costs": 68.0,
+        "moves": 68
       },
       "agent": {
-        "p25": 0.0,
-        "p50": 0.0,
-        "p75": 0.0,
-        "in_range": 0.5734,
-        "fees": 286.58158059,
-        "lvr_upper_bound": 0.08586963,
-        "costs": 26.0,
-        "moves": 18
+        "p25": 35.760136,
+        "p50": 36.707312,
+        "p75": 38.308127,
+        "in_range": 0.5331,
+        "fees": 786.80505901,
+        "lvr_upper_bound": 0.23812974,
+        "costs": 76.0,
+        "moves": 51
       },
-      "delta_pp": 0.0,
-      "ranges_overlap": true,
-      "material": false,
-      "separated": false,
-      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+      "delta_pp": 38.223075,
+      "ranges_overlap": false,
+      "material": true,
+      "separated": true,
+      "verdict": "agent beats DIY by 38.22pp, bands do not overlap"
     }
   ]
 }

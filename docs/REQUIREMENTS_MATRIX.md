@@ -451,6 +451,20 @@ That the rule fires 16 times and the LVR arm zero is itself informative: the on-
 compares *realized* quantities and so trails the damage, which is precisely why §3.4 calls it the
 fallback and why Sentinel's docstring names "withdraws late" as a failure mode before the numbers do.
 
+**And it now has a price.** The Agent Advantage Report's *Protect* task is an ablation — Sentinel
+against Sentinel with its withdrawal disabled, same band, same reanchoring, one decision different —
+and on the same driftless tape the withdrawing agent **loses by 1.77 percentage points**
+(7.13–7.31% against 8.91–9.05%, bands not overlapping). That is this measurement expressed as money:
+withdrawals that were all false positives, paying gas and forgoing fees for flow that was never
+toxic.
+
+Published rather than tuned away, and it is the reason the ablation is the right baseline: had
+*Protect* been scored against a passive position instead, the loss would have been buried inside a
+difference of band width and never attributed to the rule that caused it. **A marketplace selling a
+risk agent would not run this comparison.** The result is a property of a driftless random walk with
+no informed flow in it; on a tape that contains real toxicity the sign may well reverse, and that is
+one more thing the 30-day backfill would settle.
+
 ### P-6 · Confirmed correct — worth recording, since Week 2 rests on it
 
 - Equations (1) and (2) are **Avellaneda–Stoikov (2008) Eqs. 29 and 30 transcribed exactly**, and the

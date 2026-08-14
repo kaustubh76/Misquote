@@ -123,6 +123,28 @@ the three are distinct — and task 2's baseline is an ablation rather than a
 different strategy, so the comparison isolates the withdrawal decision and
 nothing else.
 
+**One of the three goes against us, and it is the one we built for safety:**
+
+| Task | DIY | Agent | Δ median |
+|---|---|---|---|
+| Earn | 5.63 – 26.05% | 36.88 – 38.72% | **+27.75pp** |
+| **Protect** | **8.91 – 9.05%** | **7.13 – 7.31%** | **−1.77pp** |
+| Choose | −1.87 – −1.36% | 35.76 – 38.31% | **+38.22pp** |
+
+Sentinel loses to its own ablation. That is **P-7 with a price tag**: we had
+already measured that §3.4's imbalance rule fires about once every four hours on
+a driftless random walk — a tape with no informed flow in it by construction, so
+every one of those withdrawals is a false alarm — and this is what those false
+alarms cost. We did not retune `z_pull` to fix it; it is spec §8's published
+value. Had *Protect* been scored against a passive position instead of against
+the ablation, the loss would have been buried inside a difference of band width
+and never attributed to the rule that caused it.
+
+Across all three tasks the report **refuses to call a winner** — three tasks are
+three observations and `verdict()` will not call a rate on fewer than thirty.
+That refusal is the honest headline; what carries the argument is each task's own
+quote, where the sample is 20 sub-windows × 3 parameter perturbations.
+
 **Equities: TSLAx/USDT.** Backed's xStocks trade on PancakeSwap, so a tokenized
 equity is the same v3 pool the engine already prices — a fourth generality proof
 after Grid and Sentinel, costing one address. Resolving it produced **P-8**: that

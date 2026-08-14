@@ -7,7 +7,7 @@
 
 - **Tape:** `synthetic`
 - **Capital per task:** 1,000 (quote token)
-- **Tasks:** 3 · quotable 0 · withheld 3
+- **Tasks:** 3 · quotable 3 · withheld 0
 - **Categories:** security, trading
 
 ## The claim this report is allowed to make
@@ -23,11 +23,11 @@ agent, by charging its baseline differently, is not available here.
 
 | Task | Category | DIY (P25–P75) | Agent (P25–P75) | Δ median | Verdict |
 |---|---|---|---|---|---|
-| Earn — fees on a liquidity position | trading | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
-| Protect — avoid being picked off by one-way flow | security | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
-| Choose — which pool to provide liquidity to | security | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
+| Earn — fees on a liquidity position | trading | 5.63 – 26.05% | 36.88 – 38.72% | **+27.75pp** | agent beats DIY by 27.75pp, bands do not overlap |
+| Protect — avoid being picked off by one-way flow | security | 8.91 – 9.05% | 7.13 – 7.31% | **-1.77pp** | agent loses to DIY by 1.77pp, bands do not overlap |
+| Choose — which pool to provide liquidity to | security | -1.87 – -1.36% | 35.76 – 38.31% | **+38.22pp** | agent beats DIY by 38.22pp, bands do not overlap |
 
-**Across all tasks:** no verdict (0 observations, need 30)
+**Across all tasks:** no verdict (3 observations, need 30)
 
 That refusal is deliberate and it is the honest headline. `verdict()` will
 not call a rate on fewer than 30 observations, and three tasks are three
@@ -43,7 +43,19 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 - **With an agent:** Warden — Avellaneda–Stoikov recentring
 - **Metric:** net return on capital (fees − realized convexity cost − costs), P25–P75
 
-**No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
+| | DIY | Agent |
+|---|---|---|
+| Net return P25–P75 | 5.63 – 26.05% | 36.88 – 38.72% |
+| Median | 9.99% | 37.74% |
+| In range | 2.4% | 59.6% |
+| Fees | 32.1231 | 865.4302 |
+| Realized convexity cost (upper bound on LVR) | 0.0107 | 0.2497 |
+| Costs charged | 2.00 | 80.00 |
+| Moves | 1 | 56 |
+
+**agent beats DIY by 27.75pp, bands do not overlap**
+
+Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
 
 ### Protect — avoid being picked off by one-way flow
 
@@ -52,7 +64,19 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 - **With an agent:** Sentinel — withdraw on §3.4 toxicity, re-enter after m_clear
 - **Metric:** net return on capital, P25–P75 (the cost of the withdrawals is charged in full)
 
-**No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
+| | DIY | Agent |
+|---|---|---|
+| Net return P25–P75 | 8.91 – 9.05% | 7.13 – 7.31% |
+| Median | 9.00% | 7.22% |
+| In range | 100.0% | 98.4% |
+| Fees | 186.1808 | 181.4964 |
+| Realized convexity cost (upper bound on LVR) | 0.0547 | 0.0533 |
+| Costs charged | 4.00 | 32.00 |
+| Moves | 2 | 30 |
+
+**agent loses to DIY by 1.77pp, bands do not overlap**
+
+Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
 
 ### Choose — which pool to provide liquidity to
 
@@ -61,7 +85,19 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 - **With an agent:** pick the pool whose flow is not one-way (§3.4 imbalance screen)
 - **Metric:** net return on capital of the same agent on the chosen venue, P25–P75
 
-**No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
+| | DIY | Agent |
+|---|---|---|
+| Net return P25–P75 | -1.87 – -1.36% | 35.76 – 38.31% |
+| Median | -1.52% | 36.71% |
+| In range | 2.5% | 53.3% |
+| Fees | 40.5360 | 786.8051 |
+| Realized convexity cost (upper bound on LVR) | 0.0738 | 0.2381 |
+| Costs charged | 68.00 | 76.00 |
+| Moves | 68 | 51 |
+
+**agent beats DIY by 38.22pp, bands do not overlap**
+
+Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
 
 ## What would make this stronger
 
