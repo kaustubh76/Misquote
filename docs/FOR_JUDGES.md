@@ -81,10 +81,13 @@ the headline number *worse* than it could have been.
 Stated plainly, because a submission that hides its gaps is doing the thing this
 project exists to argue against.
 
-- **No 30-day tape.** Free BSC endpoints cap `eth_getLogs` at ~2,000 blocks and
-  refuse sustained request rates with 403 and `-32005` — all of them. The
-  indexer is built, verified against real chain data, and idempotent; it needs a
-  keyed RPC to finish a multi-day backfill.
+- **No 30-day tape.** Free BSC endpoints cap `eth_getLogs` and refuse sustained
+  request rates — all of them. This is measured, not assumed: asking for **six
+  hours** of the target pool (47,979 blocks) across three rotating endpoints at
+  0.15s pacing dies after **11 seconds** with `-32005 limit exceeded`, before
+  writing a single row. Thirty days is 5.76M blocks. The indexer is built,
+  verified against real chain data, and idempotent — its cursor advances with its
+  rows, so a re-run resumes — but it needs a keyed RPC to finish.
 - **κ is still a provisional default.** It is meant to be fitted on that tape and
   published as gap item G-4. Until then it traces to a stated basis rather than
   to data, and the go/no-go reports it amber.

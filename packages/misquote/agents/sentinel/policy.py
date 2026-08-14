@@ -164,7 +164,12 @@ def decide_sentinel(
         # ones that did nothing. A tearsheet that can only say "it held" is much
         # less useful than one that can say which arm nearly fired and by how
         # much.
-        *sorted(terms.items()),
+        #
+        # The two rate terms are listed above unconditionally rather than taken
+        # from here, because `toxicity` only reports them on the feed-down path.
+        # A journal whose columns depend on whether a CEX feed was up is a
+        # journal that cannot be read as a table.
+        *sorted((k, v) for k, v in terms.items() if k not in ("lvr_rate", "fee_rate")),
     ]
 
     if not position.in_market:
