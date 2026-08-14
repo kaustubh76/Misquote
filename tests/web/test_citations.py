@@ -12,8 +12,10 @@ in `docs/REQUIREMENTS_MATRIX.md`, not in the assumption sheet.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -21,10 +23,27 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
 
-import sys
 
-sys.path.insert(0, str(REPO / "scripts"))
-from assumptions import CITATION, citations_in  # noqa: E402
+def _load_emitter():
+    """Import scripts/assumptions.py without putting scripts/ on sys.path.
+
+    The tests must use the *same* citation regex the emitter uses rather than a
+    copy — a second definition would drift, which is the exact failure the
+    regex-parity test below exists to catch.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "misquote_assumptions_emitter", REPO / "scripts" / "assumptions.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_emitter = _load_emitter()
+CITATION = _emitter.CITATION
+citations_in = _emitter.citations_in
 
 
 @pytest.fixture(scope="module")
