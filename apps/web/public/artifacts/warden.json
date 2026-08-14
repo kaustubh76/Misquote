@@ -23,17 +23,17 @@
     "journal": "data/journal/warden.jsonl",
     "journal_rows": 0
   },
-  "quote": "-2.89% to -2.51% (median -2.52%, over 31h \u2014 too short to annualise honestly)",
+  "quote": "36.88% to 38.72% (median 37.74%, over 31h \u2014 too short to annualise honestly)",
   "quote_sufficient": true,
   "replay": {
-    "costs_quote": 48.0,
-    "fees_quote": 1.8184597,
+    "costs_quote": 80.0,
+    "fees_quote": 865.43018362,
     "hours": 62.22,
-    "in_range_fraction": 0.4059,
-    "lvr_quote_upper_bound": 0.16929728,
-    "mints": 1,
-    "net_quote": -46.35083758,
-    "pulls": 0,
+    "in_range_fraction": 0.5956,
+    "lvr_quote_upper_bound": 0.24968491,
+    "mints": 17,
+    "net_quote": 785.1804987,
+    "pulls": 16,
     "rebalances": 23,
     "samples": 44802
   },
@@ -41,11 +41,11 @@
   "verdicts": {
     "in_range": {
       "called": true,
-      "label": "FAIL (41% of 44802)"
+      "label": "FAIL (60% of 44802)"
     },
     "profitable": {
       "called": true,
-      "label": "FAIL (0% of 448)"
+      "label": "PASS (100% of 448)"
     }
   }
 }

@@ -393,6 +393,37 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-7 · The toxicity rule's false-positive rate is measurable, and it is not zero
+
+Once V-11 made §3.4's imbalance arm fire at all, it became possible to ask how often it fires when
+there is **nothing to catch**. A synthetic driftless random walk contains no informed flow by
+construction — there are no arbitrageurs on it — so every pull it produces is a false positive.
+
+Over **9,000 swaps spanning 62.2 hours**, 44,802 samples:
+
+| | |
+|---|---|
+| Pulls | **16**, one every **3.9 hours** |
+| Which arm | **16 of 16 imbalance**; the realized-LVR arm never fired |
+| Samples with \|z\| > 2.5 | **599 — 1.34%** |
+| Expected under the null | **≈1.24%** (two-sided, standard normal) |
+| Max \|z\| observed | **3.11**, against a ceiling of √50 = **7.07** |
+
+Measured 1.34% against a predicted 1.24% is the estimator behaving exactly as specified. **The
+estimator is not the question; the parameter is.** `z_pull = 2.5` is spec §8's published value, and
+at a 5-second cadence over a rolling 50-swap window it costs a withdrawal roughly every four hours
+on pure noise — gas spent, and the position out of the market, for flow that was never toxic.
+
+**Not changed.** Retuning a frozen-spec parameter because its measured behaviour is inconvenient is
+the opposite of what this matrix is for. It is published instead, and the number an operator needs in
+order to disagree is right here: whether 2.5 is right depends on the ratio of genuine toxic episodes
+to noise on the *real* tape, which a synthetic random walk cannot tell us. It is one more thing the
+30-day backfill would settle.
+
+That the rule fires 16 times and the LVR arm zero is itself informative: the on-chain fallback
+compares *realized* quantities and so trails the damage, which is precisely why §3.4 calls it the
+fallback and why Sentinel's docstring names "withdraws late" as a failure mode before the numbers do.
+
 ### P-6 · Confirmed correct — worth recording, since Week 2 rests on it
 
 - Equations (1) and (2) are **Avellaneda–Stoikov (2008) Eqs. 29 and 30 transcribed exactly**, and the

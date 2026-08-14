@@ -1,7 +1,8 @@
 {
   "agents": [
     "Warden",
-    "Grid"
+    "Grid",
+    "Sentinel"
   ],
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "counterfactual": true,

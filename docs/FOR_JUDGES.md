@@ -73,6 +73,14 @@ the headline number *worse* than it could have been.
   own docs say range orders *approximate* limit orders; the literature
   characterises AMMs as market makers that do not update quotes. The earlier
   wording claimed more than that and was corrected.
+- **The toxicity rule withdraws about once every four hours on pure noise, and
+  every one of those is a false alarm** (P-7). On a driftless random walk there
+  are no arbitrageurs by construction, yet §3.4's imbalance arm fired **16 times
+  in 62 hours** — `|z| > 2.5` on **1.34%** of 44,802 samples, against **≈1.24%**
+  predicted by the null. The estimator is behaving exactly as specified; whether
+  `z_pull = 2.5` is the right threshold depends on how much genuine toxic flow
+  the real tape carries, which synthetic data cannot answer. It is spec §8's own
+  published value and we did **not** retune it to look better.
 
 ---
 

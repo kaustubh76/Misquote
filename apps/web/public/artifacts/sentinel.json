@@ -8,7 +8,7 @@
     "read_errors": 0,
     "rebalances": 0
   },
-  "agent": "Grid",
+  "agent": "Sentinel",
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "caveats": [
     "This is a replay, not a record. The policy was run over this pool's real trade history; no capital was deployed and no position existed. Published as assumption A6.",
@@ -20,28 +20,28 @@
   "provenance": {
     "every_number_derived": true,
     "hours_covered": 0.0,
-    "journal": "data/journal/grid.jsonl",
+    "journal": "data/journal/sentinel.jsonl",
     "journal_rows": 0
   },
-  "quote": "21.54% to 22.18% (median 21.99%, over 31h \u2014 too short to annualise honestly)",
+  "quote": "7.13% to 7.31% (median 7.22%, over 31h \u2014 too short to annualise honestly)",
   "quote_sufficient": true,
   "replay": {
-    "costs_quote": 18.0,
-    "fees_quote": 450.78286745,
+    "costs_quote": 32.0,
+    "fees_quote": 181.49644852,
     "hours": 62.22,
-    "in_range_fraction": 0.9998,
-    "lvr_quote_upper_bound": 0.13278241,
-    "mints": 1,
-    "net_quote": 432.65008504,
-    "pulls": 0,
-    "rebalances": 8,
+    "in_range_fraction": 0.9844,
+    "lvr_quote_upper_bound": 0.05328668,
+    "mints": 15,
+    "net_quote": 149.44316184,
+    "pulls": 14,
+    "rebalances": 1,
     "samples": 44802
   },
   "source": "synthetic",
   "verdicts": {
     "in_range": {
       "called": true,
-      "label": "PASS (100% of 44802)"
+      "label": "PASS (98% of 44802)"
     },
     "profitable": {
       "called": true,
