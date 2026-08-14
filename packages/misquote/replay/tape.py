@@ -50,11 +50,17 @@ class MemoryTape:
     it stands in for tests the wrong thing.
     """
 
-    __slots__ = ("_events", "_frontier")
+    __slots__ = ("_events", "_frontier", "_cursor")
 
     def __init__(self, events: Sequence[Event]) -> None:
         self._events = sorted(events, key=lambda e: e.key)
         self._frontier = -1
+        # Events are sorted and the frontier only moves forward, so the read
+        # position only moves forward too. Rescanning the list on every call
+        # makes a replay quadratic in tape length — 40 million comparisons for a
+        # four-thousand-event tape sampled every five seconds, which turns a
+        # sixty-replay quote into minutes of nothing happening.
+        self._cursor = 0
 
     @property
     def first_ts(self) -> int | None:
@@ -75,9 +81,15 @@ class MemoryTape:
                 "A replay that restarts its clock produces a plausible decision "
                 "sequence from a history that never happened."
             )
-        out = [e for e in self._events if self._frontier < e.ts <= t]
+        start = self._cursor
+        events = self._events
+        end = start
+        while end < len(events) and events[end].ts <= t:
+            end += 1
+
+        self._cursor = end
         self._frontier = t
-        return out
+        return events[start:end]
 
     def close(self) -> None:
         return None

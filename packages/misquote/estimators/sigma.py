@@ -162,7 +162,16 @@ class SigmaEstimator(TrailingEstimator):
     same price range.
     """
 
-    __slots__ = ("_decay", "_prior", "_bars", "_bar_index", "_bar_price", "_max_bars")
+    __slots__ = (
+        "_decay",
+        "_prior",
+        "_bars",
+        "_bar_index",
+        "_cache",
+        "_cache_at",
+        "_bar_price",
+        "_max_bars",
+    )
 
     def __init__(
         self,
@@ -181,6 +190,8 @@ class SigmaEstimator(TrailingEstimator):
         # without it a gap between trades is indistinguishable from a minute of
         # trading, which is exactly the error this estimator used to make.
         self._bars: deque[tuple[int, float]] = deque(maxlen=max_bars)
+        self._cache: float | None = None
+        self._cache_at = -1
         self._bar_index: int | None = None
         self._bar_price: float | None = None
 
@@ -216,7 +227,18 @@ class SigmaEstimator(TrailingEstimator):
     def ready(self) -> bool:
         return len(self._bars) >= MIN_BARS
 
-    def value(self) -> float:
+    def value(self) -> float:  # noqa: D401 — cached below
+        # The estimate cannot change unless an event arrived, and the policy
+        # samples every five seconds while a busy pool trades every twenty.
+        # Recomputing an EWMA over 1,440 bars on every sample makes a replay
+        # spend most of its time re-deriving a number it already had.
+        if self._cache_at == self.events_seen and self._cache is not None:
+            return self._cache
+        self._cache = self._compute()
+        self._cache_at = self.events_seen
+        return self._cache
+
+    def _compute(self) -> float:
         """Volatility per sqrt-hour.
 
         The EWMA is computed over one-minute bars, so its square root is a
