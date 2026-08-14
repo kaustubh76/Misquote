@@ -499,3 +499,80 @@ def test_q_spans_the_full_range_across_a_real_position() -> None:
     assert all(-1.0 <= q <= 1.0 for q in seen)
     # As price rises the position sells token0, so q only ever decreases.
     assert all(later <= earlier + 1e-12 for earlier, later in zip(seen, seen[1:], strict=False))
+
+
+# --- the daily cap has to actually be daily --------------------------------
+
+
+def test_the_rebalance_budget_refreshes_when_the_day_rolls_over() -> None:
+    """Spec section 8 caps rebalances *per day*, which is a rate limit.
+
+    The stored counter only ever increased, so the cap behaved as a limit for
+    the lifetime of the position: after eight moves the agent froze and could
+    never recentre again however far price drifted. A 62-hour replay is what
+    surfaced it — exactly eight moves, then 14.6% in range for the remainder.
+
+    Over a few hours the bug is invisible, which is why every test missed it
+    until a run was long enough to cross midnight.
+    """
+    from misquote.core.position import SECONDS_PER_DAY, rebalances_today
+    from misquote.core.types import PositionState
+
+    day_one = 1_700_000_000
+    spent = PositionState(
+        lower=-64400,
+        upper=-64000,
+        liquidity=10**22,
+        token_id=1,
+        minted_ts=day_one,
+        last_rebalance_ts=day_one,
+        rebalances_today=8,
+    )
+
+    assert rebalances_today(spent, day_one + 60) == 8, "same day: the budget is spent"
+    assert rebalances_today(spent, day_one + SECONDS_PER_DAY) == 0, "next day: refreshed"
+
+
+def test_the_budget_survives_a_pull_so_it_cannot_be_reset_by_churning() -> None:
+    """Otherwise an agent could clear its own daily limit by pulling and
+    re-minting, which is the opposite of what a churn cap is for."""
+    from misquote.core.position import apply_decision, rebalances_today
+    from misquote.core.types import Action, PositionState
+
+    day_one = 1_700_000_000
+    spent = PositionState(
+        lower=-64400,
+        upper=-64000,
+        liquidity=10**22,
+        token_id=1,
+        minted_ts=day_one,
+        last_rebalance_ts=day_one,
+        rebalances_today=8,
+    )
+    pulled = apply_decision(spent, Action.PULL, day_one + 120)
+    assert rebalances_today(pulled, day_one + 180) == 8
+
+
+def test_a_move_after_midnight_starts_counting_from_one() -> None:
+    from misquote.core.position import SECONDS_PER_DAY, apply_decision
+    from misquote.core.types import Action, PositionState
+
+    day_one = 1_700_000_000
+    spent = PositionState(
+        lower=-64400,
+        upper=-64000,
+        liquidity=10**22,
+        token_id=1,
+        minted_ts=day_one,
+        last_rebalance_ts=day_one,
+        rebalances_today=8,
+    )
+    moved = apply_decision(
+        spent,
+        Action.RECENTER,
+        day_one + SECONDS_PER_DAY,
+        lower=-64300,
+        upper=-63900,
+        liquidity=10**22,
+    )
+    assert moved.rebalances_today == 1

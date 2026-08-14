@@ -38,6 +38,7 @@ from __future__ import annotations
 import math
 
 from misquote.core.errors import AssumptionViolated
+from misquote.core.position import rebalances_today
 from misquote.core.tickmath import MAX_TICK, MIN_TICK, nearest_usable_tick
 from misquote.core.types import Action, Decision, Observation, Params, PoolMeta, Tick
 
@@ -339,7 +340,11 @@ def recenter_gates(
     # R3 — anti-churn: the cooldown and the daily budget.
     since_last = obs.t - obs.position.last_rebalance_ts
     cooled = since_last >= params.tau_cool_s
-    under_budget = obs.position.rebalances_today < params.max_rebalances_per_day
+    # Today's count, not the lifetime one. The stored counter never reset, so
+    # this gate used to freeze the agent permanently after eight moves — see
+    # `core.position.rebalances_today`.
+    spent_today = rebalances_today(obs.position, obs.t)
+    under_budget = spent_today < params.max_rebalances_per_day
     r3 = cooled and under_budget
 
     # R4 — never rebalance into flow we already believe is informed.
@@ -359,7 +364,7 @@ def recenter_gates(
         "R2": float(r2),
         "R3_seconds_since_rebalance": float(since_last),
         "R3_cooldown_s": float(params.tau_cool_s),
-        "R3_rebalances_today": float(obs.position.rebalances_today),
+        "R3_rebalances_today": float(spent_today),
         "R3": float(r3),
         "R4": float(r4),
     }

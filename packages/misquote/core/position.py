@@ -22,6 +22,33 @@ from __future__ import annotations
 
 from misquote.core.types import Action, PositionState, Tick
 
+SECONDS_PER_DAY = 86_400
+
+
+def rebalances_today(position: PositionState, now: int) -> int:
+    """How many moves count against today's budget.
+
+    Spec section 8 caps rebalances **per day**, which is a rate limit. The stored
+    counter only ever increased, so the cap behaved as a limit for the lifetime
+    of the position: after eight moves the agent froze and could never recentre
+    again however far price drifted.
+
+    A 62-hour replay is what surfaced it — the agent made exactly eight moves and
+    then held 14.6% in range for the remainder. Over a few hours the bug is
+    invisible, which is why it survived every test until a run was long enough to
+    cross a day boundary.
+
+    The day is the UTC calendar day of the last move. Rolling rather than
+    calendar windows would be defensible too, but calendar days are what "per
+    day" means to the operator reading the parameter.
+    """
+    if position.last_rebalance_ts <= 0:
+        return position.rebalances_today
+    if now // SECONDS_PER_DAY != position.last_rebalance_ts // SECONDS_PER_DAY:
+        return 0
+    return position.rebalances_today
+
+
 CLOSED = PositionState(
     lower=None,
     upper=None,
@@ -58,13 +85,15 @@ def apply_decision(
             # A pull is not a rebalance — the position is gone, not moved — but
             # the count survives it, so an agent cannot reset its own daily
             # limit by pulling and re-minting.
-            rebalances_today=current.rebalances_today,
+            rebalances_today=rebalances_today(current, ts),
         )
 
     if lower is None or upper is None:
         raise ValueError(f"{action} needs a target range")
 
     moving = current.in_market
+    # Continue today's count, or start a fresh one if the day has rolled over.
+    prior = rebalances_today(current, ts)
     return PositionState(
         lower=lower,
         upper=upper,
@@ -72,5 +101,5 @@ def apply_decision(
         token_id=token_id if token_id is not None else current.token_id,
         minted_ts=ts,
         last_rebalance_ts=ts,
-        rebalances_today=current.rebalances_today + 1 if moving else 0,
+        rebalances_today=prior + 1 if moving else 0,
     )

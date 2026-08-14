@@ -12,7 +12,6 @@
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "caveats": [
     "This is a replay, not a record. The policy was run over this pool's real trade history; no capital was deployed and no position existed. Published as assumption A6.",
-    "The quote is withheld: there is not enough history to state a range that describes the strategy rather than the sample.",
     "Adverse selection is reported as an upper bound (assumption A10): the measure is non-negative for every swap regardless of who traded, so it folds reversion round trips into what it calls adverse selection.",
     "Liquidity providers keep 66% of every fee on this pool \u2014 the protocol takes 34% (assumption P-1). Every fee figure here is net of that."
   ],
@@ -24,29 +23,29 @@
     "journal": "data/journal/warden.jsonl",
     "journal_rows": 0
   },
-  "quote": "not enough history to quote (0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon)",
-  "quote_sufficient": false,
+  "quote": "-2.89% to -2.51% (median -2.52%, over 31h \u2014 too short to annualise honestly)",
+  "quote_sufficient": true,
   "replay": {
-    "costs_quote": 10.0,
-    "fees_quote": 0.38034931,
-    "hours": 8.29,
-    "in_range_fraction": 0.6283,
-    "lvr_quote_upper_bound": 0.03588961,
+    "costs_quote": 48.0,
+    "fees_quote": 1.8184597,
+    "hours": 62.22,
+    "in_range_fraction": 0.4059,
+    "lvr_quote_upper_bound": 0.16929728,
     "mints": 1,
-    "net_quote": -9.6555403,
+    "net_quote": -46.35083758,
     "pulls": 0,
-    "rebalances": 4,
-    "samples": 5972
+    "rebalances": 23,
+    "samples": 44802
   },
   "source": "synthetic",
   "verdicts": {
     "in_range": {
       "called": true,
-      "label": "FAIL (63% of 5972)"
+      "label": "FAIL (41% of 44802)"
     },
     "profitable": {
       "called": true,
-      "label": "FAIL (0% of 59)"
+      "label": "FAIL (0% of 448)"
     }
   }
 }
