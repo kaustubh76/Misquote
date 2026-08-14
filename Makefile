@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase tearsheet web clean
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase tearsheet web clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -59,3 +59,9 @@ web:  ## next.js dev server
 clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+
+go-no-go:  ## the mainnet gate: runs every check and refuses to go green on an unverified one
+	$(UV) run python scripts/go_no_go.py
+
+go-no-go-fast:  ## same, without the test suites
+	$(UV) run python scripts/go_no_go.py --fast
