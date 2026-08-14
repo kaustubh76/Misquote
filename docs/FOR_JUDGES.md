@@ -170,9 +170,19 @@ the checking.**
 
 ## Three external claims we checked rather than repeated
 
-- **ERC-8183 is not a "hire interface."** It is escrowed *Agentic Commerce*:
-  `createJob` → `setBudget` → `fund`, plus an approve, plus settlement — three to
-  four transactions and a mandatory evaluator, not one click.
+- **ERC-8183 is not a "hire interface."** It is escrowed *Agentic Commerce*. With
+  the provider named at creation, the client's path to escrowed is **four
+  transactions** — `approve` → `createJob` → `setBudget` → `fund` — and
+  settlement adds the provider's `submit` and the evaluator's `complete`, so
+  **six end to end**. The `evaluator` is mandatory and cannot be zero; only it
+  may complete or reject. ERC-2771 meta-transactions are an optional extension,
+  not core, so nothing batches these away. It is not one click.
+- **And it is not on mainnet.** We had written "live on both BSC networks" in our
+  own verified-facts table. It is wrong: BNB Chain's announcement says the SDK is
+  live on **testnet**, with "mainnet coming soon", and the EIP is Draft with **no
+  reference deployments listed**. Corrected 15 Aug 2026. A marketplace that
+  shipped a mainnet hire button against an address nobody had seen would be doing
+  the precise thing this project is named after.
 - **The registry has 266,191 agents on BNB Chain**, more than any other chain by
   4×. That is the number every competitor will put on its landing page. On a
   random sample of 60 live agents, **33% clear every bar** we can check offline —
