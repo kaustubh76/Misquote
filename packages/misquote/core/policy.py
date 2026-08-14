@@ -202,6 +202,25 @@ def target_range(
 # --- section 3.4: the toxicity pull ----------------------------------------
 
 
+def gap_condition_holds(obs: Observation, params: Params, meta: PoolMeta) -> bool:
+    """Does the CEX-gap arm's *condition* hold on this sample?
+
+    Separate from `toxicity`'s verdict, which additionally requires the condition
+    to have persisted for `m` samples. A driver maintaining that streak needs the
+    condition, not the verdict — reading the verdict could never let the streak
+    reach `m`.
+
+    It lives here, as a function of the observation, because the alternative was
+    the engine parsing values back out of `Decision.reasons` by name. That worked
+    for Warden and broke the moment a second agent produced a decision without
+    those keys, which is precisely the coupling a marketplace claiming to run
+    any agent's policy cannot afford.
+    """
+    if obs.cex_gap is None:
+        return obs.lvr_rate > obs.fee_rate
+    return abs(obs.cex_gap) * 10_000.0 > meta.fee_bps + params.arb_cost_bps
+
+
 def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, dict[str, float]]:
     """Is the next flow likely to be informed?
 

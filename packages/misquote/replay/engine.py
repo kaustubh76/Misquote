@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from misquote.core.liquidity import get_amounts_for_liquidity
-from misquote.core.policy import decide, inventory_imbalance
+from misquote.core.policy import decide, gap_condition_holds, inventory_imbalance
 from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import (
     Decision,
@@ -162,9 +162,17 @@ class Engine:
         # the gap condition to persist for m samples while the imbalance arm
         # fires instantly, so counting the overall verdict would let a single
         # imbalance spike satisfy the other rule's persistence requirement.
-        gap_held = _gap_condition_held(decision)
+        # Computed from the observation the engine built, not read back out of
+        # the decision's reason strings. Introspecting `Decision.reasons` by name
+        # coupled this to Warden's exact key set, and it broke the moment a
+        # second agent returned a decision without those keys.
+        gap_held = gap_condition_holds(observation, self.params, self.meta)
         self._toxic_streak = self._toxic_streak + 1 if gap_held else 0
-        self._clear_streak = 0 if decision.reason("toxic") > 0.0 else self._clear_streak + 1
+        is_toxic = (
+            self._toxic_streak >= self.params.m_toxic
+            or abs(observation.swap_imbalance_z) > self.params.z_pull
+        )
+        self._clear_streak = 0 if is_toxic else self._clear_streak + 1
 
         self._last_decision = decision
         self.decisions += 1
@@ -251,19 +259,6 @@ class Engine:
         """
         self._fee_rate_current = current
         self._fee_rate_target = target
-
-
-def _gap_condition_held(decision: Decision) -> bool:
-    """Did the gap *condition* hold this sample, regardless of the streak?
-
-    `gap_toxic` is the rule's verdict, which already requires m consecutive
-    samples — so reading only that could never let the streak reach m. What
-    advances the streak is the underlying condition: the CEX gap exceeding the
-    arbitrage cost, or, when the feed is down, LVR outrunning fees.
-    """
-    if decision.reason("using_onchain_fallback") > 0.0:
-        return decision.reason("lvr_rate") > decision.reason("fee_rate")
-    return decision.reason("cex_gap_bps") > decision.reason("gap_threshold_bps")
 
 
 def _log_price(sqrt_price_x96: int) -> float:
