@@ -195,6 +195,74 @@ def check_tape() -> Check:
     return Check("30-day tape", PASS, f"{count:,} swaps spanning {days:.1f} days")
 
 
+def check_agent_advantage_report() -> Check:
+    """The TermiX track's actual requirement, as a check that runs.
+
+    The criterion recorded in this repo for weeks — "80% = quality + proof" on
+    the architecture board — was wrong. The real one asks for an **Agent
+    Advantage Report comparing at least three real tasks run with and without an
+    agent**. A checklist that executes should know that, or the one requirement
+    worth $10,000 stays a thing someone remembers rather than a thing that fails.
+
+    The word this gate turns on is **real**. The report generates happily from a
+    synthetic tape and says so on every line; that is a pipeline, not evidence,
+    so it reports amber until the tape is chain-sourced.
+    """
+    artifact = REPO / "apps" / "web" / "public" / "artifacts" / "advantage.json"
+    if not artifact.exists():
+        return Check(
+            "agent advantage report",
+            UNVERIFIED,
+            "no report has been generated",
+            "uv run python scripts/advantage.py --synthetic 9000",
+        )
+
+    import json
+
+    try:
+        payload = json.loads(artifact.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return Check("agent advantage report", FAIL, f"unreadable: {error}")
+
+    tasks = payload.get("tasks", [])
+    if len(tasks) < 3:
+        return Check(
+            "agent advantage report",
+            FAIL,
+            f"{len(tasks)} task(s); the track requires at least three",
+            "each task needs its own DIY baseline, not one baseline relabelled",
+        )
+
+    baselines = {t.get("without_agent", "") for t in tasks}
+    if len(baselines) < len(tasks):
+        return Check(
+            "agent advantage report",
+            FAIL,
+            "two tasks share a baseline",
+            "three tasks with one DIY column is one task relabelled",
+        )
+
+    if payload.get("source") != "chain":
+        return Check(
+            "agent advantage report",
+            UNVERIFIED,
+            f"{len(tasks)} tasks, but the tape is {payload.get('source')!r}",
+            'the track says "three real tasks" — run the backfill, then regenerate',
+        )
+
+    quotable = payload.get("summary", {}).get("quotable", 0)
+    if quotable < len(tasks):
+        return Check(
+            "agent advantage report",
+            UNVERIFIED,
+            f"{quotable}/{len(tasks)} tasks cleared the sample floor",
+            "extend the tape until every task can be quoted",
+        )
+    return Check(
+        "agent advantage report", PASS, f"{len(tasks)} tasks on a chain tape, all quotable"
+    )
+
+
 def check_signer_configured(mainnet: bool) -> Check:
     if not mainnet:
         return Check("signer", PASS, "not checked (add --mainnet)")
@@ -278,6 +346,7 @@ def main() -> int:
         check_published_assumptions(),
         check_provisional_constants(),
         check_tape(),
+        check_agent_advantage_report(),
         check_burn_in(),
         check_signer_configured(args.mainnet),
         check_position_cap(args.mainnet),

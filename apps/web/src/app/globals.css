@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+/*
+ * Tokens.
+ *
+ * Every colour is declared once, with both theme values inside `light-dark()`.
+ * That is not a stylistic preference — it is the fix for the bug this file
+ * replaces. The old page defined ten tokens for dark and re-declared only six
+ * of them under `prefers-color-scheme: light`, so `--good`, `--bad` and `--warn`
+ * kept their dark values on a near-white background. `--good: #5fb87a` on
+ * `#fbfbfa` measures 2.35:1, which fails WCAG AA — and it was the colour
+ * carrying "this position made money".
+ *
+ * With `light-dark()` a token cannot be defined for one theme and forgotten in
+ * the other: there is one declaration and it has two arms. Omitting an arm is a
+ * syntax error, not a silent contrast failure.
+ *
+ * Ratios below were computed, not estimated, and are asserted by
+ * `tests/web/test_theme_tokens.py`.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces. */
+  --bg: light-dark(#fbfbfa, #0b0d10);
+  --panel: light-dark(#ffffff, #14171c);
+  --panel-2: light-dark(#f5f6f7, #1b1f26);
+  --line: light-dark(#e3e3e0, #232830);
+  --line-strong: light-dark(#cfd0cd, #333a44);
+
+  /* Text. AA against --panel in both themes:
+     ink 17.96/14.90 · dim 6.09/6.97 · faint 5.23/5.07
+     --faint failed in *both* themes before (3.15 light, 3.79 dark) and carries
+     the pool address and the footer, so it was darkened on both arms. */
+  --ink: light-dark(#14171c, #e8eaed);
+  --dim: light-dark(#5b636d, #9aa2ad);
+  --faint: light-dark(#656d78, #808995);
+
+  /* Judgement colours. AA against --panel: good 5.87/7.38 · bad 6.54/5.36
+     · warn 5.93/7.99. Never used as the only signal — see Pill. */
+  --good: light-dark(#157347, #5fb87a);
+  --bad: light-dark(#b3261e, #d96b6b);
+  --warn: light-dark(#8a5a00, #d9a441);
+  --neutral: light-dark(#5b636d, #9aa2ad);
+
+  /* Tints for pill fills. Foreground-on-tint clears AA in both themes:
+     good 5.19/6.62 · bad 5.72/5.07 · warn 5.29/7.20 · neutral 5.38/6.41 */
+  --good-bg: light-dark(#e7f4ec, #16241b);
+  --bad-bg: light-dark(#fdeceb, #2a1719);
+  --warn-bg: light-dark(#fbf1dd, #26200f);
+  --neutral-bg: light-dark(#f0f1f2, #1b1f26);
+
+  --good-line: light-dark(#a7d5bb, #2f5a41);
+  --bad-line: light-dark(#f0b6b2, #6b3634);
+  --warn-line: light-dark(#e0c48a, #5c4a1f);
+  --neutral-line: light-dark(#d4d7db, #333a44);
+
+  /* Interaction. Focus clears 3:1 non-text against --bg: 6.47 light, 7.73 dark. */
+  --focus: light-dark(#1d4ed8, #7aa2f7);
+  --accent: light-dark(#1d4ed8, #8ab4f8);
+
+  /* Type. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.125rem;
+
+  /* Space + shape. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+
+  --r-sm: 3px;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+/* An explicit choice pins `color-scheme`, which is what `light-dark()` reads.
+   Absent the attribute the root keeps `light dark` and follows the OS. Three
+   states — auto, light, dark — with one attribute and no duplicated palette. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Expose the tokens to Tailwind. `inline` matters: it makes the generated
+   utilities reference `var(--bg)` rather than baking in a resolved colour, so
+   `bg-bg` follows the theme instead of freezing at build time. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-warn: var(--warn);
+  --color-neutral: var(--neutral);
+
+  --color-good-bg: var(--good-bg);
+  --color-bad-bg: var(--bad-bg);
+  --color-warn-bg: var(--warn-bg);
+  --color-neutral-bg: var(--neutral-bg);
+
+  --color-good-line: var(--good-line);
+  --color-bad-line: var(--bad-line);
+  --color-warn-line: var(--warn-line);
+  --color-neutral-line: var(--neutral-line);
+
+  --color-focus: var(--focus);
+  --color-accent: var(--accent);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  a {
+    color: var(--accent);
+    text-underline-offset: 0.2em;
+  }
+
+  /* Visible only for keyboard users, and on every focusable thing — including
+     the scroll regions that wrap wide tables. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+
+  /* Every figure in this product is meant to be compared against the one above
+     it. Proportional digits make columns of numbers shift between renders. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Skip link: off-screen until focused, then pinned top-left. */
+  .skip-link {
+    position: absolute;
+    left: var(--s-2);
+    top: calc(-1 * var(--s-8));
+    z-index: 100;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    padding: var(--s-2) var(--s-3);
+    transition: top 120ms ease;
+  }
+  .skip-link:focus {
+    top: var(--s-2);
+  }
+}

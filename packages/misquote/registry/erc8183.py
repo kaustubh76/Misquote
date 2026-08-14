@@ -11,11 +11,19 @@ not. BNB Chain's announcement of the BNBAgent SDK says it is live on BNB Chain
 "**mainnet coming soon**". The EIP is **Draft**, created February 2026, and lists
 **no reference deployment addresses at all**.
 
-So there is no address here. `HireFlow` builds and prices the transaction
-sequence from the interface; it cannot send anything, and there is deliberately
-no code path that could. A marketplace shipping a mainnet hire button against an
-address nobody had seen would be doing the exact thing this project is named
-after — and this module was written the day we caught ourselves about to.
+This module was written the day we caught ourselves about to ship a mainnet hire
+button against an address nobody had seen. It shipped with `JOB_ESCROW` empty.
+
+**It has one entry now**, and it earned it: TermiX's own AACP — the sponsor of
+the track this work serves — runs a `TermixEscrow` on BSC mainnet, and it was
+verified on chain rather than copied from a table. `JOB_ESCROW_EVIDENCE` records
+what was checked *and what was not*: the escrow is real, upgradeable, and settles
+in the same USDT this codebase already records, but nobody has read an ERC-8183
+job back out of it, so it is a verified escrow rather than a verified ERC-8183
+escrow. The rule is **no entry without evidence**, and a test enforces it.
+
+Nothing here can send. `steps()` builds and prices the sequence; there is no
+signer, no web3, and deliberately no code path that could acquire one.
 
 ## The count, derived rather than asserted
 
@@ -76,14 +84,49 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# The EIP is Draft and publishes no deployment addresses; BNB's implementation is
-# testnet-only with "mainnet coming soon". This is a mapping with nothing in it
-# on purpose, so that anything wanting an address has to fail loudly rather than
-# reach for a plausible-looking constant.
+# The EIP is Draft and publishes no reference deployments, and BNB's own SDK is
+# testnet-only. This mapping was empty for exactly that reason.
 #
-# When an address is verified on chain — name, interface, and a job read back —
-# it goes here with the evidence, the way the ERC-8004 registries did.
-JOB_ESCROW: dict[int, str] = {}
+# It has one entry now, and the rule that governs it is stricter than "we found
+# an address somewhere": **no entry without evidence**, enforced by a test that
+# refuses any key missing from `JOB_ESCROW_EVIDENCE`. A table on a vendor's
+# website is a claim; bytecode at an address is a verification.
+JOB_ESCROW: dict[int, str] = {
+    56: "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
+}
+
+# What was actually checked, and — more importantly — what was not.
+#
+# Recorded rather than summarised as a boolean because the gap between "this is a
+# live escrow that settles in the token we already use" and "we have exercised
+# ERC-8183's job interface here" is precisely the kind of slippage this project
+# exists to catch. The first is verified below. The second is not.
+JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
+    56: (
+        "TermiX AACP `TermixEscrow` (USDT). Address appears in TermiX's own live "
+        "config at /api/v1/config/contracts, and our recorded snapshot matched it "
+        "with zero mismatches across 16 addresses.",
+        "EIP-1967 proxy: 170 bytes of code whose bytecode contains the 1967 "
+        "implementation slot constant; implementation 0xbc8225ee...1e854 holds "
+        "17,941 bytes.",
+        "`settlementToken()` returns 0x55d3...7955 — read off the escrow itself, "
+        "and byte-identical to our USDT_MAINNET and to token0 of the flagship pool.",
+        "TermiX's IdentityRegistry is 0x8004A169...a432, byte-identical to the "
+        "ERC-8004 registry this codebase already reads, whose `name()` answers "
+        "'AgentIdentity'.",
+        "NOT VERIFIED: the ERC-8183 job interface itself. `nextJobId()`, "
+        "`jobCount()` and `jobs(uint256)` all revert, so the accessors are named "
+        "something else and no job has been read back. Until one has, this is a "
+        "verified escrow, not a verified ERC-8183 escrow.",
+        "SECURITY: `owner()` returns 0x1095ded9...5e42. The contract holding "
+        "escrowed funds is upgradeable by that owner, so the code a job is "
+        "escrowed under is not the code it may be settled under. That is a "
+        "property of the venue, not a defect, but a marketplace that routes user "
+        "funds through it should say so rather than discover it later.",
+        "NO TESTNET: TermiX documents chains 56 and 8453 only. Anything that "
+        "writes runs on a fork first.",
+    ),
+}
 
 # Six states, per the EIP. Terminal states are the last three.
 STATES = ("Open", "Funded", "Submitted", "Completed", "Rejected", "Expired")
@@ -227,7 +270,19 @@ def render() -> str:
         "  ERC-2771 meta-transactions are an optional extension, not core, so",
         "  nothing in the standard batches these away.",
         "",
-        "  No deployment address: the EIP is Draft with no reference deployments,",
-        "  and BNB's implementation is testnet-only. This flow is unsigned.",
     ]
+    if JOB_ESCROW:
+        chains = ", ".join(str(c) for c in sorted(JOB_ESCROW))
+        lines += [
+            f"  Escrow verified on chain {chains}. What was checked, and what was",
+            "  not, is in JOB_ESCROW_EVIDENCE — including that nobody has yet read",
+            "  an ERC-8183 job back out of it, and that the contract holding",
+            "  escrowed funds is upgradeable by its owner.",
+        ]
+    else:
+        lines += [
+            "  No deployment address: the EIP is Draft with no reference",
+            "  deployments. Nothing here can be sent anywhere.",
+        ]
+    lines.append("  This flow is unsigned either way: there is no key in this module.")
     return "\n".join(lines)

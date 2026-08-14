@@ -139,6 +139,44 @@ TESTNET_MIRROR_POOL = PoolRef(
     label="PancakeSwap v3 WBNB/BUSD 0.05% (chapel mirror)",
 )
 
+# Tesla xStock — a *tokenized equity*, and the reason this project can say
+# anything about the equities category at all.
+#
+# Backed issues xStocks as BEP-20 on BNB Chain and they trade on PancakeSwap, so
+# an equity venue is the same v3 pool the tick math, the LVR accountant and all
+# three agents already handle. Nothing in the engine changes; only this address
+# does. That makes equities a fourth generality proof rather than a subsystem.
+#
+# **Every field below was read off chain by `scripts/find_equity_pool.py`**,
+# which resolves the pool through `factory.getPool()` and reads the token's own
+# `symbol()` back to check it against the source it came from.
+#
+# `fee_protocol = 0` is the finding. Our WBNB/USDT pool has 3400 — PancakeSwap
+# taking 34% of every fee — and this one, on the same DEX, takes nothing: LPs
+# keep the whole 0.25%. Two pools on one venue with different protocol fees is
+# why `PoolMeta.fee_protocol` has no default and must be read. Hardcoding
+# Pancake's 3400 would understate LP earnings here by a third; hardcoding
+# Uniswap's 0 would overstate them by 1.52x on the other. The habit of reading it
+# was worth exactly one line of code and it is now load-bearing twice.
+#
+# Thin, and said plainly: this is the *only* xStocks v3 pool on BSC with real
+# liquidity. NVDAx and AAPLx are bridged and have no pool at any fee tier, and
+# the 1.00% TSLAx/USDT pool exists with zero liquidity — a pool on paper.
+TSLAX_MAINNET = "0x8Ad3c73F833d3f9a523ab01476625F269AeB7cf0"
+
+EQUITY_POOL = PoolRef(
+    chain_id=BSC_MAINNET,
+    address="0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+    token0=USDT_MAINNET,  # 0x55d3... sorts before 0x8ad3..., so USDT is token0
+    token1=TSLAX_MAINNET,
+    dec0=18,
+    dec1=18,
+    fee_pips=2500,
+    tick_spacing=50,
+    fee_protocol=0,  # read from slot0: LPs keep the whole fee on this pool
+    label="PancakeSwap v3 TSLAx/USDT 0.25%",
+)
+
 POOLS: dict[int, PoolRef] = {
     BSC_MAINNET: TARGET_POOL,
     BSC_TESTNET: TESTNET_MIRROR_POOL,

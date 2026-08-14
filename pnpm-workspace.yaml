@@ -1,0 +1,4 @@
+# Scoped to apps/ deliberately. `packages/` is Python (uv/hatchling) and must not
+# be globbed into the node workspace.
+packages:
+  - "apps/*"

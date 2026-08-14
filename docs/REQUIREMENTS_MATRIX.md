@@ -393,6 +393,33 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-8 · Two pools on the same DEX, two different protocol fees — read it, never model it
+
+**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool
+(`slot0.feeProtocol = 3400`), where Uniswap's is off by default, and that reconstructing fees from
+volume overstates LP earnings by **1.52×**.
+
+Resolving a tokenized-equity venue for the TermiX track's equities category turned up the other half
+of that lesson. **TSLAx/USDT 0.25%** (`0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492`, read via
+`scripts/find_equity_pool.py`) reports **`feeProtocol = 0`**. Same DEX, same factory, same
+contracts — and LPs keep the **entire** fee.
+
+| Pool | `feeProtocol` | LP keeps | Effective fee |
+|---|---|---|---|
+| WBNB/USDT 0.05% | **3400** | 66% | 0.033% |
+| TSLAx/USDT 0.25% | **0** | 100% | 0.250% |
+
+So the protocol fee is not a property of PancakeSwap; it is a property of **the pool**. Either
+constant would have been wrong somewhere: hardcoding Pancake's 3400 understates LP earnings on the
+equity pool by a third, and hardcoding Uniswap's 0 overstates them by 1.52× on the flagship. This is
+why `PoolMeta.fee_protocol` was given **no default** and must be supplied — a decision that cost one
+line and has now been load-bearing twice, in opposite directions.
+
+**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the
+*only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and
+have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity — a
+pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.
+
 ### P-7 · The toxicity rule's false-positive rate is measurable, and it is not zero
 
 Once V-11 made §3.4's imbalance arm fire at all, it became possible to ask how often it fires when
@@ -484,11 +511,42 @@ in the UI, so a reader can disagree with the number without having to reverse-en
 
 | Item | Status |
 |---|---|
-| Prize split verified in BNB Discord | **OPEN** |
-| ERC-8004 registry population counted on BscScan (decision rule: <~15 real agents → demote third-party auto-cards to a plain "registry view") | **OPEN** |
-| ERC-8183 hire call invoked from an external script | **OPEN** |
+| Prize split verified in BNB Discord | **PARTLY RESOLVED.** Main track **$30,000 USDT**, TermiX partner track **$10,000 USDT**, Altana 50,000 XP, PancakeSwap 1,000 CAKE — all from BNB Chain's own announcement. The **$6K/$3K/$1K** placement split on the architecture board is still **unverified** and should not be repeated. |
+| ERC-8004 registry population counted on BscScan (decision rule: <~15 real agents → demote third-party auto-cards to a plain "registry view") | **RESOLVED — 266,191 agents; rule inverted.** Answered in the E table above and left reading OPEN here for weeks, which is its own small lesson: a checklist kept in a second place goes stale in the second place. |
+| ERC-8183 hire call invoked from an external script | **STILL OPEN, and narrowed.** The escrow is now verified on chain (`registry/aacp.py`, matrix E) and `JOB_ESCROW[56]` carries it with evidence. But nobody has read a job back out of it — `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert — so this is a verified escrow, not a verified ERC-8183 escrow, and the item stays open until a job round-trips on a fork. |
 | Agent Studio CLI hello-world deployed | **OPEN** |
 | Mission Control micropayment discrepancy (49 vs 75) | **RESOLVED — use 75 (242 logged)** |
+
+### The TermiX track criterion we had recorded was wrong — corrected 15 Aug 2026
+
+The only note on TermiX's judging anywhere in this repo lived inside
+`STUDIO_TERMINAL_v3_FINAL.excalidraw:3780`: *"TERMIX: 80% = quality + proof → tearsheet"*. It is not
+the criterion, and being buried in a drawing meant nothing ever checked it.
+
+From BNB Chain's own announcement, the actual requirement:
+
+> **$10,000 USDT.** *"Does hiring an agent on your marketplace beat doing the job yourself, and can
+> you prove it?"* Entrants must provide an **"Agent Advantage Report comparing at least three real
+> tasks run with and without an agent"**, with **"depth in trading, equities, and security
+> categories"** weighted highest.
+
+Three things follow, and none of them were true when this was found:
+
+1. **"With and without an agent" was computed and thrown away.** `core/policy.py:passive_policy` and
+   `replay/driver.py:passive_result` had existed since Step 7 and were used *only* by `tests/`.
+   `Tearsheet` had no comparison field; `scripts/showcase.py` never ran the baseline. The answer to
+   the judged question was a unit-test fixture. Now `scripts/advantage.py` and
+   `tearsheet/advantage.py`, with a test that re-runs the engine and demands **exact** equality so
+   no figure can be a literal.
+2. **Three agents on one task is not three tasks.** Warden, Grid and Sentinel are three approaches
+   to one job. The report's three tasks have three genuinely different baselines — mint-and-forget,
+   the same agent with its withdrawal ablated, and pick-the-deepest-pool — and a test asserts they
+   are distinct, because three tasks sharing a baseline is one task relabelled.
+3. **"Real" tasks need a real tape.** Ours is synthetic and badged as such. The keyed `BSC_RPC_URL`
+   therefore blocks the track's core requirement, not merely two amber gates.
+
+**Equities** was a category we could not claim at all until xStocks turned out to trade on
+PancakeSwap — see **P-8** for the venue and the protocol-fee finding it produced.
 
 ### The 49-vs-75 resolution
 

@@ -102,7 +102,13 @@ misquote/
 - **Agents/backend:** Python 3.11 (ports from PolyLambda + Mission Control),
   `web3.py`, asyncio loops; SQLite for hackathon persistence (Postgres only if
   it hurts).
-- **Front-end:** Next.js + Tailwind, wagmi/viem, RainbowKit connect.
+- **Front-end:** Next.js + Tailwind ✅ (`apps/web`, React + TypeScript, vitest).
+  ~~wagmi/viem, RainbowKit connect~~ — **not built, and not currently needed.**
+  The page reads precomputed JSON artifacts and never imports a wallet library,
+  which is what lets `make web-static` serve the whole thing from
+  `python3 -m http.server` with every backend process down — the state a demo is
+  most likely to find them in. A wallet connect returns only when there is a
+  personalised quote to connect *for*. Corrected 15 Aug 2026.
 - **Chain:** BSC mainnet + testnet; PancakeSwap v3 (Uniswap v3 math),
   Venus/Lista reads; NonfungiblePositionManager for LP ops.
 - **Fork lab:** Foundry (anvil mainnet forks) for vetting PoCs.

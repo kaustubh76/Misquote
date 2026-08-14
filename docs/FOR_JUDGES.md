@@ -40,8 +40,11 @@ Each of these is a test you can run, not a claim.
 | The kill switch stops a real mint | Against a live signer on a fork, not a stub | `tests/chain/test_position_lifecycle.py` |
 | The engine runs agents it was not written for | Three policies — A-S market making, a fixed ladder, threshold de-risk — through one engine, one tape, one cost model, one accountant | `tests/agents/` |
 | No gate is wired to nothing | Every toxicity arm is asserted to reach a non-zero value in a real run, and a threshold above its own ceiling refuses to construct | `tests/agents/test_sentinel.py` |
+| The advantage report contains no typed-in numbers | The engine is re-run independently and **exact** equality demanded — not approximate | `tests/tearsheet/test_advantage.py` |
+| The DIY baseline is not a different program | Both columns are one `ReplayDriver` with `policy=` swapped; same tape, same costs, same accountant | same |
+| We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 
-**411 tests: 395 offline, 16 against a live chain or a fork.**
+**455 tests: 436 offline, 19 against a live chain or a fork.**
 
 ---
 
@@ -81,6 +84,69 @@ the headline number *worse* than it could have been.
   `z_pull = 2.5` is the right threshold depends on how much genuine toxic flow
   the real tape carries, which synthetic data cannot answer. It is spec §8's own
   published value and we did **not** retune it to look better.
+
+---
+
+## The TermiX track, and the criterion we had recorded wrongly
+
+TermiX asks for an **"Agent Advantage Report comparing at least three real tasks
+run with and without an agent"**, weighting *trading, equities and security*
+highest. The only note on that criterion anywhere in this repo said
+*"80% = quality + proof → tearsheet"* — and it lived inside a drawing file, where
+nothing ever checked it.
+
+Finding the real one exposed something worse. **The "without an agent" baseline
+had existed since Step 7 and was used only by tests.** `passive_policy` and
+`passive_result` were both built, both correct, both invisible: `Tearsheet` had no
+comparison field and the showcase never ran them. We computed the answer to the
+judged question in a unit test and threw it away.
+
+```bash
+make advantage-demo      # three tasks, both ways, on a labelled synthetic tape
+make go-no-go            # now gates on the report too, and says amber until it is real
+```
+
+**The baseline is not a different program.** Both columns are the same
+`ReplayDriver` with `policy=` swapped — same tape, same cost model, same LVR
+accountant, same quote machinery. The usual way to flatter an agent is to
+implement its baseline separately and charge it differently; that is structurally
+unavailable here, and a test asserts the consequence.
+
+| Task | Without an agent | With an agent |
+|---|---|---|
+| **Earn** — fees on a position | mint once at the same width, never touch it | Warden |
+| **Protect** — don't get picked off | *the same agent with its withdrawal ablated* | Sentinel |
+| **Choose** — which pool to enter | pick the deepest pool | the §3.4 flow screen |
+
+Three tasks sharing one baseline would be one task relabelled, so a test asserts
+the three are distinct — and task 2's baseline is an ablation rather than a
+different strategy, so the comparison isolates the withdrawal decision and
+nothing else.
+
+**Equities: TSLAx/USDT.** Backed's xStocks trade on PancakeSwap, so a tokenized
+equity is the same v3 pool the engine already prices — a fourth generality proof
+after Grid and Sentinel, costing one address. Resolving it produced **P-8**: that
+pool reports `feeProtocol = 0` where the flagship reports `3400`. Two pools, one
+DEX, and no constant is right for both — which is why `PoolMeta.fee_protocol` has
+no default and must be read. It is thin and we say so: it is the *only* xStocks
+v3 pool on BSC with real liquidity, NVDAx and AAPLx have no pool at all, and the
+1.00% TSLAx pool exists with zero liquidity and was refused rather than quoted.
+
+**Security: the sponsor's own escrow, verified rather than trusted.** TermiX's
+AACP builds on ERC-8004 and ERC-8183 — and their `IdentityRegistry` is
+`0x8004A169…a432`, **byte-identical to the contract this codebase already read**.
+Their `TermixEscrow` is now in `JOB_ESCROW[56]`, but only with
+`JOB_ESCROW_EVIDENCE` recording what was checked *and what was not*: it is an
+EIP-1967 proxy over 17,941 bytes, `settlementToken()` returns our own USDT, and
+**nobody has read an ERC-8183 job back out of it**, so it is a verified escrow
+rather than a verified ERC-8183 escrow. It is also **upgradeable by its owner** —
+escrowed funds sit behind code that can be replaced — which is a property of the
+venue a marketplace routing user money through it should disclose rather than
+discover.
+
+**And the report is not yet "real".** It runs on a synthetic tape, badged on every
+line. The keyed `BSC_RPC_URL` therefore blocks this track's core requirement, not
+merely two amber gates.
 
 ---
 

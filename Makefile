@@ -1,10 +1,16 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase tearsheet web clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo tearsheet web web-build web-static web-test clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
 ENV    ?= testnet
 N      ?= 2000
+# The advantage report cuts its tape into 20 sub-windows and refuses to quote a
+# window shorter than the 24h policy horizon (ranges.MIN_WINDOW_HOURS). 9,000
+# synthetic swaps span ~62h, so every window came back short and all three tasks
+# were withheld. This is the tape length that clears the floor — the floor
+# itself is not negotiable.
+ADV_N  ?= 45000
 
 help:  ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -66,5 +72,20 @@ showcase:  ## replay the agents on the indexed tape and write the web artifacts
 showcase-demo:  ## same, on a clearly-labelled synthetic tape (no chain data needed)
 	$(UV) run python scripts/showcase.py --synthetic 9000
 
-web:  ## serve the static card page against whatever artifacts exist
-	cd apps/web/public && python3 -m http.server 8080
+advantage:  ## hired agent vs doing it yourself, on the indexed tape
+	$(UV) run python scripts/advantage.py
+
+advantage-demo:  ## same, on a synthetic tape long enough to clear the 24h window floor
+	$(UV) run python scripts/advantage.py --synthetic $(ADV_N)
+
+web:  ## the front-end in dev mode, http://localhost:3000
+	cd apps/web && pnpm dev
+
+web-build:  ## static export -> apps/web/out (no node process needed to serve it)
+	cd apps/web && pnpm build
+
+web-static:  ## serve the export the way a judge with no toolchain would
+	cd apps/web/out && python3 -m http.server 8080
+
+web-test:  ## vitest: the component layer
+	cd apps/web && pnpm test
