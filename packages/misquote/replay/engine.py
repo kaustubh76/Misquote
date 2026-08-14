@@ -14,6 +14,7 @@ sequence is byte-identical to the replay driver's.
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -85,6 +86,8 @@ class Engine:
         "_last_decision",
         "_fee_rate_current",
         "_fee_rate_target",
+        "_fee_window",
+        "_fee_sum",
         "decisions",
     )
 
@@ -108,6 +111,12 @@ class Engine:
         self._last_decision: Decision | None = None
         self._fee_rate_current = 0.0
         self._fee_rate_target = 0.0
+        # Trailing pool-wide LP fee flow. It lives here rather than in each
+        # driver because it lived in both, and test L1 caught them diverging the
+        # moment one was optimised and the other was not. Duplicated state
+        # between the live and replay paths is exactly what L1 exists to find.
+        self._fee_window: deque[tuple[int, float]] = deque()
+        self._fee_sum = 0.0
         self.decisions = 0
 
     # --- state the driver owns and hands back ------------------------------
@@ -152,6 +161,8 @@ class Engine:
             self.kappa.ingest(event)
             if self._lvr is not None:
                 self._lvr.absorb(event)
+
+        self._absorb_fee_flow(events, market)
 
         observation = self._observe(market)
         decision = decide(observation, self.params, self.meta)
@@ -250,15 +261,50 @@ class Engine:
         notional = abs(value0 - value1) / 2.0
         return q, total, notional
 
-    def set_fee_rates(self, current: float, target: float) -> None:
-        """Trailing fee-rate-per-unit-liquidity for the current and target ranges.
+    def _absorb_fee_flow(self, events: Sequence[Event], market: MarketState) -> None:
+        """Keep a trailing window of pool-wide LP fees, net of the protocol cut.
 
-        Two of them because R2 asks for a *gain*: what the target range would
-        earn against what staying put would earn. One rate cannot express a
-        difference.
+        The cut comes from each Swap event rather than from a modelled
+        percentage (matrix P-1), so it stays right even if governance changes the
+        parameter mid-history.
         """
-        self._fee_rate_current = current
-        self._fee_rate_target = target
+        for event in events:
+            if event.amount0 > 0:
+                gross, cut, in_quote = event.amount0, event.protocol_fee0, False
+            elif event.amount1 > 0:
+                gross, cut, in_quote = event.amount1, event.protocol_fee1, True
+            else:
+                continue
+            total = gross * self.meta.fee_pips // 1_000_000
+            lp_fee = max(0, total - cut)
+            value = lp_fee / 10.0 ** (self.meta.dec1 if in_quote else self.meta.dec0)
+            if not in_quote:
+                value *= ((event.sqrt_price_x96 / Q96) ** 2) * 10.0 ** (
+                    self.meta.dec0 - self.meta.dec1
+                )
+            self._fee_window.append((event.ts, value))
+            self._fee_sum += value
+
+        cutoff = market.t - int(self.params.window_hours * 3600)
+        while self._fee_window and self._fee_window[0][0] < cutoff:
+            self._fee_sum -= self._fee_window.popleft()[1]
+
+        # A running total, not a sum over the window per sample. The naive form
+        # is O(window) per decision — 22 million generator evaluations on a
+        # three-thousand-swap tape, 22% of runtime re-adding unchanged numbers.
+        if not self._fee_window or market.pool_liquidity <= 0:
+            self._fee_rate_current = self._fee_rate_target = 0.0
+            return
+
+        span_hours = max(1e-6, (market.t - self._fee_window[0][0]) / 3600.0)
+        pool_rate = self._fee_sum / span_hours / market.pool_liquidity
+
+        # The target range is not open yet, so the best trailing evidence for
+        # what it would earn is the pool's own rate per unit of liquidity. The
+        # current range earns that only while price is inside it.
+        in_range = self._position.in_market and self._position.contains(market.tick)
+        self._fee_rate_current = pool_rate if in_range else 0.0
+        self._fee_rate_target = pool_rate
 
 
 def _log_price(sqrt_price_x96: int) -> float:

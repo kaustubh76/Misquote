@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from misquote.core.liquidity import get_liquidity_for_amounts
 from misquote.core.position import apply_decision
-from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
+from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Action, Decision, Event, Params, PoolMeta
 from misquote.replay.engine import Engine, MarketState
 
@@ -87,8 +87,6 @@ class ReplayDriver:
         "capital_quote",
         "eps",
         "_result",
-        "_fee_window",
-        "_window_start",
     )
 
     def __init__(
@@ -106,13 +104,6 @@ class ReplayDriver:
         self.capital_quote = capital_quote
         self.eps = self.params.eps_liquidity_share
         self._result = ReplayResult()
-        # Trailing pool-wide fee flow, used to estimate what a *target* range
-        # would earn. Without it R2's expected gain is identically zero, the
-        # gate can never pass, and the agent mints once and then never recentres
-        # however far price drifts — which looks like discipline and is actually
-        # a dead gate.
-        self._fee_window: list[tuple[int, float]] = []
-        self._window_start = 0
 
     def run(self, tape, *, sample_seconds: int | None = None) -> ReplayResult:
         """Walk the tape at the policy's sampling cadence.
@@ -136,8 +127,6 @@ class ReplayDriver:
                 t += step
                 continue
 
-            self._absorb_fee_flow(events, market)
-            self.engine.set_fee_rates(*self._fee_rates(market))
             decision = self.engine.step(events, market)
             self._apply(decision, market)
             t += step
@@ -178,52 +167,6 @@ class ReplayDriver:
             slippage_quote=0.0,
             cex_gap=None,
         )
-
-    def _absorb_fee_flow(self, events: Sequence[Event], market: MarketState) -> None:
-        """Keep a trailing window of pool-wide LP fees, in quote units.
-
-        Net of the protocol's cut, taken from each Swap event rather than
-        modelled — see matrix P-1.
-        """
-        for event in events:
-            if event.amount0 > 0:
-                gross, cut, in_quote = event.amount0, event.protocol_fee0, False
-            elif event.amount1 > 0:
-                gross, cut, in_quote = event.amount1, event.protocol_fee1, True
-            else:
-                continue
-            total = gross * self.meta.fee_pips // 1_000_000
-            lp_fee = max(0, total - cut)
-            value = lp_fee / 10.0 ** (self.meta.dec1 if in_quote else self.meta.dec0)
-            if not in_quote:
-                value *= ((event.sqrt_price_x96 / Q96) ** 2) * 10.0 ** (
-                    self.meta.dec0 - self.meta.dec1
-                )
-            self._fee_window.append((event.ts, value))
-
-        cutoff = market.t - int(self.params.window_hours * 3600)
-        if self._fee_window and self._fee_window[0][0] < cutoff:
-            self._fee_window = [(ts, v) for ts, v in self._fee_window if ts >= cutoff]
-
-    def _fee_rates(self, market: MarketState) -> tuple[float, float]:
-        """(current range, target range) fee per unit liquidity per hour.
-
-        Both trailing. A forward estimate here would be look-ahead wearing a hat,
-        and R2 is the gate that decides whether to spend real gas.
-        """
-        if not self._fee_window or market.pool_liquidity <= 0:
-            return 0.0, 0.0
-
-        span_hours = max(1e-6, (market.t - self._fee_window[0][0]) / 3600.0)
-        total = sum(value for _ts, value in self._fee_window)
-        pool_rate = total / span_hours / market.pool_liquidity
-
-        # The target range is not yet open, so the best trailing evidence for
-        # what it would earn is the pool's own rate per unit of liquidity. The
-        # current range earns that only while price is inside it.
-        position = self.engine.position
-        in_range = position.in_market and position.contains(market.tick)
-        return (pool_rate if in_range else 0.0), pool_rate
 
     def _apply(self, decision: Decision, market: MarketState) -> None:
         result = self._result

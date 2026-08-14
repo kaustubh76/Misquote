@@ -42,6 +42,10 @@ MIN_BUCKETS = 4  # a line through three points is not evidence
 MIN_SWAPS = 200
 R2_FLOOR = 0.5  # spec section 5.2
 
+# Spec section 5.2: "Refit daily." Not on every decision — that would make the
+# range width jitter every block, and it was half of all replay runtime.
+REFIT_INTERVAL_S = 24 * 3600
+
 # One tick, expressed in log-price. This is the conversion the whole units
 # problem turns on, so it is named once and used everywhere.
 TICK_IN_LOGPRICE = math.log(1.0001)
@@ -214,7 +218,8 @@ class KappaEstimator(TrailingEstimator):
             depth = abs(event.tick - self._last_tick)
             if depth > 0:
                 self._swaps.append((depth, event.ts))
-                self._cache = None
+                # Deliberately does NOT clear the cache: the refit cadence is
+            # daily and driven by the clock, so new data waits its turn.
         self._last_tick = event.tick
 
     def _on_time_advanced(self) -> None:
@@ -229,15 +234,23 @@ class KappaEstimator(TrailingEstimator):
         return len(self._swaps) >= MIN_SWAPS
 
     def fit(self) -> KappaFit:
-        """Refit if anything changed, otherwise reuse.
+        """The current fit, refitting at most once a day.
 
-        The cache is keyed on the decision time as well as on the data, so a
-        second call at the same instant cannot return a different answer — which
-        would otherwise make a replay non-deterministic in a way that is very
-        hard to see.
+        Spec section 5.2 says "refit daily", and this used to refit on every
+        decision — every five seconds. That is a deviation in two directions at
+        once. Behaviourally, a continuously refitted kappa lets the range width
+        jitter every block, where a daily refit gives the piecewise-constant
+        parameter the spec describes. And it was 49% of replay runtime, which is
+        what makes a thirty-day quote infeasible rather than merely slow.
+
+        Refitting on a fixed cadence rather than "whenever the data changed" also
+        makes the result reproducible: the fit depends on the decision clock, not
+        on how a caller happened to batch its ingests.
         """
-        if self._cache is not None and self._cache_at == self._t:
+        due = self._cache is None or (self._t - self._cache_at) >= REFIT_INTERVAL_S
+        if not due:
             return self._cache
+
         self._cache = fit_kappa(
             list(self._swaps),
             window_seconds=self._window,

@@ -24,7 +24,7 @@ from typing import Protocol
 from misquote.chain.source import ChainSource
 from misquote.core.liquidity import get_liquidity_for_amounts
 from misquote.core.position import apply_decision
-from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
+from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Action, Decision, Params, PoolMeta, PositionState
 from misquote.replay.engine import Engine, MarketState
 
@@ -91,7 +91,6 @@ class WardenLive:
         "capital_quote",
         "decisions",
         "timestamps",
-        "_fee_window",
     )
 
     def __init__(
@@ -111,7 +110,6 @@ class WardenLive:
         self.capital_quote = capital_quote
         self.decisions: list[Decision] = []
         self.timestamps: list[int] = []
-        self._fee_window: list[tuple[int, float]] = []
 
     def step(self, t: int) -> Decision | None:
         """One decision at time `t`. Returns None if there is nothing to see yet."""
@@ -119,9 +117,6 @@ class WardenLive:
         sqrt_price, tick = self.source.slot0()
         if sqrt_price == 0:
             return None
-
-        self._absorb_fees(events, t)
-        self.engine.set_fee_rates(*self._fee_rates(t, tick))
 
         market = MarketState(
             t=t,
@@ -189,38 +184,3 @@ class WardenLive:
         wanted = get_liquidity_for_amounts(market.sqrt_price_x96, sa, sb, amount0, amount1)
         cap = int(market.pool_liquidity * self.params.eps_liquidity_share)
         return max(1, min(wanted, cap))
-
-    # --- trailing fee flow, so R2 has a gain to compare against ------------
-
-    def _absorb_fees(self, events, t: int) -> None:
-        for event in events:
-            if event.amount0 > 0:
-                gross, cut, in_quote = event.amount0, event.protocol_fee0, False
-            elif event.amount1 > 0:
-                gross, cut, in_quote = event.amount1, event.protocol_fee1, True
-            else:
-                continue
-            total = gross * self.meta.fee_pips // 1_000_000
-            lp_fee = max(0, total - cut)
-            value = lp_fee / 10.0 ** (self.meta.dec1 if in_quote else self.meta.dec0)
-            if not in_quote:
-                value *= ((event.sqrt_price_x96 / Q96) ** 2) * 10.0 ** (
-                    self.meta.dec0 - self.meta.dec1
-                )
-            self._fee_window.append((event.ts, value))
-
-        cutoff = t - int(self.params.window_hours * 3600)
-        if self._fee_window and self._fee_window[0][0] < cutoff:
-            self._fee_window = [(ts, v) for ts, v in self._fee_window if ts >= cutoff]
-
-    def _fee_rates(self, t: int, tick: int) -> tuple[float, float]:
-        pool_liquidity = self.source.liquidity()
-        if not self._fee_window or pool_liquidity <= 0:
-            return 0.0, 0.0
-        span_hours = max(1e-6, (t - self._fee_window[0][0]) / 3600.0)
-        total = sum(value for _ts, value in self._fee_window)
-        pool_rate = total / span_hours / pool_liquidity
-
-        position = self.engine.position
-        in_range = position.in_market and position.contains(tick)
-        return (pool_rate if in_range else 0.0), pool_rate

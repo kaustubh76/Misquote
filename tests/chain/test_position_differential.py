@@ -399,6 +399,7 @@ def test_fees_accrue_only_after_the_pool_has_actually_traded(fork, funded) -> No
     assert tuple(owed_before) == (0, 0), "a position that has seen no flow owes nothing"
 
     tick_before_swaps = pool.functions.slot0().call()[1]
+    ticks_seen = [tick_before_swaps]
 
     # Real swaps, both directions, through the real router.
     for token_in, token_out, amount in (
@@ -418,9 +419,15 @@ def test_fees_accrue_only_after_the_pool_has_actually_traded(fork, funded) -> No
             )
         ).transact({"from": funded, "gas": 1_000_000})
         _mined(w3, swap)
+        ticks_seen.append(pool.functions.slot0().call()[1])
 
-    assert pool.functions.slot0().call()[1] != tick_before_swaps, (
-        "the pool did not move, so nothing was actually traded"
+    # Movement *during* the swaps, not net displacement across them. The two
+    # trades are in opposite directions, so a round trip can legitimately end on
+    # the tick it started from — comparing only the endpoints made this test
+    # fail on a perfectly good pair of swaps.
+    assert len(set(ticks_seen)) > 1, (
+        f"the pool never moved across {len(ticks_seen)} observations, "
+        "so nothing was actually traded"
     )
 
     owed_after = nfpm.functions.collect((token_id, funded, 2**128 - 1, 2**128 - 1)).call(
