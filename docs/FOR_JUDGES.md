@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 373 tests, no network, ~40s
+make test                     # 395 tests, no network, ~45s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:8080
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -41,7 +41,7 @@ Each of these is a test you can run, not a claim.
 | The engine runs agents it was not written for | Three policies — A-S market making, a fixed ladder, threshold de-risk — through one engine, one tape, one cost model, one accountant | `tests/agents/` |
 | No gate is wired to nothing | Every toxicity arm is asserted to reach a non-zero value in a real run, and a threshold above its own ceiling refuses to construct | `tests/agents/test_sentinel.py` |
 
-**389 tests: 373 offline, 16 against a live chain or a fork.**
+**411 tests: 395 offline, 16 against a live chain or a fork.**
 
 ---
 
