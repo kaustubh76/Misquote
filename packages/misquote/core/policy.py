@@ -222,6 +222,33 @@ def gap_condition_holds(obs: Observation, params: Params, meta: PoolMeta) -> boo
     return abs(obs.cex_gap) * 10_000.0 > meta.fee_bps + params.arb_cost_bps
 
 
+def imbalance_toxic(obs: Observation, params: Params) -> bool:
+    """Section 3.4's second arm: is flow running one way hard enough to pull?
+
+    **Deviation from the frozen spec, recorded as matrix item P-6.** Section 3.4
+    writes the condition one-sided, `imb_t > z_pull`, which fires only when the
+    pool is being bought. Adverse selection does not care which token the
+    informed trader is taking: an arbitrageur draining token0 picks the position
+    off exactly as thoroughly as one draining token1, and the sign of `imb_t`
+    only records the direction of the drain. Read literally, the rule defends one
+    side of the book and leaves the other open.
+
+    So this is `|imb_t| > z_pull`, and the deviation is written down rather than
+    resolved in silence.
+
+    Making it a function also settles a disagreement the two callers had. The
+    policy tested `imb_t > z_pull` and the engine's streak logic tested
+    `|imb_t| > z_pull`, so on one-way selling the policy would call the pool
+    clean while the engine reset the clear streak that governs re-entry — an
+    agent held out of the market by a condition its own policy said was not
+    happening. Neither was wrong about the value; there were two rules. Now there
+    is one, and it is the one both read.
+
+    Invisible until now, because nothing ever produced a non-zero z-score.
+    """
+    return abs(obs.swap_imbalance_z) > params.z_pull
+
+
 def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, dict[str, float]]:
     """Is the next flow likely to be informed?
 
@@ -251,8 +278,8 @@ def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, di
         "clear_streak": float(obs.clear_streak),
     }
 
-    imbalance_toxic = obs.swap_imbalance_z > params.z_pull
-    terms["imbalance_toxic"] = float(imbalance_toxic)
+    is_imbalanced = imbalance_toxic(obs, params)
+    terms["imbalance_toxic"] = float(is_imbalanced)
     # The threshold the gap is being compared against, recorded so the journal
     # says what the rule actually applied rather than only what it concluded —
     # and so a driver can tell whether the *condition* held on this sample,
@@ -281,7 +308,7 @@ def toxicity(obs: Observation, params: Params, meta: PoolMeta) -> tuple[bool, di
         terms["using_onchain_fallback"] = 0.0
 
     terms["gap_toxic"] = float(gap_toxic)
-    is_toxic = bool(gap_toxic or imbalance_toxic)
+    is_toxic = bool(gap_toxic or is_imbalanced)
     terms["toxic"] = float(is_toxic)
     return is_toxic, terms
 

@@ -135,6 +135,23 @@ is live.
 
 ---
 
+### D-8 · §3.4's imbalance rule is one-sided, and defends only one side — DEVIATED
+
+§3.4 writes the condition as `imb_t > z_pull`, unsigned. Read literally, the pull fires when the pool
+is being **bought** and never when it is being **sold**.
+
+Adverse selection does not care which token the informed trader is taking. An arbitrageur draining
+token0 picks the position off exactly as thoroughly as one draining token1; the sign of `imb_t` only
+records which. A one-sided rule defends one side of the book and leaves the other open, and on a pool
+whose price falls it would be silent throughout.
+
+**Deviation.** Implemented as `|imb_t| > z_pull` in `policy.imbalance_toxic()`, and written down here
+rather than resolved in silence. The cost is symmetric and small: with `z_pull = 2.5` and `M = 50`,
+the two-sided rule fires on roughly twice as many samples as the one-sided one, all of them cases the
+spec's own rationale — "the next pool flow is arbitrage" — plainly intends to cover.
+
+---
+
 ## V — defects found by verification, and fixed
 
 Three independent verification passes ran before Step 8: a dimensional analysis, a line-by-line
@@ -248,6 +265,74 @@ spacing** (`887272 % 10 == 2`), so a clamped bound was a tick the pool rejects a
 revert. It also broke the symmetry R1 measures drift against. The width now shrinks instead, and a
 price pinned against the edge — which is exactly what chapel's unseeded WBNB/USDT pool looks like —
 raises `AssumptionViolated` rather than quoting an unmintable position.
+
+### V-11 · §3.4's imbalance arm was wired to nothing — **found by building a third agent**
+
+Spec §3.4 defines toxicity as two conditions joined by `or`:
+
+    TOXIC iff  |g_t| > fee_tier + arb_cost_bps  for m consecutive samples,
+           or  imb_t > z_pull
+
+`Engine._observe` passed a literal `0.0` for `swap_imbalance_z` on every sample. So the second arm
+could never fire, `z_pull = 2.5` and `M = 50` (**G-1**) were parameters that traced to nothing, and
+the policy's imbalance branch was unreachable code. In replay the CEX feed is always `None`, so the
+*only* live arm was the on-chain LVR-vs-fees fallback — the one §3.4 itself calls the fallback.
+
+The unit test for that branch passed the entire time, because it handed the policy a z-score
+directly. Nothing tested that anything ever computed one.
+
+**Why a third agent found it.** Warden reaches the same pull through either arm, so a dead arm is
+invisible to it; Grid ignores health entirely. Sentinel's *primary* signal is this z-score, and it
+never withdrew. An agent that consults a signal among many cannot tell a quiet signal from a broken
+one; an agent that consults it first finds out immediately.
+
+**Resolution.** `estimators/imbalance.py` computes `z = Σs / √(Σs²)` over the trailing M swaps, where
+`s` is signed quote volume taken straight from `amount1` — the event's own sign convention, so there
+is no direction to reconstruct and nothing to get backwards. Under the null that each swap's
+direction is a fair coin with its magnitude as observed, `E[Σs] = 0` and `Var[Σs] = Σs²`, so this is
+the standardised statistic. It is bounded by `√M`, which at M = 50 is **7.07**, and `z_pull = 2.5`
+corresponds to **34 of the last 50 swaps going one way** (`18/√50 = 2.546`; 33/17 gives 2.263 and
+does not fire).
+
+`Params` now **refuses to construct** when `z_pull >= √M`, which is the same defect wearing a
+different hat: a threshold above its own ceiling reads as configured and never fires. Two dead gates
+have now shipped, both found by accident; this one is structural.
+
+### V-12 · The policy and the engine applied *different* toxicity rules
+
+`policy.py` tested `imb_t > z_pull`; `engine.py`'s streak logic tested `|imb_t| > z_pull`. On one-way
+*selling* the policy would call the pool clean while the engine reset the `clear_streak` that governs
+re-entry — an agent held out of the market by a condition its own policy said was not happening.
+
+Neither was wrong about the value. There were two rules. Invisible while V-11 kept the value at zero.
+
+Now one function, `policy.imbalance_toxic()`, which both read — the same fix as `gap_condition_holds`,
+for the same reason.
+
+### V-13 · The synthetic tape was not a possible history
+
+Every synthetic swap carried `amount0 = +size, amount1 = −size` — the pool receiving token0 and
+paying out token1, on **every single trade** — while the tick random-walked in both directions. No
+AMM can produce that: a swap the pool receives token0 for must push price *down*.
+
+It survived because nothing read the signs directionally. The LVR accountant forms deltas from the
+price path by design (**P-2**), and the fee window only checks which side is positive to know which
+token the fee is in. The moment V-11 was fixed, the tape read as fifty consecutive sells — a
+permanently maximally-toxic pool, `z = −7.07` — and Warden pulled. The estimator was right; the
+fixture was wrong.
+
+**It had also been hiding a wrong test.** T2's ceiling multiplied every swap's fee by price
+unconditionally, which is correct only when the input token is always token0. On a tape where price
+moves both ways, the token1 legs were shrunk by the price itself — **≈613×** at tick −64180 — and the
+ceiling collapsed to **0.421** against **0.743** of correctly credited fees, a 1.76× false failure.
+The engine had it right; T2's hand-computed bound did not. Fixed to convert only the token0 legs.
+
+Direction is now derived from the price move, and the fee is taken in whichever token came in. The
+zero-move case alternates rather than drawing, so fixing the signs left the price path bit-identical
+and every changed number traces to the signs alone.
+
+**A one-directional test fixture is worth naming as a class of defect.** It cannot exercise any rule
+that depends on direction, and it makes every such rule look like it passes.
 
 ---
 

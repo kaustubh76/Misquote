@@ -13,8 +13,8 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 359 tests, no network, ~70s
-make showcase-demo            # replay both agents, write the cards
+make test                     # 373 tests, no network, ~40s
+make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:8080
 make go-no-go                 # the mainnet gate — it currently says NOT YET
 ```
@@ -38,8 +38,10 @@ Each of these is a test you can run, not a claim.
 | A passive position agrees with direct computation | **T4**, to 1e-12 | same |
 | Estimators physically refuse future data | **T3**, unconditional runtime guard in both drivers, no flag to disable | `tests/estimators/` |
 | The kill switch stops a real mint | Against a live signer on a fork, not a stub | `tests/chain/test_position_lifecycle.py` |
+| The engine runs agents it was not written for | Three policies — A-S market making, a fixed ladder, threshold de-risk — through one engine, one tape, one cost model, one accountant | `tests/agents/` |
+| No gate is wired to nothing | Every toxicity arm is asserted to reach a non-zero value in a real run, and a threshold above its own ceiling refuses to construct | `tests/agents/test_sentinel.py` |
 
-**375 tests: 359 offline, 16 against a live chain or a fork.**
+**389 tests: 373 offline, 16 against a live chain or a fork.**
 
 ---
 
@@ -90,9 +92,10 @@ project exists to argue against.
   unattended for a day.
 - **Nothing has traded with real money**, and the go/no-go will not let it until
   the above are green.
-- **Sentinel and Router agents, session keys, and the ERC-8183 hire flow** are
-  not built. Grid is, and exists mainly to prove the engine is not a Warden
-  harness with delusions of generality.
+- **Router agent, session keys, and the ERC-8183 hire flow** are not built.
+  Warden, Grid and Sentinel are. Grid and Sentinel exist mainly to prove the
+  engine is not a Warden harness with delusions of generality — and Sentinel
+  earned its place by finding a rule that had never once fired (below).
 
 ---
 
@@ -101,6 +104,34 @@ project exists to argue against.
 Steps 1–7 were built, tested, and passing **156 tests**. Before starting Step 8,
 three independent verification passes ran over that work. They found **23
 defects**. Every single one passed the green suite.
+
+### The one a third agent found
+
+Spec §3.4 defines toxic flow with two conditions joined by `or`: a CEX–DEX gap,
+**or** a swap-imbalance z-score past a threshold. The engine passed a literal
+`0.0` for that z-score on every sample. The second arm could never fire; `z_pull`
+and `M` were parameters that traced to nothing; the branch was unreachable code.
+Its unit test passed the whole time, because it handed the policy a z-score
+directly and never asked whether anything computed one.
+
+**Warden could not find this.** It reaches the same pull through either arm, so a
+dead arm looks like a quiet one. Grid ignores health entirely. Sentinel's primary
+signal *is* that z-score — and it never withdrew, once, on any tape.
+
+That is the argument for building a third agent, stated concretely: each policy
+leans on a different part of the engine, and the engine only learns which of its
+parts are wired when something puts weight on them.
+
+Fixing it exposed two more. The policy tested `imb > z_pull` and the engine
+tested `|imb| > z_pull`, so on one-way *selling* an agent could be held out of the
+market by a condition its own policy said was not happening — two rules where
+there should have been one, invisible while the value was always zero. And the
+synthetic tape turned out not to be a **possible history**: every swap had the
+pool receiving token0 and paying token1 while price random-walked both ways,
+which no AMM can produce. It read as fifty consecutive sells, and Warden pulled.
+The estimator was right and the fixture was wrong — and the fixture had also been
+hiding a wrong T2 bound, which multiplied every fee by price unconditionally and
+was correct only because the input token was always the same one.
 
 Two would have been serious:
 

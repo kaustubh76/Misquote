@@ -30,7 +30,7 @@ import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from misquote.core.types import Params, PoolMeta
+from misquote.core.types import Params, Policy, PoolMeta
 from misquote.replay.driver import CostModel, ReplayDriver, ReplayResult
 
 
@@ -230,6 +230,7 @@ def quote(
     capital_quote: float = 1000.0,
     windows: int | None = None,
     perturbation_fraction: float = 0.25,
+    policy: Policy | None = None,
 ) -> Quote:
     """Replay across sub-windows and parameter perturbations, then quote.
 
@@ -259,7 +260,11 @@ def quote(
             tape = tape_factory(start, end)
             try:
                 driver = ReplayDriver(
-                    meta, params=variant, costs=costs, capital_quote=capital_quote
+                    meta,
+                    params=variant,
+                    costs=costs,
+                    capital_quote=capital_quote,
+                    policy=policy,
                 )
                 results.append(driver.run(tape))
             finally:

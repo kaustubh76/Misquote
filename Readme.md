@@ -131,7 +131,10 @@ written into `docs/REQUIREMENTS_MATRIX.md`.
    as pytest before feature work counts. Showcase quotes precomputed from my
    historical positions.
 8. `agents/router` — 2-day version, deployed via Agent Studio CLI.
-9. `agents/sentinel` — threshold mode + alerting.
+9. `agents/sentinel` — threshold mode + alerting. **Built** (threshold mode; no
+   alerting yet). It paid for itself immediately: its primary signal is §3.4's
+   swap-imbalance z-score, which the engine had been passing as a hardcoded
+   `0.0`, so the rule had never fired. See **V-11** in the requirements matrix.
 10. `packages/tearsheet` — ledger + report generator skeleton.
 11. Registry indexer view per D1 decision rule.
 

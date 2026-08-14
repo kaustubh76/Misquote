@@ -14,6 +14,7 @@ express.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -249,6 +250,25 @@ class Params:
         if self.replay_windows < 20:
             raise ValueError("assumption A5 requires at least 20 sub-windows for a P25-P75 range")
 
+        # The imbalance z-score is bounded by sqrt(M) — its extreme is every
+        # swap in the window the same size and the same direction. A z_pull at
+        # or above that ceiling is a threshold nothing can ever cross: the rule
+        # would read as configured, report a sensible-looking number on every
+        # card, and never once fire.
+        #
+        # This project has now shipped two gates wired to nothing, both found by
+        # accident rather than by a test. Making the unreachable case refuse to
+        # construct is cheaper than finding the third the same way.
+        import math
+
+        ceiling = math.sqrt(self.imbalance_window)
+        if self.z_pull >= ceiling:
+            raise ValueError(
+                f"z_pull={self.z_pull} is unreachable with M={self.imbalance_window}: "
+                f"the z-score cannot exceed sqrt(M)={ceiling:.2f}, so the imbalance "
+                "arm of section 3.4 could never fire"
+            )
+
 
 class Action(StrEnum):
     HOLD = "hold"
@@ -287,3 +307,16 @@ class Decision:
     @property
     def moves(self) -> bool:
         return self.action is not Action.HOLD
+
+
+# What an agent *is*, to this system: a pure function from everything it may
+# observe to what it intends to do. Nothing else — no pool handle, no clock, no
+# I/O. An agent wanting any of those would have to ask through `Observation`,
+# which is scalars only, which is why look-ahead here is structurally impossible
+# rather than merely forbidden.
+#
+# It lives in core rather than in the replay engine because it is the contract
+# between an agent and the marketplace, not a detail of one runner. Putting it
+# next to the engine would mean every agent had to import the engine to state its
+# own type.
+Policy = Callable[[Observation, Params, PoolMeta], Decision]

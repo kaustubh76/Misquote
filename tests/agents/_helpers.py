@@ -31,13 +31,39 @@ START_TS = 1_700_000_000
 
 
 def make_events(count: int = 1500, *, seed: int = 7, swap_size: int = 10**21) -> list[Event]:
+    """A synthetic tape that is at least a *possible* history.
+
+    Every swap used to carry `amount0=+size, amount1=-size` — the pool receiving
+    token0 and paying out token1, on every single trade — while the tick random
+    walked in both directions. That is not a market that could exist: a swap the
+    pool receives token0 for must push price down, because it leaves the pool
+    holding more token0.
+
+    It survived because nothing read the signs *directionally*. The LVR
+    accountant forms its deltas from the price path by design, and the fee window
+    only checks which side is positive to know which token the fee is in. The
+    moment spec section 3.4's imbalance z-score was wired up, the tape read as
+    fifty consecutive sells — a maximally toxic pool, permanently — and Warden
+    pulled. The estimator was right and the fixture was wrong.
+
+    So direction is now derived from the price move rather than asserted
+    independently of it, and the fee is taken in whichever token the pool
+    received, as the contract does it.
+    """
     rng = random.Random(seed)
     events: list[Event] = []
     tick, ts = -64180, START_TS
     fee = swap_size * 500 // 10**6
+    cut = fee * 3400 // 10_000
     for i in range(count):
-        tick += rng.choice((-9, -4, 0, 4, 9))
+        move = rng.choice((-9, -4, 0, 4, 9))
+        tick += move
         ts += rng.randint(5, 45)
+        # Price up means the pool took token1 in and paid token0 out. A move of
+        # zero is a real swap too small to cross a tick; its direction alternates
+        # rather than being drawn, so that fixing the signs left the price path
+        # bit-identical and every changed number traces to the signs alone.
+        up = move > 0 if move != 0 else i % 2 == 0
         events.append(
             Event(
                 block=1_000_000 + i,
@@ -45,13 +71,14 @@ def make_events(count: int = 1500, *, seed: int = 7, swap_size: int = 10**21) ->
                 ts=ts,
                 kind="swap",
                 tx=f"0x{i:064x}",
-                amount0=swap_size,
-                amount1=-swap_size,
+                amount0=-swap_size if up else swap_size,
+                amount1=swap_size if up else -swap_size,
                 sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
                 liquidity=POOL_LIQUIDITY,
                 tick=tick,
-                protocol_fee0=fee * 3400 // 10_000,
-                protocol_fee1=0,
+                # The protocol takes its cut from the token coming in.
+                protocol_fee0=0 if up else cut,
+                protocol_fee1=cut if up else 0,
             )
         )
     return events

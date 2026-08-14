@@ -20,7 +20,7 @@ from _helpers import META, POOL_LIQUIDITY, START_TS, fingerprint, make_events
 
 from misquote.core.errors import LookAheadError, OutOfOrderError
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Event
+from misquote.core.types import Action, Event
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.engine import Engine, MarketState
 from misquote.replay.tape import MemoryTape
@@ -175,10 +175,19 @@ def test_t2_credited_fees_never_exceed_the_pool_fee_times_our_share() -> None:
     lp_share = 1.0 - META.fee_protocol / 10_000.0
     ceiling = 0.0
     for e in events:
-        gross = e.amount0 if e.amount0 > 0 else e.amount1
+        # The fee is charged on the token coming *in*, so which token that is
+        # decides whether converting to quote is required. This used to multiply
+        # by price unconditionally, which was correct only because every swap on
+        # the old fixture had token0 coming in — a tape no AMM could produce. On
+        # a tape where price moves both ways it shrank the token1 legs by the
+        # price itself, about 600x here, and the ceiling collapsed below the
+        # fees the engine had correctly credited.
+        in_quote = e.amount1 > 0
+        gross = e.amount1 if in_quote else e.amount0
         total_fee = abs(gross) * META.fee_pips / 1e6 / 1e18
         price = (e.sqrt_price_x96 / (1 << 96)) ** 2
-        ceiling += total_fee * price * lp_share  # our share is <= 1 by construction
+        # our share is <= 1 by construction
+        ceiling += total_fee * lp_share * (1.0 if in_quote else price)
 
     assert result.total_fees >= 0
     assert result.total_fees <= ceiling
@@ -269,7 +278,22 @@ def test_the_toxicity_verdict_needs_a_sample_before_it_will_fire() -> None:
     events = make_events(2000, swap_size=10**23)
     result = ReplayDriver(META, capital_quote=1000.0).run(MemoryTape(events))
 
-    assert result.pulls == 0, "healthy flow should not read as toxic"
+    # This used to assert `pulls == 0`, which passed for the wrong reason: the
+    # swap-imbalance arm was hardcoded to zero, so the *only* way to reach a pull
+    # was the realized-LVR arm this test is about. Once the imbalance arm was
+    # wired up, a balanced random walk produced a couple of genuine 2.5-sigma
+    # directional runs, and a test of A12 started failing over a rule it does not
+    # cover.
+    #
+    # So assert the claim itself. Every pull must be attributable to the
+    # imbalance arm; none may come from the realized-LVR comparison, which is
+    # what A12 says must not fire before it has a sample to fire on.
+    pulls = [d for d in result.decisions if d.action is Action.PULL]
+    for pull in pulls:
+        assert pull.reason("imbalance_toxic") == 1.0, (
+            "a pull was reached through the realized-LVR arm, which A12 says "
+            "must not produce a verdict from too few swaps"
+        )
     assert result.total_fees > result.total_lvr, "fees dominate when flow is real"
 
 

@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from misquote.core.liquidity import get_liquidity_for_amounts
 from misquote.core.position import apply_decision
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Action, Decision, Event, Params, PoolMeta
+from misquote.core.types import Action, Decision, Event, Params, Policy, PoolMeta
 from misquote.replay.engine import Engine, MarketState
 
 
@@ -96,10 +96,16 @@ class ReplayDriver:
         params: Params | None = None,
         costs: CostModel | None = None,
         capital_quote: float = 1000.0,
+        policy: Policy | None = None,
     ) -> None:
         self.meta = meta
         self.params = params or Params()
-        self.engine = Engine(meta, self.params)
+        # Which agent to replay. Defaults to Warden, so every existing caller is
+        # unchanged, and passing one is the only supported way to run another —
+        # replacing the engine module's `decide` global, which is what the
+        # showcase used to do, cannot run two agents concurrently and leaves the
+        # wrong policy installed if anything in between raises.
+        self.engine = Engine(meta, self.params, policy=policy)
         self.costs = costs or CostModel()
         self.capital_quote = capital_quote
         self.eps = self.params.eps_liquidity_share

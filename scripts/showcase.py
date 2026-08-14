@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 from misquote.agents.grid.policy import GridParams, decide_grid
+from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Event, PoolMeta
@@ -71,9 +72,17 @@ def synthetic_events(count: int, *, seed: int = 7, swap_size: int = 10**23) -> l
     events: list[Event] = []
     tick, ts = -64180, 1_700_000_000
     fee = swap_size * META.fee_pips // 10**6
+    cut = fee * META.fee_protocol // 10_000
     for i in range(count):
-        tick += rng.choice((-9, -4, 0, 4, 9))
+        move = rng.choice((-9, -4, 0, 4, 9))
+        tick += move
         ts += rng.randint(5, 45)
+        # Direction is derived from the price move, not asserted beside it. Every
+        # swap here used to have the pool receiving token0 and paying token1 while
+        # the tick walked both ways — a history no AMM could produce. It went
+        # unnoticed until the swap-imbalance z-score was wired up and read the
+        # tape as one endless sell.
+        up = move > 0 if move != 0 else i % 2 == 0
         events.append(
             Event(
                 block=1_000_000 + i,
@@ -81,13 +90,13 @@ def synthetic_events(count: int, *, seed: int = 7, swap_size: int = 10**23) -> l
                 ts=ts,
                 kind="swap",
                 tx=f"0x{i:064x}",
-                amount0=swap_size,
-                amount1=-swap_size,
+                amount0=-swap_size if up else swap_size,
+                amount1=swap_size if up else -swap_size,
                 sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
                 liquidity=1_275_390_104_039_763_402_054_142,
                 tick=tick,
-                protocol_fee0=fee * META.fee_protocol // 10_000,
-                protocol_fee1=0,
+                protocol_fee0=0 if up else cut,
+                protocol_fee1=cut if up else 0,
             )
         )
     return events
@@ -104,25 +113,23 @@ def load_tape_events(db_path: Path) -> list[Event]:
 
 
 def run_agent(name: str, events: list[Event], *, policy=None, capital: float) -> dict:
-    """Replay one agent and price it. Returns the card's raw material."""
-    import misquote.replay.engine as engine_module
+    """Replay one agent and price it. Returns the card's raw material.
 
-    original = engine_module.decide
-    if policy is not None:
-        engine_module.decide = policy
-    try:
-        driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital)
-        result = driver.run(MemoryTape(events))
+    `policy` is passed to the driver, not installed over the engine module's
+    `decide` global. That global assignment was how a second agent used to run,
+    and it could not survive a third: it cannot run two agents concurrently, does
+    not nest, and leaves the wrong policy installed if anything between the swap
+    and the restore raises. `None` means Warden.
+    """
+    driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital, policy=policy)
+    result = driver.run(MemoryTape(events))
 
-        def factory(start, end):
-            if start is None:
-                return MemoryTape(events)
-            return MemoryTape([e for e in events if start <= e.ts <= end])
+    def factory(start, end):
+        if start is None:
+            return MemoryTape(events)
+        return MemoryTape([e for e in events if start <= e.ts <= end])
 
-        quote = compute_quote(META, factory, capital_quote=capital, windows=20)
-    finally:
-        engine_module.decide = original
-
+    quote = compute_quote(META, factory, capital_quote=capital, windows=20, policy=policy)
     return {"name": name, "result": result, "quote": quote}
 
 
@@ -130,11 +137,15 @@ def emit(run: dict, journal_dir: Path, out_dir: Path, *, source: str) -> Path:
     """Build the tearsheet and write the artifact, with the badge attached."""
     result = run["result"]
     windows = max(1, result.samples // 100)
+    slug = run["name"].split()[0].lower()
 
     sheet = build(
         agent=run["name"],
         pool=f"{TARGET_POOL.label} · {TARGET_POOL.address}",
-        journal_path=journal_dir / "warden.jsonl",
+        # Per agent. This was hardcoded to `warden.jsonl`, so every card stamped
+        # Warden's journal as its own provenance — a misattribution on the one
+        # field a reader would check to audit the card.
+        journal_path=journal_dir / f"{slug}.jsonl",
         quote=run["quote"],
         in_range_samples=result.in_range_samples,
         in_range_total=result.samples,
@@ -160,7 +171,6 @@ def emit(run: dict, journal_dir: Path, out_dir: Path, *, source: str) -> Path:
         "net_quote": round(result.net_quote, 8),
     }
 
-    slug = run["name"].split()[0].lower()
     path = out_dir / f"{slug}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -201,6 +211,12 @@ def main() -> int:
             "Grid",
             events,
             policy=lambda obs, params, meta: decide_grid(obs, GridParams(), meta),
+            capital=args.capital,
+        ),
+        run_agent(
+            "Sentinel",
+            events,
+            policy=sentinel_policy(SentinelParams()),
             capital=args.capital,
         ),
     ]

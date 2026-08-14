@@ -19,16 +19,23 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from misquote.core.liquidity import get_amounts_for_liquidity
-from misquote.core.policy import decide, gap_condition_holds, inventory_imbalance
+from misquote.core.policy import (
+    decide,
+    gap_condition_holds,
+    imbalance_toxic,
+    inventory_imbalance,
+)
 from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import (
     Decision,
     Event,
     Observation,
     Params,
+    Policy,
     PoolMeta,
     PositionState,
 )
+from misquote.estimators.imbalance import ImbalanceEstimator
 from misquote.estimators.kappa import KappaEstimator
 from misquote.estimators.sigma import SigmaEstimator
 from misquote.lvr.accountant import LvrAccountant
@@ -77,8 +84,10 @@ class Engine:
     __slots__ = (
         "meta",
         "params",
+        "policy",
         "sigma",
         "kappa",
+        "imbalance",
         "_lvr",
         "_position",
         "_toxic_streak",
@@ -91,11 +100,29 @@ class Engine:
         "decisions",
     )
 
-    def __init__(self, meta: PoolMeta, params: Params | None = None) -> None:
+    def __init__(
+        self,
+        meta: PoolMeta,
+        params: Params | None = None,
+        *,
+        policy: Policy | None = None,
+    ) -> None:
         self.meta = meta
         self.params = params or Params()
+        # The seam a marketplace needs. Before this, running a second agent
+        # meant reassigning this module's `decide` global and restoring it in a
+        # `finally` — which cannot run two agents at once, cannot be nested, and
+        # leaves the wrong policy installed if anything between the two raises.
+        # Fine for one agent, visibly wrong at three.
+        self.policy: Policy = policy or decide
         self.sigma = SigmaEstimator()
         self.kappa = KappaEstimator()
+        # Spec section 3.4's second arm. Previously a hardcoded 0.0 in
+        # `_observe`, which made `z_pull` and `M` parameters that traced to
+        # nothing and left the policy's imbalance branch unreachable.
+        self.imbalance = ImbalanceEstimator(
+            dec1=meta.dec1, window_swaps=self.params.imbalance_window
+        )
         self._lvr: LvrAccountant | None = None
         self._position = PositionState(
             lower=None,
@@ -155,17 +182,19 @@ class Engine:
         """
         self.sigma.set_decision_time(market.t)
         self.kappa.set_decision_time(market.t)
+        self.imbalance.set_decision_time(market.t)
 
         for event in events:
             self.sigma.ingest(event)
             self.kappa.ingest(event)
+            self.imbalance.ingest(event)
             if self._lvr is not None:
                 self._lvr.absorb(event)
 
         self._absorb_fee_flow(events, market)
 
         observation = self._observe(market)
-        decision = decide(observation, self.params, self.meta)
+        decision = self.policy(observation, self.params, self.meta)
 
         # Streaks are maintained here rather than by the driver so both drivers
         # cannot drift apart on the one piece of state whose semantics are
@@ -179,9 +208,12 @@ class Engine:
         # second agent returned a decision without those keys.
         gap_held = gap_condition_holds(observation, self.params, self.meta)
         self._toxic_streak = self._toxic_streak + 1 if gap_held else 0
-        is_toxic = (
-            self._toxic_streak >= self.params.m_toxic
-            or abs(observation.swap_imbalance_z) > self.params.z_pull
+        # The imbalance arm is read from the same function the policy applies,
+        # not restated here. Restating it is how the two came to disagree on
+        # whether the rule was one-sided or two-sided, which nothing could
+        # notice while the z-score was hardcoded to zero.
+        is_toxic = self._toxic_streak >= self.params.m_toxic or imbalance_toxic(
+            observation, self.params
         )
         self._clear_streak = 0 if is_toxic else self._clear_streak + 1
 
@@ -229,7 +261,7 @@ class Engine:
             position_value_quote=value_quote,
             rebalance_notional_quote=notional,
             cex_gap=market.cex_gap,
-            swap_imbalance_z=0.0,
+            swap_imbalance_z=self.imbalance.value(),
             lvr_rate=lvr_rate,
             fee_rate=fee_rate,
             toxic_streak=self._toxic_streak,

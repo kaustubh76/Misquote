@@ -157,19 +157,17 @@ def test_grid_runs_through_the_same_replay_engine_with_no_special_casing() -> No
 
     events = make_events(600, swap_size=10**23)
 
-    driver = ReplayDriver(META, capital_quote=1000.0)
     grid_params = GridParams(rung_width_ticks=200)
-    driver.engine.__class__.decide_override = None  # nothing is monkeypatched
-
-    # Swap the policy at the one seam that exists for it, and run unchanged.
-    import misquote.replay.engine as engine_module
-
-    original = engine_module.decide
-    engine_module.decide = lambda obs, params, meta: decide_grid(obs, grid_params, meta)
-    try:
-        result = driver.run(MemoryTape(events))
-    finally:
-        engine_module.decide = original
+    # Passed to the driver, at the one seam that exists for it. This used to
+    # assign over the engine module's `decide` global and restore it in a
+    # `finally`; the seam moved onto the engine when a third agent made that
+    # untenable.
+    driver = ReplayDriver(
+        META,
+        capital_quote=1000.0,
+        policy=lambda obs, params, meta: decide_grid(obs, grid_params, meta),
+    )
+    result = driver.run(MemoryTape(events))
 
     assert result.samples > 0
     assert result.mints >= 1, "Grid never opened a position"
@@ -185,7 +183,6 @@ def test_grid_moves_less_often_than_warden_on_the_same_history() -> None:
     subject to four gates. Whether that is better depends on the market, which is
     exactly why a replay engine is more useful than an argument.
     """
-    import misquote.replay.engine as engine_module
     from misquote.replay.driver import ReplayDriver
 
     events = make_events(1200, swap_size=10**23)
@@ -193,12 +190,11 @@ def test_grid_moves_less_often_than_warden_on_the_same_history() -> None:
     warden_result = ReplayDriver(META, capital_quote=1000.0).run(MemoryTape(events))
 
     grid_params = GridParams(rung_width_ticks=400, cooldown_s=7200)
-    original = engine_module.decide
-    engine_module.decide = lambda obs, params, meta: decide_grid(obs, grid_params, meta)
-    try:
-        grid_result = ReplayDriver(META, capital_quote=1000.0).run(MemoryTape(events))
-    finally:
-        engine_module.decide = original
+    grid_result = ReplayDriver(
+        META,
+        capital_quote=1000.0,
+        policy=lambda obs, params, meta: decide_grid(obs, grid_params, meta),
+    ).run(MemoryTape(events))
 
     assert grid_result.samples == warden_result.samples
     # Both produced a full, comparable run through identical machinery — which is
