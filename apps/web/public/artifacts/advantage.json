@@ -1,0 +1,137 @@
+{
+  "report": "Agent Advantage",
+  "question": "Does hiring an agent on your marketplace beat doing the job yourself, and can you prove it?",
+  "counterfactual": true,
+  "badge": "COUNTERFACTUAL \u2014 neither position was held",
+  "source": "synthetic",
+  "capital_quote": 1000.0,
+  "summary": {
+    "tasks": 3,
+    "quotable": 0,
+    "withheld": 3,
+    "agent_ahead": 0,
+    "diy_ahead": 0,
+    "indistinguishable": 0,
+    "bands_overlap": 0,
+    "separated": 0,
+    "categories": [
+      "security",
+      "trading"
+    ],
+    "venues": [
+      "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
+      "two venues: deeper-but-one-way vs shallower-but-balanced"
+    ]
+  },
+  "overall": {
+    "called": false,
+    "label": "no verdict (0 observations, need 30)"
+  },
+  "tasks": [
+    {
+      "task": "Earn \u2014 fees on a liquidity position",
+      "category": "trading",
+      "venue": "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
+      "metric": "net return on capital (fees \u2212 realized convexity cost \u2212 costs), P25\u2013P75",
+      "without_agent": "mint once at the same width, never touch it (passive_policy)",
+      "with_agent": "Warden \u2014 Avellaneda\u2013Stoikov recentring",
+      "quotable": false,
+      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "baseline": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.0735,
+        "fees": 32.12313376,
+        "lvr_upper_bound": 0.01071551,
+        "costs": 2.0,
+        "moves": 1
+      },
+      "agent": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.5891,
+        "fees": 277.87467512,
+        "lvr_upper_bound": 0.08548728,
+        "costs": 24.0,
+        "moves": 15
+      },
+      "delta_pp": 0.0,
+      "ranges_overlap": true,
+      "material": false,
+      "separated": false,
+      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+    },
+    {
+      "task": "Protect \u2014 avoid being picked off by one-way flow",
+      "category": "security",
+      "venue": "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
+      "metric": "net return on capital, P25\u2013P75 (the cost of the withdrawals is charged in full)",
+      "without_agent": "the same wide band, held through everything (withdrawal disabled)",
+      "with_agent": "Sentinel \u2014 withdraw on \u00a73.4 toxicity, re-enter after m_clear",
+      "quotable": false,
+      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "baseline": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.9992,
+        "fees": 60.68250719,
+        "lvr_upper_bound": 0.01843188,
+        "costs": 4.0,
+        "moves": 2
+      },
+      "agent": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.989,
+        "fees": 59.95839078,
+        "lvr_upper_bound": 0.01820992,
+        "costs": 10.0,
+        "moves": 8
+      },
+      "delta_pp": 0.0,
+      "ranges_overlap": true,
+      "material": false,
+      "separated": false,
+      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+    },
+    {
+      "task": "Choose \u2014 which pool to provide liquidity to",
+      "category": "security",
+      "venue": "two venues: deeper-but-one-way vs shallower-but-balanced",
+      "metric": "net return on capital of the same agent on the chosen venue, P25\u2013P75",
+      "without_agent": "pick the deepest pool (the obvious heuristic: more TVL is safer)",
+      "with_agent": "pick the pool whose flow is not one-way (\u00a73.4 imbalance screen)",
+      "quotable": false,
+      "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
+      "baseline": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.0212,
+        "fees": 7.06993053,
+        "lvr_upper_bound": 0.00816249,
+        "costs": 18.0,
+        "moves": 18
+      },
+      "agent": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.5734,
+        "fees": 286.58158059,
+        "lvr_upper_bound": 0.08586963,
+        "costs": 26.0,
+        "moves": 18
+      },
+      "delta_pp": 0.0,
+      "ranges_overlap": true,
+      "material": false,
+      "separated": false,
+      "verdict": "no verdict \u2014 baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon"
+    }
+  ]
+}
