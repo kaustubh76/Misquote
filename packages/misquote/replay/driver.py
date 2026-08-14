@@ -17,8 +17,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from misquote.core.liquidity import get_liquidity_for_amounts
+from misquote.core.position import apply_decision
 from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
-from misquote.core.types import Action, Decision, Event, Params, PoolMeta, PositionState
+from misquote.core.types import Action, Decision, Event, Params, PoolMeta
 from misquote.replay.engine import Engine, MarketState
 
 
@@ -242,17 +243,7 @@ class ReplayDriver:
 
         if decision.action is Action.PULL:
             self._settle(market)
-            self.engine.set_position(
-                PositionState(
-                    lower=None,
-                    upper=None,
-                    liquidity=0,
-                    token_id=None,
-                    minted_ts=0,
-                    last_rebalance_ts=market.t,
-                    rebalances_today=position.rebalances_today,
-                )
-            )
+            self.engine.set_position(apply_decision(position, Action.PULL, market.t))
             result.pulls += 1
             return
 
@@ -266,14 +257,13 @@ class ReplayDriver:
 
         liquidity = self._size(decision, market)
         self.engine.set_position(
-            PositionState(
+            apply_decision(
+                position,
+                decision.action,
+                market.t,
                 lower=decision.target_lower,
                 upper=decision.target_upper,
                 liquidity=liquidity,
-                token_id=None,
-                minted_ts=market.t,
-                last_rebalance_ts=market.t,
-                rebalances_today=position.rebalances_today + 1,
             )
         )
         result.total_costs += self._move_cost()
