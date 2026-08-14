@@ -29,9 +29,7 @@ def git_sha(short: bool = True) -> str | None:
     """
     args = ["git", "rev-parse", *(["--short"] if short else []), "HEAD"]
     try:
-        out = subprocess.run(
-            args, cwd=REPO, capture_output=True, text=True, timeout=5, check=False
-        )
+        out = subprocess.run(args, cwd=REPO, capture_output=True, text=True, timeout=5, check=False)
     except (OSError, subprocess.SubprocessError):
         return None
     if out.returncode != 0:

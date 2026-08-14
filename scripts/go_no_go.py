@@ -434,8 +434,7 @@ def main() -> int:
         path = Path(args.json)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps(to_payload(checks, mainnet=args.mainnet, fast=args.fast), indent=2)
-            + "\n"
+            json.dumps(to_payload(checks, mainnet=args.mainnet, fast=args.fast), indent=2) + "\n"
         )
         print(f"\n  status -> {path}")
 

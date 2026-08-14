@@ -74,8 +74,7 @@ def test_every_citation_in_every_artifact_resolves(sheet: dict) -> None:
 
 def test_the_emitter_agrees_with_itself(sheet: dict) -> None:
     assert sheet["unresolved_citations"] == [], (
-        "the emitter recorded unresolved citations: "
-        f"{sheet['unresolved_citations']}"
+        f"the emitter recorded unresolved citations: {sheet['unresolved_citations']}"
     )
 
 
@@ -120,7 +119,9 @@ def test_every_assumption_referenced_by_the_ui_exists(sheet: dict) -> None:
     for path in [*web.rglob("*.tsx"), *web.rglob("*.ts")]:
         if path.name.endswith((".test.ts", ".test.tsx")):
             continue
-        for match in re.finditer(r'cite=["\']([^"\']+)["\']|id=["\']([A-Z]-?\d+)["\']', path.read_text()):
+        for match in re.finditer(
+            r'cite=["\']([^"\']+)["\']|id=["\']([A-Z]-?\d+)["\']', path.read_text()
+        ):
             cited = match.group(1) or match.group(2)
             if cited and re.fullmatch(r"[A-Z]-?\d+", cited) and cited not in known:
                 bad.append(f"{path.relative_to(REPO)} cites {cited}")

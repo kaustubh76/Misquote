@@ -72,6 +72,36 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         evidence="vetting/badges/ — empty directory",
     ),
     NotBuilt(
+        name="Live agent entrypoint",
+        category="Operations",
+        what=(
+            "`make warden ENV=testnet` — the Warden loop running unattended against "
+            "a live chain, writing the decision journal every tearsheet verdict "
+            "is computed from."
+        ),
+        why=(
+            "`agents/warden/loop.py` implements the loop, the action queue, the "
+            "journal and the kill file, but nothing wires it to a command. The "
+            "Makefile advertised the target for weeks against a module that does "
+            "not exist. This is why every journal in the repo has zero rows, and "
+            "why every card says its provenance journal is empty."
+        ),
+        evidence="packages/misquote/agents/warden/ — no __main__.py",
+    ),
+    NotBuilt(
+        name="Live indexer tail",
+        category="Data",
+        what=(
+            "`misquote.indexer.follow` — following the pool forward from the "
+            "backfill cursor, so the tape stays current without a re-run."
+        ),
+        why=(
+            "Only the backfill exists. `make indexer` used to invoke both and "
+            "failed on the second line."
+        ),
+        evidence="packages/misquote/indexer/ — no follow.py",
+    ),
+    NotBuilt(
         name="Ops surface",
         category="Operations",
         what="Prometheus metrics and Telegram alerting for the live agent loop.",

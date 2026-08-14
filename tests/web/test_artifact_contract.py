@@ -196,8 +196,7 @@ def test_every_contracted_field_is_read_by_the_named_view() -> None:
             missing.append(f"{path} -> {renderer}")
 
     assert not missing, (
-        "these fields are contracted to a view that never mentions them: "
-        f"{sorted(missing)}"
+        f"these fields are contracted to a view that never mentions them: {sorted(missing)}"
     )
 
 

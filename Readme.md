@@ -99,7 +99,7 @@ misquote/
 
 ## 3. Stack
 
-- **Agents/backend:** Python 3.11 (ports from PolyLambda + Mission Control),
+- **Agents/backend:** Python 3.12 (ports from PolyLambda + Mission Control),
   `web3.py`, asyncio loops; SQLite for hackathon persistence (Postgres only if
   it hurts).
 - **Front-end:** Next.js + Tailwind ✅ (`apps/web`, React + TypeScript, vitest).
@@ -210,8 +210,17 @@ ALTANA_*=               # session key config
 DB_PATH=./misquote.db
 ```
 
-Run: `make indexer` · `make warden ENV=testnet` · `make replay-tests` ·
-`make web` — Makefile targets are part of Phase 1 deliverables.
+Run: `make artifacts` (every JSON the site reads) · `make replay-tests` ·
+`make web` · `make status` — Makefile targets are part of Phase 1 deliverables.
+
+`make warden ENV=testnet` is **not** in that list any more. It pointed at
+`misquote.agents.warden`, which has no `__main__.py`, so the one command that
+runs the agent had never worked; the same was true of `make indexer`'s second
+line and of `make tearsheet`. `make tearsheet` now works. The other two are
+recorded in `packages/misquote/tearsheet/ledger.py` and render on
+[`/status`](apps/web/src/app/status/page.tsx) as not built, and
+`tests/web/test_ledger.py` asserts every `python -m` target in the Makefile
+actually imports and is executable.
 
 ## 10. The pitch (for the repo header and the demo)
 

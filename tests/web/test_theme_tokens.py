@@ -106,9 +106,7 @@ def test_pill_text_clears_aa_on_its_own_tint(
         bg = tokens[f"{name}-bg"][theme_index]
         ratio = contrast(fg, bg)
         if ratio < AA_TEXT:
-            failures.append(
-                f"--{name} ({fg}) on --{name}-bg ({bg}) is {ratio:.2f}:1 in {theme}"
-            )
+            failures.append(f"--{name} ({fg}) on --{name}-bg ({bg}) is {ratio:.2f}:1 in {theme}")
     assert not failures, "\n".join(failures)
 
 

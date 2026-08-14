@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-14T23:34:54+00:00",
+  "generated_at": "2026-08-14T23:43:53+00:00",
   "mainnet": false,
   "fast": true,
   "skipped": [
@@ -11,7 +11,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 75 deselected, 1 warning in 2.68s",
+      "detail": "7 passed, 75 deselected, 1 warning in 2.49s",
       "remedy": "",
       "blocking": false
     },

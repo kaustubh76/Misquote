@@ -57,15 +57,15 @@ fork-diff:  ## everything that needs a live chain or a fork
 replay-tests:  ## T1-T4 + L1 explicitly, against the committed 30d tape
 	$(UV) run pytest tests/replay -m '' -v
 
-indexer:  ## backfill + follow the target pool. usage: make indexer POOL=0x...
+indexer:  ## backfill the target pool. usage: make indexer POOL=0x...
+	# This used to run `misquote.indexer.follow` on a second line. There is no
+	# follow.py — the live tail is not built, and is recorded as such in
+	# tearsheet/ledger.py rather than advertised here. tests/web/test_ledger.py
+	# asserts every `python -m misquote.X` below actually imports.
 	$(UV) run python -m misquote.indexer.backfill --pool $(POOL)
-	$(UV) run python -m misquote.indexer.follow --pool $(POOL)
-
-warden:  ## run the Warden loop. usage: make warden ENV=testnet|mainnet
-	$(UV) run python -m misquote.agents.warden --env $(ENV)
 
 tearsheet:  ## journal -> docs/TEARSHEET.md, zero hand-entered numbers
-	$(UV) run python -m misquote.tearsheet.render
+	$(UV) run python -m misquote.tearsheet
 
 clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage

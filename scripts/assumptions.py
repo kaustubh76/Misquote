@@ -328,7 +328,8 @@ def main() -> int:
     entries = parse(sheet) + parse(matrix)
     heading_ids = {e.id for e in entries}
     table_entries = [
-        e for e in parse_table_entries(sheet) + parse_table_entries(matrix)
+        e
+        for e in parse_table_entries(sheet) + parse_table_entries(matrix)
         if e.id not in heading_ids
     ]
 
