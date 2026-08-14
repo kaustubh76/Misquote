@@ -47,14 +47,8 @@ indexer:  ## backfill + follow the target pool. usage: make indexer POOL=0x...
 warden:  ## run the Warden loop. usage: make warden ENV=testnet|mainnet
 	$(UV) run python -m misquote.agents.warden --env $(ENV)
 
-showcase:  ## replay -> apps/web/public/artifacts/showcase.json
-	$(UV) run python -m misquote.replay.driver --showcase
-
 tearsheet:  ## journal -> docs/TEARSHEET.md, zero hand-entered numbers
 	$(UV) run python -m misquote.tearsheet.render
-
-web:  ## next.js dev server
-	pnpm --filter web dev
 
 clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
@@ -65,3 +59,12 @@ go-no-go:  ## the mainnet gate: runs every check and refuses to go green on an u
 
 go-no-go-fast:  ## same, without the test suites
 	$(UV) run python scripts/go_no_go.py --fast
+
+showcase:  ## replay the agents on the indexed tape and write the web artifacts
+	$(UV) run python scripts/showcase.py
+
+showcase-demo:  ## same, on a clearly-labelled synthetic tape (no chain data needed)
+	$(UV) run python scripts/showcase.py --synthetic 9000
+
+web:  ## serve the static card page against whatever artifacts exist
+	cd apps/web/public && python3 -m http.server 8080

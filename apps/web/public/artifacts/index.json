@@ -1,0 +1,10 @@
+{
+  "agents": [
+    "Warden",
+    "Grid"
+  ],
+  "badge": "COUNTERFACTUAL \u2014 this position was not held",
+  "counterfactual": true,
+  "pool": "PancakeSwap v3 WBNB/USDT 0.05%",
+  "source": "synthetic"
+}
