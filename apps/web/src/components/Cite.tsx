@@ -1,7 +1,14 @@
 import Link from "next/link";
 
-/** Matches A1–A11, P-1, G-1… as they appear inside caveat prose. */
-const CITATION = /\b([AP]-?\d+|G-\d+)\b/g;
+/**
+ * Matches A1–A11 and the hyphenated series (P-1, D-8, V-13) in caveat prose.
+ *
+ * The hyphen distinction is not cosmetic. A permissive `[AP]-?\d+` also matches
+ * the "P25" and "P75" in "a P25–P75 range" — which appears in nearly every
+ * caveat this renders — and would turn the product's own headline term into a
+ * link to an assumption that does not exist.
+ */
+const CITATION = /\bA\d+\b|\b[DVEGP]-\d+\b/g;
 
 /**
  * An assumption reference, made clickable.

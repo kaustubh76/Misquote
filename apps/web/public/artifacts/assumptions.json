@@ -1,0 +1,1254 @@
+{
+  "entries": [
+    {
+      "blocks": [
+        {
+          "text": "`L_h \u2264 \u03b5 \u00b7 L_pool` with **\u03b5 = 1%**. Historical swap prices are treated as unperturbed by the hypothetical position.",
+          "type": "p"
+        },
+        {
+          "text": "*Why it matters:* a replayed position large enough to change the pool price would change the very swaps it claims to have earned fees on. The 1% cap keeps that effect below the noise floor. Quotes that would breach \u03b5 are refused rather than rendered.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A1",
+      "kind": "assumption",
+      "line": 12,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Our liquidity is small enough not to move the price we're replaying"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Fees credited to a hypothetical position are its share of the fee-generating swap, pro-rated by liquidity. Just-in-time liquidity \u2014 a competitor minting a large position inside one block to capture a specific large swap \u2014 is **not** modeled.",
+          "type": "p"
+        },
+        {
+          "text": "*Direction of the error:* this **overstates** our fees in the presence of JIT competition. It is the one assumption on this sheet that flatters us, and it is disclosed for that reason.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A2",
+      "kind": "assumption",
+      "line": 21,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Fees are pro-rated by liquidity share; JIT competition is not modeled"
+    },
+    {
+      "blocks": [
+        {
+          "text": "At each decision time `t`, every estimator has seen only events with timestamp `\u2264 t`.",
+          "type": "p"
+        },
+        {
+          "text": "*How it's enforced:* not by review. Estimators hard-assert on ingest and raise `LookAheadError` on any event newer than the decision time, unconditionally, in both the live and the replay driver. The tape itself cannot return future events \u2014 its accessor bounds the query with a SQL parameter, so there is no in-memory future to leak. This is test **T3**, and it is code.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A3",
+      "kind": "assumption",
+      "line": 30,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Every decision uses trailing data only"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Every simulated rebalance is charged **10 bps of rebalanced notional** as an MEV haircut, plus gas at the gas price prevailing in the historical block, plus modeled slippage against the pool's actual liquidity at that moment.",
+          "type": "p"
+        },
+        {
+          "text": "*Why a flat 10 bps:* a sandwich's true cost depends on the searcher's inventory and the block builder's ordering, neither of which is observable after the fact. A fixed, conservative, disclosed number beats a precise-looking model of something unmeasurable. Fixed for the hackathon.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A4",
+      "kind": "assumption",
+      "line": 39,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "MEV haircut of 10 bps per rebalance; gas at historical block prices"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Every quote is a **P25\u2013P75 range** over `K \u2265 20` rolling sub-windows and a **\u00b125% perturbation of (\u03b3, \u03ba)**.",
+          "type": "p"
+        },
+        {
+          "text": "*Why:* a single number implies a precision the data does not support. Display reads \"would have captured $150\u2013$210 net\", and the range widens honestly when the history is thin or the parameter fit is poor. A quote engine that returns a point estimate is misquoting you \u2014 which is the entire thesis of the product.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "advantage_short.json"
+      ],
+      "id": "A5",
+      "kind": "assumption",
+      "line": 49,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Quotes are ranges, never point estimates"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** The showcase position **was not held.** The pool history is real, every swap traces to a BscScan transaction, and the capital figure is real \u2014 it is the documented NAV from an auditable BSC mainnet trading record (237 journal rows, 2026-06-08 \u2192 2026-06-27, wallet `0xE8A30d24BbA030D3e8a844bD1c4F6e1374EA6215`). But that record is spot trading, not liquidity provision. **No historical LP position exists to replay**, so the position is simulated over real history and badged **COUNTERFACTUAL** on the card.",
+          "type": "p"
+        },
+        {
+          "text": "*Why this is disclosed rather than quietly finessed:* the alternative was to imply a position history that does not exist, on a product whose entire claim is that other marketplaces do exactly that. See `REQUIREMENTS_MATRIX.md` D-2.",
+          "type": "p"
+        },
+        {
+          "text": "The synthetic borrower used for the health story is separately and clearly labeled as synthetic.",
+          "type": "p"
+        },
+        {
+          "text": "---",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "grid.json",
+        "sentinel.json",
+        "warden.json"
+      ],
+      "id": "A6",
+      "kind": "assumption",
+      "line": 148,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Showcase Mode is a labeled counterfactual"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Spec \u00a75.1 specifies \"EWMA of 1-minute log-returns of pool price, half-life 6h, scaled to per-\u221ahour\". The implementation adds two transforms, both of which change the number materially, so both are disclosed here rather than buried in a docstring.",
+          "type": "p"
+        },
+        {
+          "text": "**Winsorising** clips each return at 5\u00d7 the median absolute return. A thin-liquidity pool can print one swap that moves price several percent and immediately reverts; left alone that single bar dominates a six-hour EWMA and the agent widens its range for the rest of the day on the strength of one trade. The threshold is median-based rather than standard-deviation-based on purpose \u2014 a standard deviation would itself be inflated by the outlier it is meant to clip.",
+          "type": "p"
+        },
+        {
+          "text": "**Shrinkage toward a prior of \u03c3 = 0.02** with weight `n/(n+20)`. This is *not* a small correction: at the 30-bar readiness threshold the published \u03c3 is only 41% of the way from the prior to the sample estimate. It stops the first hour after a restart producing a confidently wrong volatility, at the cost of biasing thin-sample estimates toward the prior. The prior itself implies roughly 190% annualised, which is hot for BNB (typically 50\u201370%), so the standing bias is toward **wider** ranges.",
+          "type": "p"
+        },
+        {
+          "text": "**Irregular sampling is handled explicitly.** Bars exist only where a swap arrived, so consecutive bars can be an hour apart. Each return is rescaled to its per-bar equivalent (`r/\u221aspan`) and the EWMA decay ages by elapsed time (`decay^span`), because variance is additive in time. Without this a pool trading once an hour reported *identical* volatility to one making the same moves every minute \u2014 measured, not hypothesised.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A7",
+      "kind": "assumption",
+      "line": 59,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The volatility estimator does two things the spec doesn't mention"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Spec \u00a75.2 fits `ln(rate) = ln A \u2212 \u03ba\u03b4` \u2014 an exponential decay of swap frequency with tick depth. For a random walk, excursion frequency decays as a **power law (\u03b4\u207b\u00b2)**, not exponentially. Fitting an exponential to simulated Brownian data yields **r\u00b2 \u2248 0.84**, which comfortably clears the spec's own r\u00b2 \u2265 0.5 gate while being the wrong functional form. So \u03ba is not a stable parameter: its value depends on which depth range happens to be bucketed.",
+          "type": "p"
+        },
+        {
+          "text": "There is a deeper mismatch. In Avellaneda\u2013Stoikov, \u03bb(\u03b4) is the rate at which *an order you placed at depth \u03b4* gets hit. A liquidity provider places no order at a chosen depth; it is filled continuously at every depth inside its range. So equation (2)'s second term may be substantially re-measuring volatility rather than providing an independent fill-rate trade-off.",
+          "type": "p"
+        },
+        {
+          "text": "**Every card that uses \u03ba shows its r\u00b2 and whether the fallback was used.** We treat \u03ba as a labelled weak parameter rather than a measured one. The honest summary: the range width is driven mainly by the volatility term, and the \u03ba term is a disclosed approximation.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A8",
+      "kind": "assumption",
+      "line": 83,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The \u03ba estimator fits a form the data does not have"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Baseline Avellaneda\u2013Stoikov assumes the mid is an exogenous martingale and that fill intensity is uninformed \u2014 there is no adverse-selection term anywhere in the optimal-spread formula. On a venue where the dominant flow is arbitrage, which spec \u00a73.4 explicitly identifies, this means the widths equation (2) produces are systematically **too narrow**: they price inventory risk and fill rate, but never the cost of being picked off.",
+          "type": "p"
+        },
+        {
+          "text": "The toxicity pull (\u00a73.4) and the realized-LVR accounting (\u00a74) address this after the fact rather than in the width itself. Alongside A2, this is the second assumption on this sheet that does not flatter us.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A9",
+      "kind": "assumption",
+      "line": 100,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Equation (2) prices no adverse selection"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Spec equation (3) computes `LVR_k = \u2212(\u0394y_k + P_k\u00b7\u0394x_k)` and it is non-negative for *every* swap, regardless of who traded or why. That guarantee is the tell: a real adverse-selection measure would distinguish an informed arbitrageur from a noise trader, and this one cannot, because it assumes the post-swap **pool** price is fair.",
+          "type": "p"
+        },
+        {
+          "text": "The consequence is concrete. On a round trip `P\u2080 \u2192 P\u2081 \u2192 P\u2080` the position ends exactly where it started and collected two fees, yet equation (3) books a loss on both legs. So in a churny pool the figure folds reversion round trips into what it calls adverse selection and **overstates** it.",
+          "type": "p"
+        },
+        {
+          "text": "We report it anyway, because it is model-free, it is computed per swap with a `tx` you can open on BscScan, and it errs against us rather than for us. But it is labelled **\"realized convexity cost (upper bound on LVR)\"** and never simply \"LVR\". Where a CEX price is available \u2014 which \u00a73.4 already fetches for the toxicity signal \u2014 a second series measured against that price is LVR proper and can take either sign.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "grid.json",
+        "sentinel.json",
+        "warden.json"
+      ],
+      "id": "A10",
+      "kind": "assumption",
+      "line": 112,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "What we call LVR is an upper bound on it"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Uniswap v3 accrues fees to whichever ticks are active as price sweeps through them. A swap that starts inside our range and exits it should pay us for the part that was inside and nothing for the part that was not.",
+          "type": "p"
+        },
+        {
+          "text": "The implementation prorates by the fraction of the price move (in \u221aP space) that fell within the position's bounds. That is exact when the pool's active liquidity is constant across the swap and an approximation when the swap crosses ticks where other positions start or end. The error is bounded by how much liquidity changes mid-swap and, on the deepest pool on BSC, is small \u2014 but it is an approximation and is named as one.",
+          "type": "p"
+        },
+        {
+          "text": "The protocol's share is *not* approximated: Pancake's Swap event reports the exact amount it took, so that part is read from chain per swap.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A11",
+      "kind": "assumption",
+      "line": 132,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Fees are prorated by how much of a swap happened inside the range"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a76's replay loop credits fees \"pro-rata by `L_h/(L_pool+L_h)`\". For a *real* historical or live position, the pool's `Swap` event carries a `liquidity` field that **already includes `L_h`**, so dividing by `L_pool + L_h` counts our own liquidity twice and understates our share.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Split the accounting rather than patch the formula.",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**LVR uses exact per-position curve math with no pro-rating at all.** Clamp the swap's price path to our range and evaluate the v3 bonding curve for a single position of liquidity `L_h`. This is not an approximation: it handles partial range crossings exactly, and `L_pool` never enters, so the double-counting question dissolves instead of being answered. Pro-rating is retained as a cross-check assertion for swaps that lie entirely inside the range.",
+            "**Fees keep the spec's share formula**, behind an explicit `l_pool_includes_self` flag on the accountant: `True` for a real position (use `L_h/L_pool`), `False` for a hypothetical one (use the spec form). Default is the spec form, which is the conservative direction \u2014 it understates our fees."
+          ],
+          "type": "ul"
+        },
+        {
+          "text": "Lands in: `packages/misquote/lvr/accountant.py` (Step 9).",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-1",
+      "kind": "deviation",
+      "line": 16,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Fee pro-rating double-counts for a real position \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a76 specifies Showcase Mode as \"my own historical BSC positions (Mission Control lineage \u2014 auditable, on brand)\".",
+          "type": "p"
+        },
+        {
+          "text": "**Verified state.** Wallet `0xE8A30d24BbA030D3e8a844bD1c4F6e1374EA6215` has a real, auditable BSC mainnet record: 237 journal rows in `Stellar MIssion Control/data/journal/allocator_live.jsonl` spanning 2026-06-08 \u2192 2026-06-27, 83 swaps across 221 decision cycles, every row carrying a tx hash and `nav_before`/`nav_after`. But it is **spot momentum trading executed via the `twak` CLI, not liquidity provision.** There are zero concentrated-liquidity positions, and no `NonfungiblePositionManager` interaction anywhere in the lineage. The showcase quote as specified cannot be computed, because its input does not exist.",
+          "type": "p"
+        },
+        {
+          "text": "A stranger's wallet is explicitly forbidden by the same section.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Showcase Mode is **counterfactual-only**: a hypothetical position replayed over the target pool's real 30-day history, sized to the wallet's documented NAV from the journal (a real, auditable number), and badged verbatim on the card:",
+          "type": "p"
+        },
+        {
+          "text": "> **COUNTERFACTUAL** \u2014 this position was not held. The pool history is real and the capital figure is > real; the position is simulated. Assumptions \u2192",
+          "type": "p"
+        },
+        {
+          "text": "This is published as assumption **A6**, an *addition* to A1\u2013A5 rather than an edit to one. The labeled synthetic borrower for the health story (spec \u00a76) is unchanged.",
+          "type": "p"
+        },
+        {
+          "text": "**Why this preserves the spec's actual requirement.** \u00a76's real deliverable is \"same code path, different input wallet\". A counterfactual position and a live one both run through the same `run_replay` with different inputs; the code path is identical, which is what T1\u2013T4 and the L1 equivalence test verify. The false premise is the provenance sentence, not the architecture.",
+          "type": "p"
+        },
+        {
+          "text": "Recommended amendment to \u00a76, for the record:",
+          "type": "p"
+        },
+        {
+          "text": "> ~~\"my own historical BSC positions\"~~ \u2192 **\"a labeled counterfactual position on real pool history, > sized to my documented NAV, plus one labeled synthetic borrower.\"**",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-2",
+      "kind": "deviation",
+      "line": 35,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "\"My own historical BSC positions\" do not exist \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a79 says PolyLambda's A-S quoting core is used \"\u00a73.1\u20133.2 verbatim, re-parameterized to ticks\". Three things make a literal copy wrong:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "",
+            "PolyLambda",
+            "Misquote"
+          ],
+          "rows": [
+            [
+              "space",
+              "log-odds `X = ln(p/(1-p))`",
+              "log-price `y = ln P`"
+            ],
+            [
+              "`k`",
+              "the A-S order-arrival parameter",
+              "called **\u03ba** here"
+            ],
+            [
+              "`kappa`",
+              "a jump-premium weight, unrelated",
+              "does not exist here"
+            ],
+            [
+              "spread fn",
+              "`diffusion_spread_logit` returns the **total** spread",
+              "eq (2) already contains the \u00bd"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**Resolution.** Re-derive with identical equation shapes. On port, rename PolyLambda's `k` \u2192 `kappa` and never port `jump_premium_logit` or `inventory_cap`, which are Polymarket-resolution artifacts with no v3 analogue. **Do not halve twice** \u2014 `half_width_logprice` must return the half-width directly. The hand-computed fixture test in Step 7 exists specifically to catch this.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-3",
+      "kind": "deviation",
+      "line": 70,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The A-S core is a re-derivation, not a verbatim port \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a79 lists Mission Control as the source for \"BSC RPC layer, wallet/signing, nonce mgmt, tx retry\". Verified: `src/ictbot/api/onchain.py` is **read-only and keyless** by design. Signing is delegated to a `twak` CLI subprocess (`exec/twak_client.py`) and to the `bnbagent==0.3.5` SDK. Searching the repo for `get_transaction_count`, `sign_transaction`, `send_raw_transaction`, and `build_transaction` returns nothing.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** The signer to port is PolyLambda's `execution/testnet_chain.py::AmoySigner` \u2014 chain-id guard evaluated before signing, a `_NONCE_RACE` classifier with a refetch-once outer loop, `_rpc_retry` that never retries a revert, the web3 v6/v7 `raw_transaction` compatibility shim, and a receipt poller that retries through rate limits. From Mission Control, port only the **read** path (`_rpc_candidates` fallback chain, Multicall3 `aggregate3` batching, the Chainlink feed map) and the ops layer (Telegram, Prometheus, the autouse safety fixtures).",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-4",
+      "kind": "deviation",
+      "line": 87,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Mission Control has no signing and no nonce management \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a79 lists \"event indexer scaffolding\" as a Mission Control component. It has none: no `get_logs`, no `create_filter`, no `.db`, no SQL. What it has is a CoinMarketCap WebSocket harvest into JSON files. PolyLambda does have a real indexer, but it is Envio HyperIndex \u2014 TypeScript over Envio-managed Postgres.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Net-new Python indexer over chunked `eth_getLogs` into SQLite (Step 8). Envio's actual strength is many contracts and huge backfills, which is the ERC-8004 registry indexer's problem in Step 17, not the single-pool tape's.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-5",
+      "kind": "deviation",
+      "line": 102,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Mission Control has no event indexer \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a79 and `Readme.md` \u00a76 list Vault Analyzer as the source for \"metric/report generation patterns\" feeding `packages/tearsheet`. It is a methodology document (`/Users/apple/Downloads/vault-analyzer-guide.md`: 5 hard gates, 10 scored parameters P1\u2013P10, verdict bands) plus a rendered artifact. There is no source code.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** `packages/tearsheet` ports Mission Control's `scripts/live_trades_matrix.py` (JSONL \u2192 markdown with zero hand-entered numbers) and `scripts/session_report.py` (including `_verdict(n, m, t, min_n=30)`, which refuses to call a result below a sample-size floor \u2014 that function is the honest-numbers guarantee and survives the port unchanged). Vault Analyzer's methodology goes to `vetting/`, where gates-before-scores is the right shape.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-6",
+      "kind": "deviation",
+      "line": 113,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Vault Analyzer is not code \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a77 lists Altana session revoke as kill switch (a). Altana integration is unverified and lands in Step 17.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Until it exists, protection is kill switch (b), the local hard-stop, plus a **dedicated hot wallet holding only the capped capital and gas**, so the blast radius is bounded by construction rather than by a contract call. The runbook says this plainly rather than implying (a) is live.",
+          "type": "p"
+        },
+        {
+          "text": "---",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-7",
+      "kind": "deviation",
+      "line": 126,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Altana session revoke is not available as a day-one kill switch \u2014 ACCEPTED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a73.4 writes the condition as `imb_t > z_pull`, unsigned. Read literally, the pull fires when the pool is being **bought** and never when it is being **sold**.",
+          "type": "p"
+        },
+        {
+          "text": "Adverse selection does not care which token the informed trader is taking. An arbitrageur draining token0 picks the position off exactly as thoroughly as one draining token1; the sign of `imb_t` only records which. A one-sided rule defends one side of the book and leaves the other open, and on a pool whose price falls it would be silent throughout.",
+          "type": "p"
+        },
+        {
+          "text": "**Deviation.** Implemented as `|imb_t| > z_pull` in `policy.imbalance_toxic()`, and written down here rather than resolved in silence. The cost is symmetric and small: with `z_pull = 2.5` and `M = 50`, the two-sided rule fires on roughly twice as many samples as the one-sided one, all of them cases the spec's own rationale \u2014 \"the next pool flow is arbitrage\" \u2014 plainly intends to cover.",
+          "type": "p"
+        },
+        {
+          "text": "---",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-8",
+      "kind": "deviation",
+      "line": 138,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "\u00a73.4's imbalance rule is one-sided, and defends only one side \u2014 DEVIATED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Read from the target pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions. **Liquidity providers keep 66%**, so the effective fee is **0.033%, not 0.05%**. Uniswap v3 defaults this to zero; Pancake sets it at `initialize()` and subtracts it *before* the fee-growth accumulators update.",
+          "type": "p"
+        },
+        {
+          "text": "Reconstructing fees from `Swap` events \u00d7 fee tier \u2014 the natural way to write the replay engine \u2014 **overstates LP earnings by 1.52\u00d7**, landing directly on NetFeeAPR, the headline number on every card, and on the R2 gate. `PoolMeta.fee_protocol` has no default, so a pool cannot be constructed without stating it. Fee growth read from `feeGrowthInside` is already net; the two paths must not both deduct. Test T2's conservation bound must include the factor or it is 1.52\u00d7 too loose to catch the error it exists for.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "grid.json",
+        "sentinel.json",
+        "warden.json"
+      ],
+      "id": "P-1",
+      "kind": "correction",
+      "line": 341,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "PancakeSwap takes 34% of every fee, and the spec never mentions it"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Forming `(\u0394x, \u0394y)` from raw event amounts computes `LVR_k \u2212 fee_k`, which loses equation (3)'s `\u2265 0` guarantee and double-counts against `F` in equation (4). Strip the fee first; the post-swap `sqrtPriceX96` is already fee-exclusive and is the correct `P_k`. Lands in Step 9.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-2",
+      "kind": "correction",
+      "line": 355,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Swap event amounts are gross of the fee"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Without clamping both price endpoints to `[P_l, P_u]`, a swap crossing the range entirely overstates LVR by 3\u00d7 typically and **53\u00d7** in the measured worst case. Above `P_u` the position holds zero token0 \u2014 nothing left to pick off \u2014 and the benchmark has also sold out. Since Warden runs narrow ranges by design this is the common case, not a corner. This is what D-1's clamped-curve approach already prescribes; the magnitude is recorded so it is never treated as a rounding detail.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-3",
+      "kind": "correction",
+      "line": 361,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "LVR needs range clamping, worth up to 53\u00d7"
+    },
+    {
+      "blocks": [
+        {
+          "text": "It is guaranteed non-negative for every swap regardless of counterparty, which is the tell that it is not measuring adverse selection: it assumes the post-swap **pool** price is fair. On a round trip `P\u2080\u2192P\u2081\u2192P\u2080` the LP is flat and collected two fees, yet equation (3) books a loss. It therefore overstates LVR in churny pools by folding in reversion round trips.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** The tearsheet labels it *realized convexity cost (upper bound on LVR)*. Since \u00a73.4 already computes the CEX gap, a second series measured against `P_cex` \u2014 which is LVR proper and can be either sign \u2014 costs almost nothing and is strictly more honest. Also: the canonical LVR paper contains no per-swap formula, so equation (3) is this spec's own (correct) discretisation and should be presented as such rather than attributed.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-4",
+      "kind": "correction",
+      "line": 369,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Equation (3) is an upper bound on LVR, not a model-free measurement"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a71 says a v3 position **\"is\"** a pair of limit orders and calls the mapping an **\"isomorphism\"**. Uniswap's own documentation says range orders *\"approximate\"* limit orders and rules out stops entirely. Milionis et al. characterise AMMs as market makers who *\"do not proactively update their price quotes\"*, which is the negation of the A-S mechanism. Inventory is a deterministic function of price rather than a controlled state, and the payoff is concave for every CFMM.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Reframe \u00a71 as a **design heuristic**, matching the tone \u00a73.3 already uses (\"no pretending it's the exact QVI solution\"). Costs no code. The correct reference for optimal v3 provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries and reuses none of A-S's equations.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-5",
+      "kind": "correction",
+      "line": 382,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The isomorphism claim is stronger than the literature supports \u2014 **docs**"
+    },
+    {
+      "blocks": [
+        {
+          "items": [
+            "Equations (1) and (2) are **Avellaneda\u2013Stoikov (2008) Eqs. 29 and 30 transcribed exactly**, and the \u00bd is right \u2014 Eq. 30 gives the *total* spread. This is the detail most implementations get wrong.",
+            "**Pancake's core math is byte-identical to Uniswap v3-core** (TickMath, SqrtPriceMath, SwapMath, Tick, Position, FullMath), so differential-testing against Uniswap is valid for Pancake.",
+            "Fee tiers **100\u21921, 500\u219210, 2500\u219250, 10000\u2192200**, and no 3000\u219260, confirmed from the factory constructor.",
+            "Equation (3)'s sign convention is correct and the **post-swap price is required** \u2014 substituting the pre-swap price makes every swap look profitable for the LP.",
+            "**MasterChefV3 takes ERC-721 ownership on stake**, so direct NFPM calls revert and kill switch (b) would silently fail on a staked position. Our never-stake non-goal is validated.",
+            "**Pancake derives pool addresses from a separate `PancakeV3PoolDeployer` with a different init code hash**, so Uniswap's `computeAddress` constants give wrong addresses. We resolve via `factory.getPool()` over RPC and must keep doing so.",
+            "Pancake's pool **callbacks are renamed** (`pancakeV3MintCallback`), so calling pools directly with Uniswap-named callbacks reverts. Go through NPM and the Router."
+          ],
+          "type": "ul"
+        },
+        {
+          "text": "Citation corrections for the tearsheet: the Cartea\u2013Jaimungal\u2013Penalva page references are doubtful and that book's market-making chapter uses a linear-quadratic framework that is **not** the A-S formula, so cite Avellaneda\u2013Stoikov 2008 Eqs. 29/30 directly; and arXiv:2106.12033 has no author \"Fritschi\".",
+          "type": "p"
+        },
+        {
+          "text": "---",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-6",
+      "kind": "correction",
+      "line": 468,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Once V-11 made \u00a73.4's imbalance arm fire at all, it became possible to ask how often it fires when there is **nothing to catch**. A synthetic driftless random walk contains no informed flow by construction \u2014 there are no arbitrageurs on it \u2014 so every pull it produces is a false positive.",
+          "type": "p"
+        },
+        {
+          "text": "Over **9,000 swaps spanning 62.2 hours**, 44,802 samples:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Pulls",
+            "**16**, one every **3.9 hours**"
+          ],
+          "rows": [
+            [
+              "Which arm",
+              "**16 of 16 imbalance**; the realized-LVR arm never fired"
+            ],
+            [
+              "Samples with \\",
+              "z\\",
+              "> 2.5",
+              "**599 \u2014 1.34%**"
+            ],
+            [
+              "Expected under the null",
+              "**\u22481.24%** (two-sided, standard normal)"
+            ],
+            [
+              "Max \\",
+              "z\\",
+              "observed",
+              "**3.11**, against a ceiling of \u221a50 = **7.07**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Measured 1.34% against a predicted 1.24% is the estimator behaving exactly as specified. **The estimator is not the question; the parameter is.** `z_pull = 2.5` is spec \u00a78's published value, and at a 5-second cadence over a rolling 50-swap window it costs a withdrawal roughly every four hours on pure noise \u2014 gas spent, and the position out of the market, for flow that was never toxic.",
+          "type": "p"
+        },
+        {
+          "text": "**Not changed.** Retuning a frozen-spec parameter because its measured behaviour is inconvenient is the opposite of what this matrix is for. It is published instead, and the number an operator needs in order to disagree is right here: whether 2.5 is right depends on the ratio of genuine toxic episodes to noise on the *real* tape, which a synthetic random walk cannot tell us. It is one more thing the 30-day backfill would settle.",
+          "type": "p"
+        },
+        {
+          "text": "That the rule fires 16 times and the LVR arm zero is itself informative: the on-chain fallback compares *realized* quantities and so trails the damage, which is precisely why \u00a73.4 calls it the fallback and why Sentinel's docstring names \"withdraws late\" as a failure mode before the numbers do.",
+          "type": "p"
+        },
+        {
+          "text": "**And it now has a price.** The Agent Advantage Report's *Protect* task is an ablation \u2014 Sentinel against Sentinel with its withdrawal disabled, same band, same reanchoring, one decision different \u2014 and on the same driftless tape the withdrawing agent **loses by 1.77 percentage points** (7.13\u20137.31% against 8.91\u20139.05%, bands not overlapping). That is this measurement expressed as money: withdrawals that were all false positives, paying gas and forgoing fees for flow that was never toxic.",
+          "type": "p"
+        },
+        {
+          "text": "Published rather than tuned away, and it is the reason the ablation is the right baseline: had *Protect* been scored against a passive position instead, the loss would have been buried inside a difference of band width and never attributed to the rule that caused it. **A marketplace selling a risk agent would not run this comparison.** The result is a property of a driftless random walk with no informed flow in it; on a tape that contains real toxicity the sign may well reverse, and that is one more thing the 30-day backfill would settle.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-7",
+      "kind": "correction",
+      "line": 423,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool (`slot0.feeProtocol = 3400`), where Uniswap's is off by default, and that reconstructing fees from volume overstates LP earnings by **1.52\u00d7**.",
+          "type": "p"
+        },
+        {
+          "text": "Resolving a tokenized-equity venue for the TermiX track's equities category turned up the other half of that lesson. **TSLAx/USDT 0.25%** (`0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492`, read via `scripts/find_equity_pool.py`) reports **`feeProtocol = 0`**. Same DEX, same factory, same contracts \u2014 and LPs keep the **entire** fee.",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Pool",
+            "`feeProtocol`",
+            "LP keeps",
+            "Effective fee"
+          ],
+          "rows": [
+            [
+              "WBNB/USDT 0.05%",
+              "**3400**",
+              "66%",
+              "0.033%"
+            ],
+            [
+              "TSLAx/USDT 0.25%",
+              "**0**",
+              "100%",
+              "0.250%"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "So the protocol fee is not a property of PancakeSwap; it is a property of **the pool**. Either constant would have been wrong somewhere: hardcoding Pancake's 3400 understates LP earnings on the equity pool by a third, and hardcoding Uniswap's 0 overstates them by 1.52\u00d7 on the flagship. This is why `PoolMeta.fee_protocol` was given **no default** and must be supplied \u2014 a decision that cost one line and has now been load-bearing twice, in opposite directions.",
+          "type": "p"
+        },
+        {
+          "text": "**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the *only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity \u2014 a pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-8",
+      "kind": "correction",
+      "line": 396,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Two pools on the same DEX, two different protocol fees \u2014 read it, never model it"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a75.2 fits `ln(rate) = ln A \u2212 \u03ba\u03b4` with \u03b4 \"in ticks\", so \u03ba is per tick. Equation (2) evaluates `ln(1 + \u03b3/\u03ba)`, which is only meaningful if that ratio is dimensionless \u2014 requiring \u03ba per log-price, because `(2/\u03b3)` must come out in the same units as the half-width. One tick is `ln(1.0001) \u2248 1e-4`, so **the two differ by 10,000\u00d7**.",
+          "type": "p"
+        },
+        {
+          "text": "Fed the per-tick value, `\u03b3/\u03ba` was 16 instead of 0.0016; the fill term stopped being a correction and became the whole answer. `decide()` returned a half-width of **35,450 ticks \u2014 a \u00b13,363% price band**, a position spanning 33\u00d7 in price in each direction. Effectively full-range, earning almost nothing while claiming to be concentrated liquidity, and a positive finite number that would have minted without reverting.",
+          "type": "p"
+        },
+        {
+          "text": "**This is a contradiction inside the frozen spec**, not only in the implementation: \u00a75.2 and \u00a73.2 cannot both be read literally. It is the first conflict recorded here that lives in the math rather than in the reuse manifest.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** `KappaFit` carries `kappa_per_tick` (as \u00a75.2 measures it, published in the appendix) and `kappa_per_logprice` (what the policy consumes), with one named conversion between them. `tests/core/test_units.py` asserts the round trip, the plausibility band, and that the unconverted value is still absurd \u2014 so the bug cannot return quietly.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-1",
+      "kind": "defect",
+      "line": 163,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "\u03ba was fitted per tick and consumed per log-price \u2014 **the worst one**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a75.2 says \"fall back to `\u03ba_default` and label it\"; the \u00a78 parameter table has no \u03ba row at all. The implementation used 50.0, an unpublished number that was the dominant driver of range width whenever the fallback path was taken \u2014 a direct breach of `Readme.md` rule 6.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Renamed `PROVISIONAL_KAPPA_PER_LOGPRICE` with its basis stated in the source. Step 8 fits \u03ba on 30 days of the target pool's real history and publishes the measured value as **G-4** with its r\u00b2. A default derived from the pool it will be used on is defensible; a round number is not.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-2",
+      "kind": "defect",
+      "line": 185,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "`\u03ba_default` was an invented number \u2014 **provisional pending Step 8**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "On the CEX-feed-down path the toxicity terms carried `float(\"nan\")`. `Decision` is frozen and hashable specifically so test **T1** can compare decision sequences bitwise, and NaN is not equal to itself: twenty calls to `decide()` on one identical `Observation` produced twenty mutually unequal, mutually unhashable objects. **T1 could never have passed on any decision taken while the feed was down**, and T1 is the week-2 protected item. Now a `-1.0` sentinel, unambiguous because a gap is a magnitude.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-3",
+      "kind": "defect",
+      "line": 195,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "`float(\"nan\")` made every `Decision` unequal to itself \u2014 **would have blocked T1**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "The gate computed `fees(target) > cost` rather than `fees(target) \u2212 fees(current) > cost`. That is strictly weaker: it authorises rebalances the spec forbids, spending gas, slippage and a 10 bps MEV haircut when the current range is already earning nearly as much. R2 is the economic gate \u2014 the optimal-stopping threshold the spec is careful to justify \u2014 so this was the most consequential of the policy-logic deviations. `Observation` now carries both fee rates and the target liquidity.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-4",
+      "kind": "defect",
+      "line": 204,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "R2 tested absolute fees where \u00a73.3 asks for fee *gain*"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Assumption A4 says 10 bps **of rebalanced notional**. A recentre swaps only enough to restore target composition, typically a fraction of the position, so charging the full value overstated the cost several-fold. Conservative in direction, but not what the published assumption says \u2014 and the assumption sheet is a promise about how numbers were made.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-5",
+      "kind": "defect",
+      "line": 212,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The MEV haircut was charged on position value, not rebalanced notional"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a73.2 says `round_to_spacing`; the code floored, making every range systematically narrower \u2014 average 4.4 ticks, up to a full spacing, always toward more rebalancing and more gas. \u00a73.1 names the same operation for the centre, but the code rounded to an integer tick and *then* to the grid, which disagrees with a single `round_to_spacing` on **4.95% of inputs**, each by a full spacing. Both now use one shared `_round_to_spacing`.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-6",
+      "kind": "defect",
+      "line": 219,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Rounding: `w_t` floored, and `c_t` rounded twice"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a72 gives a formula yielding `[\u22120.5, +0.5]` and states the range is `[\u22121, 1]`. A position entirely in token0 gives 0.5 under the formula, 1 under the stated range. Since `q` multiplies straight into equation (1), the two readings skew the centre by a factor of two. **The stated range wins**, being the testable claim: `q = (v0 \u2212 v1)/(v0 + v1)`.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-7",
+      "kind": "defect",
+      "line": 227,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "`q` was undefined in practice \u2014 the spec contradicts itself"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Bars were appended only when a swap arrived, so an hour with no trades became a single one-minute return. Measured: identical price oscillations arriving every minute and every six hours produced **exactly the same \u03c3**, though the six-hourly series is \u221a360 less volatile per unit time. Returns are now rescaled to per-bar magnitude and the EWMA decay ages by elapsed time. Disclosed as **A7**.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-8",
+      "kind": "defect",
+      "line": 234,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The \u03c3 estimator compressed silence into volatility"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`assert fit.kappa > 0.0 or fit.is_fallback` \u2014 both branches of `fit_kappa` return something positive, so the left disjunct was unconditionally true and the assertion could not fail for any input. Its fixture produced exactly the per-tick \u03ba that yields a 35,000-tick range.",
+          "type": "p"
+        },
+        {
+          "text": "`assert got == pytest.approx(expected, abs=10)` on a 10-tick grid \u2014 a tolerance equal to the largest possible disagreement, which made the assertion vacuous. It computed the spec's answer, the code floored, and the tolerance swallowed the difference. **It was the only test standing between the codebase and V-6.**",
+          "type": "p"
+        },
+        {
+          "text": "Also missing entirely: anything pinning \u03c3's per-\u221ahour scale factor (changing `\u221a60` to `\u221a3600` left the suite green while every range width changed), and any test connecting an estimator's output to the policy's input \u2014 which is the single gap that made V-1 invisible.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-9",
+      "kind": "defect",
+      "line": 241,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Two tests asserted nothing"
+    },
+    {
+      "blocks": [
+        {
+          "text": "A negative `T_t` silently inverted the inventory skew: excess token0 would push the range *up*, making the position a keener buyer of what it already held too much of, producing a plausible range on the wrong side of the market with no exception and no NaN. `Observation` now validates on construction.",
+          "type": "p"
+        },
+        {
+          "text": "`target_range` clamped bounds to `MIN_TICK`/`MAX_TICK`, which are **not multiples of any Pancake tick spacing** (`887272 % 10 == 2`), so a clamped bound was a tick the pool rejects and the mint would revert. It also broke the symmetry R1 measures drift against. The width now shrinks instead, and a price pinned against the edge \u2014 which is exactly what chapel's unseeded WBNB/USDT pool looks like \u2014 raises `AssumptionViolated` rather than quoting an unmintable position.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-10",
+      "kind": "defect",
+      "line": 256,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "No validation on `Observation`, and an unmintable clamp"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Spec \u00a73.4 defines toxicity as two conditions joined by `or`:",
+          "type": "p"
+        },
+        {
+          "text": "TOXIC iff  |g_t| > fee_tier + arb_cost_bps  for m consecutive samples, or  imb_t > z_pull",
+          "type": "p"
+        },
+        {
+          "text": "`Engine._observe` passed a literal `0.0` for `swap_imbalance_z` on every sample. So the second arm could never fire, `z_pull = 2.5` and `M = 50` (**G-1**) were parameters that traced to nothing, and the policy's imbalance branch was unreachable code. In replay the CEX feed is always `None`, so the *only* live arm was the on-chain LVR-vs-fees fallback \u2014 the one \u00a73.4 itself calls the fallback.",
+          "type": "p"
+        },
+        {
+          "text": "The unit test for that branch passed the entire time, because it handed the policy a z-score directly. Nothing tested that anything ever computed one.",
+          "type": "p"
+        },
+        {
+          "text": "**Why a third agent found it.** Warden reaches the same pull through either arm, so a dead arm is invisible to it; Grid ignores health entirely. Sentinel's *primary* signal is this z-score, and it never withdrew. An agent that consults a signal among many cannot tell a quiet signal from a broken one; an agent that consults it first finds out immediately.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** `estimators/imbalance.py` computes `z = \u03a3s / \u221a(\u03a3s\u00b2)` over the trailing M swaps, where `s` is signed quote volume taken straight from `amount1` \u2014 the event's own sign convention, so there is no direction to reconstruct and nothing to get backwards. Under the null that each swap's direction is a fair coin with its magnitude as observed, `E[\u03a3s] = 0` and `Var[\u03a3s] = \u03a3s\u00b2`, so this is the standardised statistic. It is bounded by `\u221aM`, which at M = 50 is **7.07**, and `z_pull = 2.5` corresponds to **34 of the last 50 swaps going one way** (`18/\u221a50 = 2.546`; 33/17 gives 2.263 and does not fire).",
+          "type": "p"
+        },
+        {
+          "text": "`Params` now **refuses to construct** when `z_pull >= \u221aM`, which is the same defect wearing a different hat: a threshold above its own ceiling reads as configured and never fires. Two dead gates have now shipped, both found by accident; this one is structural.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-11",
+      "kind": "defect",
+      "line": 269,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "\u00a73.4's imbalance arm was wired to nothing \u2014 **found by building a third agent**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`policy.py` tested `imb_t > z_pull`; `engine.py`'s streak logic tested `|imb_t| > z_pull`. On one-way *selling* the policy would call the pool clean while the engine reset the `clear_streak` that governs re-entry \u2014 an agent held out of the market by a condition its own policy said was not happening.",
+          "type": "p"
+        },
+        {
+          "text": "Neither was wrong about the value. There were two rules. Invisible while V-11 kept the value at zero.",
+          "type": "p"
+        },
+        {
+          "text": "Now one function, `policy.imbalance_toxic()`, which both read \u2014 the same fix as `gap_condition_holds`, for the same reason.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-12",
+      "kind": "defect",
+      "line": 301,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The policy and the engine applied *different* toxicity rules"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Every synthetic swap carried `amount0 = +size, amount1 = \u2212size` \u2014 the pool receiving token0 and paying out token1, on **every single trade** \u2014 while the tick random-walked in both directions. No AMM can produce that: a swap the pool receives token0 for must push price *down*.",
+          "type": "p"
+        },
+        {
+          "text": "It survived because nothing read the signs directionally. The LVR accountant forms deltas from the price path by design (**P-2**), and the fee window only checks which side is positive to know which token the fee is in. The moment V-11 was fixed, the tape read as fifty consecutive sells \u2014 a permanently maximally-toxic pool, `z = \u22127.07` \u2014 and Warden pulled. The estimator was right; the fixture was wrong.",
+          "type": "p"
+        },
+        {
+          "text": "**It had also been hiding a wrong test.** T2's ceiling multiplied every swap's fee by price unconditionally, which is correct only when the input token is always token0. On a tape where price moves both ways, the token1 legs were shrunk by the price itself \u2014 **\u2248613\u00d7** at tick \u221264180 \u2014 and the ceiling collapsed to **0.421** against **0.743** of correctly credited fees, a 1.76\u00d7 false failure. The engine had it right; T2's hand-computed bound did not. Fixed to convert only the token0 legs.",
+          "type": "p"
+        },
+        {
+          "text": "Direction is now derived from the price move, and the fee is taken in whichever token came in. The zero-move case alternates rather than drawing, so fixing the signs left the price path bit-identical and every changed number traces to the signs alone.",
+          "type": "p"
+        },
+        {
+          "text": "**A one-directional test fixture is worth naming as a class of defect.** It cannot exercise any rule that depends on direction, and it makes every such rule look like it passes.",
+          "type": "p"
+        },
+        {
+          "text": "---",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "V-13",
+      "kind": "defect",
+      "line": 312,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The synthetic tape was not a possible history"
+    }
+  ],
+  "sections": {
+    "estimator_fits": [
+      {
+        "text": "Each rendered quote carries its actual fitted values in the tearsheet appendix: \u03c3, \u03ba, the \u03ba fit's r\u00b2, and whether the \u03ba fallback was used. **A quote computed with a fallback \u03ba says so on the card.**",
+        "type": "p"
+      },
+      {
+        "text": "---",
+        "type": "p"
+      }
+    ],
+    "parameters": [
+      {
+        "text": "Every value the policy uses, with its default. Values marked \u2605 are user-selectable; the rest are fixed and published.",
+        "type": "p"
+      },
+      {
+        "head": [
+          "Parameter",
+          "Symbol",
+          "Default",
+          "Source"
+        ],
+        "rows": [
+          [
+            "Risk aversion \u2605",
+            "\u03b3",
+            "**0.8** (conservative)",
+            "spec \u00a78; selectable {0.4, 0.8, 1.5}"
+          ],
+          [
+            "Replay liquidity cap",
+            "\u03b5",
+            "**1%**",
+            "A1"
+          ],
+          [
+            "Recenter drift threshold",
+            "\u03b8",
+            "**0.5** \u00d7 half-width",
+            "spec \u00a78"
+          ],
+          [
+            "Rebalance cooldown",
+            "\u03c4_cool",
+            "**2h**",
+            "spec \u00a78, anti-churn"
+          ],
+          [
+            "Minimum half-width",
+            "w_min",
+            "**4 \u00d7 tick spacing**",
+            "spec \u00a78, anti-dust"
+          ],
+          [
+            "MEV haircut",
+            "h",
+            "**10 bps**",
+            "A4"
+          ],
+          [
+            "Toxicity z-threshold",
+            "z_pull",
+            "**2.5**",
+            "spec \u00a78"
+          ],
+          [
+            "Toxic samples to pull",
+            "m",
+            "**3**",
+            "spec \u00a78"
+          ],
+          [
+            "Clear samples to re-enter",
+            "m_clear",
+            "**10**",
+            "spec \u00a78"
+          ],
+          [
+            "Signal sample interval",
+            "\u0394s",
+            "**5s**",
+            "spec \u00a78"
+          ],
+          [
+            "Replay sub-windows",
+            "K",
+            "**\u2265 20**",
+            "A5"
+          ],
+          [
+            "Max rebalances per day",
+            "\u2014",
+            "**8**",
+            "spec \u00a78, gas discipline"
+          ],
+          [
+            "Imbalance window",
+            "M",
+            "**50 swaps**",
+            "**G-1** \u2014 unspecified in spec, proposed here"
+          ],
+          [
+            "Arbitrage round-trip cost",
+            "arb_cost_bps",
+            "**5 bps**",
+            "**G-2** \u2014 unspecified in spec, proposed here"
+          ],
+          [
+            "InRange floor",
+            "N",
+            "**70%**",
+            "**G-3** \u2014 unspecified in spec, proposed here"
+          ],
+          [
+            "\u03c3 estimator",
+            "\u2014",
+            "EWMA of 1-min log returns, **6h half-life**, per-\u221ahour",
+            "spec \u00a75.1"
+          ],
+          [
+            "\u03ba estimator",
+            "\u2014",
+            "least squares on trailing **7d** swap depth buckets, refit daily",
+            "spec \u00a75.2"
+          ],
+          [
+            "\u03ba fallback trigger",
+            "\u2014",
+            "**r\u00b2 < 0.5** \u2192 \u03ba_default, **labeled on the card**",
+            "spec \u00a75.2"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "text": "### Estimator fits",
+        "type": "p"
+      },
+      {
+        "text": "Each rendered quote carries its actual fitted values in the tearsheet appendix: \u03c3, \u03ba, the \u03ba fit's r\u00b2, and whether the \u03ba fallback was used. **A quote computed with a fallback \u03ba says so on the card.**",
+        "type": "p"
+      },
+      {
+        "text": "---",
+        "type": "p"
+      }
+    ],
+    "protocol_fee": [
+      {
+        "text": "**PancakeSwap's protocol fee is on by default. Uniswap's is not.** Read from this pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions, so **the protocol takes 34% and liquidity providers keep 66%.**",
+        "type": "p"
+      },
+      {
+        "head": [
+          "Nominal fee tier",
+          "0.05%"
+        ],
+        "rows": [
+          [
+            "Protocol share",
+            "34%"
+          ],
+          [
+            "**What an LP actually earns**",
+            "**0.033%**"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "text": "Every fee number this product displays is computed on 0.033%, not 0.05%. Reconstructing fees from swap volume times the fee tier \u2014 the natural way to write a replay engine, and what most analytics do \u2014 overstates LP earnings by a factor of **1.52**, and that error lands directly on NetFeeAPR, which is the headline figure on every card. The value is settable per pool by governance, so it is read from chain rather than hardcoded, and fee growth read from `feeGrowthInside` is already net of it (the two paths must not both apply the deduction).",
+        "type": "p"
+      },
+      {
+        "text": "**Testnet mirror.** Burn-in runs on chapel's **WBNB/BUSD 0.05%** pool ([`0xEF15\u2026d11d`](https://testnet.bscscan.com/address/0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d)), not WBNB/USDT: chapel's WBNB/USDT pool at this tier exists but was initialized at `MAX_TICK` and never seeded, so it holds zero liquidity. The mirror shares the fee tier, and therefore the tick spacing and `w_min`, so a range computed on chapel is structurally the range that will be computed on mainnet.",
+        "type": "p"
+      },
+      {
+        "text": "*Why this pool:* deepest BSC v3 pool, so the \u03ba fit in \u00a75.2 has the best chance of clearing its r\u00b2 \u2265 0.5 bar on real data, and the swap stream is dense enough for the toxicity imbalance signal to mean something. The CEX leg for the gap signal is Binance `bnbusdt@bookTicker`, a public WebSocket with no API key.",
+        "type": "p"
+      },
+      {
+        "text": "**Non-goal, recorded deliberately:** Warden does **not** stake positions into MasterChefV3 for CAKE emissions. Staking transfers NFT ownership and adds a withdrawal path that complicates the kill switch, and emission rewards would contaminate the \"fee APR net of realized LVR\" metric with a number that isn't a fee.",
+        "type": "p"
+      },
+      {
+        "text": "---",
+        "type": "p"
+      }
+    ],
+    "settled_vs_displayed": [
+      {
+        "text": "Two different numbers, deliberately.",
+        "type": "p"
+      },
+      {
+        "text": "**The marketplace floor** (spec \u00a74.2) is what settles: `InRange% \u2265 70` over the window **and** `fees \u2212 gas \u2265 0`. Binary, chain-checkable, no counterfactual, nothing to argue about.",
+        "type": "p"
+      },
+      {
+        "text": "**NetFeeAPR** (spec \u00a74.1) is the honest performance display: fees minus realized LVR, gas, rebalance slippage, and the MEV haircut, over capital, annualized \u2014 reported against a passive benchmark of the same initial width never recentered over the same window, and secondarily against HODL 50/50 (labeled). It depends on a counterfactual, which is why it is displayed rather than settled.",
+        "type": "p"
+      }
+    ],
+    "target_pool": [
+      {
+        "head": [
+          "Pool",
+          "PancakeSwap v3 **WBNB/USDT, 0.05% fee tier**"
+        ],
+        "rows": [
+          [
+            "Chain",
+            "BSC mainnet (56)"
+          ],
+          [
+            "Address",
+            "[`0x36696169C63e42cd08ce11f5deeBbCeBae652050`](https://bscscan.com/address/0x36696169C63e42cd08ce11f5deeBbCeBae652050)"
+          ],
+          [
+            "token0 / token1",
+            "USDT `0x55d3\u20267955` / WBNB `0xbb4C\u2026095c`, **both 18 decimals**"
+          ],
+          [
+            "Tick spacing",
+            "10 \u2192 `w_min` = **40 ticks**"
+          ],
+          [
+            "Verified",
+            "2026-08-13, block 115,653,558, by `scripts/verify_addresses.py`"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "text": "Every address the system points at was checked three ways on-chain \u2014 bytecode present, its interface answers, and its answers agree with the other contracts' \u2014 rather than copied from documentation. Run `uv run python scripts/verify_addresses.py --chain 56` to reproduce.",
+        "type": "p"
+      },
+      {
+        "text": "**Note on decimals.** BSC's USDT is an 18-decimal token, unlike Ethereum's 6-decimal USDT. The value is read from `decimals()` rather than assumed, because assuming 6 would misprice every position by twelve orders of magnitude.",
+        "type": "p"
+      },
+      {
+        "text": "### The protocol fee: an LP does not keep 0.05%",
+        "type": "p"
+      },
+      {
+        "text": "**PancakeSwap's protocol fee is on by default. Uniswap's is not.** Read from this pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions, so **the protocol takes 34% and liquidity providers keep 66%.**",
+        "type": "p"
+      },
+      {
+        "head": [
+          "Nominal fee tier",
+          "0.05%"
+        ],
+        "rows": [
+          [
+            "Protocol share",
+            "34%"
+          ],
+          [
+            "**What an LP actually earns**",
+            "**0.033%**"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "text": "Every fee number this product displays is computed on 0.033%, not 0.05%. Reconstructing fees from swap volume times the fee tier \u2014 the natural way to write a replay engine, and what most analytics do \u2014 overstates LP earnings by a factor of **1.52**, and that error lands directly on NetFeeAPR, which is the headline figure on every card. The value is settable per pool by governance, so it is read from chain rather than hardcoded, and fee growth read from `feeGrowthInside` is already net of it (the two paths must not both apply the deduction).",
+        "type": "p"
+      },
+      {
+        "text": "**Testnet mirror.** Burn-in runs on chapel's **WBNB/BUSD 0.05%** pool ([`0xEF15\u2026d11d`](https://testnet.bscscan.com/address/0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d)), not WBNB/USDT: chapel's WBNB/USDT pool at this tier exists but was initialized at `MAX_TICK` and never seeded, so it holds zero liquidity. The mirror shares the fee tier, and therefore the tick spacing and `w_min`, so a range computed on chapel is structurally the range that will be computed on mainnet.",
+        "type": "p"
+      },
+      {
+        "text": "*Why this pool:* deepest BSC v3 pool, so the \u03ba fit in \u00a75.2 has the best chance of clearing its r\u00b2 \u2265 0.5 bar on real data, and the swap stream is dense enough for the toxicity imbalance signal to mean something. The CEX leg for the gap signal is Binance `bnbusdt@bookTicker`, a public WebSocket with no API key.",
+        "type": "p"
+      },
+      {
+        "text": "**Non-goal, recorded deliberately:** Warden does **not** stake positions into MasterChefV3 for CAKE emissions. Staking transfers NFT ownership and adds a withdrawal path that complicates the kill switch, and emission rewards would contaminate the \"fee APR net of realized LVR\" metric with a number that isn't a fee.",
+        "type": "p"
+      },
+      {
+        "text": "---",
+        "type": "p"
+      }
+    ]
+  },
+  "sources": [
+    "docs/ASSUMPTIONS.md",
+    "docs/REQUIREMENTS_MATRIX.md"
+  ],
+  "unresolved_citations": []
+}

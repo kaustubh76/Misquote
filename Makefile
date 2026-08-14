@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short tearsheet web web-build web-static web-test clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts tearsheet web web-build web-static web-test clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -93,6 +93,11 @@ advantage-short:  ## the same report on too little history — every task withhe
 	$(UV) run python scripts/advantage.py --synthetic $(ADV_SHORT_N) \
 		--out docs/AGENT_ADVANTAGE_SHORT.md \
 		--artifact apps/web/public/artifacts/advantage_short.json
+
+assumptions:  ## docs/ASSUMPTIONS.md + REQUIREMENTS_MATRIX.md -> the linkable sheet
+	$(UV) run python scripts/assumptions.py
+
+artifacts: showcase-demo advantage-demo advantage-short assumptions  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev
