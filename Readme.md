@@ -12,6 +12,12 @@ one click away. Built solo, in public. Audit me.
 
 ---
 
+> **Judging this? Start with [`docs/FOR_JUDGES.md`](docs/FOR_JUDGES.md).** It
+> leads with what is proven and what is not, and `make go-no-go` is a checklist
+> that executes rather than a checklist that is read.
+
+---
+
 ## 0. Read this first (Claude Code operating rules)
 
 1. **The spec is frozen.** `docs/WARDEN_SPEC_v1.0_FROZEN.md` governs the Warden
