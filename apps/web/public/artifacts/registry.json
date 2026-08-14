@@ -1,0 +1,100 @@
+{
+  "aacp": {
+    "available": true,
+    "chain_id": 56,
+    "contracts": {
+      "IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "SettlementToken_USDT": "0x55d398326f99059fF775485246999027B3197955",
+      "TermixEscrow_USDC": "0x6A52ba4C84b348FaEAe13dDC7A97b4F6af23913C",
+      "TermixEscrow_USDT": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
+      "TermixReputation": "0xFf3f7038c4919A420B30D7B3533cb386D5898189"
+    },
+    "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
+    "shares_our_identity_registry": true
+  },
+  "build": {
+    "command": "python scripts/registry_report.py",
+    "generated_at": "2026-08-14T23:36:02+00:00",
+    "git_dirty": true,
+    "git_sha": "02e49b2",
+    "source": "offline"
+  },
+  "hire_flow": {
+    "client_transaction_count": 4,
+    "escrow": {
+      "address": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
+      "available": true
+    },
+    "states": [
+      "Open",
+      "Funded",
+      "Submitted",
+      "Completed",
+      "Rejected",
+      "Expired"
+    ],
+    "steps": [
+      {
+        "call": "approve",
+        "contract": "erc20",
+        "is_erc8183": false,
+        "sender": "client",
+        "why": "the escrow pulls the budget on fund(); without this it reverts"
+      },
+      {
+        "call": "createJob",
+        "contract": "escrow",
+        "is_erc8183": true,
+        "sender": "client",
+        "why": "provider, evaluator, expiry, description, optional hook -> jobId"
+      },
+      {
+        "call": "setBudget",
+        "contract": "escrow",
+        "is_erc8183": true,
+        "sender": "client",
+        "why": "either party may set it, so a price can be agreed"
+      },
+      {
+        "call": "fund",
+        "contract": "escrow",
+        "is_erc8183": true,
+        "sender": "client",
+        "why": "Open -> Funded; the money is now escrowed"
+      },
+      {
+        "call": "submit",
+        "contract": "escrow",
+        "is_erc8183": true,
+        "sender": "provider",
+        "why": "Funded -> Submitted; the deliverable is a bytes32"
+      },
+      {
+        "call": "complete",
+        "contract": "escrow",
+        "is_erc8183": true,
+        "sender": "evaluator",
+        "why": "Submitted -> Completed, releasing funds. Only the evaluator may. reject() refunds the client instead"
+      }
+    ],
+    "terminal_states": [
+      "Completed",
+      "Rejected",
+      "Expired"
+    ],
+    "transaction_count": 6
+  },
+  "identity": {
+    "identity_registry": {
+      "56": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "97": "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    },
+    "reason": "no BSC_RPC_URL configured \u2014 no registry read was attempted",
+    "reputation_note": "On-chain reputation is not shown. A peer-reviewed study of this registry (arXiv:2606.26028) found that after removing Sybil-flagged feedback, 77.9% of rated BSC agents had none left \u2014 29,444 reviews from 76 unique reviewers. A rating computed from that would look precise and mean nothing.",
+    "reputation_registry": {
+      "56": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+      "97": "0x8004B663056A597Dffe9eCcC1965A193B7388713"
+    },
+    "surveyed": false
+  }
+}

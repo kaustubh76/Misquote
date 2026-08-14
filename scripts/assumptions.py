@@ -213,6 +213,61 @@ def parse(path: Path) -> list[Entry]:
     return entries
 
 
+# `| **G-4** | `κ_default` | §5.2, referenced but never given a value | ... |`
+#
+# Not every published item is a heading. The gap parameters G-1..G-4 are rows in
+# a table, and they are cited from prose and from `go_no_go.py`'s remedy text
+# ("publish as G-4") exactly like the heading-shaped ones. A parser that only
+# reads headings publishes a sheet that looks complete and leaves those four
+# citations pointing at nothing.
+TABLE_ENTRY = re.compile(r"^\|\s*\*\*([A-Z]-?\d+)\*\*\s*\|(.+)\|\s*$")
+
+
+def parse_table_entries(path: Path) -> list[Entry]:
+    """Entries defined as a bolded id in the first cell of a table row."""
+    entries: list[Entry] = []
+    lines = path.read_text().splitlines()
+
+    # The nearest preceding header row, to label the cells.
+    header: list[str] = []
+    for number, line in enumerate(lines, start=1):
+        if line.startswith("|") and not TABLE_ENTRY.match(line):
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if not re.fullmatch(r"[\s:|-]+", line.strip().strip("|")):
+                header = cells
+            continue
+
+        match = TABLE_ENTRY.match(line)
+        if not match:
+            continue
+
+        entry_id = match.group(1)
+        cells = [c.strip() for c in match.group(2).split("|")]
+        labels = header[1:] if len(header) > 1 else []
+
+        # The row's own cells become a two-column table, so the entry renders
+        # with the same structure it has in the document.
+        rows = [
+            [labels[i] if i < len(labels) else f"column {i + 2}", cell]
+            for i, cell in enumerate(cells)
+            if cell
+        ]
+        title = cells[0].strip("`* ") if cells else entry_id
+
+        entries.append(
+            Entry(
+                id=entry_id,
+                title=title or entry_id,
+                kind=SERIES_KIND.get(entry_id[0], "note"),
+                source=str(path.relative_to(REPO)),
+                line=number,
+                blocks=[{"type": "table", "head": ["Field", "Value"], "rows": rows}],
+            )
+        )
+
+    return entries
+
+
 def section(path: Path, title: str) -> list[dict[str, Any]]:
     """One named, id-less section — Parameters, Target pool — as blocks."""
     lines = path.read_text().splitlines()
@@ -267,7 +322,15 @@ def main() -> int:
     sheet = REPO / "docs" / "ASSUMPTIONS.md"
     matrix = REPO / "docs" / "REQUIREMENTS_MATRIX.md"
 
+    # Headings first, then table rows. A heading is the richer definition, so
+    # where an id has both — as the G-series would if it ever gets promoted to
+    # a section — the heading wins and the row is not a duplicate.
     entries = parse(sheet) + parse(matrix)
+    heading_ids = {e.id for e in entries}
+    table_entries = [
+        e for e in parse_table_entries(sheet) + parse_table_entries(matrix)
+        if e.id not in heading_ids
+    ]
 
     by_id: dict[str, Entry] = {}
     duplicates: list[str] = []
@@ -276,6 +339,11 @@ def main() -> int:
             duplicates.append(entry.id)
         else:
             by_id[entry.id] = entry
+
+    for entry in table_entries:
+        # A table id repeated across both documents is a definition and a
+        # cross-reference, not a conflict: keep the first.
+        by_id.setdefault(entry.id, entry)
 
     if duplicates:
         # Two entries answering to one anchor means a citation resolves to

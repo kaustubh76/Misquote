@@ -1,0 +1,90 @@
+{
+  "generated_at": "2026-08-14T23:34:54+00:00",
+  "mainnet": false,
+  "fast": true,
+  "skipped": [
+    "offline test suite",
+    "replay invariants (T1-T4, L1)",
+    "chain and fork suite"
+  ],
+  "checks": [
+    {
+      "name": "kill switch",
+      "status": "PASS",
+      "detail": "7 passed, 75 deselected, 1 warning in 2.68s",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "kill file absent",
+      "status": "PASS",
+      "detail": "ops/KILL not present",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "dry run",
+      "status": "PASS",
+      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "published assumptions",
+      "status": "UNVERIFIED",
+      "detail": "kappa_default is still PROVISIONAL (G-4 pending the 30-day fit)",
+      "remedy": "run the backfill and publish the fitted value before quoting",
+      "blocking": true
+    },
+    {
+      "name": "no provisional constants",
+      "status": "UNVERIFIED",
+      "detail": "kappa still falls back to a provisional default",
+      "remedy": "Step 8b: fit on 30 days of the target pool and publish as G-4",
+      "blocking": true
+    },
+    {
+      "name": "30-day tape",
+      "status": "UNVERIFIED",
+      "detail": "the tape is empty",
+      "remedy": "run the backfill",
+      "blocking": true
+    },
+    {
+      "name": "agent advantage report",
+      "status": "UNVERIFIED",
+      "detail": "3 tasks, but the tape is 'synthetic'",
+      "remedy": "the track says \"three real tasks\" \u2014 run the backfill, then regenerate",
+      "blocking": true
+    },
+    {
+      "name": "24h testnet burn-in",
+      "status": "UNVERIFIED",
+      "detail": "no journal from a burn-in run",
+      "remedy": "run the agent on testnet for 24h; the journal is the evidence",
+      "blocking": true
+    },
+    {
+      "name": "signer",
+      "status": "PASS",
+      "detail": "not checked (add --mainnet)",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "position cap",
+      "status": "PASS",
+      "detail": "not checked (add --mainnet)",
+      "remedy": "",
+      "blocking": false
+    }
+  ],
+  "summary": {
+    "pass": 5,
+    "fail": 0,
+    "unverified": 5,
+    "total": 10
+  },
+  "outcome": "NOT YET",
+  "exit_code": 2
+}

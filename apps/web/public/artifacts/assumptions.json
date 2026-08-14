@@ -464,6 +464,148 @@
     {
       "blocks": [
         {
+          "head": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Symbol",
+              "`M`"
+            ],
+            [
+              "Where",
+              "\u00a73.4, trailing swap count for the imbalance z-score"
+            ],
+            [
+              "Value",
+              "**50**"
+            ],
+            [
+              "Rationale",
+              "Long enough for a stable z-score on a busy pool, short enough to react within minutes."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "cited_by": [],
+      "id": "G-1",
+      "kind": "gap",
+      "line": 517,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "M"
+    },
+    {
+      "blocks": [
+        {
+          "head": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Symbol",
+              "`arb_cost_bps`"
+            ],
+            [
+              "Where",
+              "\u00a73.4, toxicity threshold"
+            ],
+            [
+              "Value",
+              "**5 bps**"
+            ],
+            [
+              "Rationale",
+              "BSC gas plus a CEX taker fee, the round-trip cost an arbitrageur must clear."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "cited_by": [],
+      "id": "G-2",
+      "kind": "gap",
+      "line": 518,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "arb_cost_bps"
+    },
+    {
+      "blocks": [
+        {
+          "head": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Symbol",
+              "`N`"
+            ],
+            [
+              "Where",
+              "\u00a74.2, InRange% floor for the bonded instrument"
+            ],
+            [
+              "Value",
+              "**70%**"
+            ],
+            [
+              "Rationale",
+              "Binary and chain-checkable, per \u00a74.2's requirement that the floor need no counterfactual."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "cited_by": [],
+      "id": "G-3",
+      "kind": "gap",
+      "line": 519,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "N"
+    },
+    {
+      "blocks": [
+        {
+          "head": [
+            "Field",
+            "Value"
+          ],
+          "rows": [
+            [
+              "Symbol",
+              "`\u03ba_default`"
+            ],
+            [
+              "Where",
+              "\u00a75.2, referenced but never given a value"
+            ],
+            [
+              "Value",
+              "*pending Step 8*"
+            ],
+            [
+              "Rationale",
+              "Will be the value fitted on 30 days of the target pool's real history, published with its r\u00b2. Held as `PROVISIONAL_KAPPA_PER_LOGPRICE = 500` until then, and labelled as provisional on every card that uses it. See V-2."
+            ]
+          ],
+          "type": "table"
+        }
+      ],
+      "cited_by": [
+        "status.json"
+      ],
+      "id": "G-4",
+      "kind": "gap",
+      "line": 520,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "\u03ba_default"
+    },
+    {
+      "blocks": [
+        {
           "text": "Read from the target pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions. **Liquidity providers keep 66%**, so the effective fee is **0.033%, not 0.05%**. Uniswap v3 defaults this to zero; Pancake sets it at `initialize()` and subtracts it *before* the fee-growth accumulators update.",
           "type": "p"
         },

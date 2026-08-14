@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -329,15 +330,27 @@ def check_burn_in() -> Check:
 
 # --- reporting -------------------------------------------------------------
 
+# The gates `--fast` skips. Named rather than merely omitted, so the published
+# status can say "not run" instead of leaving three rows silently absent — an
+# absent gate and a passing gate look identical in a summary count, and the
+# whole point of this script is that amber is never green.
+SKIPPED_BY_FAST = (
+    "offline test suite",
+    "replay invariants (T1-T4, L1)",
+    "chain and fork suite",
+)
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mainnet", action="store_true", help="also check the live-capital gates")
-    parser.add_argument("--fast", action="store_true", help="skip the test suites")
-    args = parser.parse_args()
 
+def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
+    """Every gate, in report order.
+
+    Extracted from `main` so the terminal output and the JSON artifact consume
+    one list. Two call sites that each assembled their own would eventually
+    disagree about which gates exist, and the one nobody reads would be the one
+    that drifted.
+    """
     checks: list[Check] = []
-    if not args.fast:
+    if not fast:
         checks += [check_offline_suite(), check_replay_invariants(), check_chain_suite()]
     checks += [
         check_kill_switch(),
@@ -348,9 +361,63 @@ def main() -> int:
         check_tape(),
         check_agent_advantage_report(),
         check_burn_in(),
-        check_signer_configured(args.mainnet),
-        check_position_cap(args.mainnet),
+        check_signer_configured(mainnet),
+        check_position_cap(mainnet),
     ]
+    return checks
+
+
+def outcome(checks: list[Check]) -> tuple[str, int]:
+    """The verdict and the exit code, together so they cannot disagree."""
+    if any(c.status == FAIL for c in checks):
+        return "NO GO", 1
+    if any(c.status == UNVERIFIED for c in checks):
+        return "NOT YET", 2
+    return "GO", 0
+
+
+def to_payload(checks: list[Check], *, mainnet: bool, fast: bool) -> dict:
+    verdict, code = outcome(checks)
+    return {
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "mainnet": mainnet,
+        "fast": fast,
+        "skipped": list(SKIPPED_BY_FAST) if fast else [],
+        "checks": [
+            {
+                "name": c.name,
+                "status": c.status,
+                "detail": c.detail,
+                "remedy": c.remedy,
+                "blocking": c.blocking,
+            }
+            for c in checks
+        ],
+        "summary": {
+            "pass": sum(1 for c in checks if c.status == PASS),
+            "fail": sum(1 for c in checks if c.status == FAIL),
+            "unverified": sum(1 for c in checks if c.status == UNVERIFIED),
+            "total": len(checks),
+        },
+        "outcome": verdict,
+        "exit_code": code,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mainnet", action="store_true", help="also check the live-capital gates")
+    parser.add_argument("--fast", action="store_true", help="skip the test suites")
+    parser.add_argument(
+        "--json",
+        nargs="?",
+        const=str(REPO / "apps" / "web" / "public" / "artifacts" / "status.json"),
+        default=None,
+        help="also write the result as an artifact the site can render",
+    )
+    args = parser.parse_args()
+
+    checks = run_checks(mainnet=args.mainnet, fast=args.fast)
 
     width = max(len(c.name) for c in checks)
     print(f"\n  Misquote go/no-go{'  (mainnet)' if args.mainnet else ''}\n")
@@ -359,6 +426,18 @@ def main() -> int:
         print(f"  [{mark}] {check.name.ljust(width)}  {check.detail}")
         if check.remedy:
             print(f"           {' ' * width}  -> {check.remedy}")
+
+    if args.fast:
+        print(f"\n  not run (--fast): {', '.join(SKIPPED_BY_FAST)}")
+
+    if args.json:
+        path = Path(args.json)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(to_payload(checks, mainnet=args.mainnet, fast=args.fast), indent=2)
+            + "\n"
+        )
+        print(f"\n  status -> {path}")
 
     failed = [c for c in checks if c.status == FAIL]
     unverified = [c for c in checks if c.status == UNVERIFIED]

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts tearsheet web web-build web-static web-test clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry tearsheet web web-build web-static web-test clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -97,7 +97,17 @@ advantage-short:  ## the same report on too little history — every task withhe
 assumptions:  ## docs/ASSUMPTIONS.md + REQUIREMENTS_MATRIX.md -> the linkable sheet
 	$(UV) run python scripts/assumptions.py
 
-artifacts: showcase-demo advantage-demo advantage-short assumptions  ## every artifact the site reads
+status:  ## run every readiness gate and publish the result
+	# Leading `-`: the gate exits 1 on NO GO and 2 on NOT YET, and NOT YET is
+	# its current, correct answer. This target's job is to publish that verdict,
+	# not to enforce it — `make go-no-go` is the one that enforces it, and its
+	# exit code must keep meaning something.
+	-$(UV) run python scripts/go_no_go.py --fast --json
+
+registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
+	$(UV) run python scripts/registry_report.py
+
+artifacts: showcase-demo advantage-demo advantage-short assumptions registry status  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev
