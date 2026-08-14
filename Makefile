@@ -1,16 +1,27 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo tearsheet web web-build web-static web-test clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short tearsheet web web-build web-static web-test clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
 ENV    ?= testnet
 N      ?= 2000
-# The advantage report cuts its tape into 20 sub-windows and refuses to quote a
-# window shorter than the 24h policy horizon (ranges.MIN_WINDOW_HOURS). 9,000
-# synthetic swaps span ~62h, so every window came back short and all three tasks
-# were withheld. This is the tape length that clears the floor — the floor
-# itself is not negotiable.
-ADV_N  ?= 45000
+# The advantage report cuts its tape into 20 overlapping sub-windows, each half
+# the span, and refuses to quote a window shorter than the 24h policy horizon
+# (ranges.MIN_WINDOW_HOURS). So the binding constraint is the tape's span in
+# hours, not its event count. Measured, at the generator's ~25s mean gap:
+#
+#   N= 2000   span  13.8h   window  6.9h    0/20 usable
+#   N= 6000   span  41.3h   window 20.6h    0/20 usable
+#   N= 9000   span  62.2h   window 31.1h   20/20 usable
+#
+# The first committed report was withheld on all three tasks because it was
+# generated below this line. 9,000 clears it with margin. The floor itself is
+# not negotiable — we meet it, we do not lower it.
+ADV_N  ?= 9000
+# Deliberately below the floor: the same three tasks on 13.8h of history, which
+# every one of them refuses to quote. Proof that the refusal is live machinery
+# and not a story told about it.
+ADV_SHORT_N ?= 2000
 
 help:  ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +88,11 @@ advantage:  ## hired agent vs doing it yourself, on the indexed tape
 
 advantage-demo:  ## same, on a synthetic tape long enough to clear the 24h window floor
 	$(UV) run python scripts/advantage.py --synthetic $(ADV_N)
+
+advantage-short:  ## the same report on too little history — every task withheld
+	$(UV) run python scripts/advantage.py --synthetic $(ADV_SHORT_N) \
+		--out docs/AGENT_ADVANTAGE_SHORT.md \
+		--artifact apps/web/public/artifacts/advantage_short.json
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev

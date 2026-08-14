@@ -55,6 +55,18 @@ class Quote:
     annualised: bool = False
     basis: str = ""
 
+    # How many of the usable replays actually finished in profit. This is the
+    # honest numerator for "does it beat holding": one observation per replay,
+    # `samples` of them. `showcase.emit` used to invent this denominator as
+    # `result.samples // 100` — 44,802 decisions became "448 windows", all of
+    # them agreeing, from a single replay. That manufactured exactly the sample
+    # size `tearsheet.verdict(min_n=30)` exists to refuse.
+    net_positive: int = 0
+
+    # The individual window returns behind the percentiles, so a reader can see
+    # the distribution rather than three order statistics of it.
+    returns: tuple[float, ...] = ()
+
     @property
     def spread(self) -> float:
         return self.p75 - self.p25
@@ -184,6 +196,8 @@ def quote_from_results(
             hours_per_window=0.0,
             sufficient=False,
             note=detail,
+            net_positive=0,
+            returns=(),
         )
 
     median_hours = percentile([r.hours for r in usable], 0.5)
@@ -218,6 +232,12 @@ def quote_from_results(
         note="",
         annualised=do_annualise,
         basis=basis,
+        # Counted on net_quote rather than on the annualised return so the count
+        # cannot disagree with the driver about which replays made money: the
+        # annualisation scale is strictly positive, but it is a transform, and
+        # the fact being counted is "this window finished ahead".
+        net_positive=sum(1 for r in usable if r.net_quote > 0),
+        returns=tuple(returns),
     )
 
 

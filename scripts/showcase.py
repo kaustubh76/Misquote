@@ -31,16 +31,28 @@ from pathlib import Path
 from misquote.agents.grid.policy import GridParams, decide_grid
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL
+from misquote.core.policy import passive_policy
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Event, PoolMeta
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
 from misquote.replay.tape import MemoryTape
-from misquote.tearsheet.generate import build
+from misquote.tearsheet import ledger, provenance
+from misquote.tearsheet.advantage import compare
+from misquote.tearsheet.generate import build as build_tearsheet
 
 REPO = Path(__file__).resolve().parents[1]
 
 COUNTERFACTUAL_BADGE = "COUNTERFACTUAL — this position was not held"
+
+# The four categories the landing page routes between. Router is the fourth and
+# is not built; it is carried in `tearsheet.ledger` rather than here, so that the
+# only way for it to disappear from the UI is to actually build it.
+CATEGORIES = {
+    "Warden": "Rebalancing",
+    "Grid": "Market making",
+    "Sentinel": "Health",
+}
 COUNTERFACTUAL_NOTE = (
     "This is a replay, not a record. The policy was run over this pool's real "
     "trade history; no capital was deployed and no position existed. Published "
@@ -123,6 +135,7 @@ def run_agent(name: str, events: list[Event], *, policy=None, capital: float) ->
     """
     driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital, policy=policy)
     result = driver.run(MemoryTape(events))
+    estimators = read_estimators(driver)
 
     def factory(start, end):
         if start is None:
@@ -130,28 +143,76 @@ def run_agent(name: str, events: list[Event], *, policy=None, capital: float) ->
         return MemoryTape([e for e in events if start <= e.ts <= end])
 
     quote = compute_quote(META, factory, capital_quote=capital, windows=20, policy=policy)
-    return {"name": name, "result": result, "quote": quote}
+    return {"name": name, "result": result, "quote": quote, "estimators": estimators}
 
 
-def emit(run: dict, journal_dir: Path, out_dir: Path, *, source: str) -> Path:
+def read_estimators(driver: ReplayDriver) -> dict:
+    """The state the estimators ended the replay in.
+
+    `ASSUMPTIONS.md` A8 says, in as many words, that *every card that uses kappa
+    shows its r-squared and whether the fallback was used*. Nothing in the repo
+    kept that promise — the fit was computed on every decision and discarded, so
+    a card could quote a range whose width came from a provisional default and
+    look identical to one whose width came from a fit.
+
+    Read after the run, off the same engine that made the decisions. `.label` is
+    the estimator's own sentence about itself, so the card cannot describe the
+    fit in terms the fit would not use.
+    """
+    engine = driver.engine
+    fit = engine.kappa.fit()
+    return {
+        "sigma_per_sqrt_hour": engine.sigma.value(),
+        "sigma_ready": engine.sigma.ready,
+        "kappa_per_tick": fit.kappa_per_tick,
+        "kappa_per_logprice": fit.kappa_per_logprice,
+        "kappa_r_squared": fit.r_squared,
+        "kappa_is_fallback": fit.is_fallback,
+        "kappa_buckets_used": fit.buckets_used,
+        "kappa_swaps_used": fit.swaps_used,
+        "kappa_label": fit.label,
+        "imbalance_z": engine.imbalance.value(),
+        "imbalance_ready": engine.imbalance.ready,
+    }
+
+
+def emit(
+    run: dict,
+    journal_dir: Path,
+    out_dir: Path,
+    *,
+    source: str,
+    baseline: dict | None = None,
+) -> Path:
     """Build the tearsheet and write the artifact, with the badge attached."""
     result = run["result"]
-    windows = max(1, result.samples // 100)
+    quote = run["quote"]
     slug = run["name"].split()[0].lower()
 
-    sheet = build(
+    sheet = build_tearsheet(
         agent=run["name"],
         pool=f"{TARGET_POOL.label} · {TARGET_POOL.address}",
         # Per agent. This was hardcoded to `warden.jsonl`, so every card stamped
         # Warden's journal as its own provenance — a misattribution on the one
         # field a reader would check to audit the card.
         journal_path=journal_dir / f"{slug}.jsonl",
-        quote=run["quote"],
+        quote=quote,
         in_range_samples=result.in_range_samples,
         in_range_total=result.samples,
-        net_positive_windows=windows if result.net_quote > 0 else 0,
-        total_windows=windows,
+        # The count of windows that finished in profit, and the count of windows.
+        # Both come off the quote, which got them by replaying.
+        #
+        # These two arguments used to be `windows = max(1, result.samples // 100)`
+        # — a single replay's 44,802 decisions divided by a hundred and then
+        # asserted to be 448 unanimous observations. Every card rendered
+        # "PASS (100% of 448)". There were never 448 observations; there was one
+        # replay, and the arithmetic manufactured precisely the sample size that
+        # `verdict(min_n=30)` exists to refuse. The real denominator is 60:
+        # twenty sub-windows times three parameter perturbations.
+        net_positive_windows=quote.net_positive,
+        total_windows=quote.samples,
         extra_caveats=[COUNTERFACTUAL_NOTE],
+        estimators=run.get("estimators"),
     )
 
     payload = sheet.to_dict()
@@ -170,6 +231,47 @@ def emit(run: dict, journal_dir: Path, out_dir: Path, *, source: str) -> Path:
         "costs_quote": round(result.total_costs, 8),
         "net_quote": round(result.net_quote, 8),
     }
+
+    # What the card was missing: the number it is implicitly claiming to beat.
+    #
+    # A quote of "37.74%" answers nothing on its own — the reader's alternative
+    # is not zero, it is minting once at the same width and leaving it alone.
+    # The baseline runs through the same ReplayDriver, the same tape, the same
+    # CostModel and the same LVR accountant; only the function returning a
+    # Decision differs. That is what makes the delta a claim about the policy
+    # rather than about two differently-rigged programs.
+    if baseline is not None:
+        comparison = compare(
+            task=f"{run['name']} — net return on a liquidity position",
+            category="trading",
+            venue=f"{TARGET_POOL.label} ({source} tape)",
+            metric="net return on capital (fees − realized convexity cost − costs), P25–P75",
+            without_agent="mint once at the same width, never touch it (passive_policy)",
+            with_agent=run["name"],
+            baseline_quote=baseline["quote"],
+            agent_quote=quote,
+            baseline_result=baseline["result"],
+            agent_result=result,
+        )
+        payload["advantage"] = {
+            "delta_pp": round(comparison.delta, 4),
+            "material": comparison.material,
+            "ranges_overlap": comparison.ranges_overlap,
+            "separated": comparison.separated,
+            "quotable": comparison.quotable,
+            "verdict": comparison.verdict_line(),
+            "without_agent": comparison.without_agent,
+            "baseline": {
+                "p25": round(comparison.baseline_p25, 4),
+                "p50": round(comparison.baseline_p50, 4),
+                "p75": round(comparison.baseline_p75, 4),
+                "in_range_fraction": round(comparison.baseline_in_range, 4),
+                "fees_quote": round(comparison.baseline_fees, 8),
+                "lvr_quote_upper_bound": round(comparison.baseline_lvr, 8),
+                "costs_quote": round(comparison.baseline_costs, 8),
+                "moves": comparison.baseline_moves,
+            },
+        }
 
     path = out_dir / f"{slug}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +307,14 @@ def main() -> int:
     journal_dir = Path("data/journal")
     out_dir = Path(args.out)
 
+    # Computed once, not once per agent. The passive baseline does not depend on
+    # which agent it is being compared against, and each `run_agent` costs a full
+    # replay plus twenty windows times three perturbations — so folding it into
+    # the loop would have tripled the most expensive thing this script does to
+    # produce three identical answers.
+    print("baseline: passive_policy (mint once, never move) …")
+    baseline = run_agent("DIY (passive)", events, policy=passive_policy, capital=args.capital)
+
     runs = [
         run_agent("Warden", events, capital=args.capital),
         run_agent(
@@ -223,7 +333,7 @@ def main() -> int:
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")
     for run in runs:
-        path = emit(run, journal_dir, out_dir, source=source)
+        path = emit(run, journal_dir, out_dir, source=source, baseline=baseline)
         result, quote = run["result"], run["quote"]
         print(f"  {run['name']}")
         print(f"    quote        {quote.render()}")
@@ -244,11 +354,33 @@ def main() -> int:
     index.write_text(
         json.dumps(
             {
-                "agents": [r["name"] for r in runs],
+                "schema_version": 2,
+                # Objects, not bare strings. The card page derived each agent's
+                # filename by lowercasing its display name, so an agent called
+                # "Foo Bar" would have silently 404'd. The slug is now emitted by
+                # the same code that names the file.
+                "agents": [
+                    {
+                        "name": r["name"],
+                        "slug": r["name"].split()[0].lower(),
+                        "category": CATEGORIES.get(r["name"], "Unclassified"),
+                        "built": True,
+                    }
+                    for r in runs
+                ],
+                # The fourth category. Advertised in the README, absent from the
+                # code, and previously absent from the UI too — which made the
+                # omission invisible rather than disclosed.
+                "not_built": ledger.to_dicts(),
                 "pool": TARGET_POOL.label,
+                "pool_address": TARGET_POOL.address,
                 "counterfactual": True,
                 "badge": COUNTERFACTUAL_BADGE,
                 "source": source,
+                "baseline": {
+                    "name": baseline["name"],
+                    "description": "mint once at the same width, never touch it (passive_policy)",
+                },
             },
             indent=2,
             sort_keys=True,
@@ -256,6 +388,23 @@ def main() -> int:
         + "\n"
     )
     print(f"  index -> {index}")
+
+    build = out_dir / "build.json"
+    build.write_text(
+        json.dumps(
+            provenance.build_stamp(
+                f"python scripts/showcase.py{f' --synthetic {args.synthetic}' if args.synthetic else ''}",
+                source=source,
+                events=len(events),
+                capital_quote=args.capital,
+                span_hours=round((events[-1].ts - events[0].ts) / 3600, 2),
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    print(f"  build -> {build}")
     return 0
 
 

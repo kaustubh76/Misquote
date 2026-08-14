@@ -1,11 +1,62 @@
 {
   "agents": [
-    "Warden",
-    "Grid",
-    "Sentinel"
+    {
+      "built": true,
+      "category": "Rebalancing",
+      "name": "Warden",
+      "slug": "warden"
+    },
+    {
+      "built": true,
+      "category": "Market making",
+      "name": "Grid",
+      "slug": "grid"
+    },
+    {
+      "built": true,
+      "category": "Health",
+      "name": "Sentinel",
+      "slug": "sentinel"
+    }
   ],
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
+  "baseline": {
+    "description": "mint once at the same width, never touch it (passive_policy)",
+    "name": "DIY (passive)"
+  },
   "counterfactual": true,
+  "not_built": [
+    {
+      "category": "Yield",
+      "evidence": "agents/router/ \u2014 empty directory",
+      "name": "Router",
+      "what": "A whitelist APR router with an optimal-switching boundary \u2014 move only when the yield delta exceeds gas plus slippage \u2014 deployed through the BNB Agent Studio CLI as the native-citizenship proof.",
+      "why": "Never started. The three agents that exist share one replay engine and one cost model; Router is the only one of the four that would have needed a second venue model, and it was cut rather than faked."
+    },
+    {
+      "category": "Activation",
+      "evidence": "packages/misquote/sessions/__init__.py \u2014 docstring only",
+      "name": "Altana session keys",
+      "what": "The caps subset: allowlist, spend cap, expiry, Keystore, and one-transaction revoke, so hiring an agent is bounded and reversible.",
+      "why": "Unimplemented. Without it there is no activation path, which is why no page here has a Hire button \u2014 the button would not do anything."
+    },
+    {
+      "category": "Due diligence",
+      "evidence": "vetting/badges/ \u2014 empty directory",
+      "name": "Vetting badges",
+      "what": "A due-diligence badge on every pool a listed agent touches, with each finding shipping a proof-of-concept that executes on a mainnet fork.",
+      "why": "The fork lab under vetting/forge exists and runs; the badge generator that would turn its output into a rendered claim does not."
+    },
+    {
+      "category": "Operations",
+      "evidence": "packages/misquote/ops/__init__.py \u2014 docstring only",
+      "name": "Ops surface",
+      "what": "Prometheus metrics and Telegram alerting for the live agent loop.",
+      "why": "Declared as an optional dependency group and never wired. The Warden loop writes a JSONL journal instead, which is what the tearsheet reads."
+    }
+  ],
   "pool": "PancakeSwap v3 WBNB/USDT 0.05%",
+  "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+  "schema_version": 2,
   "source": "synthetic"
 }

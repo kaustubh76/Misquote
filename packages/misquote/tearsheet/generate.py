@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from misquote.replay import ranges
+
 MIN_OBSERVATIONS = 30  # Mission Control's `min_n`, unchanged
 
 
@@ -152,6 +154,46 @@ def read_journal(path: str | Path) -> JournalSummary:
     return summary
 
 
+def _verdict_dict(v: Verdict) -> dict[str, Any]:
+    """A verdict with its refusal intact.
+
+    `detail` and `n` have always been on `Verdict` and were always dropped here,
+    so a card could render "no verdict" but never "no verdict — 12 observations,
+    need 30". The refusal is the product; shipping it without its reason turns
+    the most honest thing on the card into the least informative.
+    """
+    return {"called": v.called, "label": str(v), "detail": v.detail, "n": v.n}
+
+
+def _quote_dict(quote: Any) -> dict[str, Any] | None:
+    """The quote as numbers, not as a sentence.
+
+    `to_dict` used to emit only `quote.render()` — "36.88% to 38.72% (median
+    37.74%, over 31h …)". Nothing downstream can draw a P25-P75 band from that
+    string, so the range that is the entire point of the product could only ever
+    be read, never seen.
+    """
+    if quote is None:
+        return None
+    return {
+        "p25": quote.p25,
+        "p50": quote.p50,
+        "p75": quote.p75,
+        "samples": quote.samples,
+        "windows": quote.windows,
+        "perturbations": quote.perturbations,
+        "net_positive": quote.net_positive,
+        "returns": list(quote.returns),
+        "in_range_p50": quote.in_range_p50,
+        "rebalances_p50": quote.rebalances_p50,
+        "hours_per_window": quote.hours_per_window,
+        "sufficient": quote.sufficient,
+        "annualised": quote.annualised,
+        "basis": quote.basis,
+        "note": quote.note,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class Tearsheet:
     """Everything a card shows, and everything needed to disbelieve it."""
@@ -168,15 +210,24 @@ class Tearsheet:
     caveats: list[str]
     provenance: dict[str, Any]
 
+    # The structured forms behind `quote_line`, and the sample-size floors that
+    # decided whether there would be a quote at all.
+    quote: Any = None
+    floors: dict[str, Any] = field(default_factory=dict)
+    estimators: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "agent": self.agent,
             "pool": self.pool,
             "quote": self.quote_line,
             "quote_sufficient": self.quote_sufficient,
+            "quote_detail": _quote_dict(self.quote),
+            "floors": self.floors,
+            "estimators": self.estimators,
             "verdicts": {
-                "in_range": {"called": self.in_range.called, "label": str(self.in_range)},
-                "profitable": {"called": self.profitable.called, "label": str(self.profitable)},
+                "in_range": _verdict_dict(self.in_range),
+                "profitable": _verdict_dict(self.profitable),
             },
             "activity": {
                 "decisions": self.journal.decisions,
@@ -230,6 +281,7 @@ def build(
     total_windows: int = 0,
     in_range_floor: float = 0.70,
     extra_caveats: list[str] | None = None,
+    estimators: dict[str, Any] | None = None,
 ) -> Tearsheet:
     """Assemble a tearsheet from a journal and, optionally, a replay quote."""
     summary = read_journal(journal_path)
@@ -265,6 +317,25 @@ def build(
             "samples, so the range width on those was set by an assumption "
             "rather than by a fit (assumption A8)."
         )
+    elif estimators and estimators.get("kappa_is_fallback"):
+        # The clause above reads the decision journal, which a live agent writes
+        # and a replay does not. So on every card built from a replay — which is
+        # every card the site currently shows — the journal was empty, the
+        # counter was zero, and the caveat did not fire *even when the fallback
+        # had been used for the entire run*.
+        #
+        # A8 does not say the fallback is disclosed when a journal happens to
+        # exist. It says: "Every card that uses kappa shows its r^2 and whether
+        # the fallback was used." The estimator was read at the end of the run
+        # and knows the answer, so ask it.
+        caveats.append(
+            "The fill-decay parameter kappa was not fitted on this run — it fell "
+            f"back to its provisional default (fit r^2 = "
+            f"{float(estimators.get('kappa_r_squared', 0.0)):.2f} over "
+            f"{int(estimators.get('kappa_buckets_used', 0))} depth buckets). The "
+            "range width here was therefore set by an assumption rather than by "
+            "a measurement (assumption A8)."
+        )
     if summary.fallback_samples:
         share = summary.fallback_samples / max(1, summary.decisions)
         caveats.append(
@@ -277,6 +348,19 @@ def build(
         pool=pool,
         quote_line=quote_line,
         quote_sufficient=sufficient,
+        quote=quote,
+        # Published rather than hardcoded downstream. Every one of these is a
+        # threshold that can cause this product to say nothing, so a reader is
+        # entitled to see the number that silenced it — and a UI that restated
+        # them as literals could drift from the code that enforces them.
+        floors={
+            "min_windows": ranges.MIN_SAMPLES,
+            "min_window_hours": ranges.MIN_WINDOW_HOURS,
+            "min_hours_to_annualise": ranges.MIN_HOURS_TO_ANNUALISE,
+            "min_observations": MIN_OBSERVATIONS,
+            "in_range_floor": in_range_floor,
+        },
+        estimators=dict(estimators or {}),
         in_range=verdict(in_range_samples, in_range_total, in_range_floor),
         profitable=verdict(net_positive_windows, total_windows, 0.5),
         journal=summary,

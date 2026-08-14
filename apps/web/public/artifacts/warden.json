@@ -8,6 +8,25 @@
     "read_errors": 0,
     "rebalances": 0
   },
+  "advantage": {
+    "baseline": {
+      "costs_quote": 2.0,
+      "fees_quote": 32.12313376,
+      "in_range_fraction": 0.0242,
+      "lvr_quote_upper_bound": 0.01071551,
+      "moves": 1,
+      "p25": 5.6279,
+      "p50": 9.9898,
+      "p75": 26.0511
+    },
+    "delta_pp": 27.7524,
+    "material": true,
+    "quotable": true,
+    "ranges_overlap": false,
+    "separated": true,
+    "verdict": "agent beats DIY by 27.75pp, bands do not overlap",
+    "without_agent": "mint once at the same width, never touch it (passive_policy)"
+  },
   "agent": "Warden",
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "caveats": [
@@ -16,6 +35,26 @@
     "Liquidity providers keep 66% of every fee on this pool \u2014 the protocol takes 34% (assumption P-1). Every fee figure here is net of that."
   ],
   "counterfactual": true,
+  "estimators": {
+    "imbalance_ready": true,
+    "imbalance_z": -0.848528137423857,
+    "kappa_buckets_used": 3,
+    "kappa_is_fallback": true,
+    "kappa_label": "kappa = 0.0500/tick (provisional default; fit r^2 = 0.00)",
+    "kappa_per_logprice": 500.0,
+    "kappa_per_tick": 0.04999750016664866,
+    "kappa_r_squared": 0.0,
+    "kappa_swaps_used": 5541,
+    "sigma_per_sqrt_hour": 0.00742058917545983,
+    "sigma_ready": true
+  },
+  "floors": {
+    "in_range_floor": 0.7,
+    "min_hours_to_annualise": 168.0,
+    "min_observations": 30,
+    "min_window_hours": 24.0,
+    "min_windows": 20
+  },
   "pool": "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050",
   "provenance": {
     "every_number_derived": true,
@@ -24,6 +63,84 @@
     "journal_rows": 0
   },
   "quote": "36.88% to 38.72% (median 37.74%, over 31h \u2014 too short to annualise honestly)",
+  "quote_detail": {
+    "annualised": false,
+    "basis": "over 31h \u2014 too short to annualise honestly",
+    "hours_per_window": 31.104861111111113,
+    "in_range_p50": 0.5739417457765528,
+    "net_positive": 60,
+    "note": "",
+    "p25": 36.87663999940394,
+    "p50": 37.74221223169183,
+    "p75": 38.71515492939765,
+    "perturbations": 3,
+    "rebalances_p50": 10.0,
+    "returns": [
+      44.42791038966982,
+      43.01678209777728,
+      40.83547805866515,
+      38.4212347600676,
+      38.20786342968688,
+      37.745151855636266,
+      38.06728401572033,
+      39.3227816623987,
+      41.445135080616666,
+      36.314106696443424,
+      34.660366143138354,
+      37.25764747705984,
+      37.37833572294688,
+      37.739272607747395,
+      36.48439894684321,
+      43.052455903207985,
+      42.810769649851174,
+      42.34907937835967,
+      40.605062766752056,
+      40.935975028814106,
+      40.32467058356307,
+      37.732884903441324,
+      38.025935287396045,
+      37.155517117480116,
+      35.88077866214026,
+      35.96363034933277,
+      36.83927335075072,
+      37.07801958893393,
+      37.16351650531975,
+      36.97108324178596,
+      37.04705271725538,
+      36.88909554895501,
+      35.854637170734755,
+      37.62509141506691,
+      38.212138070633344,
+      37.770560107542025,
+      37.480767284436574,
+      38.262316081883924,
+      38.371725437157714,
+      40.43839645487111,
+      41.021816957534426,
+      39.83356857609612,
+      37.77257231387893,
+      37.75272893605713,
+      36.51542239465782,
+      36.000950206808355,
+      36.761521026299945,
+      37.25006926507019,
+      38.16189703406124,
+      38.577282458849716,
+      37.95543114444109,
+      35.77505084770786,
+      37.32339419771501,
+      36.53740611473683,
+      34.399465748779676,
+      34.55204337380556,
+      34.38013665437884,
+      37.89346520878981,
+      39.12877234104144,
+      37.670401811336035
+    ],
+    "samples": 60,
+    "sufficient": true,
+    "windows": 20
+  },
   "quote_sufficient": true,
   "replay": {
     "costs_quote": 80.0,
@@ -41,11 +158,15 @@
   "verdicts": {
     "in_range": {
       "called": true,
-      "label": "FAIL (60% of 44802)"
+      "detail": "threshold 70%",
+      "label": "FAIL (60% of 44802)",
+      "n": 44802
     },
     "profitable": {
       "called": true,
-      "label": "PASS (100% of 448)"
+      "detail": "threshold 50%",
+      "label": "PASS (100% of 60)",
+      "n": 60
     }
   }
 }
