@@ -109,6 +109,42 @@ The toxicity pull (§3.4) and the realized-LVR accounting (§4) address this aft
 in the width itself. Alongside A2, this is the second assumption on this sheet that does not flatter
 us.
 
+## A10 · What we call LVR is an upper bound on it
+
+**Added.** Spec equation (3) computes `LVR_k = −(Δy_k + P_k·Δx_k)` and it is
+non-negative for *every* swap, regardless of who traded or why. That guarantee is
+the tell: a real adverse-selection measure would distinguish an informed
+arbitrageur from a noise trader, and this one cannot, because it assumes the
+post-swap **pool** price is fair.
+
+The consequence is concrete. On a round trip `P₀ → P₁ → P₀` the position ends
+exactly where it started and collected two fees, yet equation (3) books a loss on
+both legs. So in a churny pool the figure folds reversion round trips into what it
+calls adverse selection and **overstates** it.
+
+We report it anyway, because it is model-free, it is computed per swap with a
+`tx` you can open on BscScan, and it errs against us rather than for us. But it is
+labelled **"realized convexity cost (upper bound on LVR)"** and never simply
+"LVR". Where a CEX price is available — which §3.4 already fetches for the
+toxicity signal — a second series measured against that price is LVR proper and
+can take either sign.
+
+## A11 · Fees are prorated by how much of a swap happened inside the range
+
+**Added.** Uniswap v3 accrues fees to whichever ticks are active as price sweeps
+through them. A swap that starts inside our range and exits it should pay us for
+the part that was inside and nothing for the part that was not.
+
+The implementation prorates by the fraction of the price move (in √P space) that
+fell within the position's bounds. That is exact when the pool's active liquidity
+is constant across the swap and an approximation when the swap crosses ticks
+where other positions start or end. The error is bounded by how much liquidity
+changes mid-swap and, on the deepest pool on BSC, is small — but it is an
+approximation and is named as one.
+
+The protocol's share is *not* approximated: Pancake's Swap event reports the
+exact amount it took, so that part is read from chain per swap.
+
 ## A6 · Showcase Mode is a labeled counterfactual
 
 **Added.** The showcase position **was not held.** The pool history is real, every swap traces to a
