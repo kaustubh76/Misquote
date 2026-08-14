@@ -33,6 +33,8 @@ from web3 import Web3
 
 from misquote.chain.addresses import Deployment
 from misquote.chain.signer import BscSigner, SentTransaction
+from misquote.core.liquidity import get_amounts_for_liquidity, get_liquidity_for_amounts
+from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import PoolMeta, Tick
 
 MAX_UINT128 = 2**128 - 1
@@ -78,6 +80,12 @@ ERC20_ABI = json.loads("""[
   "inputs":[{"type":"address"},{"type":"address"}],"outputs":[{"type":"uint256"}]},
  {"name":"approve","type":"function","stateMutability":"nonpayable",
   "inputs":[{"type":"address"},{"type":"uint256"}],"outputs":[{"type":"bool"}]}
+]""")
+
+POOL_ABI = json.loads("""[
+ {"name":"slot0","type":"function","stateMutability":"view","inputs":[],"outputs":[
+   {"type":"uint160"},{"type":"int24"},{"type":"uint16"},{"type":"uint16"},{"type":"uint16"},
+   {"type":"uint32"},{"type":"bool"}]}
 ]""")
 
 FACTORY_ABI = json.loads("""[
@@ -201,13 +209,39 @@ class PositionManager:
         *,
         deadline_seconds: int = 600,
     ) -> SentTransaction:
-        """Open a position. Slippage bounds are not optional.
+        """Open a position. Slippage bounds are not optional, and not naive.
 
         `amount*Min` of zero tells the pool "take whatever you like at whatever
         price", which on a pool that moved between simulation and inclusion is an
-        invitation. The bound comes from `slippage_bps`.
+        invitation.
+
+        But bounding each *desired* amount at 99.5% is worse than useless — it
+        reverts every time. The curve consumes the two tokens in whatever ratio
+        the current price dictates, so one side is nearly exhausted and the other
+        barely touched; demanding 99.5% of both is asking for something the pool
+        can never do. The fork test found this as "Price slippage check" on the
+        very first mint.
+
+        So the bound is computed against what the curve will *actually* take:
+        derive the liquidity these amounts buy at the current price, ask our own
+        (differential-tested) math what that liquidity costs, and bound those.
         """
         self._require_aligned(lower, upper)
+
+        sqrt_price = self._sqrt_price_now()
+        sqrt_lower = get_sqrt_ratio_at_tick(lower)
+        sqrt_upper = get_sqrt_ratio_at_tick(upper)
+
+        liquidity = get_liquidity_for_amounts(
+            sqrt_price, sqrt_lower, sqrt_upper, amount0_desired, amount1_desired
+        )
+        if liquidity <= 0:
+            raise ValueError("those amounts buy no liquidity at the current price")
+
+        expected0, expected1 = get_amounts_for_liquidity(
+            sqrt_price, sqrt_lower, sqrt_upper, liquidity
+        )
+
         call = self.contract.functions.mint(
             (
                 Web3.to_checksum_address(self.meta.token0),
@@ -217,13 +251,19 @@ class PositionManager:
                 upper,
                 amount0_desired,
                 amount1_desired,
-                self._with_slippage(amount0_desired),
-                self._with_slippage(amount1_desired),
+                self._with_slippage(expected0),
+                self._with_slippage(expected1),
                 self.signer.address,
                 self._deadline(deadline_seconds),
             )
         )
         return self.signer.send(self.signer.build(call))
+
+    def _sqrt_price_now(self) -> int:
+        pool = self.w3.eth.contract(
+            address=Web3.to_checksum_address(self.resolve_pool()), abi=POOL_ABI
+        )
+        return int(pool.functions.slot0().call()[0])
 
     def decrease_liquidity(
         self,
