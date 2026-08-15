@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Metadata } from "next";
 import { AgentDetail } from "@/components/AgentDetail";
 
 /**
@@ -11,19 +12,48 @@ import { AgentDetail } from "@/components/AgentDetail";
  * itself still fetches its artifact at runtime, so editing a JSON and reloading
  * still works.
  */
-export function generateStaticParams() {
+type IndexedAgent = { slug?: string; name?: string; category?: string };
+
+/** The generated index, read once at build time. */
+function readAgents(): IndexedAgent[] {
   const path = join(process.cwd(), "public", "artifacts", "index.json");
   try {
-    const index = JSON.parse(readFileSync(path, "utf8")) as {
-      agents?: { slug?: string }[];
-    };
-    const slugs = (index.agents ?? [])
-      .map((a) => a.slug)
-      .filter((s): s is string => typeof s === "string" && s.length > 0);
-    if (slugs.length > 0) return slugs.map((slug) => ({ slug }));
+    const index = JSON.parse(readFileSync(path, "utf8")) as { agents?: IndexedAgent[] };
+    return index.agents ?? [];
   } catch {
-    /* fall through */
+    return [];
   }
+}
+
+/**
+ * The tab says the agent's name, not the slug.
+ *
+ * This route is the one page that was already a server component, so it could
+ * always have done this; it just never did, and shipped the site-wide title
+ * like everything else.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const agent = readAgents().find((a) => a.slug === slug);
+  const name = agent?.name ?? slug;
+  return {
+    title: name,
+    description: agent?.category
+      ? `${name} — ${agent.category}. What the policy would have earned, replayed over recorded pool history, with every assumption behind it.`
+      : `${name}: a replay of the policy over recorded pool history.`,
+  };
+}
+
+export function generateStaticParams() {
+  const slugs = readAgents()
+    .map((a) => a.slug)
+    .filter((s): s is string => typeof s === "string" && s.length > 0);
+  if (slugs.length > 0) return slugs.map((slug) => ({ slug }));
+
   // Never return an empty list: that would export zero agent pages and the
   // failure would look like a routing bug rather than a missing artifact.
   return [{ slug: "warden" }, { slug: "grid" }, { slug: "sentinel" }];

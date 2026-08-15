@@ -50,6 +50,7 @@ if (shotsAt) mkdirSync(shotsAt, { recursive: true });
 
 const browser = await chromium.launch();
 const failures = [];
+const titles = new Map();
 
 for (const [colorScheme, width] of VIEWPORTS) {
   const context = await browser.newContext({
@@ -79,6 +80,17 @@ for (const [colorScheme, width] of VIEWPORTS) {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
+    // Every route shipped the same <title> once, because all of them were
+    // client components and none could export metadata. Seven identical tab
+    // labels, seven identical history entries, and a route announcer reading
+    // the wrong page name back to a screen reader.
+    const title = await page.title();
+    const seen = titles.get(title);
+    if (seen && seen !== name) {
+      failures.push(`${name} and ${seen} share the title "${title}"`);
+    }
+    titles.set(title, name);
+
     if (shotsAt) {
       await page.screenshot({ path: `${shotsAt}/${tag}.png`, fullPage: width >= 1280 });
     }
@@ -102,4 +114,4 @@ if (failures.length) {
   for (const f of failures) console.error(`    ${f}`);
   process.exit(1);
 }
-console.log("\n  every route clean in both themes and at 390px.");
+console.log(`\n  every route clean in both themes and at 390px, with ${titles.size} distinct titles.`);
