@@ -11,9 +11,9 @@
  * the subtree, so a status region nested within it would say nothing until the
  * load it describes had already finished.
  *
- * This comment previously named `ArtifactView.tsx`, a file that has never
- * existed, and the announcement it promised had never been built — so the
- * skeletons were hidden and nothing was said in their place.
+ * This comment previously named a view wrapper that did not exist, and the
+ * announcement it promised had not been built — so the skeletons were hidden
+ * and nothing was said in their place.
  *
  * The pulse is disabled under `prefers-reduced-motion` by the global rule in
  * `globals.css`.

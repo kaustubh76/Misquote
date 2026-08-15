@@ -246,3 +246,43 @@ describe("Status", () => {
     }
   });
 });
+
+describe("Methods states no figure it has not loaded", () => {
+  // The page argued "a floor a UI could get wrong is not a floor" while
+  // restating all four floors as literals directly beneath that sentence, and
+  // fell back to "~31h" / "62.2h" / 20 / 3 / 60 / 24 whenever warden.json was
+  // absent — which, since the error notice did not suppress the sections below
+  // it, was permanently.
+  it("invents nothing when the artifact is missing", async () => {
+    serveArtifacts({ missing: ["warden.json"] });
+    render(<MethodsPage />);
+
+    await screen.findByRole("alert");
+
+    for (const literal of [/~?31h/, /62\.2h/, /\b20 usable/, /\b24h per window/,
+                           /\b168h before/, /\b30 observations/]) {
+      expect(screen.queryByText(literal)).not.toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole("heading", { name: /quote window is shorter than the tape/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("reads the floors rather than restating them", async () => {
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    serveArtifacts({
+      overrides: {
+        "warden.json": {
+          ...warden,
+          floors: { ...warden.floors, min_windows: 999, min_observations: 777 },
+        },
+      },
+    });
+    render(<MethodsPage />);
+
+    // If these were literals the page would still read "20" and "30".
+    expect(await screen.findByText(/999 usable sub-windows/)).toBeInTheDocument();
+    expect(screen.getByText(/777 observations before a verdict/)).toBeInTheDocument();
+    expect(screen.queryByText(/20 usable sub-windows/)).not.toBeInTheDocument();
+  });
+});

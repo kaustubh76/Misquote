@@ -9,7 +9,7 @@ import { DataTable } from "@/components/DataTable";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
-import { count, hours } from "@/lib/format";
+import { count, EMPTY, hours } from "@/lib/format";
 
 /**
  * How a quote is made, and why its window is shorter than the tape.
@@ -72,14 +72,26 @@ export default function MethodsPage() {
       {/* ------------------------------------------- the window arithmetic -- */}
       <section className="mt-10">
         <h2 className="mb-4 text-lg font-semibold">
-          Why the quote says {q ? hours(q.hours_per_window) : "~31h"} and the tape says{" "}
-          {d ? hours(d.replay.hours) : "62.2h"}
+          {/* Two forms. The loaded one names both figures; the unloaded one
+              states the relationship and no magnitude, because "~31h" and
+              "62.2h" were literals standing in for numbers nobody had fetched —
+              on the page that argues a floor a UI could get wrong is not a
+              floor. They also went stale silently: they are Warden's, on one
+              tape, and survived every regeneration. */}
+          {q && d ? (
+            <>
+              Why the quote says {hours(q.hours_per_window)} and the tape says{" "}
+              {hours(d.replay.hours)}
+            </>
+          ) : (
+            <>Why the quote window is shorter than the tape</>
+          )}
         </h2>
         <Card>
           <p className="mt-0 text-sm text-dim">
             A single replay over the whole tape is <em>one</em> observation. One number
             from one run tells you what happened, not what the strategy does — so the
-            history is cut into <strong className="text-ink">{q?.windows ?? 20}</strong>{" "}
+            history is cut into <strong className="text-ink">{count(q?.windows)}</strong>{" "}
             overlapping sub-windows, each covering{" "}
             <strong className="text-ink">half the span</strong>, and the policy is replayed
             in each.
@@ -102,31 +114,36 @@ export default function MethodsPage() {
                 },
                 {
                   label: "windows",
-                  value: count(q?.windows ?? 20),
+                  value: count(q?.windows),
                   note: "overlapping, not disjoint",
                 },
                 {
                   label: "× perturbations",
-                  value: count(q?.perturbations ?? 3),
+                  value: count(q?.perturbations),
                   note: "γ and κ at ±25%",
                 },
                 {
                   label: "= observations",
-                  value: count(q?.samples ?? 60),
+                  value: count(q?.samples),
                   note: "the denominator on every verdict",
                 },
               ]}
             />
           </div>
 
-          <p className="mb-0 text-sm text-dim">
-            Overlapping rather than disjoint is a deliberate trade. Twenty disjoint
-            windows over this tape would be about{" "}
-            {d ? hours(d.replay.hours / 20) : "3h"} each — far too short for a{" "}
-            {floors ? floors.min_window_hours : 24}h policy horizon to mean anything.
-            Overlap costs independence and buys length, and length is what the horizon
-            needs. <Cite id="A5" />
-          </p>
+          {q && d && floors && (
+            <p className="mb-0 text-sm text-dim">
+              Overlapping rather than disjoint is a deliberate trade.{" "}
+              {count(q.windows)} disjoint windows over this tape would be about{" "}
+              {/* Divided by the window count the artifact reports, not by a
+                  literal 20 — the two agree today and would part company the
+                  moment the emitter changed, silently and in prose. */}
+              {hours(d.replay.hours / q.windows)} each — far too short for a{" "}
+              {floors.min_window_hours}h policy horizon to mean anything. Overlap costs
+              independence and buys length, and length is what the horizon needs.{" "}
+              <Cite id="A5" />
+            </p>
+          )}
         </Card>
       </section>
 
@@ -135,15 +152,16 @@ export default function MethodsPage() {
         <h2 className="mb-4 text-lg font-semibold">The four floors</h2>
         <p className="mb-5 max-w-[64ch] text-sm text-dim">
           Each of these can stop this product from printing a number. They are published
-          here with the values the code enforces, read from the artifact rather than
-          restated — a floor a UI could get wrong is not a floor.
+          here with the values the code enforces — including the numbers in these four
+          titles, which were literals until they disagreed with nothing and were
+          caught anyway. A floor a UI could get wrong is not a floor.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader
-              title="20 usable sub-windows"
-              eyebrow={`min_windows = ${floors?.min_windows ?? "—"}`}
+              title={<>{count(floors?.min_windows)} usable sub-windows</>}
+              eyebrow={`min_windows = ${floors?.min_windows ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
               Below this the quote is withheld entirely rather than estimated from four
@@ -153,8 +171,8 @@ export default function MethodsPage() {
 
           <Card>
             <CardHeader
-              title="24h per window"
-              eyebrow={`min_window_hours = ${floors?.min_window_hours ?? "—"}`}
+              title={<>{hours(floors?.min_window_hours, 0)} per window</>}
+              eyebrow={`min_window_hours = ${floors?.min_window_hours ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
               A window shorter than the policy horizon is a measurement of nothing.
@@ -164,8 +182,8 @@ export default function MethodsPage() {
 
           <Card>
             <CardHeader
-              title="168h before annualising"
-              eyebrow={`min_hours_to_annualise = ${floors?.min_hours_to_annualise ?? "—"}`}
+              title={<>{hours(floors?.min_hours_to_annualise, 0)} before annualising</>}
+              eyebrow={`min_hours_to_annualise = ${floors?.min_hours_to_annualise ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
               Under a week of history, the figure is reported as-is with the span
@@ -176,8 +194,8 @@ export default function MethodsPage() {
 
           <Card>
             <CardHeader
-              title="30 observations before a verdict"
-              eyebrow={`min_observations = ${floors?.min_observations ?? "—"}`}
+              title={<>{count(floors?.min_observations)} observations before a verdict</>}
+              eyebrow={`min_observations = ${floors?.min_observations ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
               Below the floor the tearsheet prints &ldquo;no verdict&rdquo; and the count

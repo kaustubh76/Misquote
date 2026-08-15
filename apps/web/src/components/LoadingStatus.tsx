@@ -4,9 +4,9 @@
  * `Skeleton.tsx` marks every placeholder `aria-hidden`, on the grounds that a
  * screen reader reading out a dozen empty boxes is worse than silence. Its
  * docstring then promised the wait was "announced in words instead — see the
- * `role="status"` region in `ArtifactView.tsx`".
+ * `role="status"` region in a view wrapper".
  *
- * There was no `ArtifactView.tsx`, and there was no status region anywhere. The
+ * No such wrapper existed, and there was no status region anywhere. The
  * skeletons were hidden and nothing was said in their place, so a screen-reader
  * user got silence and then, abruptly, a full page. `test_comment_references`
  * caught the dangling filename; the missing announcement was behind it.

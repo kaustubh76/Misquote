@@ -12,8 +12,11 @@ const ARTIFACTS = join(process.cwd(), "public", "artifacts");
  * These read the same files `make artifacts` writes and the browser requests,
  * which is what makes a page test capable of catching an emitter change.
  */
-export function serveArtifacts(options: { missing?: string[] } = {}) {
+export function serveArtifacts(
+  options: { missing?: string[]; overrides?: Record<string, unknown> } = {},
+) {
   const missing = new Set(options.missing ?? []);
+  const overrides = options.overrides ?? {};
 
   vi.stubGlobal(
     "fetch",
@@ -38,6 +41,15 @@ export function serveArtifacts(options: { missing?: string[] } = {}) {
           status: 404,
           statusText: "Not Found",
           headers: { "content-type": "text/html" },
+        });
+      }
+
+      // A mutated body, for asserting that a figure is *read* rather than
+      // restated: change the artifact and the page must change with it.
+      if (name in overrides) {
+        return new Response(JSON.stringify(overrides[name]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
         });
       }
 
