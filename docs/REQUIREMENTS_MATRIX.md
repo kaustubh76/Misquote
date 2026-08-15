@@ -432,27 +432,46 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
-### P-8 · Two pools on the same DEX, two different protocol fees — read it, never model it
+### P-8 · Two pools on the same DEX, two different protocol fees — **corrected 15 Aug 2026**
 
-**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool
-(`slot0.feeProtocol = 3400`), where Uniswap's is off by default, and that reconstructing fees from
-volume overstates LP earnings by **1.52×**.
+> **This item was published wrong, by us, and the correction is more useful than the original.**
+> The first version claimed TSLAx/USDT reports `feeProtocol = 0` — that LPs keep the entire fee on
+> that venue. They keep 68%. The reader took **`slot0[2]`**, which is `observationIndex`, instead of
+> **`slot0[5]`**, which is `feeProtocol`.
 
-Resolving a tokenized-equity venue for the TermiX track's equities category turned up the other half
-of that lesson. **TSLAx/USDT 0.25%** (`0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492`, read via
-`scripts/find_equity_pool.py`) reports **`feeProtocol = 0`**. Same DEX, same factory, same
-contracts — and LPs keep the **entire** fee.
+**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool, where Uniswap's is
+off by default, and that reconstructing fees from volume overstates LP earnings by **1.52×**.
 
-| Pool | `feeProtocol` | LP keeps | Effective fee |
-|---|---|---|---|
-| WBNB/USDT 0.05% | **3400** | 66% | 0.033% |
-| TSLAx/USDT 0.25% | **0** | 100% | 0.250% |
+Resolving a tokenized-equity venue for the equities category turned up the other half of that lesson.
+Read correctly:
 
-So the protocol fee is not a property of PancakeSwap; it is a property of **the pool**. Either
-constant would have been wrong somewhere: hardcoding Pancake's 3400 understates LP earnings on the
-equity pool by a third, and hardcoding Uniswap's 0 overstates them by 1.52× on the flagship. This is
-why `PoolMeta.fee_protocol` was given **no default** and must be supplied — a decision that cost one
-line and has now been load-bearing twice, in opposite directions.
+| Pool | raw `slot0[5]` | decoded | LP keeps | Effective fee |
+|---|---|---|---|---|
+| WBNB/USDT 0.05% | 222,825,800 | **3400** | 66% | 0.033% |
+| TSLAx/USDT 0.25% | 209,718,400 | **3200** | 68% | 0.170% |
+
+Pancake packs the field as `fee0 | (fee1 << 16)`, both `uint16`, so 222,825,800 is 3400 twice and
+209,718,400 is 3200 twice.
+
+**The finding survives in kind, not in degree.** Two pools on one DEX really do charge different
+protocol fees, so no constant is right for both and `PoolMeta.fee_protocol` still has **no default**.
+But it is 34% against 32%, not 34% against nothing, and the dramatic version was an artefact.
+
+**Why it survived.** Index 2 held `101` on the flagship and `0` on the equity pool — small, plausible
+integers. Nothing reverted, nothing looked absurd, and `0` was *exactly* the value that made an
+interesting story. A wrong number that confirms a thesis gets less scrutiny than a wrong number that
+contradicts one, which is the general lesson and the uncomfortable one.
+
+**What caught it.** Not a test — two numbers in the same repository disagreeing. The new pool badge
+printed `feeProtocol 100` for a pool `chain/addresses.py` records as `3400`, and the discrepancy was
+visible only because both were on screen at once. So `vetting/badge.py` now performs that comparison
+itself: **"recorded values match chain"** fails when a constant in this repo no longer matches what
+the chain returns. A constant nobody re-reads is a constant that rots.
+
+**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the
+*only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and
+have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity — a
+pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.
 
 **The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the
 *only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and

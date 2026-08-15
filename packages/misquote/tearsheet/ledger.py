@@ -59,17 +59,20 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         evidence="packages/misquote/sessions/__init__.py — docstring only",
     ),
     NotBuilt(
-        name="Vetting badges",
+        name="Vetting proof-of-concepts",
         category="Due diligence",
         what=(
-            "A due-diligence badge on every pool a listed agent touches, with each "
-            "finding shipping a proof-of-concept that executes on a mainnet fork."
+            "The second half of \"they flag, we prove\": each badge finding "
+            "shipping a Foundry script that demonstrates it on a mainnet fork, so "
+            "a claim about a pool is executable rather than assertable."
         ),
         why=(
-            "The fork lab under vetting/forge exists and runs; the badge generator "
-            "that would turn its output into a rendered claim does not."
+            "The badge itself is built — `python -m misquote.vetting` reads eight "
+            "checks off chain and writes vetting/badges/<pool>.json — and the fork "
+            "lab under vetting/forge exists and runs. Nothing joins them: a FAIL "
+            "today is a sentence, not a transaction that reverts."
         ),
-        evidence="vetting/badges/ — empty directory",
+        evidence="vetting/forge/script/ — no Badge.s.sol",
     ),
     NotBuilt(
         name="Chain executor",

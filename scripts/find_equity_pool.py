@@ -217,10 +217,13 @@ def find_pools(w3: Web3, token: str, decimals: int) -> list[dict]:
                     "address": pool,
                     "sqrt_price_x96": slot0[0],
                     "tick": slot0[1],
-                    # slot0.feeProtocol packs both directions into one uint16 on
-                    # Pancake; the low half is token0's. Read, never assumed —
-                    # matrix P-1, the 34% cut the spec never mentions.
-                    "fee_protocol": slot0[2] & 0xFFF,
+                    # slot0 index **5**, not 2. Index 2 is observationIndex, and
+                    # reading it produced a confident, plausible, wrong answer:
+                    # 0 for this pool, which became a published finding (P-8)
+                    # claiming LPs kept the whole fee here. They keep 68%.
+                    # Pancake packs feeProtocol as fee0 | (fee1 << 16), both
+                    # uint16; the low half applies to token0-in swaps.
+                    "fee_protocol": slot0[5] & 0xFFFF,
                     "liquidity": liquidity,
                     "token0": token0,
                     "token1": token1,

@@ -151,13 +151,23 @@ TESTNET_MIRROR_POOL = PoolRef(
 # which resolves the pool through `factory.getPool()` and reads the token's own
 # `symbol()` back to check it against the source it came from.
 #
-# `fee_protocol = 0` is the finding. Our WBNB/USDT pool has 3400 — PancakeSwap
-# taking 34% of every fee — and this one, on the same DEX, takes nothing: LPs
-# keep the whole 0.25%. Two pools on one venue with different protocol fees is
-# why `PoolMeta.fee_protocol` has no default and must be read. Hardcoding
-# Pancake's 3400 would understate LP earnings here by a third; hardcoding
-# Uniswap's 0 would overstate them by 1.52x on the other. The habit of reading it
-# was worth exactly one line of code and it is now load-bearing twice.
+# `fee_protocol = 3200` against the flagship's 3400, and the way that number was
+# arrived at is worth more than the number.
+#
+# It was first recorded as **0**, and published as finding P-8 claiming LPs kept
+# the entire fee here. That was wrong: the reader took `slot0[2]`, which is
+# `observationIndex`, not `slot0[5]`, which is `feeProtocol`. Index 2 happened to
+# hold 0 on this pool and 101 on the flagship — plausible small integers that
+# neither reverted nor looked absurd. Pancake packs the real field as
+# `fee0 | (fee1 << 16)`, both uint16, so the flagship's 222,825,800 is 3400 twice
+# and this pool's 209,718,400 is 3200 twice.
+#
+# The finding survives in kind and not in degree: two pools on one DEX really do
+# charge different protocol fees, so `PoolMeta.fee_protocol` still has no default
+# and still must be read. But it is 34% against 32%, not 34% against nothing, and
+# the dramatic version was an artefact of reading the wrong tuple element.
+# `vetting/badge.py` now cross-checks every recorded value against chain, which
+# is what would have caught it the first time.
 #
 # Thin, and said plainly: this is the *only* xStocks v3 pool on BSC with real
 # liquidity. NVDAx and AAPLx are bridged and have no pool at any fee tier, and
@@ -173,7 +183,7 @@ EQUITY_POOL = PoolRef(
     dec1=18,
     fee_pips=2500,
     tick_spacing=50,
-    fee_protocol=0,  # read from slot0: LPs keep the whole fee on this pool
+    fee_protocol=3200,  # slot0[5] & 0xFFFF — LPs keep 68%, not 100%. See P-8.
     label="PancakeSwap v3 TSLAx/USDT 0.25%",
 )
 

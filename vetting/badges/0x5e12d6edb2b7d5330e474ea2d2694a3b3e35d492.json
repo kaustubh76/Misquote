@@ -1,0 +1,63 @@
+{
+  "chain_id": 56,
+  "checks": [
+    {
+      "detail": "getPool() agrees with the address",
+      "name": "factory resolves it",
+      "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
+      "status": "PASS"
+    },
+    {
+      "detail": "0.25% -> spacing 50",
+      "name": "tick spacing matches tier",
+      "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+      "status": "PASS"
+    },
+    {
+      "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+      "name": "protocol fee read",
+      "provenance": "P-1, P-8: 3400 on WBNB/USDT, 0 on TSLAx/USDT \u2014 no constant is right",
+      "status": "PASS"
+    },
+    {
+      "detail": "token0 18, token1 18",
+      "name": "decimals read",
+      "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
+      "status": "PASS"
+    },
+    {
+      "detail": "tick -58097",
+      "name": "initialised and not pinned",
+      "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
+      "status": "PASS"
+    },
+    {
+      "detail": "w_min=200, [-58300, -57900]",
+      "name": "a mintable range exists",
+      "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
+      "status": "PASS"
+    },
+    {
+      "detail": "1,576,166,738,998,165,198 \u2014 a 1% share is 15,761,667,389,981,652",
+      "name": "liquidity supports a position",
+      "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
+      "status": "PASS"
+    },
+    {
+      "detail": "4,413 and 2,138 bytes",
+      "name": "both tokens are contracts",
+      "provenance": "an \"ERC-20\" with no code is an address somebody typed",
+      "status": "PASS"
+    },
+    {
+      "detail": "5 recorded value(s) still agree",
+      "name": "recorded values match chain",
+      "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
+      "status": "PASS"
+    }
+  ],
+  "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
+  "pool": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+  "safe_to_provide": true,
+  "verdict": "PASS"
+}

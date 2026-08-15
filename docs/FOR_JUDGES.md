@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 395 tests, no network, ~45s
+make test                     # 483 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:8080
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -44,7 +44,7 @@ Each of these is a test you can run, not a claim.
 | The DIY baseline is not a different program | Both columns are one `ReplayDriver` with `policy=` swapped; same tape, same costs, same accountant | same |
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 
-**455 tests: 436 offline, 19 against a live chain or a fork.**
+**502 tests: 483 offline, 19 against a live chain or a fork.**
 
 ---
 
@@ -147,10 +147,16 @@ quote, where the sample is 20 sub-windows × 3 parameter perturbations.
 
 **Equities: TSLAx/USDT.** Backed's xStocks trade on PancakeSwap, so a tokenized
 equity is the same v3 pool the engine already prices — a fourth generality proof
-after Grid and Sentinel, costing one address. Resolving it produced **P-8**: that
-pool reports `feeProtocol = 0` where the flagship reports `3400`. Two pools, one
-DEX, and no constant is right for both — which is why `PoolMeta.fee_protocol` has
-no default and must be read. It is thin and we say so: it is the *only* xStocks
+after Grid and Sentinel, costing one address. Resolving it produced **P-8** — and then
+P-8 turned out to be wrong, in a way worth reading. We published that the equity
+pool reports `feeProtocol = 0`, LPs keeping the whole fee. It reports **3200**
+against the flagship's **3400**: the reader took `slot0[2]`, `observationIndex`,
+instead of `slot0[5]`. Index 2 held `0` on one pool and `101` on the other —
+small plausible integers that neither reverted nor looked absurd, and `0` was
+exactly the value that made the better story. The finding survives in kind (two
+pools, one DEX, no constant right for both, so `fee_protocol` still has no
+default) and not in degree. What caught it was two numbers in this repo
+disagreeing on screen, so the badge now makes that comparison itself. It is thin and we say so: it is the *only* xStocks
 v3 pool on BSC with real liquidity, NVDAx and AAPLx have no pool at all, and the
 1.00% TSLAx pool exists with zero liquidity and was refused rather than quoted.
 
@@ -177,18 +183,32 @@ merely two amber gates.
 Stated plainly, because a submission that hides its gaps is doing the thing this
 project exists to argue against.
 
-- **No 30-day tape.** Free BSC endpoints cap `eth_getLogs` and refuse sustained
-  request rates — all of them. This is measured, not assumed: asking for **six
-  hours** of the target pool (47,979 blocks) across three rotating endpoints at
-  0.15s pacing dies after **11 seconds** with `-32005 limit exceeded`, before
-  writing a single row. Thirty days is 5.76M blocks. The indexer is built,
-  verified against real chain data, and idempotent — its cursor advances with its
-  rows, so a re-run resumes — but it needs a keyed RPC to finish.
+- **No 30-day tape — but the reason is narrower than we thought.** Free BSC
+  endpoints refuse a *rate*, not a *range*, and the difference splits this into
+  two items with different answers. Measured on 2,000-block windows:
+
+  | Cadence | Result |
+  |---|---|
+  | ~4 requests in 11s | `-32005 limit exceeded`, all three endpoints exhausted |
+  | 1 request per 60s | **6 of 6, zero rotations** |
+
+  A 30-day backfill is 2,880 requests as fast as they are served — two days of
+  wall clock at the rate that works, so it still needs a keyed `BSC_RPC_URL`. A
+  **live tail is one request per fifteen minutes of chain**, so
+  `make indexer-follow` accumulates real data today, on free endpoints, with no
+  key. We cannot recover thirty days of *history*; we can accumulate it going
+  forward. Nothing about that turns a short tape into a thirty-day claim, and
+  the go/no-go still reports the tape amber until it spans 25 days.
 - **κ is still a provisional default.** It is meant to be fitted on that tape and
   published as gap item G-4. Until then it traces to a stated basis rather than
   to data, and the go/no-go reports it amber.
-- **No 24-hour testnet burn-in.** The loop is built and tested; nobody has run it
-  unattended for a day.
+- **No 24-hour burn-in — but the loop has now run.** `make warden` runs the real
+  policy against real BSC state and writes a real journal; verified at 14
+  decisions over 75 seconds, 3 polls, 0 refused. Nobody has run it unattended for
+  a day, and it **cannot sign**: there is no chain executor in this repository,
+  only the `SimulatedExecutor` that moves a position in memory. It has no
+  `--live` flag, because a flag would imply the other mode exists and is being
+  withheld.
 - **Nothing has traded with real money**, and the go/no-go will not let it until
   the above are green.
 - **Router agent, session keys, and the ERC-8183 hire flow** are not built.

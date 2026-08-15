@@ -112,8 +112,12 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
             "now has code — update tearsheet/ledger.py"
         )
 
-    elif match := re.search(r"no (\S+\.py)", claim):
-        # "packages/misquote/agents/warden/ — no __main__.py"
+    elif match := re.search(r"no (\S+\.\w+)", claim):
+        # "packages/misquote/chain/ — no executor.py"
+        # Any extension, not just .py: the vetting proof-of-concept that is still
+        # missing is a Foundry script, and narrowing the evidence vocabulary to
+        # Python would have forced a vaguer claim about a directory instead of a
+        # precise one about a file.
         absent = path / match.group(1)
         assert not absent.exists(), (
             f"{entry.name} is listed as missing {match.group(1)}, but {absent} now "

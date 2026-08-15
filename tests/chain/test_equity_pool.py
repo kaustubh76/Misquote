@@ -17,27 +17,33 @@ from misquote.chain.addresses import EQUITY_POOL, TARGET_POOL, TSLAX_MAINNET, US
 
 
 def test_the_protocol_fee_differs_between_two_pools_on_the_same_dex() -> None:
-    """Matrix P-8, and the reason `fee_protocol` has no default.
+    """Matrix P-8, corrected — and the reason `fee_protocol` has no default.
 
-    Hardcoding Pancake's 3400 understates LP earnings on the equity pool by a
-    third. Hardcoding Uniswap's 0 overstates them by 1.52x on the flagship. There
-    is no constant that is right for both, which is the whole argument for
-    reading it from `slot0` rather than modelling it.
+    The first version of this test asserted `EQUITY_POOL.fee_protocol == 0` and
+    passed, because the value it was pinning had been read from `slot0[2]`
+    (`observationIndex`) rather than `slot0[5]` (`feeProtocol`). A test that pins
+    a wrong constant is worse than no test: it makes the mistake permanent and
+    green.
+
+    The finding survives in kind, not in degree. Two pools on one DEX really do
+    charge different protocol fees, so no constant is right for both — but it is
+    34% against 32%, not 34% against nothing.
     """
     assert TARGET_POOL.fee_protocol == 3400
-    assert EQUITY_POOL.fee_protocol == 0
+    assert EQUITY_POOL.fee_protocol == 3200
+    assert TARGET_POOL.fee_protocol != EQUITY_POOL.fee_protocol, "the whole point of P-8"
 
     assert TARGET_POOL.lp_fee_share == pytest.approx(0.66)
-    assert EQUITY_POOL.lp_fee_share == pytest.approx(1.0)
+    assert EQUITY_POOL.lp_fee_share == pytest.approx(0.68)
 
     # The consequence, in the unit that reaches the headline number: what an LP
     # actually earns per swap, in basis points.
     assert TARGET_POOL.fee_pips / 100.0 * TARGET_POOL.lp_fee_share == pytest.approx(3.3)
-    assert EQUITY_POOL.fee_pips / 100.0 * EQUITY_POOL.lp_fee_share == pytest.approx(25.0)
+    assert EQUITY_POOL.fee_pips / 100.0 * EQUITY_POOL.lp_fee_share == pytest.approx(17.0)
 
-    # Assuming Pancake's 3400 everywhere would have cost the equity pool a third
-    # of its fee income; assuming Uniswap's 0 everywhere would have inflated the
-    # flagship's by 1/0.66.
+    # Assuming Uniswap's zero everywhere would inflate the flagship's LP income
+    # by 1/0.66; assuming the flagship's 3400 on the equity pool understates it
+    # by 2 points of protocol fee.
     assert 1.0 / TARGET_POOL.lp_fee_share == pytest.approx(1.515, abs=0.01)
 
 
@@ -216,5 +222,12 @@ def test_the_equity_pool_still_reads_as_recorded() -> None:
     assert pool.functions.tickSpacing().call() == EQUITY_POOL.tick_spacing
     assert pool.functions.token0().call().lower() == EQUITY_POOL.token0.lower()
 
-    # P-8: this pool really does take no protocol fee, unlike the flagship.
-    assert (pool.functions.slot0().call()[2] & 0xFFF) == EQUITY_POOL.fee_protocol
+    # P-8: index **5**, not 2. Index 2 is observationIndex, and reading it is
+    # how this pool came to be recorded as charging no protocol fee at all.
+    # Pancake packs the field as fee0 | (fee1 << 16), both uint16.
+    slot0 = pool.functions.slot0().call()
+    assert (slot0[5] & 0xFFFF) == EQUITY_POOL.fee_protocol
+    assert slot0[2] != EQUITY_POOL.fee_protocol or EQUITY_POOL.fee_protocol == 0, (
+        "index 2 is observationIndex; if it happens to equal the protocol fee "
+        "this assertion is not distinguishing them"
+    )
