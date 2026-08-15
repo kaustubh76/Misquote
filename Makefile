@@ -1,10 +1,13 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry tearsheet web web-build web-static web-test web-check clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry tearsheet web web-build web-static web-test web-check clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
 ENV    ?= testnet
 N      ?= 2000
+CHAIN  ?= 56
+FOLLOW_S ?= 3600
+WARDEN_S ?= 600
 # The advantage report cuts its tape into 20 overlapping sub-windows, each half
 # the span, and refuses to quote a window shorter than the 24h policy horizon
 # (ranges.MIN_WINDOW_HOURS). So the binding constraint is the tape's span in
@@ -57,12 +60,21 @@ fork-diff:  ## everything that needs a live chain or a fork
 replay-tests:  ## T1-T4 + L1 explicitly, against the committed 30d tape
 	$(UV) run pytest tests/replay -m '' -v
 
-indexer:  ## backfill the target pool. usage: make indexer POOL=0x...
-	# This used to run `misquote.indexer.follow` on a second line. There is no
-	# follow.py — the live tail is not built, and is recorded as such in
-	# tearsheet/ledger.py rather than advertised here. tests/web/test_ledger.py
-	# asserts every `python -m misquote.X` below actually imports.
+indexer:  ## backfill the target pool. NEEDS A KEYED RPC. usage: make indexer POOL=0x...
+	# 2,880 requests as fast as they will be served. Free endpoints refuse that
+	# rate — measured: ~4 requests in 11s exhausts all three. Use indexer-follow
+	# if you have no key.
 	$(UV) run python -m misquote.indexer.backfill --pool $(POOL)
+
+indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
+	# The same read as the backfill at 1/60th the rate. Measured: 1 req/60s
+	# sustains indefinitely, and BSC produces a 2,000-block chunk every ~15 min,
+	# so this stays ahead of the chain without ever being refused. It cannot
+	# recover history — only accumulate it going forward.
+	$(UV) run python -m misquote.indexer.follow --seconds $(FOLLOW_S)
+
+warden:  ## run the Warden against a live chain. It cannot sign: no chain executor exists.
+	$(UV) run python -m misquote.agents.warden --chain $(CHAIN) --seconds $(WARDEN_S)
 
 tearsheet:  ## journal -> docs/TEARSHEET.md, zero hand-entered numbers
 	$(UV) run python -m misquote.tearsheet

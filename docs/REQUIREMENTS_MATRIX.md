@@ -135,6 +135,45 @@ is live.
 
 ---
 
+### D-9 · The spec's sampling interval is impossible on a free endpoint — DEVIATED
+
+§8 sets **Δs = 5 seconds**. A live source that asked the chain for logs on every sample would issue
+twelve `eth_getLogs` a minute, and that is well past what any free BSC endpoint will serve.
+
+**Measured against the target pool, in 2,000-block windows** — a fifteen-minute slice of chain,
+nothing resembling a backfill:
+
+| Cadence | Result |
+|---|---|
+| ~4 requests in 11 seconds | **`-32005 limit exceeded`**, all three endpoints exhausted, 3 rotations |
+| 1 request every 60 seconds | **6 of 6 succeeded, zero rotations** |
+
+The endpoints do not object to the *range*. They object to the *rate*.
+
+**Deviation.** `chain/live_source.py` keeps two clocks: the **decision clock** ticks at Δs and drives
+the policy, and the **poll clock** governs how often we may ask the chain anything (60s by default).
+Between polls, `events_since` returns nothing and `head()` returns the last head actually observed —
+not an interpolation. A source that filled the gap would make the agent look responsive while feeding
+it fiction, and a replay of that journal would be a replay of the fiction.
+
+**What it costs.** §3.4's "m consecutive samples" now spans `m × poll_seconds` of wall time rather
+than `m × 5s` — three minutes rather than fifteen seconds at the defaults. The toxicity rule
+therefore reacts more slowly than the frozen spec describes. The cause is an endpoint quota, not a
+design preference, and a keyed RPC removes it.
+
+**What it unblocks, and what it does not.** The same measurement splits an item this project had been
+treating as one blocked thing:
+
+- **A 30-day backfill is 2,880 requests** as fast as they will be served. At the rate that works,
+  that is two days of wall clock. Still blocked on a keyed `BSC_RPC_URL`.
+- **A live tail is one request per fifteen minutes of chain.** `misquote.indexer.follow` polls once a
+  minute — fifteen times faster than the chain produces a chunk, and an order of magnitude inside the
+  quota. **That works today, on free endpoints, with no key.**
+
+So we cannot recover thirty days of *history* without a key, but we can accumulate real chain data
+*going forward* starting now. Nothing about that turns a two-hour tape into a thirty-day claim, and
+the go/no-go still reports the tape amber until it spans 25 days.
+
 ### D-8 · §3.4's imbalance rule is one-sided, and defends only one side — DEVIATED
 
 §3.4 writes the condition as `imb_t > z_pull`, unsigned. Read literally, the pull fires when the pool
