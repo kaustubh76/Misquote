@@ -148,22 +148,32 @@ export default function RegistryPage() {
                 <p className="mt-0 mb-2 text-xs tracking-wide text-faint uppercase">
                   Job states
                 </p>
+                {/* The legend used to read "Shaded states are terminal", and
+                    the shade was --line against --line-strong: about 1.1:1,
+                    and identical in greyscale or print. A legend nobody can
+                    read is not a legend, so terminal states now carry a glyph
+                    and a word as well. */}
                 <div className="flex flex-wrap gap-1.5">
-                  {d.hire_flow.states.map((s) => (
-                    <span
-                      key={s}
-                      className={`rounded-sm border px-2 py-0.5 font-mono text-xs ${
-                        d.hire_flow.terminal_states.includes(s)
-                          ? "border-line-strong bg-panel-2 text-dim"
-                          : "border-line text-faint"
-                      }`}
-                    >
-                      {s}
-                    </span>
-                  ))}
+                  {d.hire_flow.states.map((s) => {
+                    const terminal = d.hire_flow.terminal_states.includes(s);
+                    return (
+                      <span
+                        key={s}
+                        className={`rounded-sm border px-2 py-0.5 font-mono text-xs ${
+                          terminal
+                            ? "border-line-strong bg-panel-2 text-dim"
+                            : "border-line text-faint"
+                        }`}
+                      >
+                        {terminal && <span aria-hidden="true">■ </span>}
+                        {s}
+                        {terminal && <span className="visually-hidden"> (terminal state)</span>}
+                      </span>
+                    );
+                  })}
                 </div>
                 <p className="mt-2 mb-0 text-xs text-faint">
-                  Shaded states are terminal.
+                  States marked ■ are terminal.
                 </p>
               </div>
             </Card>

@@ -153,8 +153,8 @@ export default function MethodsPage() {
         <p className="mb-5 max-w-[64ch] text-sm text-dim">
           Each of these can stop this product from printing a number. They are published
           here with the values the code enforces — including the numbers in these four
-          titles, which were literals until they disagreed with nothing and were
-          caught anyway. A floor a UI could get wrong is not a floor.
+          titles, which were hardcoded until a test served a different artifact and
+          they failed to follow it. A floor a UI could get wrong is not a floor.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">

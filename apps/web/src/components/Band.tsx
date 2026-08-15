@@ -206,10 +206,13 @@ export function Band({
                       width: `${Math.max(right - left, 0.4)}%`,
                     }}
                   />
+                  {/* No `title`: the median is already in the container's
+                      aria-label and in the "median return" row of every table
+                      beside this band, and a tooltip on a bare div reaches
+                      neither keyboard nor touch. */}
                   <div
                     className={`absolute top-1/2 h-5 w-0.5 -translate-y-1/2 ${tone.tick}`}
                     style={{ left: `${median}%` }}
-                    title={`median ${pct(s.p50)}`}
                   />
                 </div>
               </div>
@@ -241,7 +244,8 @@ export function Band({
           );
         })()}
 
-      <p className="visually-hidden">{description}</p>
+      {/* The description is the container's aria-label; repeating it here as
+          off-screen text made every band announce itself twice. */}
     </figure>
   );
 }

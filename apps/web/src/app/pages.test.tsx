@@ -286,3 +286,16 @@ describe("Methods states no figure it has not loaded", () => {
     expect(screen.queryByText(/20 usable sub-windows/)).not.toBeInTheDocument();
   });
 });
+
+describe("Overview never shows a bare region", () => {
+  it("keeps the skeletons up until the cards are ready to replace them", async () => {
+    const { container } = render(<OverviewPage />);
+
+    // The invariant: at no observed moment is the page done loading while
+    // having nothing to show. Gating on index alone broke exactly this.
+    await waitFor(() =>
+      expect(container.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("heading", { name: "Warden" })).toBeInTheDocument();
+  });
+});

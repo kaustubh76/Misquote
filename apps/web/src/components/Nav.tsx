@@ -35,7 +35,12 @@ export function Nav() {
         {/* Overflows to a horizontal scroll rather than wrapping or truncating,
             so every route stays reachable at 320px. */}
         <nav aria-label="Primary" className="min-w-0 flex-1">
-          <ul className="flex list-none items-center gap-1 overflow-x-auto p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* `overflow-x: auto` computes overflow-y to auto as well, so the box
+              clips on both axes and ate the 2px focus ring at its 2px offset.
+              The padding makes room inside the scroll box; the negative margin
+              puts the layout back. CSS-only, so `make web-check` is its only
+              guard. */}
+          <ul className="flex list-none items-center gap-1 overflow-x-auto p-1.5 -m-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {LINKS.map((link) => {
               const active = isActive(pathname, link.href);
               return (

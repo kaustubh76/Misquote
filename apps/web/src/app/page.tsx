@@ -54,7 +54,15 @@ export default function OverviewPage() {
     };
   }, []);
 
-  const loading = index === null;
+  // Both rounds, not just the first.
+  //
+  // The agent cards are fetched only after index.json resolves, so gating on
+  // `index === null` alone unmounted the skeletons one full round trip before
+  // there was anything to put in their place: hero, source banner, and then a
+  // bare gap where three cards would later appear, with a large layout shift
+  // when they did. It was the worst loading moment on the site and it was on
+  // the landing page.
+  const loading = index === null || agents === null;
 
   return (
     <Loadable loading={loading} what="agent cards">

@@ -15,21 +15,18 @@ const TONE: Record<PillTone, { cls: string; glyph: string; word: string }> = {
  * against `color: var(--bad)` and nothing else, so for a red-green colourblind
  * reader — and for anyone printing it — the two states were identical. Colour
  * here is the third signal, never the only one.
+ *
+ * There is deliberately no `title`. It carried each verdict's *reason* — the
+ * threshold and the sample size — on a non-focusable span, which is announced
+ * by almost no screen reader and reachable by neither keyboard nor touch. The
+ * reason is the most interesting half of a verdict, so it is rendered as
+ * visible text beside the pill instead.
  */
-export function Pill({
-  tone,
-  children,
-  title,
-}: {
-  tone: PillTone;
-  children?: React.ReactNode;
-  title?: string;
-}) {
+export function Pill({ tone, children }: { tone: PillTone; children?: React.ReactNode }) {
   const t = TONE[tone];
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${t.cls}`}
-      title={title}
     >
       <span aria-hidden="true" className="font-mono">
         {t.glyph}

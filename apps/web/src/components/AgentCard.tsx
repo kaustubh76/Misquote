@@ -68,16 +68,23 @@ export function AgentCard({ ref_, data }: { ref_: AgentRef; data: AgentArtifact 
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <Pill tone={verdictTone(data.verdicts.in_range)} title={data.verdicts.in_range.detail}>
+        <Pill tone={verdictTone(data.verdicts.in_range)}>
           In range: {data.verdicts.in_range.label}
         </Pill>
-        <Pill
-          tone={verdictTone(data.verdicts.profitable)}
-          title={data.verdicts.profitable.detail}
-        >
+        <Pill tone={verdictTone(data.verdicts.profitable)}>
           Beats holding: {data.verdicts.profitable.label}
         </Pill>
       </div>
+
+      {/* The threshold and the sample size, visible. These were `title`
+          attributes on the pills above — the most interesting half of a
+          verdict, parked in a tooltip that no screen reader announces and
+          neither keyboard nor touch can reach. The detail page has always
+          shown them as text; now both do. */}
+      <p className="mt-2 mb-0 text-xs text-faint">
+        In range: {data.verdicts.in_range.detail} · beats holding:{" "}
+        {data.verdicts.profitable.detail}
+      </p>
 
       {adv && (
         <p className="mt-4 mb-0 rounded-sm border border-line bg-panel-2 px-3 py-2 text-sm">
