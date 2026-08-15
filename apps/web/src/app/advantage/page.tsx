@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
@@ -35,7 +36,7 @@ export default function AdvantagePage() {
   const d = main?.ok ? main.value : null;
 
   return (
-    <div aria-busy={main === null}>
+    <Loadable loading={main === null} what="the advantage report">
       <h1 className="text-2xl font-semibold">
         Does hiring an agent beat doing the job yourself?
       </h1>
@@ -166,7 +167,7 @@ export default function AdvantagePage() {
           </p>
         </>
       )}
-    </div>
+    </Loadable>
   );
 }
 

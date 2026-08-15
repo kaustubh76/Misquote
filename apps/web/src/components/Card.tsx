@@ -1,3 +1,5 @@
+import { Heading } from "@/components/Heading";
+
 export function Card({
   children,
   className = "",
@@ -33,7 +35,7 @@ export function CardHeader({
             {eyebrow}
           </div>
         )}
-        <h2 className="m-0 text-md font-semibold">
+        <Heading className="m-0 text-md font-semibold">
           {href ? (
             <a href={href} className="text-ink no-underline hover:underline">
               {title}
@@ -41,7 +43,7 @@ export function CardHeader({
           ) : (
             title
           )}
-        </h2>
+        </Heading>
       </div>
       {aside && <div className="shrink-0">{aside}</div>}
     </div>

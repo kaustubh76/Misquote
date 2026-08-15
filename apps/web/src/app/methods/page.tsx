@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
@@ -37,7 +38,7 @@ export default function MethodsPage() {
   const floors = d?.floors ?? null;
 
   return (
-    <div aria-busy={state === null}>
+    <Loadable loading={state === null} what="the method detail">
       <h1 className="text-2xl font-semibold">How a quote is made</h1>
       <p className="mt-3 max-w-[64ch] text-dim">
         Every figure on this site is a replay: the policy is run over recorded pool
@@ -222,6 +223,6 @@ export default function MethodsPage() {
       <p className="mt-10 text-sm">
         <Link href="/assumptions">Every assumption these methods rest on →</Link>
       </p>
-    </div>
+    </Loadable>
   );
 }

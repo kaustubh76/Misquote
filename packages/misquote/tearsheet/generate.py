@@ -80,6 +80,13 @@ class JournalSummary:
     rebalances: int = 0
     pulls: int = 0
     errors: int = 0
+    # Follow-up rows about a decision already counted: executed, dropped as
+    # stale, failed, or refused by the daily cap. Counted separately because
+    # they are outcomes rather than decisions, and folding them into the action
+    # counts is what made one mint render as three.
+    executed: int = 0
+    failed: int = 0
+    dropped: int = 0
     first_ts: int | None = None
     last_ts: int | None = None
     gate_blocks: Counter = field(default_factory=Counter)
@@ -122,9 +129,30 @@ def read_journal(path: str | Path) -> JournalSummary:
         if row.get("event") == "decide_error":
             summary.errors += 1
             continue
+        # Lifecycle rows — run_start, run_end, kill_switch, action_not_broadcast —
+        # are not decisions. Some of them carry an `action` field, and counting
+        # those was half of why one mint rendered as three.
+        if "event" in row:
+            continue
 
         action = row.get("action")
         if action is None:
+            continue
+
+        # The loop journals a decision when it is made and **again** when it is
+        # executed, dropped, or refused, and the second row carries a note. Both
+        # rows describe one decision, so only the noteless row is counted — the
+        # first real journal this project ever produced showed a single mint as
+        # "3 mint", which is the failure this whole product is named after
+        # appearing on its own card.
+        note = row.get("note") or ""
+        if note:
+            if note.startswith("executed"):
+                summary.executed += 1
+            elif note.startswith("failed"):
+                summary.failed += 1
+            else:
+                summary.dropped += 1
             continue
 
         summary.decisions += 1
@@ -235,6 +263,13 @@ class Tearsheet:
                 "mints": self.journal.mints,
                 "rebalances": self.journal.rebalances,
                 "pulls": self.journal.pulls,
+                # Outcomes, kept apart from the decisions that caused them. A
+                # decision the loop dropped as stale or refused by the daily cap
+                # still happened and still belongs on the card; it just is not a
+                # second mint.
+                "executed": self.journal.executed,
+                "failed": self.journal.failed,
+                "dropped": self.journal.dropped,
                 "read_errors": self.journal.errors,
                 "held_by_gate": dict(self.journal.gate_blocks),
             },

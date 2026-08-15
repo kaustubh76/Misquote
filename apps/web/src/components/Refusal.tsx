@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Heading } from "@/components/Heading";
 
 /**
  * A refusal to state a number, presented as a result.
@@ -33,7 +34,7 @@ export function Refusal({
         <span aria-hidden="true" className="font-mono text-warn">
           —
         </span>
-        <h3 className="m-0 text-sm font-semibold text-warn">{title}</h3>
+        <Heading className="m-0 text-sm font-semibold text-warn">{title}</Heading>
       </div>
       <p className="mt-2 mb-0 text-sm text-dim">{reason}</p>
       {floor && <p className="mt-1 mb-0 font-mono text-xs text-faint">{floor}</p>}
@@ -71,7 +72,7 @@ export function ErrorNotice({
         <span aria-hidden="true" className="font-mono text-bad">
           ✕
         </span>
-        <h3 className="m-0 text-sm font-semibold text-bad">{title}</h3>
+        <Heading className="m-0 text-sm font-semibold text-bad">{title}</Heading>
       </div>
       <p className="mt-2 mb-0 font-mono text-xs break-words text-dim">{detail}</p>
       {remedy && <p className="mt-2 mb-0 text-sm text-dim">{remedy}</p>}

@@ -230,3 +230,81 @@ def test_every_number_on_the_card_comes_from_the_journal(tmp_path) -> None:
     second = build(agent="W", pool="p", journal_path=path).to_dict()
     assert first == second, "the same journal must produce the same card"
     assert first["activity"]["rebalances"] == 7
+
+
+# --- one decision, one count ------------------------------------------------
+
+
+def _journal(tmp_path, rows):
+    path = tmp_path / "warden.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    return path
+
+
+def test_a_decision_journalled_twice_is_counted_once(tmp_path) -> None:
+    """The first real journal this project produced showed one mint as "3 mint".
+
+    The loop journals a decision when it is made and **again** when it is
+    executed, and the entrypoint writes a third row recording that nothing was
+    broadcast. All three carry `action: "mint"`. Counting rows instead of
+    decisions put the failure this product is named after onto its own card.
+    """
+    path = _journal(
+        tmp_path,
+        [
+            {"event": "run_start", "pool": "0xabc"},
+            {"ts": 100, "action": "mint", "lower": -64220, "upper": -64140, "note": "",
+             "reasons": {}},
+            {"event": "action_not_broadcast", "action": "mint", "at_ts": 100},
+            {"ts": 100, "action": "mint", "lower": -64220, "upper": -64140,
+             "note": "executed", "reasons": {}},
+            {"ts": 105, "action": "hold", "note": "", "reasons": {"R1": 0.0}},
+        ],
+    )
+    summary = read_journal(path)
+
+    assert summary.mints == 1, "one mint, journalled three times, must count once"
+    assert summary.decisions == 2  # the mint and the hold
+    assert summary.executed == 1
+    assert summary.rows == 5, "every line is still accounted for"
+
+
+def test_execution_outcomes_are_reported_rather_than_discarded(tmp_path) -> None:
+    """A decision dropped as stale or refused by the daily cap still happened.
+    Keeping it out of the action counts must not mean losing it."""
+    path = _journal(
+        tmp_path,
+        [
+            {"ts": 1, "action": "recenter", "note": "", "reasons": {}},
+            {"ts": 1, "action": "recenter", "note": "stale by 40s, dropped", "reasons": {}},
+            {"ts": 2, "action": "recenter", "note": "", "reasons": {}},
+            {"ts": 2, "action": "recenter", "note": "failed: nonce too low", "reasons": {}},
+            {"ts": 3, "action": "recenter", "note": "", "reasons": {}},
+            {"ts": 3, "action": "recenter", "note": "daily action cap reached", "reasons": {}},
+        ],
+    )
+    summary = read_journal(path)
+
+    assert summary.decisions == 3
+    assert summary.dropped == 2, "stale and cap-refused"
+    assert summary.failed == 1
+    assert summary.executed == 0
+
+
+def test_lifecycle_rows_are_not_decisions(tmp_path) -> None:
+    """`run_start`, `run_end` and `action_not_broadcast` describe the run, not a
+    decision — and one of them carries an `action` field."""
+    path = _journal(
+        tmp_path,
+        [
+            {"event": "run_start", "can_sign": False},
+            {"event": "action_not_broadcast", "action": "pull", "at_ts": 7},
+            {"event": "kill_switch", "path": "ops/KILL"},
+            {"event": "run_end", "decisions": 1},
+        ],
+    )
+    summary = read_journal(path)
+
+    assert summary.decisions == 0
+    assert summary.pulls == 0, "a lifecycle row counted as a pull"
+    assert summary.rows == 4

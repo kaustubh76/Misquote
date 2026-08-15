@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { Heading } from "@/components/Heading";
 import type { NotBuiltEntry } from "@/lib/artifacts";
 
 /**
@@ -18,7 +19,7 @@ export function NotBuiltCard({ entry }: { entry: NotBuiltEntry }) {
           <div className="mb-1 font-mono text-xs tracking-wide text-faint uppercase">
             {entry.category}
           </div>
-          <h2 className="m-0 text-md font-semibold text-dim">{entry.name}</h2>
+          <Heading className="m-0 text-md font-semibold text-dim">{entry.name}</Heading>
         </div>
         <Badge tone="neutral">Not built</Badge>
       </div>

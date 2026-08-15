@@ -16,18 +16,22 @@ export function isNum(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
-/** A money-ish quantity. Two decimals shown, full precision in the title. */
+/**
+ * A money-ish quantity, to two decimals.
+ *
+ * This is a display rounding and nothing more. The artifact carries the full
+ * precision and is the citable source — an earlier version of this comment
+ * promised "full precision in the title", which nothing implemented, and the
+ * helper written for it sat exported with no importers. Putting it back would
+ * mean hiding a figure behind a hover, which is the affordance `Pill` and
+ * `Band` had their `title` attributes removed for.
+ */
 export function amount(v: unknown, decimals = 2): string {
   if (!isNum(v)) return EMPTY;
   return v.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
-}
-
-/** The exact value, for a `title` attribute — never rounded. */
-export function exact(v: unknown): string | undefined {
-  return isNum(v) ? String(v) : undefined;
 }
 
 /** A percentage already expressed in percentage points (37.74 -> "37.74%"). */

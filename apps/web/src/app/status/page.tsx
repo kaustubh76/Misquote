@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { LedgerTable } from "@/components/Ledger";
@@ -61,7 +62,7 @@ export default function StatusPage() {
   const d = status?.ok ? status.value : null;
 
   return (
-    <div aria-busy={status === null}>
+    <Loadable loading={status === null} what="the go/no-go status">
       <h1 className="text-2xl font-semibold">Readiness</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         A checklist in a markdown file gets read carefully once and skimmed thereafter.
@@ -155,6 +156,6 @@ export default function StatusPage() {
           </p>
         </>
       )}
-    </div>
+    </Loadable>
   );
 }

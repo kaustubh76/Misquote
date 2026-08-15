@@ -41,8 +41,10 @@
  * missing, leaving a correctly-rendered "not generated" error. It took loading
  * the built site in a real browser.
  *
- * `test_assets.py` now asserts the leading slash, and the page tests assert the
- * full request path rather than its last segment.
+ * Two things assert the leading slash now: `src/test/harness.tsx` throws on any
+ * request that is not root-absolute, so a page test cannot pass with a relative
+ * path; and `scripts/check-pages.mjs` loads the real export in a browser, which
+ * is what caught it in the first place.
  */
 const BASE = "/artifacts";
 
@@ -156,7 +158,7 @@ export async function loadAgents(
 }
 
 /* ---------------------------------------------------------------- shapes --
- * These mirror the Python emitters exactly. `tests/web/test_typed_contract.py`
+ * These mirror the Python emitters exactly. `tests/web/test_artifact_contract.py`
  * compares the field names here against the keys the emitters actually write,
  * so this file cannot drift from `tearsheet/generate.py` unnoticed.
  * ------------------------------------------------------------------------- */

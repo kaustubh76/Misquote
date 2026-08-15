@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
@@ -56,7 +57,7 @@ export default function OverviewPage() {
   const loading = index === null;
 
   return (
-    <div aria-busy={loading}>
+    <Loadable loading={loading} what="agent cards">
       <h1 className="text-2xl font-semibold">Every marketplace misquotes you.</h1>
       <p className="mt-3 max-w-[64ch] text-dim">
         Agent marketplaces run on star ratings, user counts and unverifiable claims. Every
@@ -167,6 +168,6 @@ export default function OverviewPage() {
           </p>
         )}
       </footer>
-    </div>
+    </Loadable>
   );
 }

@@ -10,10 +10,12 @@
   in range         no verdict (0 observations, need 30)
   beats holding    no verdict (0 observations, need 30)
 
-  decisions        0 over 0.0h
-  moves            0 mint, 0 rebalance, 0 pull
+  decisions        139 over 0.2h
+  moves            1 mint, 0 rebalance, 1 pull
+  held back by     R1 115, R2 115, R3 115
 
   THINGS THIS NUMBER DOES NOT KNOW
     - Adverse selection is reported as an upper bound (assumption A10): the measure is non-negative for every swap regardless of who traded, so it folds reversion round trips into what it calls adverse selection.
     - Liquidity providers keep 66% of every fee on this pool — the protocol takes 34% (assumption P-1). Every fee figure here is net of that.
+    - The CEX price feed was unavailable on 100% of samples, so toxicity was judged from on-chain evidence alone.
 ```

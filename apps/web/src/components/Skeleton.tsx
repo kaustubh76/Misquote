@@ -1,10 +1,22 @@
 /**
  * Placeholder geometry matching what is about to arrive.
  *
- * `aria-hidden` throughout: the loading state is announced once through the
- * live region, and a screen reader reading out a dozen empty boxes is worse
- * than silence. The pulse is disabled under `prefers-reduced-motion` by the
- * global rule in `globals.css`.
+ * `aria-hidden` throughout: a screen reader reading out a dozen empty boxes is
+ * worse than silence, and the wait is announced in words instead — by the
+ * `role="status"` region in `LoadingStatus.tsx`, which `Loadable` places as a
+ * *sibling* of the `aria-busy` container rather than a child of it.
+ *
+ * That sibling relationship is the whole trick, and it is why `Loadable` owns
+ * both halves: `aria-busy="true"` tells assistive tech to defer changes inside
+ * the subtree, so a status region nested within it would say nothing until the
+ * load it describes had already finished.
+ *
+ * This comment previously named `ArtifactView.tsx`, a file that has never
+ * existed, and the announcement it promised had never been built — so the
+ * skeletons were hidden and nothing was said in their place.
+ *
+ * The pulse is disabled under `prefers-reduced-motion` by the global rule in
+ * `globals.css`.
  */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (

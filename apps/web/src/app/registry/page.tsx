@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
@@ -63,7 +64,7 @@ export default function RegistryPage() {
   const d = state?.ok ? state.value : null;
 
   return (
-    <div aria-busy={state === null}>
+    <Loadable loading={state === null} what="the registry sample">
       <h1 className="text-2xl font-semibold">Standards, and what they actually cost</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         Every marketplace has a Hire button. This page is what is behind one when the hire
@@ -280,6 +281,6 @@ export default function RegistryPage() {
           )}
         </>
       )}
-    </div>
+    </Loadable>
   );
 }

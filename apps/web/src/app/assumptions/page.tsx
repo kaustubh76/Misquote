@@ -1,5 +1,6 @@
 "use client";
 
+import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Blocks, type Block } from "@/components/Blocks";
@@ -67,7 +68,7 @@ export default function AssumptionsPage() {
   const others = d?.entries.filter((e) => e.kind !== "assumption") ?? [];
 
   return (
-    <div aria-busy={state === null}>
+    <Loadable loading={state === null} what="the assumption sheet">
       <h1 className="text-2xl font-semibold">The assumption sheet</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         Read this the way you would read the footnotes of a fund factsheet — except these
@@ -170,7 +171,7 @@ export default function AssumptionsPage() {
           </p>
         </>
       )}
-    </div>
+    </Loadable>
   );
 }
 
