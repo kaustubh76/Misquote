@@ -56,3 +56,39 @@ describe("overlaps()", () => {
     expect(overlaps(agent, { ...diy, p25: 38.72, p75: 50 })).toBe(true);
   });
 });
+
+describe("the engine is the authority on overlap", () => {
+  // The caption sits one screen-inch from a verdict sentence Python wrote. If
+  // the component decides "separated" from its own arithmetic while the
+  // artifact says "overlap", the card contradicts itself — which is the exact
+  // failure this product is named after.
+  // The caption is assembled from several elements, so it is read off the
+  // <figcaption> as a whole. Matching a substring that happens to straddle two
+  // of those elements silently never matches, which makes a negative assertion
+  // pass whatever the component renders.
+  const caption = (container: HTMLElement) =>
+    container.querySelector("figcaption")?.textContent ?? "";
+
+  it("obeys the passed verdict over its own geometry", () => {
+    // Geometrically separated, but told they overlap.
+    const { container } = render(
+      <Band series={[agent, diy]} sufficient overlap deltaPp={27.75} />,
+    );
+    expect(caption(container)).toMatch(/bands overlap/);
+    expect(caption(container)).not.toMatch(/separated/);
+  });
+
+  it("prints the engine's delta, not a recomputed one", () => {
+    const { container } = render(
+      <Band series={[agent, diy]} sufficient overlap={false} deltaPp={-1.77} />,
+    );
+    // 37.74 − 9.99 would be +27.75; the artifact's figure must win.
+    expect(caption(container)).toMatch(/−1\.77pp at the median/);
+    expect(caption(container)).not.toMatch(/27\.75/);
+  });
+
+  it("falls back to geometry only when the engine said nothing", () => {
+    const { container } = render(<Band series={[agent, diy]} sufficient />);
+    expect(caption(container)).toMatch(/bands are separated/);
+  });
+});

@@ -223,6 +223,8 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
         sufficient={task.quotable}
         note={task.note}
         caption={task.task}
+        overlap={task.ranges_overlap}
+        deltaPp={task.delta_pp}
         series={
           task.quotable
             ? [

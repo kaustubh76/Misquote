@@ -26,6 +26,8 @@ export function AgentCard({ ref_, data }: { ref_: AgentRef; data: AgentArtifact 
         note={q?.note}
         returns={q?.returns}
         caption={`${data.agent} net return`}
+        overlap={adv?.quotable ? adv.ranges_overlap : undefined}
+        deltaPp={adv?.quotable ? adv.delta_pp : undefined}
         series={
           q && q.sufficient
             ? [

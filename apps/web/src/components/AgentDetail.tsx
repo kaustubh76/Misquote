@@ -104,6 +104,8 @@ export function AgentDetail({ slug }: { slug: string }) {
             note={q?.note}
             returns={q?.returns}
             caption={`${d.agent} net return on capital`}
+            overlap={adv?.quotable ? adv.ranges_overlap : undefined}
+            deltaPp={adv?.quotable ? adv.delta_pp : undefined}
             series={
               q && q.sufficient
                 ? [

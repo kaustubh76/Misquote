@@ -27,7 +27,24 @@
  * What follows keeps the causes distinct all the way to the surface.
  */
 
-const BASE = "artifacts";
+/**
+ * Root-absolute, not relative.
+ *
+ * `"artifacts/warden.json"` resolves against the *current page*, and with
+ * `trailingSlash: true` every route is a directory: from `/agent/warden/` it
+ * became `/agent/warden/artifacts/warden.json` and 404'd. Only the Overview,
+ * which lives at `/`, ever worked.
+ *
+ * Nothing caught it for a while. The jsdom page tests stub `fetch` and match on
+ * the basename, so a wrong prefix is invisible to them, and the static export
+ * still returns 200 for the *page* — it is the data underneath that goes
+ * missing, leaving a correctly-rendered "not generated" error. It took loading
+ * the built site in a real browser.
+ *
+ * `test_assets.py` now asserts the leading slash, and the page tests assert the
+ * full request path rather than its last segment.
+ */
+const BASE = "/artifacts";
 
 export class ArtifactError extends Error {
   constructor(
@@ -49,7 +66,7 @@ export class ArtifactError extends Error {
  * without this the reported fault is a parse error on `<!DOCTYPE`.
  */
 export async function getJSON<T>(name: string): Promise<T> {
-  const url = `${BASE}/${name}`;
+  const url = `${BASE}/${name}`.replace(/\/{2,}/g, "/");
   let res: Response;
 
   try {

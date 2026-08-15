@@ -19,6 +19,20 @@ export interface BandProps {
   returns?: number[];
   unit?: string;
   caption?: string;
+
+  /**
+   * Whether the two bands overlap, and by how much the medians differ, as
+   * computed by the engine.
+   *
+   * Recomputing these here would put a second implementation of
+   * `Comparison.ranges_overlap` and `Comparison.delta` in the browser, one
+   * screen-inch from the verdict sentence Python wrote. They agree today; the
+   * point is that they cannot be *made* to disagree. Passed in wherever the
+   * artifact carries them, derived only as a fallback for a series pair the
+   * engine never compared.
+   */
+  overlap?: boolean;
+  deltaPp?: number;
 }
 
 const TONE = {
@@ -79,6 +93,8 @@ export function Band({
   returns = [],
   unit = "%",
   caption,
+  overlap,
+  deltaPp,
 }: BandProps) {
   if (!sufficient) {
     return (
@@ -129,6 +145,23 @@ export function Band({
             aria-hidden="true"
           />
         )}
+
+        {/* An axis, because without one the bars encode a value the reader
+            cannot decode. Two bands sharing a scale is the entire argument of
+            this component — "these overlap, those do not" — and that argument
+            is unreadable if the horizontal position means nothing. */}
+        <div
+          className="relative mb-2 h-4 border-b border-line text-[10px] text-faint"
+          aria-hidden="true"
+        >
+          <span className="absolute left-0">{pct(scale[0], 1)}</span>
+          {scale[0] < 0 && scale[1] > 0 && (
+            <span className="absolute -translate-x-1/2" style={{ left: `${zero}%` }}>
+              0
+            </span>
+          )}
+          <span className="absolute right-0">{pct(scale[1], 1)}</span>
+        </div>
 
         <div className="space-y-2.5">
           {series.map((s) => {
@@ -185,23 +218,28 @@ export function Band({
         </div>
       </div>
 
-      {series.length === 2 && (
-        <figcaption className="mt-2 text-xs text-dim">
-          {overlaps(series[0]!, series[1]!) ? (
-            <>
-              The bands <strong className="text-warn">overlap</strong> — at this sample
-              size the two are not distinguishable, whatever the gap between their
-              medians.
-            </>
-          ) : (
-            <>
-              The bands are <strong className="text-good">separated</strong> — the gap
-              survives the spread, not just the medians.{" "}
-              {signed(series[0]!.p50 - series[1]!.p50, 2, "pp")} at the median.
-            </>
-          )}
-        </figcaption>
-      )}
+      {series.length === 2 &&
+        (() => {
+          const isOverlapping = overlap ?? overlaps(series[0]!, series[1]!);
+          const delta = deltaPp ?? series[0]!.p50 - series[1]!.p50;
+          return (
+            <figcaption className="mt-2 text-xs text-dim">
+              {isOverlapping ? (
+                <>
+                  The bands <strong className="text-warn">overlap</strong> — at this
+                  sample size the two are not distinguishable, whatever the gap between
+                  their medians.
+                </>
+              ) : (
+                <>
+                  The bands are <strong className="text-good">separated</strong> — the
+                  gap survives the spread, not just the medians.{" "}
+                  {signed(delta, 2, "pp")} at the median.
+                </>
+              )}
+            </figcaption>
+          );
+        })()}
 
       <p className="visually-hidden">{description}</p>
     </figure>

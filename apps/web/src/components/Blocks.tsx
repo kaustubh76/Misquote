@@ -17,11 +17,32 @@ export type Block =
  * hand-rolled `esc()` did not escape apostrophes.
  */
 function Inline({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g).filter(Boolean);
+  // Links are matched first and kept whole. Without them, `[0x3669…](https://
+  // bscscan.com/address/0x3669…)` rendered as literal markdown — the raw
+  // brackets and the full URL, in a table cell, on a 390px screen. It was both
+  // the ugliest text on the site and the longest unbreakable string on it.
+  const parts = text
+    .split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g)
+    .filter(Boolean);
 
   return (
     <>
       {parts.map((part, i) => {
+        const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
+        if (link) {
+          const [, label, href] = link;
+          const external = /^https?:/.test(href!);
+          return (
+            <a
+              key={i}
+              href={href}
+              className="break-all"
+              {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            >
+              {label}
+            </a>
+          );
+        }
         if (part.startsWith("**") && part.endsWith("**")) {
           return (
             <strong key={i} className="text-ink">

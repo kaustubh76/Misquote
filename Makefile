@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry tearsheet web web-build web-static web-test clean go-no-go
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests indexer warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry tearsheet web web-build web-static web-test web-check clean go-no-go
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -120,3 +120,13 @@ web-static:  ## serve the export the way a judge with no toolchain would
 
 web-test:  ## vitest: the component layer
 	cd apps/web && pnpm test
+
+web-check:  ## load the built site in a real browser: console errors + 390px overflow
+	# Needs a browser: `cd apps/web && pnpm exec playwright install chromium`.
+	# This is the only check that runs real layout, and it earns its keep — the
+	# whole suite was green while every route but "/" fetched its artifacts from
+	# a page-relative path and rendered an error state.
+	cd apps/web && pnpm build
+	cd apps/web/out && (python3 -m http.server 8099 & echo $$! > /tmp/misquote-web.pid) && sleep 2
+	cd apps/web && node scripts/check-pages.mjs $(if $(SHOTS),--shots $(SHOTS),); \
+		status=$$?; kill `cat /tmp/misquote-web.pid` 2>/dev/null; exit $$status
