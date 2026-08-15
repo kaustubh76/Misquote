@@ -19,7 +19,7 @@ different experiments and passes for the wrong reason.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from misquote.chain.source import ChainSource
 from misquote.core.liquidity import get_liquidity_for_amounts
@@ -29,8 +29,14 @@ from misquote.core.types import Action, Decision, Params, PoolMeta, PositionStat
 from misquote.replay.engine import Engine, MarketState
 
 
+@runtime_checkable
 class Executor(Protocol):
     """Performs a decision against the world. The only thing that can act.
+
+    `runtime_checkable`, matching `ChainSource`, so a test can assert that an
+    implementation still satisfies it. Without that the live agent discovers a
+    drifted signature at the first decision it tries to act on, which is the
+    worst possible moment.
 
     Returns the NFPM token id where one exists, and nothing else. Working out
     the resulting `PositionState` is `core.position.apply_decision`'s job — when

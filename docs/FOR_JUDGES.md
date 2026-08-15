@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 483 tests, no network, ~35s
+make test                     # 511 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:8080
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -43,8 +43,9 @@ Each of these is a test you can run, not a claim.
 | The advantage report contains no typed-in numbers | The engine is re-run independently and **exact** equality demanded — not approximate | `tests/tearsheet/test_advantage.py` |
 | The DIY baseline is not a different program | Both columns are one `ReplayDriver` with `policy=` swapped; same tape, same costs, same accountant | same |
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
+| The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**502 tests: 483 offline, 19 against a live chain or a fork.**
+**539 tests: 511 offline, 28 against a live chain or a fork.**
 
 ---
 
@@ -202,13 +203,16 @@ project exists to argue against.
 - **κ is still a provisional default.** It is meant to be fitted on that tape and
   published as gap item G-4. Until then it traces to a stated basis rather than
   to data, and the go/no-go reports it amber.
-- **No 24-hour burn-in — but the loop has now run.** `make warden` runs the real
-  policy against real BSC state and writes a real journal; verified at 14
-  decisions over 75 seconds, 3 polls, 0 refused. Nobody has run it unattended for
-  a day, and it **cannot sign**: there is no chain executor in this repository,
-  only the `SimulatedExecutor` that moves a position in memory. It has no
-  `--live` flag, because a flag would imply the other mode exists and is being
-  withheld.
+- **No 24-hour burn-in — but the loop has run, and the executor is proven.**
+  `make warden` runs the real policy against real BSC state and writes a real
+  journal; verified at 139 decisions over fifteen minutes, 0 polls refused.
+  `chain/executor.py` mints, recentres and withdraws through the verified
+  NonfungiblePositionManager, and **nine tests exercise it against a forked BSC
+  with real transactions** — including that a recentre which cannot open leaves
+  the wallet flat rather than stranded, and that a withdrawal reaches the wallet
+  rather than stopping at `tokensOwed`. What is missing is a funded wallet and
+  the decision to use it: `make warden` is still wired to the recording
+  executor, and the go/no-go is the gate for changing that.
 - **Nothing has traded with real money**, and the go/no-go will not let it until
   the above are green.
 - **Router agent, session keys, and the ERC-8183 hire flow** are not built.

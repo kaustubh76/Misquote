@@ -432,6 +432,33 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-9 · The live loop has two execution paths, and only one can be real
+
+Building the chain executor made a latent design problem concrete. `WardenLive.step()` calls the
+executor and *then* applies the decision to the engine's position, so a transaction that raises
+leaves the engine's state untouched — correct, and it is the path test **L1** compares against the
+replay driver.
+
+But `WardenLoop` maintains a **second** path. `_decide_forever` calls `warden.step()` — which has
+already executed — and *also* queues the decision for `_execute_forever`, which calls its own
+`executor_call`. So a decision is acted on twice unless one of the two is inert, and the loop's own
+staleness check, its replace-on-full queue and its daily action cap all govern the path that is
+inert in every wiring that works.
+
+Worse in one specific way: `_execute_forever` journals a failure and does **not** roll back the
+engine, because by then `step()` has already applied the decision. On the path the loop owns, a
+failed transaction leaves the engine believing it moved.
+
+**Not fixed here, and the reason matters.** The clean fix is for `WardenLive.step()` to return a
+decision without executing it, leaving the loop as the only actor. That is a change to the exact
+seam **L1** compares byte for byte, so it wants doing deliberately with L1 green on both sides rather
+than as a side effect of adding an executor.
+
+**What is done instead:** `chain/executor.py` documents which path it is for, and the wiring uses the
+one `WardenLive` owns — the tested one. The loop's `executor_call` stays a recorder. The symptom to
+watch for, if this is ever wired the other way, is a journal whose `failed` count is non-zero while
+the position it reports is the one the failed action would have created.
+
 ### P-8 · Two pools on the same DEX, two different protocol fees — **corrected 15 Aug 2026**
 
 > **This item was published wrong, by us, and the correction is more useful than the original.**

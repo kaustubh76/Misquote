@@ -75,22 +75,24 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         evidence="vetting/forge/script/ — no Badge.s.sol",
     ),
     NotBuilt(
-        name="Chain executor",
+        name="Signing on a live chain",
         category="Operations",
         what=(
-            "An `Executor` that broadcasts a position change — burn, collect, mint "
-            "through the NonfungiblePositionManager — so the agent can act on the "
-            "decisions it already makes correctly."
+            "`make warden` broadcasting the decisions it already makes correctly, "
+            "against chapel or mainnet, rather than recording them."
         ),
         why=(
-            "`agents/warden/live.py` defines the `Executor` protocol and exactly "
-            "one implementation, `SimulatedExecutor`, which moves a position that "
-            "exists only in memory. `make warden` therefore runs the real policy "
-            "on real chain state and *records* what it would do. It has no "
-            "`--live` flag, because a flag would imply the other mode exists and "
-            "is being withheld."
+            "The executor now exists and is proven. `chain/executor.py` mints, "
+            "recentres and withdraws through the verified NonfungiblePositionManager, "
+            "and nine tests exercise it against a forked BSC with real "
+            "transactions — including that a recentre which cannot open leaves the "
+            "wallet flat rather than stranded, and that a withdrawal reaches the "
+            "wallet rather than stopping at `tokensOwed`. What is missing is a "
+            "funded wallet and the decision to use one: `make warden` is still "
+            "wired to the recording executor, and the go/no-go is the gate for "
+            "changing that."
         ),
-        evidence="packages/misquote/chain/ — no executor.py",
+        evidence="packages/misquote/agents/warden/ — no live_main.py",
     ),
     NotBuilt(
         name="Ops surface",
