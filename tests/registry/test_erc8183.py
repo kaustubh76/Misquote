@@ -55,7 +55,7 @@ def test_an_open_call_for_bids_costs_one_more() -> None:
 
 
 def test_the_approve_is_not_part_of_the_standard() -> None:
-    """"ERC-8183 needs four transactions" and "hiring needs four transactions"
+    """ "ERC-8183 needs four transactions" and "hiring needs four transactions"
     are different claims, and only the second is true."""
     approve = [s for s in steps() if s.call == "approve"]
     assert len(approve) == 1

@@ -179,9 +179,7 @@ def task_protect(events: list[Event], *, capital: float, venue: str) -> Comparis
     An ablation: the same agent, the same band, the same reanchoring, with only
     the withdrawal decision switched off in the baseline.
     """
-    base_result, base_quote = _run(
-        events, sentinel_policy(NEVER_WITHDRAW), capital=capital
-    )
+    base_result, base_quote = _run(events, sentinel_policy(NEVER_WITHDRAW), capital=capital)
     agent_result, agent_quote = _run(events, sentinel_policy(SentinelParams()), capital=capital)
     return compare(
         task="Protect — avoid being picked off by one-way flow",
@@ -451,8 +449,7 @@ def main() -> int:
     artifact = Path(args.artifact)
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text(
-        json.dumps(to_payload(comparisons, source=source, capital=args.capital), indent=2)
-        + "\n"
+        json.dumps(to_payload(comparisons, source=source, capital=args.capital), indent=2) + "\n"
     )
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")

@@ -109,6 +109,9 @@ advantage-short:  ## the same report on too little history — every task withhe
 		--out docs/AGENT_ADVANTAGE_SHORT.md \
 		--artifact apps/web/public/artifacts/advantage_short.json
 
+judges:  ## re-derive the measurable numbers in docs/FOR_JUDGES.md
+	$(UV) run python scripts/sync_docs.py
+
 assumptions:  ## docs/ASSUMPTIONS.md + REQUIREMENTS_MATRIX.md -> the linkable sheet
 	$(UV) run python scripts/assumptions.py
 

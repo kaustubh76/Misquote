@@ -185,9 +185,7 @@ def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
         ),
     ]
     if not provider_known_at_creation:
-        out.append(
-            Step("setProvider", "client", "escrow", "only when createJob passed address(0)")
-        )
+        out.append(Step("setProvider", "client", "escrow", "only when createJob passed address(0)"))
     out += [
         Step("setBudget", "client", "escrow", "either party may set it, so a price can be agreed"),
         Step("fund", "client", "escrow", "Open -> Funded; the money is now escrowed"),

@@ -62,7 +62,7 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         name="Vetting proof-of-concepts",
         category="Due diligence",
         what=(
-            "The second half of \"they flag, we prove\": each badge finding "
+            'The second half of "they flag, we prove": each badge finding '
             "shipping a Foundry script that demonstrates it on a mainnet fork, so "
             "a claim about a pool is executable rather than assertable."
         ),

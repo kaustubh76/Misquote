@@ -253,11 +253,23 @@ def test_a_decision_journalled_twice_is_counted_once(tmp_path) -> None:
         tmp_path,
         [
             {"event": "run_start", "pool": "0xabc"},
-            {"ts": 100, "action": "mint", "lower": -64220, "upper": -64140, "note": "",
-             "reasons": {}},
+            {
+                "ts": 100,
+                "action": "mint",
+                "lower": -64220,
+                "upper": -64140,
+                "note": "",
+                "reasons": {},
+            },
             {"event": "action_not_broadcast", "action": "mint", "at_ts": 100},
-            {"ts": 100, "action": "mint", "lower": -64220, "upper": -64140,
-             "note": "executed", "reasons": {}},
+            {
+                "ts": 100,
+                "action": "mint",
+                "lower": -64220,
+                "upper": -64140,
+                "note": "executed",
+                "reasons": {},
+            },
             {"ts": 105, "action": "hold", "note": "", "reasons": {"R1": 0.0}},
         ],
     )

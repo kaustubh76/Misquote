@@ -371,15 +371,15 @@ def _check_mintable(badge: Badge, r: PoolReadings) -> None:
             provenance,
         )
     else:
-        badge.add(
-            "a mintable range exists", PASS, f"w_min={w_min}, [{lower}, {upper}]", provenance
-        )
+        badge.add("a mintable range exists", PASS, f"w_min={w_min}, [{lower}, {upper}]", provenance)
 
 
 def _check_liquidity(badge: Badge, r: PoolReadings, eps: float) -> None:
     provenance = "A1: a position big enough to move the price it is replayed against is fiction"
     if r.liquidity is None:
-        badge.add("liquidity supports a position", UNKNOWN, "could not read liquidity()", provenance)
+        badge.add(
+            "liquidity supports a position", UNKNOWN, "could not read liquidity()", provenance
+        )
         return
     if r.liquidity <= 0:
         badge.add(

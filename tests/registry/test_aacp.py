@@ -32,8 +32,7 @@ def test_termix_reads_the_same_identity_registry_we_do() -> None:
     """
     assert shares_our_identity_registry(BSC_MAINNET)
     assert (
-        CONTRACTS[BSC_MAINNET]["IdentityRegistry"].lower()
-        == IDENTITY_REGISTRY[BSC_MAINNET].lower()
+        CONTRACTS[BSC_MAINNET]["IdentityRegistry"].lower() == IDENTITY_REGISTRY[BSC_MAINNET].lower()
     )
 
 

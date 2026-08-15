@@ -112,9 +112,7 @@ class _FakeContract:
     class functions:  # noqa: N801 — mirrors web3's own shape
         @staticmethod
         def slot0():
-            return _FakeContract._Fn(
-                (get_sqrt_ratio_at_tick(-64180), -64180, 0, 0, 0, 3400, True)
-            )
+            return _FakeContract._Fn((get_sqrt_ratio_at_tick(-64180), -64180, 0, 0, 0, 3400, True))
 
         @staticmethod
         def liquidity():

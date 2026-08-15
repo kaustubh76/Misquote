@@ -13,9 +13,9 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 511 tests, no network, ~35s
+make test                     # 515 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
-make web                      # http://localhost:8080
+make web                      # http://localhost:3000
 make go-no-go                 # the mainnet gate — it currently says NOT YET
 ```
 
@@ -45,7 +45,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**539 tests: 511 offline, 28 against a live chain or a fork.**
+**543 tests: 515 offline, 28 against a live chain or a fork.**
 
 ---
 
@@ -324,6 +324,6 @@ the checking.**
 | The claim, frozen | [`WARDEN_SPEC_v1.0_FROZEN.md`](WARDEN_SPEC_v1.0_FROZEN.md) |
 | Every deviation, with arithmetic | [`REQUIREMENTS_MATRIX.md`](REQUIREMENTS_MATRIX.md) |
 | Every assumption, published | [`ASSUMPTIONS.md`](ASSUMPTIONS.md) |
-| The policy, 454 lines, pure | `packages/misquote/core/policy.py` |
+| The policy, 486 lines, pure | `packages/misquote/core/policy.py` |
 | Why look-ahead is structural | `packages/misquote/replay/tape.py` |
 | The tests that carry the claim | `tests/replay/`, `tests/chain/` |

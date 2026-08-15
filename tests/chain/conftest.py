@@ -139,5 +139,3 @@ def range_around(manager: PositionManager, half_width_ticks: int) -> tuple[int, 
 
 
 # --- the whole cycle -------------------------------------------------------
-
-

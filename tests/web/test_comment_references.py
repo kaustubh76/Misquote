@@ -51,6 +51,7 @@ def _skipped(relative: Path) -> bool:
     posix = relative.as_posix()
     return bool(SKIP_DIRS & set(relative.parts)) or posix.startswith(SKIP_TREES)
 
+
 # A path-shaped token: at least one dot-extension we care about.
 REFERENCE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:py|tsx|ts|mjs)\b")
 
@@ -65,9 +66,7 @@ ALLOW: frozenset[str] = frozenset()
 
 def comment_text(source: str) -> str:
     """Only the comments. Import specifiers and string literals are not claims."""
-    return "\n".join(
-        [*BLOCK_COMMENT.findall(source), *LINE_COMMENT.findall(source)]
-    )
+    return "\n".join([*BLOCK_COMMENT.findall(source), *LINE_COMMENT.findall(source)])
 
 
 def repo_paths() -> set[str]:
@@ -95,9 +94,7 @@ def references() -> dict[str, list[str]]:
             if _skipped(path.relative_to(REPO)):
                 continue
             for token in REFERENCE.findall(comment_text(path.read_text())):
-                out.setdefault(token.lstrip("./"), []).append(
-                    path.relative_to(REPO).as_posix()
-                )
+                out.setdefault(token.lstrip("./"), []).append(path.relative_to(REPO).as_posix())
     return out
 
 
