@@ -323,10 +323,37 @@ class BscReader:
         self._last_call = 0.0
         self._block_ts: dict[int, int] = {}
         self.rotations = 0
+        # Per endpoint, not just in total. `rotations` counts that *something*
+        # moved and never which host served what, so a measurement taken through
+        # this reader cannot attribute its own result: "6 of 6 succeeded" reads
+        # as a fact about the endpoint list when it is a fact about whichever
+        # endpoint answered. That is how P-11's wrong cause got into the
+        # requirements matrix and stayed there for two days looking measured.
+        self.served: dict[str, int] = {}
+        self.refused: dict[str, int] = {}
 
     @property
     def w3(self) -> Web3:
         return self._endpoints[self._current]
+
+    @staticmethod
+    def _name(w3: Web3) -> str:
+        """Whatever identifies this endpoint in a report."""
+        return str(getattr(w3.provider, "endpoint_uri", None) or w3.provider)
+
+    def attribution(self) -> list[tuple[str, int, int]]:
+        """(endpoint, served, refused) for every endpoint that was asked
+        anything, in the order they were configured.
+
+        Printed by `follow`'s summary. An endpoint that refuses everything is
+        visible here in one line, which is the whole point: the alternative is
+        inferring it from an aggregate that cannot show it.
+        """
+        return [
+            (name, self.served.get(name, 0), self.refused.get(name, 0))
+            for name in (self._name(w3) for w3 in self._endpoints)
+            if name in self.served or name in self.refused
+        ]
 
     def _rotate(self) -> bool:
         """Move to the next endpoint. False if there is only one."""
@@ -346,13 +373,23 @@ class BscReader:
         attempts_per_endpoint = 2
         last: Exception | None = None
         for _ in range(len(self._endpoints)):
+            # Read before the call, because a failure rotates and `self.w3`
+            # would then name the endpoint that is about to be tried next
+            # rather than the one that just refused.
+            name = self._name(self.w3)
             try:
                 result = rpc_retry(lambda: fn_of_w3(self.w3), attempts=attempts_per_endpoint)
                 self._last_call = time.monotonic()
+                self.served[name] = self.served.get(name, 0) + 1
                 return result
             except RangeTooLarge:
+                # This endpoint declined this width. It is still a refusal by
+                # this host, and which host declined is exactly the thing worth
+                # knowing when their caps differ.
+                self.refused[name] = self.refused.get(name, 0) + 1
                 raise
             except Exception as error:  # noqa: BLE001
+                self.refused[name] = self.refused.get(name, 0) + 1
                 last = error
                 if not is_transient(error) or not self._rotate():
                     raise

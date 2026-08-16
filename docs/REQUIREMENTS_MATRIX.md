@@ -150,6 +150,15 @@ nothing resembling a backfill:
 
 The endpoints do not object to the *range*. They object to the *rate*.
 
+> **Corrected 16 Aug 2026 — see P-11.** The table is what was observed; the sentence under it is a
+> conclusion the observation could not support. `BscReader` rotates endpoints silently and reports
+> only a rotation count, so "all three endpoints exhausted" and "6 of 6 succeeded" are both really
+> statements about *whichever endpoint happened to answer*. Measured per-endpoint two days later, two
+> of the three in that list refuse `eth_getLogs` at **any** rate and **any** width, including a
+> one-block query — so the successful six were very likely all served by the one endpoint that works,
+> and the rate was never the whole story. The deviation below still stands: two clocks are the right
+> design, and the cost it names is real. It is the causal claim that was over-read.
+
 **Deviation.** `chain/live_source.py` keeps two clocks: the **decision clock** ticks at Δs and drives
 the policy, and the **poll clock** governs how often we may ask the chain anything (60s by default).
 Between polls, `events_since` returns nothing and `head()` returns the last head actually observed —
@@ -432,6 +441,83 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-11 · Two of our three endpoints could never serve logs, and the health check said they were fine — **fixed 16 Aug 2026**
+
+P-10 gave the tail a voice, and it spent the next day using it: four consecutive refusals on the same
+2,000-block range, backing off to fifteen minutes, having advanced **not one block in twenty-four
+hours**. P-10 records the cause as quota drained by concurrent anvil forks. That was wrong, and the
+backoff hid it — by the time the counter-evidence arrived it looked like confirmation.
+
+**Three measurements, one request at a time, each ruling out an explanation:**
+
+| Question | Measurement | Rules out |
+|---|---|---|
+| Is it the rate? | `eth_blockNumber` answered instantly by the endpoint refusing `eth_getLogs`, same connection | a rate limit |
+| Is it the depth? | identical refusal at the head and 178,000 blocks back | pruning / historical depth |
+| Is it the width? | a **one-block** query refused | a range cap |
+
+None of them. `eth_getLogs` is unavailable to us on those hosts — not rationed, not capped, absent.
+
+**Surveying 22 public BSC endpoints, three serve logs:**
+
+| Endpoint | `eth_chainId` | `eth_getLogs` |
+|---|---|---|
+| `bsc.rpc.blxrbdn.com` | 56 | **serves**, ≤5,000 blocks |
+| `rpc-bsc.48.club` | 56 | **serves**, ≤5,000 blocks |
+| `bsc-rpc.publicnode.com` | 56 | **serves**, 403s under burst |
+| 4× `bsc-dataseed*.bnbchain.org`, 2× `defibit.io`, `ninicoin.io` | 56 | **`-32005` at every width** |
+| `1rpc.io/bnb` | 56 | serves, declared cap **50 blocks** |
+| `bsc.blockrazor.xyz` | 56 | serves, declared cap **25 blocks** |
+| `meowrpc.com` | 56 | `eth_getLogs is not supported` |
+
+The last two are usable and still useless for this: keeping level with the head costs 8,000 blocks an
+hour, which at one request a minute is **134 blocks a request**. A 50-block cap cannot sustain a tail
+whatever the poll rate.
+
+**Which makes the defect ours.** `connect_all` kept every endpoint answering `eth_chainId` with 56 —
+and all eight of the log-refusing hosts do, in milliseconds. Two of our three configured endpoints
+could never do the job the module exists for, and the health check could not tell, because it tested
+the cheapest capability rather than the one the caller was about to use. **A tail refused on every
+request is indistinguishable from a tail working perfectly on a pool nobody is trading.**
+
+This is V-11's shape exactly: a gate that cannot fail, passing, while the thing it was meant to
+protect is broken. V-11 was a toxicity arm fed a literal `0.0`; this is a health check fed the wrong
+question.
+
+**Before adding the two new endpoints, they had to agree.** The reader rotates on failure, so one
+range can come from one host and the next from another, and two hosts disagreeing about a block would
+produce a tape blended from two histories with nothing downstream able to notice. Asked for an
+identical 2,000-block range all three returned **73 logs, identical transaction hashes, identical
+data, identical order**.
+
+**The fix.** `serves_logs(w3)` — one block, one address that holds no logs, so a healthy node answers
+`[]` in milliseconds. `connect_all(..., needs_logs=True)` filters on it; `connect`, which serves the
+registry and the write path, still selects on chain id and is not charged for a probe it does not
+need. `on_reject(url, why)` reports every dropped endpoint, so an operator whose own keyed
+`BSC_RPC_URL` fails the probe hears about it rather than wondering why their key seems unused.
+
+**The probe is cheap only because the refusal was measured not to depend on the response.** The
+refusing hosts refuse this exact empty one-block query too. Had they been refusing on result size, an
+empty probe is the query they would most gladly serve, all eight would have passed, and this would be
+one more check that cannot fail. Two extra requests to rule that out, and they were the two that
+mattered.
+
+**Two numbers found on the way.** Both log-serving endpoints declare a **5,000-block ceiling**
+(5,000 served, 10,000 refused with `exceed maximum block range: 5000`), so `DEFAULT_CHUNK` moves from
+2,000 — never a measured limit, just what the old set tolerated — to 5,000: the same history for 40%
+of the requests, and requests are the rationed thing. And `blxrbdn` goes ahead of `48.club`, whose
+latency was **~41s regardless of width, refusals included**; a fixed 41s with nothing to compute is a
+queue in front of a node, not work, and it sits uncomfortably close to a 60s poll.
+
+**Verified live:** 4 polls, 0 refused, 214 real swaps, both dead endpoints skipped by name.
+
+**The general form, and it is the third instance:** *a measurement that cannot attribute its own
+result will be over-read.* `BscReader` rotates silently and reports only a rotation count, so D-9's
+"all three endpoints exhausted / 6 of 6 succeeded" was really a statement about whichever endpoint
+happened to answer — and the six successes were very likely all served by the one endpoint that
+works. The instrument could not see the thing that mattered, so the conclusion drawn from it named
+the wrong cause, and that wrong cause sat in this document for two days looking measured.
+
 ### P-10 · The tail could not tell you it was failing, and the endpoints are shared
 
 Left `misquote.indexer.follow` running unattended to accumulate a real tape. Thirty-five minutes
@@ -445,6 +531,14 @@ the chain-fork suite — thirteen tests, a minute of mints and burns — exhaust
 and leaves the tail refused with `-32005` for as long as it takes to refill. Measured directly
 afterwards: `safe_head()` answered fine, and a 2,000-block `eth_getLogs` on the very next range came
 back refused.
+
+> **That diagnosis was wrong — see P-11.** The two observations are real and so is the anvil
+> contention, but they do not add up to the conclusion. `safe_head()` answering while `eth_getLogs`
+> refuses is not evidence of a drained quota; it is evidence that the endpoint serves one method and
+> not the other, which is exactly what it turned out to be. The refusal was permanent, not
+> refilling, and no amount of waiting would have fixed it. Backing off was still the right thing to
+> build — it is what let the tail survive a day of this without hammering anyone — but it also made
+> the counter-evidence arrive slowly enough to look like confirmation.
 
 **And `follow` printed only on success.** Its progress line was inside
 `if result["events"] or result["primed"]`, so a tail refused on every single poll produced *no

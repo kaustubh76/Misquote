@@ -289,12 +289,28 @@ def main(argv: list[str] | None = None) -> int:
         f"{result['events']:,} events, {result['inserted']:,} rows written"
     )
     print(f"  {result['behind']:,} blocks behind the settled head")
+
+    # Per endpoint, because the aggregate above cannot distinguish "the quota is
+    # drained" from "this host does not serve logs at all", and those two want
+    # opposite responses: wait, or stop asking it. Diagnosing that from an
+    # aggregate cost a day (P-11).
+    attribution = reader.attribution()
+    if len(attribution) > 1 or result["refused"]:
+        print()
+        for name, served, refused in attribution:
+            print(f"  {served:>4} served  {refused:>4} refused   {name}")
+
     if result["refused"] and not result["polls"]:
         print("\n  every poll was refused, so nothing was written.")
-        print("  The endpoints are shared: an anvil fork proxies every state read to")
-        print("  the same public nodes, so running the chain-fork suite can exhaust")
-        print("  the quota. Wait for it to refill, slow --poll down, or set a keyed")
-        print("  BSC_RPC_URL.")
+        if all(served == 0 for _, served, _ in attribution):
+            print("  No endpoint served anything. If they answer eth_chainId but refuse")
+            print("  eth_getLogs at any width, they do not serve logs and waiting will")
+            print("  not help — see requirements-matrix P-11.")
+        else:
+            print("  The endpoints are shared: an anvil fork proxies every state read to")
+            print("  the same public nodes, so running the chain-fork suite can exhaust")
+            print("  the quota. Wait for it to refill, slow --poll down, or set a keyed")
+            print("  BSC_RPC_URL.")
         return 1
     if result["consecutive_refusals"]:
         print(f"  ending on {result['consecutive_refusals']} consecutive refusals")

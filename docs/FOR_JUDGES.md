@@ -184,18 +184,28 @@ merely two amber gates.
 Stated plainly, because a submission that hides its gaps is doing the thing this
 project exists to argue against.
 
-- **No 30-day tape — but the reason is narrower than we thought.** Free BSC
-  endpoints refuse a *rate*, not a *range*, and the difference splits this into
-  two items with different answers. Measured on 2,000-block windows:
+- **No 30-day tape — and the first reason we gave for it was wrong.** We recorded
+  that free BSC endpoints "refuse a *rate*, not a *range*". Surveyed properly on
+  16 Aug 2026, one request at a time, that is not what they do:
 
-  | Cadence | Result |
+  | Of 22 public BSC endpoints | `eth_getLogs` |
   |---|---|
-  | ~4 requests in 11s | `-32005 limit exceeded`, all three endpoints exhausted |
-  | 1 request per 60s | **6 of 6, zero rotations** |
+  | 8 (every bnbchain dataseed, both defibit, ninicoin) | **refused at any width**, including one block |
+  | 3 (`blxrbdn`, `48.club`, `publicnode`) | served, capped at **5,000 blocks** |
+  | 2 (`1rpc`, `blockrazor`) | served, capped at 50 and 25 blocks |
+  | the rest | unreachable, wrong chain, or `eth_getLogs is not supported` |
 
-  A 30-day backfill is 2,880 requests as fast as they are served — two days of
-  wall clock at the rate that works, so it still needs a keyed `BSC_RPC_URL`. A
-  **live tail is one request per fifteen minutes of chain**, so
+  Two of our own three configured endpoints were in the first row, and the health
+  check selected on `eth_chainId` — which all of them pass. So the indexer could
+  hold a list of endpoints that could never serve it, and a tail refused on every
+  request looks exactly like a tail working on a pool nobody trades. Written up
+  as requirements-matrix **P-11**, together with the correction to the earlier
+  claim; the original measurement is still in the document with its error marked,
+  because deleting it would hide the more useful finding — *an instrument that
+  cannot attribute its own result will be over-read.*
+
+  A 30-day backfill is 1,152 requests at 5,000 blocks each, and still wants a
+  keyed `BSC_RPC_URL`. A **live tail is one request per 37 minutes of chain**, so
   `make indexer-follow` accumulates real data today, on free endpoints, with no
   key. We cannot recover thirty days of *history*; we can accumulate it going
   forward. Nothing about that turns a short tape into a thirty-day claim, and

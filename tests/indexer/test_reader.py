@@ -223,3 +223,72 @@ def test_preference_order_is_the_list_order(monkeypatch, no_env) -> None:
 
     kept = reader.connect_all(56)
     assert [w3.eth._node for w3 in kept] == list(nodes.values())
+
+
+# --- attributing a result to the endpoint that produced it -------------------
+
+
+class Endpoint:
+    """A `Web3` stand-in for `BscReader`, which only needs a provider name."""
+
+    def __init__(self, url: str, *, fails: bool = False) -> None:
+        self.provider = type("P", (), {"endpoint_uri": url})()
+        self.fails = fails
+
+    def work(self):
+        if self.fails:
+            raise RuntimeError("-32005 limit exceeded")
+        return "ok"
+
+
+@pytest.fixture
+def instant(monkeypatch: pytest.MonkeyPatch):
+    """`rpc_retry` backs off for real seconds; these tests are about counting."""
+    monkeypatch.setattr(reader.time, "sleep", lambda _s: None)
+
+
+def test_a_refusal_is_recorded_against_the_endpoint_that_refused(instant) -> None:
+    """The instrument D-9 was read through could not do this, and the conclusion
+    drawn from it named the wrong cause for two days."""
+    dead, alive = Endpoint("https://dead", fails=True), Endpoint("https://alive")
+    r = reader.BscReader([dead, alive])
+
+    assert r._call(lambda w3: w3.work()) == "ok"
+    assert r.attribution() == [("https://dead", 0, 1), ("https://alive", 1, 0)]
+
+
+def test_an_endpoint_never_asked_does_not_appear(instant) -> None:
+    """Reporting a zero against an endpoint that was never tried would read as
+    "it refused everything" — the same over-reading, one layer down."""
+    r = reader.BscReader([Endpoint("https://first"), Endpoint("https://never")])
+    r._call(lambda w3: w3.work())
+
+    assert r.attribution() == [("https://first", 1, 0)]
+
+
+def test_every_endpoint_refusing_is_visible_as_such(instant) -> None:
+    """The case that actually happened: nothing served, everything refused. The
+    aggregate says "refused"; only this says there is nobody left to ask."""
+    r = reader.BscReader([Endpoint("https://a", fails=True), Endpoint("https://b", fails=True)])
+
+    with pytest.raises(RuntimeError):
+        r._call(lambda w3: w3.work())
+
+    assert r.attribution() == [("https://a", 0, 1), ("https://b", 0, 1)]
+    assert all(served == 0 for _, served, _ in r.attribution())
+
+
+def test_a_width_refusal_is_attributed_too(instant) -> None:
+    """`RangeTooLarge` propagates rather than rotating, and it is still this
+    host declining this query. Their caps differ — 5,000 on the two that serve
+    logs, 50 on 1rpc, 25 on blockrazor — so which one declined is the thing
+    worth knowing."""
+
+    def too_wide(_w3):
+        raise reader.RangeTooLarge("exceed maximum block range: 5000")
+
+    r = reader.BscReader([Endpoint("https://narrow")])
+    with pytest.raises(reader.RangeTooLarge):
+        r._call(too_wide)
+
+    assert r.attribution() == [("https://narrow", 0, 1)]

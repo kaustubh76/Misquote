@@ -67,10 +67,15 @@ indexer:  ## backfill the target pool. NEEDS A KEYED RPC. usage: make indexer PO
 	$(UV) run python -m misquote.indexer.backfill --pool $(POOL)
 
 indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
-	# The same read as the backfill at 1/60th the rate. Measured: 1 req/60s
-	# sustains indefinitely, and BSC produces a 2,000-block chunk every ~15 min,
-	# so this stays ahead of the chain without ever being refused. It cannot
-	# recover history — only accumulate it going forward.
+	# The same read as the backfill, one chunk per poll. BSC produces a
+	# 5,000-block chunk every ~37 min and this asks once a minute, so it stays
+	# ahead of the chain with room to spare and catches up from behind at ~4,800
+	# blocks a poll. It cannot recover history — only accumulate it going
+	# forward, and close a gap it left itself.
+	#
+	# Only three of 22 public endpoints serve eth_getLogs at all; the rest answer
+	# for chain 56 and refuse every log query. `connect_all` probes for the
+	# capability and prints the ones it skips.
 	$(UV) run python -m misquote.indexer.follow --seconds $(FOLLOW_S)
 
 warden:  ## run the Warden against a live chain. It records rather than signs, by choice.
