@@ -11,17 +11,21 @@ So **every journal in this repo has zero rows**, every tearsheet reports its
 provenance journal empty, and every verdict on every card is computed from a
 replay because there has never been a run to compute one from.
 
-## It cannot sign, and that is a fact about the code rather than a setting
+## It does not sign, and that is a wiring choice rather than a missing capability
 
-There is no chain executor in this repository. `agents/warden/live.py` defines an
-`Executor` protocol and exactly one implementation, `SimulatedExecutor`, which
-moves a position that exists only in memory. Nothing else implements it.
+`chain/executor.py` defines `ChainExecutor`, which mints, adjusts and closes a
+position through the NonfungiblePositionManager, and nine tests exercise it
+against a forked BSC with real transactions. It exists and it works.
 
-So this does not have a `--live` flag. A flag would imply the other mode exists
-and is being withheld, when in fact the code to broadcast a position change has
-not been written. What runs here is the real policy, on real chain state, at the
-real cadence, writing a real journal — and the actions it decides on are recorded
-rather than performed.
+This entrypoint deliberately does not use it. It wires `RecordingExecutor`
+(below) instead, so the actions the policy decides on are journalled rather than
+broadcast.
+
+There is still no `--live` flag, but the reason has changed: the gate is no
+longer missing code, it is a funded wallet on a chain that matters and a
+go/no-go that is green rather than NOT YET. A flag would invite someone to cross
+that gate with a keystroke. What runs here is the real policy, on real chain
+state, at the real cadence, writing a real journal.
 
 That is worth having on its own. It is the difference between "the loop is tested"
 and "the loop has run", and it produces the journal every card's provenance block
@@ -83,8 +87,9 @@ class RecordingExecutor:
                 "target_lower": decision.target_lower,
                 "target_upper": decision.target_upper,
                 "why": (
-                    "no chain executor exists in this build; the decision is "
-                    "recorded rather than performed"
+                    "this entrypoint wires RecordingExecutor rather than "
+                    "ChainExecutor, so the decision was journalled and not "
+                    "performed"
                 ),
             }
         )
@@ -144,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  pool     {meta.address}  (chain {meta.chain_id})")
     print(f"  cadence  decide every {args.interval}s, poll the chain every {args.poll:.0f}s")
     print(f"  journal  {journal.path}")
-    print("  signing  IMPOSSIBLE — no chain executor exists in this build")
+    print("  signing  RECORDED, not broadcast — this entrypoint wires RecordingExecutor")
     print(f"  stop     touch {DEFAULT_KILL_FILE}, or wait for the deadline\n")
 
     try:

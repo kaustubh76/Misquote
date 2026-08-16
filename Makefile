@@ -73,7 +73,7 @@ indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
 	# recover history — only accumulate it going forward.
 	$(UV) run python -m misquote.indexer.follow --seconds $(FOLLOW_S)
 
-warden:  ## run the Warden against a live chain. It cannot sign: no chain executor exists.
+warden:  ## run the Warden against a live chain. It records rather than signs, by choice.
 	$(UV) run python -m misquote.agents.warden --chain $(CHAIN) --seconds $(WARDEN_S)
 
 vet:  ## badge every listed pool from chain, and refuse to clear what it cannot read

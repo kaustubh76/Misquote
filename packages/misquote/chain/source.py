@@ -1,16 +1,21 @@
-"""The chain seam: one interface, three ways of satisfying it.
+"""The chain seam: one interface, two ways of satisfying it.
 
 The live agent and the replay engine differ in exactly one thing — where the
 market data comes from. Everything above this line is shared, and that is what
 lets test L1 assert the two produce byte-identical decisions rather than merely
 similar ones.
 
-Three implementations:
+Two implementations:
 
-- `RpcChainSource` reads a real node (step 13).
-- `TapeChainSource` serves a recorded tape as though it were a chain, which is
-  what L1 uses to run the *live* driver over history.
-- `ForkChainSource` points at an anvil fork (step 10).
+- `TapeChainSource`, below, serves a recorded tape as though it were a chain,
+  which is what L1 uses to run the *live* driver over history.
+- `LiveChainSource`, in `chain/live_source.py`, reads a real node.
+
+This docstring used to promise three, naming `RpcChainSource` and
+`ForkChainSource`. Neither was ever written. The live reader shipped under a
+different name and the docstring never followed it, so the file advertised two
+classes that do not exist — the same defect `test_comment_references` catches for
+filenames, one layer down in the same file.
 
 The interface is deliberately narrow. It answers "what is true now" and "what
 happened since", and nothing else — no "what will happen", no seeking, no

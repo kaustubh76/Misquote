@@ -1,9 +1,9 @@
-"""Pool due diligence: eight checks, each one a defect this project actually hit.
+"""Pool due diligence: nine checks, each one a defect this project actually hit.
 
 `Readme.md` §1 promises that "every pool a listed agent touches gets a
-due-diligence badge", and `vetting/badges/` has been empty since the beginning.
-This is that badge, and its design principle is narrow enough to state in a
-sentence: **every check here exists because something went wrong.**
+due-diligence badge". This is that badge, and its design principle is narrow
+enough to state in a sentence: **every check here exists because something went
+wrong.**
 
 That matters because the alternative — a plausible checklist assembled from what
 sounds prudent — produces a badge that passes everything and catches nothing. Each

@@ -1,11 +1,13 @@
 """A real pool, served through the `ChainSource` protocol.
 
-Until now the only implementation of `ChainSource` was `TapeChainSource`, which
-serves recorded history. That is what makes test L1 possible, and it meant the
-"live" agent had never had a way to read a live chain — the loop, the action
-queue, the journal and the kill file all existed with nothing underneath them.
-It is the reason every journal in this repo has zero rows and every card reports
-its provenance journal empty.
+The protocol's other implementation, `TapeChainSource` in `chain/source.py`,
+serves recorded history — that is what makes test L1 possible, and for a long
+time it was the only one. The "live" agent therefore had no way to read a live
+chain: the loop, the action queue, the journal and the kill file all existed
+with nothing underneath them, which is why every journal in this repo has zero
+rows and every card reports its provenance journal empty.
+
+This is the half that reads a node.
 
 ## The constraint is rate, not correctness
 

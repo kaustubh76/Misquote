@@ -117,8 +117,17 @@ class WardenLive:
         self.decisions: list[Decision] = []
         self.timestamps: list[int] = []
 
-    def step(self, t: int) -> Decision | None:
-        """One decision at time `t`. Returns None if there is nothing to see yet."""
+    def decide(self, t: int) -> Decision | None:
+        """Observe, ingest, decide. **Executes nothing and applies nothing.**
+
+        Split out of `step` so the async loop can put the transaction on a worker
+        thread while the policy keeps sampling. `step` still composes the two, so
+        every synchronous caller — including test L1 — is unaffected.
+
+        Returns None when the pool has not been read yet: `sqrt_price == 0` means
+        the source has nothing to describe, and deciding on that would be
+        deciding on a price of zero.
+        """
         events = self.source.events_since(0, t)
         sqrt_price, tick = self.source.slot0()
         if sqrt_price == 0:
@@ -137,7 +146,40 @@ class WardenLive:
         decision = self.engine.step(events, market)
         self.decisions.append(decision)
         self.timestamps.append(t)
+        self._last_market = market
+        return decision
+
+    def perform(self, decision: Decision, market: MarketState | None = None) -> None:
+        """Act on a decision, then record the position it produced.
+
+        **In that order, and only on success.** If the executor raises, the
+        engine is never told, so the agent's idea of its own position stays equal
+        to the chain's. That property is provided by call order alone and is the
+        whole reason `_execute` applies afterwards rather than before.
+
+        `market` defaults to the one `decide` last built. Sizing against the
+        freshest observation is right: the queue may have held this decision for
+        a while, and the slippage bound is only meaningful against the price the
+        transaction will actually meet.
+        """
+        if market is None:
+            market = self._last_market
+        if market is None:
+            raise AssumptionViolated("perform() before any decide(): there is no market to size against")
         self._execute(decision, market)
+
+    def step(self, t: int) -> Decision | None:
+        """One decision at time `t`, acted on immediately.
+
+        Unchanged in behaviour: `decide` then `perform`, synchronously, before
+        returning. Test L1 compares this path against the replay driver byte for
+        byte, and the replay driver applies each decision before making the next
+        one — so anything that deferred execution here would change the
+        observation feeding the next decision and break the comparison.
+        """
+        decision = self.decide(t)
+        if decision is not None:
+            self.perform(decision)
         return decision
 
     def run_until(self, end_ts: int, *, start_ts: int | None = None) -> list[Decision]:
