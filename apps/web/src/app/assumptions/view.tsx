@@ -8,7 +8,7 @@ import { Blocks, type Block } from "@/components/Blocks";
 import { Card } from "@/components/Card";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { load, type Loaded } from "@/lib/artifacts";
+import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
 
 interface Entry {
   id: string;
@@ -39,11 +39,17 @@ const KIND_LABEL: Record<string, string> = {
 
 export function AssumptionsView() {
   const [state, setState] = useState<Loaded<AssumptionsArtifact> | null>(null);
+  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
 
   useEffect(() => {
     let live = true;
-    load<AssumptionsArtifact>("assumptions.json").then((r) => {
-      if (live) setState(r);
+    Promise.all([
+      load<AssumptionsArtifact>("assumptions.json"),
+      load<IndexArtifact>("index.json"),
+    ]).then(([sheet, idx]) => {
+      if (!live) return;
+      setState(sheet);
+      setIndex(idx);
     });
     return () => {
       live = false;
@@ -65,6 +71,7 @@ export function AssumptionsView() {
   }, [state]);
 
   const d = state?.ok ? state.value : null;
+  const agentSlugs = new Set(index?.ok ? index.value.agents.map((a) => a.slug) : []);
   const assumptions = d?.entries.filter((e) => e.kind === "assumption") ?? [];
   const others = d?.entries.filter((e) => e.kind !== "assumption") ?? [];
 
@@ -129,7 +136,7 @@ export function AssumptionsView() {
           <Section title={<>Assumptions ({assumptions.length})</>} className="mt-10" headingClassName="mb-5 text-lg font-semibold">
             <div className="grid gap-5">
               {assumptions.map((entry) => (
-                <EntryCard key={entry.id} entry={entry} />
+                <EntryCard key={entry.id} entry={entry} agentSlugs={agentSlugs} />
               ))}
             </div>
           </Section>
@@ -158,7 +165,7 @@ export function AssumptionsView() {
             </p>
             <div className="grid gap-5">
               {others.map((entry) => (
-                <EntryCard key={entry.id} entry={entry} />
+                <EntryCard key={entry.id} entry={entry} agentSlugs={agentSlugs} />
               ))}
             </div>
           </Section>
@@ -172,7 +179,7 @@ export function AssumptionsView() {
   );
 }
 
-function EntryCard({ entry }: { entry: Entry }) {
+function EntryCard({ entry, agentSlugs }: { entry: Entry; agentSlugs: Set<string> }) {
   return (
     <article
       id={entry.id}
@@ -185,7 +192,7 @@ function EntryCard({ entry }: { entry: Entry }) {
           <span className="rounded-sm border border-line bg-panel-2 px-2 py-0.5 font-mono text-xs text-warn">
             {entry.id}
           </span>
-          <Heading className="m-0 text-md font-semibold">{entry.title}</Heading>
+          <Heading className="m-0 min-w-0 text-md font-semibold break-words">{entry.title}</Heading>
         </div>
         <span className="font-mono text-xs text-faint">
           {KIND_LABEL[entry.kind] ?? entry.kind}
@@ -202,7 +209,13 @@ function EntryCard({ entry }: { entry: Entry }) {
             {entry.cited_by.map((name, i) => (
               <span key={name}>
                 {i > 0 && ", "}
-                {name.endsWith(".json") && !name.startsWith("advantage") ? (
+                {/* Only the agent artifacts have a route. This used to linkify
+                    any *.json that was not the advantage report, so the moment
+                    vetting.json started citing assumptions it produced a link
+                    to /agent/vetting — a page that does not exist. The agent
+                    slugs are the ones with pages, and index.json is the
+                    authority on what they are. */}
+                {agentSlugs.has(name.replace(".json", "")) ? (
                   <Link href={`/agent/${name.replace(".json", "")}`}>{name}</Link>
                 ) : (
                   name

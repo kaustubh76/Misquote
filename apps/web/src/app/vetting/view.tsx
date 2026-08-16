@@ -205,7 +205,7 @@ export function VettingView() {
                               {check.status}
                             </Pill>
                           </div>
-                          <p className="mt-1 mb-0 font-mono text-xs text-dim">
+                          <p className="mt-1 mb-0 font-mono text-xs break-words text-dim">
                             {check.detail}
                           </p>
                           <p className="mt-1 mb-0 text-xs text-faint">
@@ -218,7 +218,7 @@ export function VettingView() {
                     )}
                   </ul>
 
-                  <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs text-faint">
+                  <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                     read {timestamp(pool.read_at)} · {hours(pool.age_hours)} ago ·{" "}
                     {pool.path}
                   </p>

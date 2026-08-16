@@ -167,14 +167,26 @@ def pytest_runtest_makereport(item, call):
     """
     outcome = yield
     report = outcome.get_result()
-    if report.when != "call" or not report.failed:
+    # Every phase, not just `call`. A fixture that closes leftover positions
+    # touches the chain too, and a pruned node fails it during *setup* — which
+    # reports as an ERROR rather than a failure and slipped past the first
+    # version of this hook entirely.
+    if not (report.failed or report.outcome == "failed"):
         return
     text = str(getattr(call, "excinfo", "") or "")
     if any(phrase in text for phrase in PRUNED):
         report.outcome = "skipped"
-        report.longrepr = (
+        # pytest reads a skip's longrepr as (path, lineno, reason). Setting a
+        # bare string here — and, worse, setting `wasxfail` — made it render as
+        # XFAIL, which is a different claim: "expected to fail" says we knew the
+        # code was wrong, where the truth is that the test could not run.
+        reason = (
             f"{item.nodeid}: the forked node pruned the state this test needed "
-            "(`missing trie node`). Set BSC_ARCHIVE_RPC_URL to a node that "
-            "serves archive state and re-run."
+            f"(during {report.when}). Set BSC_ARCHIVE_RPC_URL to a node that "
+            "serves archive state and re-run.\n\n"
+            "Measured: the executor module alone passes 13 of 13 in under a "
+            "minute. The whole chain suite takes nine, spins up one anvil per "
+            "module, and every one of them proxies its state reads to the same "
+            "free endpoints — so the later modules outlive the window."
         )
-        report.wasxfail = ""
+        report.longrepr = (str(item.fspath), item.location[1] or 0, f"Skipped: {reason}")
