@@ -8,6 +8,7 @@ import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
+import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
 vi.mock("next/navigation", () => ({
@@ -28,6 +29,9 @@ const VIEWS = [
   ["Assumptions", <AssumptionsPage key="as" />],
   ["Registry", <RegistryPage key="r" />],
   ["Status", <StatusPage key="s" />],
+  // Absent since /vetting was built, so the page added most recently was the
+  // one page whose heading outline nothing checked.
+  ["Vetting", <VettingPage key="v" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
 ] as const;
 
