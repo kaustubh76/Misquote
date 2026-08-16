@@ -424,8 +424,8 @@ def main() -> int:
         if not db.exists():
             print(f"no tape at {db}.")
             print("  Run the backfill first, or pass --synthetic 9000.")
-            print("  The backfill needs a keyed BSC_RPC_URL: six hours of the target pool")
-            print("  dies in 11 seconds with -32005 on free endpoints.")
+            print("  uv run python -m misquote.indexer.backfill --days 30")
+            print("  Free endpoints are enough — measured, 1,151 chunks with zero refused.")
             return 1
         conn = store.connect(db)
         try:

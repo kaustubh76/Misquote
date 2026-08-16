@@ -21,7 +21,7 @@ import argparse
 import sys
 import time
 
-from misquote.chain.addresses import pool_for
+from misquote.chain.addresses import pool_by_address, pool_for
 from misquote.core.types import PoolMeta
 from misquote.indexer import store
 from misquote.indexer.reader import BscReader, RangeTooLarge, connect_all
@@ -138,8 +138,18 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    ref = pool_for(args.chain)
-    pool = (args.pool or ref.address).lower()
+    # `--pool` used to change which address was *read* while the metadata written
+    # to the database stayed the default pool's. The two verified pools differ in
+    # fee tier, tick spacing and protocol fee, so that produced a complete tape
+    # denominated wrongly — and the pool row it needed was never written at all,
+    # so `write_events` fell back to chain_id 0. Resolving through the verified
+    # table means an unknown address is refused rather than silently mis-labelled.
+    try:
+        ref = pool_by_address(args.pool) if args.pool else pool_for(args.chain)
+    except ValueError as error:
+        print(error)
+        return 1
+    pool = ref.address.lower()
 
     endpoints = connect_all(args.chain, on_reject=lambda url, why: print(f"  skip  {url} — {why}"))
     reader = BscReader(endpoints, pace_seconds=args.pace)

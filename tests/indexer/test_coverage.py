@@ -213,3 +213,35 @@ def test_a_rewind_past_a_whole_run_drops_it(conn) -> None:
     store.rewind(conn, POOL, 2_500)
 
     assert store.coverage(conn, POOL) == [(1_000, 1_999)]
+
+
+# --- indexing a pool we have not verified -----------------------------------
+
+
+def test_an_unverified_pool_address_is_refused_rather_than_guessed() -> None:
+    """`--pool` used to change which address the backfill *read* while the
+    metadata it wrote stayed the default pool's.
+
+    The two verified pools differ in fee tier (500 vs 2500 pips), tick spacing
+    (10 vs 50) and protocol fee (3400 vs 3200). Those decide what a swap means:
+    reconstructing fees with the wrong protocol cut overstates LP earnings by
+    1.52x on this venue (P-1). A tape indexed that way is complete, plausible and
+    wrongly denominated, which is worse than no tape.
+    """
+    from misquote.chain.addresses import EQUITY_POOL, TARGET_POOL, pool_by_address
+
+    assert pool_by_address(TARGET_POOL.address) is TARGET_POOL
+    assert pool_by_address(EQUITY_POOL.address.lower()) is EQUITY_POOL
+
+    with pytest.raises(ValueError, match="not a pool this repository has verified"):
+        pool_by_address("0x" + "1" * 40)
+
+
+def test_the_two_verified_pools_really_do_disagree_on_what_a_swap_means() -> None:
+    """The premise of the refusal above. If they happened to share every field,
+    guessing would be harmless and the test above would be ceremony."""
+    from misquote.chain.addresses import EQUITY_POOL, TARGET_POOL
+
+    assert TARGET_POOL.fee_pips != EQUITY_POOL.fee_pips
+    assert TARGET_POOL.tick_spacing != EQUITY_POOL.tick_spacing
+    assert TARGET_POOL.fee_protocol != EQUITY_POOL.fee_protocol

@@ -212,3 +212,32 @@ def pool_for(chain_id: int) -> PoolRef:
         return POOLS[chain_id]
     except KeyError:
         raise ValueError(f"no verified pool for chain {chain_id}") from None
+
+
+# Every pool this repository has verified on chain, by address. `POOLS` maps a
+# chain to its *default* pool and cannot answer "which pool is this address".
+KNOWN_POOLS: tuple[PoolRef, ...] = (TARGET_POOL, EQUITY_POOL, TESTNET_MIRROR_POOL)
+
+
+def pool_by_address(address: str) -> PoolRef:
+    """The verified reference for a pool address, or a refusal.
+
+    Refusing is the point. A pool's `fee_pips`, `tick_spacing`, decimals and
+    especially `fee_protocol` decide what its swaps *mean* — reconstructing fees
+    with the wrong protocol cut overstates LP earnings by 1.52x on this venue
+    (P-1), and the two pools here differ on all four. Indexing an address we have
+    not checked would produce a complete, plausible, wrongly-denominated tape,
+    which is the failure mode with this project's name on it.
+    """
+    wanted = address.lower()
+    for ref in KNOWN_POOLS:
+        if ref.address.lower() == wanted:
+            return ref
+    known = "\n  ".join(f"{r.address}  {r.label}" for r in KNOWN_POOLS)
+    raise ValueError(
+        f"{address} is not a pool this repository has verified on chain.\n"
+        f"Its fee tier, tick spacing and protocol fee decide what its swaps mean, "
+        f"and guessing them produces a tape that looks right and is not.\n"
+        f"Verified pools:\n  {known}\n"
+        f"To add one: resolve it with scripts/verify_addresses.py and record it here."
+    )
