@@ -26,6 +26,31 @@ import {
   signOf,
 } from "@/lib/format";
 
+/**
+ * Name what an `n` counts, but only where the artifact says so.
+ *
+ * `verdicts.*.n` is a bare integer. The emitter knows what it counted —
+ * `verdict(in_range_samples, in_range_total, …)` against
+ * `verdict(net_positive_windows, total_windows, …)` — and publishes neither
+ * unit, so the page is left with two numbers three orders of magnitude apart
+ * and no way to say why.
+ *
+ * Writing the words in unconditionally would be the thing this project argues
+ * against: a label asserted by the view, correct today, silently wrong the
+ * first time the emitter changes what it counts. So the unit is claimed only
+ * when the count is *identically* the quantity it is supposed to be — the
+ * replay's decision count, the quote's sample count. If those ever diverge the
+ * page falls back to the bare `n`, which says less and stays true.
+ *
+ * Adding the unit to the artifact would be better still, and is the right move
+ * next time it is regenerated: `test_artifact_contract.py` asserts field-set
+ * equality in both directions, so a new key means a half-hour `make artifacts`
+ * in the same commit.
+ */
+function unitFor(n: number, expected: number | undefined, unit: string) {
+  return expected !== undefined && n === expected ? ` ${unit}` : "";
+}
+
 export function AgentDetail({ slug }: { slug: string }) {
   const [state, setState] = useState<Loaded<AgentArtifact> | null>(null);
 
@@ -163,7 +188,17 @@ export function AgentDetail({ slug }: { slug: string }) {
       </Section>
 
       {/* ------------------------------------------------------- verdicts -- */}
-      <Section title="Verdicts">
+      {/* The two n's differ by three orders of magnitude — 44,802 against 60 —
+          because they count different things: one decision at a time across the
+          replay, against one return per window of the quote. Side by side with
+          nothing but "n =" on each, the smaller one reads as the weaker
+          evidence, when it is the one built out of the quote this page exists to
+          defend. `unitFor` names the unit only where the artifact proves it, so
+          neither label is a guess. */}
+      <Section
+        title="Verdicts"
+        intro="Two different populations, both from the same replay: one counts decisions, the other counts window returns."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader
@@ -173,6 +208,7 @@ export function AgentDetail({ slug }: { slug: string }) {
             <p className="m-0 font-mono text-sm">{d.verdicts.in_range.label}</p>
             <p className="mt-2 mb-0 text-xs text-faint">
               {d.verdicts.in_range.detail} · n = {count(d.verdicts.in_range.n)}
+              {unitFor(d.verdicts.in_range.n, r.samples, "replay decisions")}
             </p>
           </Card>
 
@@ -183,7 +219,8 @@ export function AgentDetail({ slug }: { slug: string }) {
             />
             <p className="m-0 font-mono text-sm">{d.verdicts.profitable.label}</p>
             <p className="mt-2 mb-0 text-xs text-faint">
-              {d.verdicts.profitable.detail} · n = {count(d.verdicts.profitable.n)}, floor{" "}
+              {d.verdicts.profitable.detail} · n = {count(d.verdicts.profitable.n)}
+              {unitFor(d.verdicts.profitable.n, q?.samples, "window returns")}, floor{" "}
               {d.floors.min_observations}
             </p>
           </Card>
@@ -245,10 +282,24 @@ export function AgentDetail({ slug }: { slug: string }) {
       )}
 
       {/* ------------------------------------------------------- activity -- */}
-      <Section title="What it actually did">
+      {/* These two cards are not two views of one run. The left is the replay
+          — 44,802 decisions over 62 hours of tape, none of which happened. The
+          right is `activity`, read from the decision journal of a live loop
+          that ran for a quarter of an hour. They sat side by side under one
+          heading with no scale on either, so the gate histogram read as an
+          account of the 44,802. Each card now states its own source and span,
+          and the heading no longer calls a counterfactual "what it did". */}
+      <Section
+        title="What it did, and what it would have done"
+        intro="Two different runs, kept apart. The replay never held a position; the journal is a loop that ran against a live chain and recorded rather than signed."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
-            <CardHeader title="Replay" />
+            <CardHeader
+              title="Replay"
+              eyebrow={`${count(r.samples)} decisions · ${hours(r.hours)} of tape`}
+              aside={<Badge tone="warn">Counterfactual</Badge>}
+            />
             <DataTable
               caption="Replay activity"
               rows={[
@@ -274,11 +325,21 @@ export function AgentDetail({ slug }: { slug: string }) {
           </Card>
 
           <Card>
-            <CardHeader title="Why it held" />
+            <CardHeader
+              title="Why it held"
+              eyebrow={`${count(d.activity.decisions)} decisions · ${hours(d.activity.hours)} journalled`}
+              aside={<Badge tone="neutral">Live loop</Badge>}
+            />
             {/* The `activity` block was in the artifact all along and the card
                 page dropped it entirely — including this histogram, which is
-                the reason all four gates are journalled on every row. */}
-            <GateHistogram blocks={d.activity.held_by_gate} />
+                the reason all four gates are journalled on every row.
+                `decisions` is the journal's own count, not the replay's: the
+                two differ by three orders of magnitude, and passing the wrong
+                one would put every gate at a fraction of a percent. */}
+            <GateHistogram
+              blocks={d.activity.held_by_gate}
+              total={d.activity.decisions}
+            />
             {/* Outcomes, kept apart from the decisions that caused them. A
                 decision the loop dropped as stale or refused by the daily cap
                 still happened; it is just not a second mint. Counting them

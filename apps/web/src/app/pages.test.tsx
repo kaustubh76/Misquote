@@ -116,6 +116,55 @@ describe("Agent detail", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/warden\.json/);
   });
+
+  it("says what each verdict's n counts, where the artifact proves it", async () => {
+    // The two verdicts sit side by side with n = 44,802 and n = 60. They count
+    // different populations — decisions against window returns — and with a
+    // bare "n =" on each the smaller reads as the weaker evidence, when it is
+    // the one built from the quote this page exists to defend.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    render(<AgentDetail slug="warden" />);
+    await screen.findByRole("heading", { name: "Warden" });
+
+    // Matched on the n-line itself, not on the bare unit: the section intro
+    // also names both populations, so `getByText(/window returns/)` finds two
+    // elements and a laxer `getAllByText` would pass on the intro alone —
+    // green while each card still said only "n = 60".
+    if (warden.verdicts.in_range.n === warden.replay.samples) {
+      expect(
+        screen.getByText(new RegExp(`n = ${warden.replay.samples.toLocaleString("en-US")} replay decisions`)),
+      ).toBeInTheDocument();
+    }
+    if (warden.verdicts.profitable.n === warden.quote_detail?.samples) {
+      expect(
+        screen.getByText(new RegExp(`n = ${warden.quote_detail.samples} window returns`)),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("keeps the replay and the journal apart, with a scale on each", async () => {
+    // One heading over two cards from two different runs — 44,802 replayed
+    // decisions and a live loop's 175 — read as one account, so the gate
+    // histogram looked like an explanation of the 44,802.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    render(<AgentDetail slug="warden" />);
+    await screen.findByRole("heading", { name: "Why it held" });
+
+    expect(
+      screen.getByRole("heading", { name: /What it did, and what it would have done/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/of tape/)).toBeInTheDocument();
+    expect(screen.getByText(/journalled/)).toBeInTheDocument();
+
+    // The histogram's denominator is the journal's decision count, never the
+    // replay's — the two differ by three orders of magnitude.
+    const gates = Object.values(warden.activity.held_by_gate);
+    if (gates.length > 0 && warden.activity.decisions > 0) {
+      expect(
+        screen.getAllByText(new RegExp(`of ${warden.activity.decisions}\\b`)).length,
+      ).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("Advantage", () => {
