@@ -93,10 +93,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "changing that."
         ),
         evidence=(
-            # Names the capability, not a filename. The previous wording was
-            # "no live_main.py" — a file no plan ever proposed writing, so the
-            # claim would have kept passing even if signing were wired through
-            # the entrypoint that actually exists.
+            # Names the capability, not a filename. An earlier wording pointed at
+            # a file no plan ever proposed writing, so the claim would have kept
+            # reading as true even after signing was wired through the entrypoint
+            # that actually exists — an absence check aimed at the wrong absence.
             "packages/misquote/agents/warden/__main__.py — does not import ChainExecutor"
         ),
     ),
