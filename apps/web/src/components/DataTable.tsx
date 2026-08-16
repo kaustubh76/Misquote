@@ -23,11 +23,32 @@ export function DataTable({
   rows,
   hideCaption = true,
   columns = ["Metric", "Value"],
+  notes = "figures",
 }: {
   caption: string;
   rows: Row[];
   hideCaption?: boolean;
   columns?: [string, string] | [string, string, string];
+  /**
+   * What the third column holds, which decides whether it may wrap.
+   *
+   * `"figures"` keeps `whitespace-nowrap`, so `1,220,001,498` never breaks
+   * across two lines and a column of numbers stays a column. That is right for
+   * `ComparisonTable`, which is what the three-column form was built for.
+   *
+   * `/registry` then used the same form for the ERC-8183 lifecycle, where the
+   * third column is a sentence — and every row lost its ending at 1280px:
+   *
+   *     approve    the escrow pulls the budget on fund(); without this it ⟨reverts⟩
+   *     fund       Open -> Funded; the money is now e⟨scrowed⟩
+   *     submit     Funded -> Submitted; the deliverable is a ⟨bytes32⟩
+   *
+   * The scroll container meant nothing was strictly lost, but each row was cut
+   * mid-clause with no ellipsis — reading as a complete-if-odd sentence rather
+   * than an obviously truncated one. The first row lost "reverts", which is the
+   * consequence and the entire point of the row.
+   */
+  notes?: "figures" | "prose";
 }) {
   const hasNote = rows.some((r) => r.note !== undefined);
 
@@ -91,9 +112,14 @@ export function DataTable({
                 <td
                   className={
                     showHeader
-                      ? // A comparison's second figure is a peer of the first,
-                        // not an annotation on it, so it is set the same way.
-                        "tabular py-1.5 pl-4 text-right align-baseline whitespace-nowrap text-dim"
+                      ? notes === "prose"
+                        ? // Wraps, and gives up the tabular font and the right
+                          // alignment with it: both exist to line figures up
+                          // under one another, and neither helps a sentence.
+                          "py-1.5 pl-4 align-baseline text-dim"
+                        : // A comparison's second figure is a peer of the first,
+                          // not an annotation on it, so it is set the same way.
+                          "tabular py-1.5 pl-4 text-right align-baseline whitespace-nowrap text-dim"
                       : "py-1.5 pl-4 text-right align-baseline text-xs text-faint"
                   }
                 >

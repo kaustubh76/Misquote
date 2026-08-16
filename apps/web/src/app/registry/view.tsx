@@ -132,6 +132,11 @@ export function RegistryView() {
                 caption="The ERC-8183 job lifecycle"
                 hideCaption={false}
                 columns={["Call", "Signed by", "Why"]}
+                // "Why" is a sentence, not a figure. Left as the default, the
+                // nowrap that keeps `ComparisonTable`'s numbers aligned cut
+                // every row here mid-clause — the first one losing "reverts",
+                // which is the whole reason the row is on the page.
+                notes="prose"
                 rows={d.hire_flow.steps.map((step) => ({
                   label: (
                     <span className="font-mono">
