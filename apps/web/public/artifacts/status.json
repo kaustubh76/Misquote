@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-16T08:48:57+00:00",
+  "generated_at": "2026-08-16T10:07:35+00:00",
   "mainnet": false,
   "fast": true,
   "skipped": [
@@ -11,7 +11,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 105 deselected, 1 warning in 2.24s",
+      "detail": "7 passed, 105 deselected, 1 warning in 2.09s",
       "remedy": "",
       "blocking": false
     },
@@ -46,7 +46,7 @@
     {
       "name": "30-day tape",
       "status": "UNVERIFIED",
-      "detail": "719 swaps spanning 0.1 days",
+      "detail": "2,599 swaps spanning 0.4 days",
       "remedy": "assumption A5 wants 30 days; extend the backfill",
       "blocking": true
     },
@@ -66,23 +66,23 @@
     },
     {
       "name": "signer",
-      "status": "PASS",
-      "detail": "not checked (add --mainnet)",
-      "remedy": "",
-      "blocking": false
+      "status": "UNVERIFIED",
+      "detail": "not checked \u2014 this run is not --mainnet",
+      "remedy": "re-run with --mainnet to check the signing key",
+      "blocking": true
     },
     {
       "name": "position cap",
-      "status": "PASS",
-      "detail": "not checked (add --mainnet)",
-      "remedy": "",
-      "blocking": false
+      "status": "UNVERIFIED",
+      "detail": "not checked \u2014 this run is not --mainnet",
+      "remedy": "re-run with --mainnet to check the position cap",
+      "blocking": true
     }
   ],
   "summary": {
-    "pass": 5,
+    "pass": 3,
     "fail": 0,
-    "unverified": 5,
+    "unverified": 7,
     "total": 10
   },
   "outcome": "NOT YET",

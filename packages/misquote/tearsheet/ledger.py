@@ -67,7 +67,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "a claim about a pool is executable rather than assertable."
         ),
         why=(
-            "The badge itself is built — `python -m misquote.vetting` reads eight "
+            # "eight" for as long as this entry has existed. `badge.py` runs nine
+            # `_check_*` functions and its own docstring says nine; the site
+            # renders this sentence directly above a card listing all nine, so
+            # the miscount was visible on the page it qualifies.
+            # `test_ledger.test_the_ledger_counts_the_checks_that_exist` counts
+            # the functions rather than trusting either prose.
+            "The badge itself is built — `python -m misquote.vetting` reads nine "
             "checks off chain and writes vetting/badges/<pool>.json — and the fork "
             "lab under vetting/forge exists and runs. Nothing joins them: a FAIL "
             "today is a sentence, not a transaction that reverts."

@@ -266,7 +266,19 @@ def check_agent_advantage_report() -> Check:
 
 def check_signer_configured(mainnet: bool) -> Check:
     if not mainnet:
-        return Check("signer", PASS, "not checked (add --mainnet)")
+        # UNVERIFIED, not PASS. This module's own docstring says "anything it
+        # cannot verify is reported as UNVERIFIED rather than assumed — an amber
+        # light, never a green one", and the web page repeats that sentence two
+        # inches above the gate list. Both of these returned a green tick with
+        # the words "not checked" beside it, and the summary counted them among
+        # the passes: `5 passed · 0 failed · 5 unverified` for a run that had
+        # actually established seven things, not five.
+        return Check(
+            "signer",
+            UNVERIFIED,
+            "not checked — this run is not --mainnet",
+            "re-run with --mainnet to check the signing key",
+        )
     key = os.environ.get("MISQUOTE_PRIVATE_KEY")
     if not key:
         return Check(
@@ -280,7 +292,13 @@ def check_signer_configured(mainnet: bool) -> Check:
 
 def check_position_cap(mainnet: bool) -> Check:
     if not mainnet:
-        return Check("position cap", PASS, "not checked (add --mainnet)")
+        # See `check_signer_configured` — same reason, same fix.
+        return Check(
+            "position cap",
+            UNVERIFIED,
+            "not checked — this run is not --mainnet",
+            "re-run with --mainnet to check the position cap",
+        )
     cap = os.environ.get("MISQUOTE_POSITION_CAP_QUOTE")
     if not cap:
         return Check(

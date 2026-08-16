@@ -2,9 +2,9 @@
   "capital_quote": 1000.0,
   "command": "python scripts/showcase.py --synthetic 9000",
   "events": 9000,
-  "generated_at": "2026-08-16T09:03:03+00:00",
+  "generated_at": "2026-08-16T10:07:10+00:00",
   "git_dirty": true,
-  "git_sha": "813808d",
+  "git_sha": "5ecef75",
   "source": "synthetic",
   "span_hours": 62.22
 }

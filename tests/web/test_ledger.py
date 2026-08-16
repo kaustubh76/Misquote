@@ -200,3 +200,54 @@ def test_stub_packages_are_all_disclosed() -> None:
     assert not undisclosed, (
         f"these packages are placeholders and the ledger does not mention them: {undisclosed}"
     )
+
+
+def test_the_ledger_counts_the_checks_that_exist() -> None:
+    """A number in prose about a countable thing in the code.
+
+    The "Vetting proof-of-concepts" entry said `misquote.vetting` "reads eight
+    checks off chain". It reads nine, `badge.py`'s own docstring says nine, and
+    `/vetting` renders this sentence directly underneath a card listing all nine
+    — so the miscount sat on the page it qualifies, one scroll below its own
+    counter-example.
+
+    Counted from the `_check_*` functions rather than from either docstring,
+    because two pieces of prose agreeing proves only that somebody copied one.
+    `_check_recorded_matches_chain` is included: it is registered like the rest
+    and appears on the badge as "recorded values match chain".
+    """
+    import ast
+
+    source = (REPO / "packages" / "misquote" / "vetting" / "badge.py").read_text()
+    functions = [
+        node.name
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("_check_")
+    ]
+    assert functions, "no _check_* functions found — has badge.py been restructured?"
+
+    spelled = {
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine",
+        10: "ten",
+    }
+    word = spelled.get(len(functions))
+    assert word, f"{len(functions)} checks — extend the spelling table"
+
+    prose = " ".join(f"{e.what} {e.why}" for e in ledger.NOT_BUILT)
+    wrong = [
+        other
+        for number, other in spelled.items()
+        if number != len(functions) and f"{other} checks" in prose
+    ]
+    assert not wrong, (
+        f"badge.py defines {len(functions)} checks ({word}), and the ledger says "
+        f"{wrong} — the site renders that sentence above a card listing every one."
+    )
