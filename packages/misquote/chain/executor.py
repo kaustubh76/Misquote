@@ -42,16 +42,25 @@ fork test compares to the real contracts to one wei. Sizing from a price
 observed at decision time instead would put a stale number into a slippage
 bound.
 
-## What this does not fix
+## One execution path
 
-`WardenLive.step()` calls this executor and *then* applies the decision to the
-engine's position, so a transaction that raises leaves the engine's state
-untouched — correct. But `WardenLoop` maintains a **second** execution path, its
-own `executor_call`, which runs after the decision has already been applied; a
-failure there is journalled and the engine is not rolled back. Two execution
-paths where one would do, recorded as matrix item **P-9** rather than papered
-over. The wiring below uses the path `WardenLive` owns, which is the one test L1
-exercises.
+`WardenLive.perform` calls this executor and *then* applies the decision, so a
+transaction that raises leaves the engine's idea of the position equal to the
+chain's. That property comes from call order alone.
+
+It used to be only half true. `WardenLoop` kept a **second** execution path — its
+own `executor_call`, run after `step()` had already committed the position — so
+every decision was acted on twice unless one of the two executors was inert, and
+a failure on the queue path was journalled without rolling anything back. That
+was matrix **P-9**, and it is now fixed: `decide` observes, `perform` acts, and
+`perform` is the only thing that does.
+
+## Reconciliation
+
+`observe()` reads what the wallet actually holds. An agent that restarts with an
+empty memory would otherwise mint a *second* position and orphan the first —
+capital in the pool with no fee accounting and no kill switch pointed at it,
+which is the failure that makes an unattended run unsafe.
 """
 
 from __future__ import annotations
@@ -60,6 +69,7 @@ from web3 import Web3
 
 from misquote.chain.nfpm import PositionManager
 from misquote.chain.signer import SentTransaction
+from misquote.core.errors import AssumptionViolated, PositionClosedNotReopened
 from misquote.core.liquidity import get_amounts_for_liquidity
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import PositionState, Tick
@@ -109,10 +119,24 @@ class ChainExecutor:
         Returns the **new** token id. Reusing the old one would be a lie the
         journal then carries: `decreaseLiquidity` plus `burn` destroys the NFT,
         and the position that follows is a different token.
+
+        If the close succeeds and the open does not, that is **not** an ordinary
+        failure and must not be reported as one. The wallet is flat and solvent —
+        which is what the ordering buys — but the caller still believes it holds
+        the old range, and every decision after that would be about a position
+        that no longer exists. So it raises `PositionClosedNotReopened`, which
+        `WardenLive._execute` catches to put the engine flat before re-raising.
         """
+        closed = False
         if current.token_id is not None:
             self._close(current.token_id)
-        return self.mint(lower, upper, liquidity, ts)
+            closed = True
+        try:
+            return self.mint(lower, upper, liquidity, ts)
+        except Exception as error:
+            if closed:
+                raise PositionClosedNotReopened(current.token_id, error) from error
+            raise
 
     def pull(self, current: PositionState, ts: int) -> None:
         """Withdraw to the wallet. Not just out of the pool — to the wallet.
@@ -184,3 +208,71 @@ class ChainExecutor:
     def gas_spent_wei(self) -> int:
         """What this run has actually cost, from receipts rather than estimates."""
         return sum(tx.gas_cost_wei for tx in self.sent)
+
+    # --- reconciliation ----------------------------------------------------
+
+    def observe(self) -> PositionState | None:
+        """What the wallet **actually** holds in this pool, read from chain.
+
+        An agent that restarts with an empty memory believes it holds nothing,
+        mints a *second* position, and orphans the first — capital left in the
+        pool with nothing tracking it, no fee accounting, and no kill switch
+        pointed at it. That is the failure that makes an unattended 24-hour run
+        unsafe, and it is not something a journal can fix: the journal records
+        what the agent *did*, and the question here is what is *true*.
+
+        So the chain is the authority. `PancakeV3PositionManager` is
+        `ERC721Enumerable` — `supportsInterface(0x780e9d63)` returns true on
+        mainnet, verified rather than assumed — so the wallet's tokens can be
+        walked directly.
+
+        Returns `None` when the wallet holds no live position in this pool, which
+        is the ordinary state and not an error. A closed-but-unburned NFT reads as
+        `None` too: `liquidity == 0` is not a position, it is a receipt.
+
+        **Raises when the wallet holds more than one.** A wallet can legitimately
+        hold several positions in one pool — someone minted by hand, or a previous
+        crash left one behind — and there is then no way to know which one is the
+        agent's. Adopting the first is a guess, and a guess here means rebalancing
+        one position while the other sits unmanaged. So it refuses and names them
+        all, which is a thing an operator can act on.
+        """
+        found = self._live_positions()
+        if not found:
+            return None
+        if len(found) > 1:
+            raise AssumptionViolated(
+                f"the wallet holds {len(found)} live positions in {self.manager.meta.address} "
+                f"(tokens {sorted(t for t, _ in found)}). Which one is the agent's cannot be "
+                "known from chain, and adopting one would leave the other unmanaged. Close "
+                "the ones that should not be there, then restart."
+            )
+
+        token_id, held = found[0]
+        return PositionState(
+            lower=held.lower,
+            upper=held.upper,
+            liquidity=held.liquidity,
+            token_id=token_id,
+            # Unknown from chain: the NFPM records no mint timestamp, and
+            # inventing one would put a fabricated number into the horizon the
+            # policy reasons about. Zero is the honest "not known", and
+            # `rebalances_today` deliberately restarts at zero rather than being
+            # guessed at from a journal that may not describe this position.
+            minted_ts=0,
+            last_rebalance_ts=0,
+            rebalances_today=0,
+        )
+
+    def _live_positions(self) -> list[tuple[int, object]]:
+        """Every open position the wallet holds *in this pool*."""
+        manager = self.manager
+        out: list[tuple[int, object]] = []
+        for token_id in manager.tokens_of(manager.signer.address):
+            try:
+                held = manager.position(token_id)
+            except Exception:  # noqa: BLE001 — a burned or foreign token is not ours
+                continue
+            if held.liquidity > 0 and manager.is_for_pool(held):
+                out.append((token_id, held))
+        return out

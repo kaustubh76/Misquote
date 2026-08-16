@@ -139,3 +139,42 @@ def range_around(manager: PositionManager, half_width_ticks: int) -> tuple[int, 
 
 
 # --- the whole cycle -------------------------------------------------------
+
+
+# --- pruned forks are an absence of infrastructure, not a defect -------------
+
+PRUNED = ("missing trie node", "required historical state unavailable", "state not available")
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    """Turn a pruned-state RPC error into a skip that names the cause.
+
+    anvil forks from a public endpoint, which serves only recent state. A run
+    that takes a minute can outlive the window: the node prunes the block the
+    fork is pinned to and every later `eth_call` fails with `missing trie node`.
+    Nothing in this repository can prevent that, and `BSC_ARCHIVE_RPC_URL` is
+    exactly the knob that does.
+
+    Reporting it as a failure would make the chain suite intermittently red for
+    a reason nobody can fix, and a suite that is sometimes red for no reason
+    teaches people to ignore it being red for a real one. So it is reported as
+    what it is: a test that could not run.
+
+    Deliberately narrow. Only these three phrases, all of them the node saying
+    it no longer has the data — never a revert, never a gas estimate, never a
+    wrong number.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    if report.when != "call" or not report.failed:
+        return
+    text = str(getattr(call, "excinfo", "") or "")
+    if any(phrase in text for phrase in PRUNED):
+        report.outcome = "skipped"
+        report.longrepr = (
+            f"{item.nodeid}: the forked node pruned the state this test needed "
+            "(`missing trie node`). Set BSC_ARCHIVE_RPC_URL to a node that "
+            "serves archive state and re-run."
+        )
+        report.wasxfail = ""

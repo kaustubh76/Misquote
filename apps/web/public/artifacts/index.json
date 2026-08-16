@@ -42,10 +42,17 @@
     },
     {
       "category": "Due diligence",
-      "evidence": "vetting/badges/ \u2014 empty directory",
-      "name": "Vetting badges",
-      "what": "A due-diligence badge on every pool a listed agent touches, with each finding shipping a proof-of-concept that executes on a mainnet fork.",
-      "why": "The fork lab under vetting/forge exists and runs; the badge generator that would turn its output into a rendered claim does not."
+      "evidence": "vetting/forge/script/ \u2014 no Badge.s.sol",
+      "name": "Vetting proof-of-concepts",
+      "what": "The second half of \"they flag, we prove\": each badge finding shipping a Foundry script that demonstrates it on a mainnet fork, so a claim about a pool is executable rather than assertable.",
+      "why": "The badge itself is built \u2014 `python -m misquote.vetting` reads eight checks off chain and writes vetting/badges/<pool>.json \u2014 and the fork lab under vetting/forge exists and runs. Nothing joins them: a FAIL today is a sentence, not a transaction that reverts."
+    },
+    {
+      "category": "Operations",
+      "evidence": "packages/misquote/agents/warden/__main__.py \u2014 does not import ChainExecutor",
+      "name": "Signing on a live chain",
+      "what": "`make warden` broadcasting the decisions it already makes correctly, against chapel or mainnet, rather than recording them.",
+      "why": "The executor now exists and is proven. `chain/executor.py` mints, recentres and withdraws through the verified NonfungiblePositionManager, and nine tests exercise it against a forked BSC with real transactions \u2014 including that a recentre which cannot open leaves the wallet flat rather than stranded, and that a withdrawal reaches the wallet rather than stopping at `tokensOwed`. What is missing is a funded wallet and the decision to use one: `make warden` is still wired to the recording executor, and the go/no-go is the gate for changing that."
     },
     {
       "category": "Operations",

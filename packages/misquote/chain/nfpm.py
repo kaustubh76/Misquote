@@ -39,6 +39,11 @@ from misquote.core.types import PoolMeta, Tick
 
 MAX_UINT128 = 2**128 - 1
 
+# `balanceOf` and `tokenOfOwnerByIndex` are ERC-721 Enumerable, and Pancake's
+# manager supports it — `supportsInterface(0x780e9d63)` returns true on mainnet,
+# verified rather than inferred from Uniswap's ABI. That is what lets a restarted
+# agent ask the chain what it holds instead of trusting an empty memory and
+# minting a second position on top of the first.
 NFPM_ABI = json.loads("""[
  {"name":"mint","type":"function","stateMutability":"payable","inputs":[{"components":[
    {"name":"token0","type":"address"},{"name":"token1","type":"address"},{"name":"fee","type":"uint24"},
@@ -70,7 +75,11 @@ NFPM_ABI = json.loads("""[
  {"name":"burn","type":"function","stateMutability":"payable",
   "inputs":[{"name":"tokenId","type":"uint256"}],"outputs":[]},
  {"name":"ownerOf","type":"function","stateMutability":"view",
-  "inputs":[{"type":"uint256"}],"outputs":[{"type":"address"}]}
+  "inputs":[{"type":"uint256"}],"outputs":[{"type":"address"}]},
+ {"name":"balanceOf","type":"function","stateMutability":"view",
+  "inputs":[{"type":"address"}],"outputs":[{"type":"uint256"}]},
+ {"name":"tokenOfOwnerByIndex","type":"function","stateMutability":"view",
+  "inputs":[{"type":"address"},{"type":"uint256"}],"outputs":[{"type":"uint256"}]}
 ]""")
 
 ERC20_ABI = json.loads("""[
@@ -105,6 +114,13 @@ class OnChainPosition:
     liquidity: int
     tokens_owed0: int
     tokens_owed1: int
+    # Which pool this position is actually in. The manager holds positions for
+    # every pool on the DEX, so a wallet's token list has to be filtered — and
+    # filtering on anything less than (token0, token1, fee) would adopt a
+    # position in a different pool as our own.
+    token0: str = ""
+    token1: str = ""
+    fee_pips: int = 0
 
     @property
     def is_open(self) -> bool:
@@ -169,6 +185,44 @@ class PositionManager:
             liquidity=raw[7],
             tokens_owed0=raw[10],
             tokens_owed1=raw[11],
+            token0=raw[2],
+            token1=raw[3],
+            fee_pips=raw[4],
+        )
+
+    def tokens_of(self, owner: str) -> list[int]:
+        """Every NFPM token id the address holds, across all pools.
+
+        `balanceOf` then `tokenOfOwnerByIndex`, which the manager supports —
+        checked on chain, not inferred from Uniswap's ABI. A wallet with no
+        positions returns an empty list rather than raising, because holding
+        nothing is the ordinary state.
+        """
+        address = Web3.to_checksum_address(owner)
+        try:
+            count = int(self.contract.functions.balanceOf(address).call())
+        except Exception:  # noqa: BLE001 — an unreachable node is not an empty wallet
+            raise
+        out: list[int] = []
+        for index in range(count):
+            try:
+                out.append(int(self.contract.functions.tokenOfOwnerByIndex(address, index).call()))
+            except Exception:  # noqa: BLE001 — a token moving mid-scan shifts the index
+                continue
+        return out
+
+    def is_for_pool(self, held: OnChainPosition) -> bool:
+        """Is this position in *our* pool?
+
+        All three of token0, token1 and the fee tier, because the first two alone
+        name a pair that PancakeSwap runs at four different fee tiers — and
+        adopting a position from the 1% pool as though it were the 0.05% one
+        would price every fee it earns against the wrong rate.
+        """
+        return (
+            held.token0.lower() == self.meta.token0.lower()
+            and held.token1.lower() == self.meta.token1.lower()
+            and held.fee_pips == self.meta.fee_pips
         )
 
     def owns(self, token_id: int) -> bool:

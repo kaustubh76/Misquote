@@ -18,6 +18,8 @@ track of.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 from web3 import Web3
 
@@ -192,11 +194,19 @@ def test_a_rebalance_that_cannot_open_leaves_the_agent_flat_not_stranded(
     held = manager.position(token_id)
     before = _balances(manager)
 
-    # An unmintable range: the close will succeed and the open will refuse.
-    with pytest.raises(ValueError, match="not multiples of the pool's spacing"):
+    # An unmintable range: the close succeeds and the open refuses. The refusal
+    # is a plain ValueError from the manager, but by then the old position is
+    # already gone — so the executor re-raises it as PositionClosedNotReopened,
+    # which is the only signal that distinguishes "nothing happened" from "the
+    # position is gone and the new one never opened".
+    from misquote.core.errors import PositionClosedNotReopened
+
+    with pytest.raises(PositionClosedNotReopened) as raised:
         executor.rebalance(
             _position(token_id, lower, upper, held.liquidity), lower + 3, upper, 10**18, ts=0
         )
+    assert isinstance(raised.value.cause, ValueError)
+    assert "not multiples of the pool's spacing" in str(raised.value.cause)
 
     assert _burned(manager, token_id), "the close did not happen"
     after = _balances(manager)
@@ -253,3 +263,136 @@ def test_gas_is_reported_from_receipts_rather_than_estimated(
     assert len(executor.sent) == 4, "mint, then decrease + collect + burn"
     assert executor.gas_spent_wei > 0
     assert all(tx.gas_used > 0 for tx in executor.sent)
+
+
+# --- reconciliation: what the wallet actually holds --------------------------
+
+
+@pytest.fixture
+def clean_wallet(manager: PositionManager):
+    """Close every live position before and after, so `observe` is deterministic.
+
+    The fork is module-scoped and every test above mints into the same wallet.
+    `observe` now *refuses* when it finds more than one live position in the pool
+    — correctly, because which one is the agent's cannot be known from chain — so
+    a test that assumes a clean wallet has to make one.
+    """
+
+    def sweep():
+        executor = ChainExecutor(manager)
+        for token_id, held in executor._live_positions():  # noqa: SLF001 — test cleanup
+            executor.pull(_position(token_id, held.lower, held.upper, held.liquidity), ts=0)
+
+    sweep()
+    yield
+    sweep()
+
+
+def test_observe_finds_nothing_when_the_wallet_holds_nothing(
+    manager: PositionManager, clean_wallet
+) -> None:
+    """Holding no position is the ordinary state, not an error.
+
+    A restart that found nothing must be able to say so, or the caller cannot
+    distinguish "flat" from "could not read" — and starting flat when you are not
+    is exactly the failure this method exists to prevent.
+    """
+    executor = ChainExecutor(manager)
+    lower, upper = range_around(manager, 400)
+    token_id = executor.mint(lower, upper, _liquidity_for(manager, lower, upper, 100), ts=0)
+    held = manager.position(token_id)
+    executor.pull(_position(token_id, lower, upper, held.liquidity), ts=0)
+
+    assert executor.observe() is None, "a burned position is not a position"
+
+
+def test_observe_adopts_the_position_the_wallet_really_holds(
+    manager: PositionManager, clean_wallet
+) -> None:
+    """The whole point of reconciliation.
+
+    A restarted agent begins with an empty memory. Without this it concludes it
+    holds nothing, mints a **second** position, and orphans the first — capital
+    in the pool with no fee accounting, no rebalancing and no kill switch
+    pointed at it.
+    """
+    executor = ChainExecutor(manager)
+    lower, upper = range_around(manager, 400)
+    token_id = executor.mint(lower, upper, _liquidity_for(manager, lower, upper, 200), ts=0)
+
+    # A *different* executor, as a restarted process would have.
+    restarted = ChainExecutor(manager)
+    found = restarted.observe()
+
+    assert found is not None, "the wallet holds a position and observe() missed it"
+    assert found.token_id == token_id
+    assert (found.lower, found.upper) == (lower, upper)
+    assert found.liquidity > 0
+    assert found.in_market
+
+    # Not invented: the NFPM records no mint timestamp, so these stay zero rather
+    # than being guessed at.
+    assert found.minted_ts == 0
+    assert found.rebalances_today == 0
+
+    executor.pull(found, ts=0)
+
+
+def test_observe_ignores_positions_in_other_pools(manager: PositionManager) -> None:
+    """A wallet holds NFPM tokens across every pool on the DEX.
+
+    Filtering on anything less than (token0, token1, fee) would adopt a position
+    from a different pool — and PancakeSwap runs the same pair at four fee tiers,
+    so the pair alone is not enough.
+    """
+    from misquote.chain.nfpm import OnChainPosition
+
+    ours = OnChainPosition(
+        token_id=1,
+        lower=-64200,
+        upper=-64000,
+        liquidity=10**20,
+        tokens_owed0=0,
+        tokens_owed1=0,
+        token0=manager.meta.token0,
+        token1=manager.meta.token1,
+        fee_pips=manager.meta.fee_pips,
+    )
+    assert manager.is_for_pool(ours)
+
+    # Same pair, different tier — a real pool, and not ours.
+    other_tier = dataclasses.replace(ours, fee_pips=10000)
+    assert not manager.is_for_pool(other_tier)
+
+    other_pair = dataclasses.replace(ours, token1="0x" + "9" * 40)
+    assert not manager.is_for_pool(other_pair)
+
+
+def test_a_recentre_that_cannot_reopen_raises_the_distinct_error(
+    manager: PositionManager, clean_wallet
+) -> None:
+    """Matrix P-9's partial failure, on a real chain.
+
+    Close succeeds, open cannot. The wallet is flat and solvent — which is what
+    the close-first ordering buys — but a caller told only "something failed"
+    would keep believing it holds the old range.
+    """
+    from misquote.core.errors import PositionClosedNotReopened
+
+    executor = ChainExecutor(manager)
+    lower, upper = range_around(manager, 400)
+    token_id = executor.mint(lower, upper, _liquidity_for(manager, lower, upper, 200), ts=0)
+    held = manager.position(token_id)
+
+    with pytest.raises(PositionClosedNotReopened) as raised:
+        executor.rebalance(
+            _position(token_id, lower, upper, held.liquidity),
+            lower + 3,  # off the tick grid: the mint refuses before it is built
+            upper,
+            10**18,
+            ts=0,
+        )
+
+    assert raised.value.token_id == token_id
+    assert _burned(manager, token_id), "the close did not happen"
+    assert executor.observe() is None, "the chain says flat, so observe() must too"

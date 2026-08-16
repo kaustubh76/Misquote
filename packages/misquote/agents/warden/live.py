@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from misquote.chain.source import ChainSource
+from misquote.core.errors import AssumptionViolated, PositionClosedNotReopened
 from misquote.core.liquidity import get_liquidity_for_amounts
 from misquote.core.position import apply_decision
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
@@ -97,6 +98,7 @@ class WardenLive:
         "capital_quote",
         "decisions",
         "timestamps",
+        "_last_market",
     )
 
     def __init__(
@@ -116,6 +118,9 @@ class WardenLive:
         self.capital_quote = capital_quote
         self.decisions: list[Decision] = []
         self.timestamps: list[int] = []
+        # The market `decide` last built, so `perform` can size against it when
+        # the loop runs the two on different tasks.
+        self._last_market: MarketState | None = None
 
     def decide(self, t: int) -> Decision | None:
         """Observe, ingest, decide. **Executes nothing and applies nothing.**
@@ -165,7 +170,9 @@ class WardenLive:
         if market is None:
             market = self._last_market
         if market is None:
-            raise AssumptionViolated("perform() before any decide(): there is no market to size against")
+            raise AssumptionViolated(
+                "perform() before any decide(): there is no market to size against"
+            )
         self._execute(decision, market)
 
     def step(self, t: int) -> Decision | None:
@@ -205,9 +212,18 @@ class WardenLive:
 
         liquidity = self._size(decision, market)
         if position.in_market:
-            token_id = self.executor.rebalance(
-                position, decision.target_lower, decision.target_upper, liquidity, market.t
-            )
+            try:
+                token_id = self.executor.rebalance(
+                    position, decision.target_lower, decision.target_upper, liquidity, market.t
+                )
+            except PositionClosedNotReopened:
+                # The old range is gone and the new one never opened. The engine
+                # must agree with the chain, and the chain says we hold nothing —
+                # so go flat and let the next decision re-mint. Leaving the old
+                # position in place would make every subsequent decision be about
+                # a range that does not exist.
+                self.engine.set_position(apply_decision(position, Action.PULL, market.t))
+                raise
         else:
             token_id = self.executor.mint(
                 decision.target_lower, decision.target_upper, liquidity, market.t

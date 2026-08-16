@@ -432,32 +432,66 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
-### P-9 · The live loop has two execution paths, and only one can be real
+### P-9 · The live loop had two execution paths — **fixed 16 Aug 2026**
 
-Building the chain executor made a latent design problem concrete. `WardenLive.step()` calls the
-executor and *then* applies the decision to the engine's position, so a transaction that raises
-leaves the engine's state untouched — correct, and it is the path test **L1** compares against the
-replay driver.
+Building the chain executor made a latent design problem concrete, and the fix needed the executor to
+exist before it was safe to attempt.
 
-But `WardenLoop` maintains a **second** path. `_decide_forever` calls `warden.step()` — which has
-already executed — and *also* queues the decision for `_execute_forever`, which calls its own
-`executor_call`. So a decision is acted on twice unless one of the two is inert, and the loop's own
-staleness check, its replace-on-full queue and its daily action cap all govern the path that is
-inert in every wiring that works.
+**What was wrong.** `WardenLive.step()` called the executor and *then* applied the decision, which is
+correct on its own. But `WardenLoop` kept a **second** path: `_decide_forever` called `step()` — which
+had already executed — and *also* queued the same decision for `_execute_forever`, which called its
+own `executor_call`. Three consequences:
 
-Worse in one specific way: `_execute_forever` journals a failure and does **not** roll back the
-engine, because by then `step()` has already applied the decision. On the path the loop owns, a
-failed transaction leaves the engine believing it moved.
+- **Every decision was acted on twice**, unless one of the two executors was inert. In production it
+  was: `WardenLive` held a `SimulatedExecutor` and `executor_call` held a `RecordingExecutor`, so
+  nothing broke *because nothing could act*. Wiring a real executor to either would have broken it.
+- **Failure did not roll back.** `_execute_forever` journalled `failed:` and left the engine alone,
+  because `step()` had already committed the position.
+- **The loop's safety machinery governed the inert path.** `max_actions_per_day` reads
+  `stats.actions_executed`, incremented only on the queue path — so actions performed inside `step()`
+  were never counted against the cap. Same for the staleness drop.
 
-**Not fixed here, and the reason matters.** The clean fix is for `WardenLive.step()` to return a
-decision without executing it, leaving the loop as the only actor. That is a change to the exact
-seam **L1** compares byte for byte, so it wants doing deliberately with L1 green on both sides rather
-than as a side effect of adding an executor.
+**The constraint that shaped the fix.** `Engine.set_position` rebuilds the `LvrAccountant`, and the
+next `engine.step` observes that position — so deferring execution by even one sample changes the
+observation feeding the policy, and **L1's byte-for-byte fingerprint** with it. The split therefore
+happens *below* `step()`, which keeps its exact previous behaviour:
 
-**What is done instead:** `chain/executor.py` documents which path it is for, and the wiring uses the
-one `WardenLive` owns — the tested one. The loop's `executor_call` stays a recorder. The symptom to
-watch for, if this is ever wired the other way, is a journal whose `failed` count is non-zero while
-the position it reports is the one the failed action would have created.
+| | |
+|---|---|
+| `decide(t)` | observe, ingest, decide. Executes nothing, applies nothing. |
+| `perform(d)` | execute, **then** apply — and only on success. |
+| `step(t)` | `decide` + `perform`, unchanged. What `run_until` and L1 use. |
+
+The loop uses the halves; every synchronous caller uses `step`. L1 was run after each edit rather
+than at the end, and stayed green throughout.
+
+**A consequence worth publishing rather than engineering away:** the loop's decisions can now diverge
+from a replay's, because a replay assumes execution is instantaneous and always succeeds. A live
+agent whose transaction takes three minutes to confirm genuinely does not hold the position yet. That
+is reality, not a defect, and L1 continues to compare the *policy*, which is what it always claimed.
+
+**Partial failure is now a distinct outcome.** A recentre closes before it opens, so a failure between
+the legs leaves the wallet flat and solvent — but left the engine believing it held a range that no
+longer existed, and it would never re-mint because it thought it was already in.
+`PositionClosedNotReopened` carries the dead token id; `_execute` catches it, puts the engine flat to
+match the chain, and re-raises so the loop still journals the failure.
+
+**And the agent now asks the chain what it holds.** `ChainExecutor.observe()` enumerates the wallet's
+NFPM tokens — Pancake's manager is `ERC721Enumerable`, `supportsInterface(0x780e9d63)` verified on
+mainnet rather than inferred from Uniswap's ABI — and returns the live position in *this* pool,
+matched on `(token0, token1, fee)` because the same pair runs at four tiers. Without it a restart
+believes it holds nothing, mints a second position, and orphans the first: capital in the pool with
+no fee accounting, no rebalancing and no kill switch pointed at it. That single failure is what made
+an unattended 24-hour run unsafe.
+
+**It refuses when the answer is ambiguous.** A wallet holding *two* live positions in one pool cannot
+say which is the agent's, and adopting one would leave the other unmanaged — so `observe()` raises
+and names them both. Found by test ordering: the fork suite's earlier tests left positions behind and
+the third one adopted the wrong one.
+
+**Also, while the fork suite ran:** a pruned upstream node (`missing trie node`) now reports as a
+**skip** rather than a failure, naming `BSC_ARCHIVE_RPC_URL`. A suite that is intermittently red for a
+reason nobody can fix teaches people to ignore it being red for a real one.
 
 ### P-8 · Two pools on the same DEX, two different protocol fees — **corrected 15 Aug 2026**
 

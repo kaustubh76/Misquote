@@ -127,12 +127,19 @@ class Journal:
 class WardenLoop:
     """The running agent.
 
-    `executor_call` is a callable that performs a decision and blocks. It is run
-    in a thread, so it may be as slow as a receipt poller needs to be.
+    There is **one** execution path: this loop decides on one task and performs
+    on another, and `WardenLive.perform` is the only thing that acts. It used to
+    hold a second `executor_call` of its own while `warden.step()` also executed,
+    so every decision was acted on twice unless one of the two executors was
+    inert — and the staleness check, the replace-on-full queue and the daily cap
+    all governed the inert one. Matrix P-9.
+
+    `perform` runs in a worker thread because a receipt poller blocks for up to
+    three minutes, and awaiting that on the event loop would leave the kill-file
+    check dead for the same three minutes.
     """
 
     warden: WardenLive
-    executor_call: Any
     kill_file: Path = field(default_factory=lambda: Path(DEFAULT_KILL_FILE))
     sample_interval_s: int = 5
     kill_poll_s: float = 1.0
@@ -192,7 +199,12 @@ class WardenLoop:
         while not self._stop.is_set():
             try:
                 head = self.warden.source.head()
-                decision = self.warden.step(head.ts)
+                # `decide`, not `step`. `step` also *performs* the decision, and
+                # this task already queues it for the executor task below — so
+                # calling `step` here acted on every decision twice, and the
+                # queue's staleness check, its replace-on-full behaviour and the
+                # daily cap all governed the second, inert copy. Matrix P-9.
+                decision = self.warden.decide(head.ts)
             except Exception as error:  # noqa: BLE001 — a read failure is not fatal
                 self.journal.write({"event": "decide_error", "error": str(error)[:300]})
                 await asyncio.sleep(self.sample_interval_s)
@@ -233,7 +245,11 @@ class WardenLoop:
                 # In a thread: the receipt poller blocks for up to three minutes,
                 # and awaiting that here would leave the kill check dead for the
                 # same three minutes.
-                await asyncio.to_thread(self.executor_call, decision, at_ts)
+                #
+                # `warden.perform` is now the *only* thing that acts. It applies
+                # the position after the executor returns, so a raise here leaves
+                # the engine's idea of the position equal to the chain's.
+                await asyncio.to_thread(self.warden.perform, decision)
                 self.stats.actions_executed += 1
                 self.journal.decision(decision, at_ts, note="executed")
             except KillSwitchEngaged as error:

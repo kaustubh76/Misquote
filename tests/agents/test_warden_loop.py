@@ -13,7 +13,7 @@ import json
 import pytest
 from _helpers import META, make_events
 
-from misquote.agents.warden.live import SimulatedExecutor, WardenLive
+from misquote.agents.warden.live import WardenLive
 from misquote.agents.warden.loop import ActionQueue, Journal, WardenLoop
 from misquote.chain.signer import KillSwitchEngaged
 from misquote.chain.source import TapeChainSource
@@ -34,14 +34,45 @@ def decision(action: Action = Action.MINT, centre: int = -64180) -> Decision:
     )
 
 
-def build_loop(tmp_path, *, events=None, executor_call=None, **kwargs) -> WardenLoop:
+class SpyExecutor:
+    """An `Executor` that reports every action and can be made to misbehave.
+
+    The loop no longer takes an `executor_call` of its own — there is one
+    execution path and it goes through `WardenLive.perform`, which calls *this*.
+    So a test that wants to watch, block or break execution does it here, at the
+    seam production actually uses (matrix P-9).
+    """
+
+    def __init__(self, on_act=None) -> None:
+        self.on_act = on_act or (lambda _kind, _ts: None)
+        self.moves: list[tuple[str, int]] = []
+
+    def mint(self, lower, upper, liquidity, ts):
+        self.moves.append(("mint", ts))
+        self.on_act("mint", ts)
+        return None
+
+    def rebalance(self, current, lower, upper, liquidity, ts):
+        self.moves.append(("rebalance", ts))
+        self.on_act("rebalance", ts)
+        return current.token_id
+
+    def pull(self, current, ts):
+        self.moves.append(("pull", ts))
+        self.on_act("pull", ts)
+
+
+def build_loop(tmp_path, *, events=None, executor=None, **kwargs) -> WardenLoop:
     events = events if events is not None else make_events(400, swap_size=10**23)
     source = TapeChainSource(MemoryTape(events))
     source.advance(events[0].ts)
-    warden = WardenLive(META, source, SimulatedExecutor(), capital_quote=1000.0)
+    warden = WardenLive(META, source, executor or SpyExecutor(), capital_quote=1000.0)
+    # Prime the market `perform` sizes against. Tests below seed `_queue`
+    # directly, bypassing the policy, and `perform` refuses to act without a
+    # market rather than inventing one.
+    warden.decide(events[0].ts)
     return WardenLoop(
         warden=warden,
-        executor_call=executor_call or (lambda _d, _t: None),
         kill_file=tmp_path / "KILL",
         journal=Journal(tmp_path / "journal"),
         sample_interval_s=kwargs.pop("sample_interval_s", 1),
@@ -120,11 +151,11 @@ async def test_the_kill_check_keeps_running_while_the_executor_blocks(tmp_path) 
 
     entered = asyncio.Event()
 
-    def slow_executor(_decision, _ts) -> None:
+    def slow_executor(_kind, _ts) -> None:
         entered.set()
         _time.sleep(1.0)  # blocking, like a real receipt poll
 
-    loop = build_loop(tmp_path, executor_call=slow_executor)
+    loop = build_loop(tmp_path, executor=SpyExecutor(slow_executor))
     loop._queue.offer(decision(), 10**12)  # not stale, so it actually executes
 
     async def arm() -> None:
@@ -147,7 +178,9 @@ async def test_a_stale_action_is_dropped_rather_than_executed(tmp_path) -> None:
     """Gas spent reaching a range the market has already left is gas wasted."""
     executed = []
     loop = build_loop(
-        tmp_path, executor_call=lambda d, t: executed.append((d, t)), sample_interval_s=1
+        tmp_path,
+        executor=SpyExecutor(lambda kind, ts: executed.append((kind, ts))),
+        sample_interval_s=1,
     )
     loop._queue.offer(decision(), 0)  # timestamp far behind the tape's head
 
@@ -174,10 +207,10 @@ async def test_a_failing_executor_does_not_kill_the_loop(tmp_path) -> None:
     A kill switch is different, and is handled separately below.
     """
 
-    def explode(_decision, _ts):
+    def explode(_kind, _ts):
         raise RuntimeError("rpc had a bad day")
 
-    loop = build_loop(tmp_path, executor_call=explode)
+    loop = build_loop(tmp_path, executor=SpyExecutor(explode))
     loop._queue.offer(decision(), 10**12)  # not stale
 
     stats = await asyncio.wait_for(loop.run(max_seconds=0.8), timeout=10)
@@ -190,10 +223,10 @@ async def test_a_kill_switch_raised_by_the_signer_stops_everything(tmp_path) -> 
     """The signer checks the file too, immediately before broadcast. If it fires
     there, the loop must stop rather than retry into a closed door."""
 
-    def refuse(_decision, _ts):
+    def refuse(_kind, _ts):
         raise KillSwitchEngaged("ops/KILL exists")
 
-    loop = build_loop(tmp_path, executor_call=refuse)
+    loop = build_loop(tmp_path, executor=SpyExecutor(refuse))
     loop._queue.offer(decision(), 10**12)
 
     stats = await asyncio.wait_for(loop.run(max_seconds=3), timeout=10)
@@ -244,7 +277,7 @@ async def test_a_read_failure_is_logged_and_survived(tmp_path, monkeypatch) -> N
     # than the instance — which is also closer to how a real RPC failure arrives:
     # from underneath, not from a field someone reassigned.
     calls = {"n": 0}
-    original = WardenLive.step
+    original = WardenLive.decide
 
     def flaky(self, t):
         calls["n"] += 1
@@ -252,7 +285,7 @@ async def test_a_read_failure_is_logged_and_survived(tmp_path, monkeypatch) -> N
             raise RuntimeError("429 Too Many Requests")
         return original(self, t)
 
-    monkeypatch.setattr(WardenLive, "step", flaky)
+    monkeypatch.setattr(WardenLive, "decide", flaky)
     stats = await asyncio.wait_for(loop.run(max_seconds=3.0), timeout=15)
 
     rows = [json.loads(line) for line in loop.journal.path.read_text().splitlines()]

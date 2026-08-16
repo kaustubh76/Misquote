@@ -267,6 +267,12 @@ export interface ActivityBlock {
   mints: number;
   rebalances: number;
   pulls: number;
+  // Outcomes, not decisions. The loop journals a decision when it is made and
+  // again when it is executed, dropped or refused; counting both as actions is
+  // what once rendered a single mint as three.
+  executed: number;
+  failed: number;
+  dropped: number;
   read_errors: number;
   held_by_gate: Record<string, number>;
 }

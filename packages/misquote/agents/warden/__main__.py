@@ -54,21 +54,27 @@ import sys
 import time
 from pathlib import Path
 
-from misquote.agents.warden.live import SimulatedExecutor, WardenLive
+from misquote.agents.warden.live import WardenLive
 from misquote.agents.warden.loop import DEFAULT_KILL_FILE, Journal, WardenLoop
 from misquote.chain.addresses import pool_for
 from misquote.chain.live_source import DEFAULT_POLL_SECONDS, LiveChainSource
-from misquote.core.types import Decision, Params, PoolMeta
+from misquote.core.types import Params, PoolMeta, PositionState
 from misquote.indexer.reader import BscReader, connect_all
 
 
 class RecordingExecutor:
-    """The loop's action path, in a build with nothing that can transact.
+    """An `Executor` that writes down what it would have done and does nothing.
 
-    `WardenLive` already keeps the position through its own `SimulatedExecutor`;
-    this is the loop's separate chain-action hook, and here it only records. It
-    exists as a named class rather than a lambda so that the day a real executor
-    lands, the thing it replaces is obvious.
+    It implements the protocol — `mint`, `rebalance`, `pull` — rather than being
+    a separate hook the loop calls, because there is now exactly one execution
+    path and it runs through `WardenLive.perform`. When this class is swapped for
+    `ChainExecutor`, nothing else in the wiring changes; that is the point of
+    making it the same shape.
+
+    It still maintains the position in memory, like `SimulatedExecutor`, because
+    the engine's next decision depends on where the position is. An executor that
+    recorded and returned nothing would make the agent decide as though it were
+    permanently flat.
     """
 
     __slots__ = ("actions", "journal")
@@ -77,15 +83,28 @@ class RecordingExecutor:
         self.actions: list[tuple[str, int]] = []
         self.journal = journal
 
-    def __call__(self, decision: Decision, at_ts: int) -> None:
-        self.actions.append((str(decision.action), at_ts))
+    def mint(self, lower: int, upper: int, liquidity: int, ts: int) -> int | None:
+        self._record("mint", ts, lower, upper)
+        return None
+
+    def rebalance(
+        self, current: PositionState, lower: int, upper: int, liquidity: int, ts: int
+    ) -> int | None:
+        self._record("rebalance", ts, lower, upper)
+        return current.token_id
+
+    def pull(self, current: PositionState, ts: int) -> None:
+        self._record("pull", ts, current.lower, current.upper)
+
+    def _record(self, action: str, ts: int, lower: int | None, upper: int | None) -> None:
+        self.actions.append((action, ts))
         self.journal.write(
             {
                 "event": "action_not_broadcast",
-                "action": str(decision.action),
-                "at_ts": at_ts,
-                "target_lower": decision.target_lower,
-                "target_upper": decision.target_upper,
+                "action": action,
+                "at_ts": ts,
+                "target_lower": lower,
+                "target_upper": upper,
                 "why": (
                     "this entrypoint wires RecordingExecutor rather than "
                     "ChainExecutor, so the decision was journalled and not "
@@ -93,6 +112,66 @@ class RecordingExecutor:
                 ),
             }
         )
+
+
+def reconcile(warden: WardenLive, executor: object, journal: Journal) -> PositionState | None:
+    """Ask the chain what we hold before deciding anything, and believe it.
+
+    A restarted agent begins with an empty memory. Without this it concludes it
+    holds nothing, mints a **second** position, and orphans the first — capital
+    sitting in the pool with no fee accounting, no rebalancing and no kill switch
+    pointed at it. That single failure is what makes an unattended 24-hour run
+    unsafe, and no journal can fix it: a journal records what the agent *did*,
+    and the question on restart is what is *true*.
+
+    Only an executor that can read the chain can answer. `RecordingExecutor`
+    cannot, so it has no `observe` and this returns `None` — which is honest, and
+    the run starts flat exactly as it did before. The moment `ChainExecutor` is
+    wired, the same call adopts the real position with no other change.
+    """
+    observe = getattr(executor, "observe", None)
+    if observe is None:
+        journal.write(
+            {
+                "event": "reconcile_skipped",
+                "why": (
+                    f"{type(executor).__name__} cannot read the chain, so there is "
+                    "nothing to reconcile against"
+                ),
+            }
+        )
+        return None
+
+    try:
+        held = observe()
+    except Exception as error:  # noqa: BLE001 — report it, do not start blind
+        journal.write({"event": "reconcile_failed", "error": str(error)[:300]})
+        print(f"  reconcile FAILED: {type(error).__name__}: {str(error)[:120]}")
+        print("  starting from an empty position would risk minting over an existing one.")
+        raise
+
+    if held is None:
+        journal.write({"event": "reconciled", "position": None})
+        print("  reconciled: the wallet holds no live position in this pool")
+        return None
+
+    warden.engine.set_position(held)
+    journal.write(
+        {
+            "event": "reconciled",
+            "position": {
+                "token_id": held.token_id,
+                "lower": held.lower,
+                "upper": held.upper,
+                "liquidity": held.liquidity,
+            },
+        }
+    )
+    print(
+        f"  reconciled: adopted token {held.token_id} "
+        f"[{held.lower}, {held.upper}] liquidity {held.liquidity:,}"
+    )
+    return held
 
 
 def build_source(chain_id: int, poll_seconds: float) -> tuple[LiveChainSource, PoolMeta]:
@@ -134,13 +213,12 @@ def main(argv: list[str] | None = None) -> int:
     warden = WardenLive(
         meta,
         source,
-        SimulatedExecutor(),
+        executor,
         params=Params(sample_interval_s=args.interval),
         capital_quote=args.capital,
     )
     loop = WardenLoop(
         warden=warden,
-        executor_call=executor,
         kill_file=Path(DEFAULT_KILL_FILE),
         sample_interval_s=args.interval,
         journal=journal,
@@ -161,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     head = source.head()
     print(f"  primed at block {head.block:,}, tick {source.slot0()[1]}, ts {head.ts}")
 
+    adopted = reconcile(warden, executor, journal)
+
     journal.write(
         {
             "event": "run_start",
@@ -171,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
             "can_sign": False,
             "head_block": head.block,
             "head_ts": head.ts,
+            "reconciled": adopted is not None,
         }
     )
 

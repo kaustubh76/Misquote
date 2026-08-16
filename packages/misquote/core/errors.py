@@ -40,3 +40,31 @@ class AssumptionViolated(MisquoteError):
     A1 liquidity cap, say — the honest response is to refuse the quote rather
     than to show it with a caveat nobody reads.
     """
+
+
+class PositionClosedNotReopened(MisquoteError):
+    """A recentre closed the old range and could not open the new one.
+
+    The one failure mode a recentre has that is not "nothing happened". Closing
+    comes first so that a crash between the legs leaves the wallet holding its
+    own tokens — flat, solvent, and recoverable — rather than needing the capital
+    twice over. But it leaves the *engine* believing it still holds a range that
+    no longer exists on chain, and every decision after that is made about a
+    position that is not there.
+
+    So this is a distinct exception rather than a generic failure: the caller
+    that catches it knows the position is gone and can put the engine flat to
+    match, which is the only state the chain and the engine can agree on. It
+    carries the dead token id so the journal records which NFT was burned.
+
+    Raised by `chain/executor.py`, handled by `agents/warden/live.py::_execute`,
+    and re-raised afterwards so the loop still counts and journals the failure.
+    """
+
+    def __init__(self, token_id: int | None, cause: Exception) -> None:
+        self.token_id = token_id
+        self.cause = cause
+        super().__init__(
+            f"closed position {token_id} but could not reopen: {type(cause).__name__}: "
+            f"{str(cause)[:200]}"
+        )

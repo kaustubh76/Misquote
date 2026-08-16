@@ -283,8 +283,16 @@ export function AgentDetail({ slug }: { slug: string }) {
                 page dropped it entirely — including this histogram, which is
                 the reason all four gates are journalled on every row. */}
             <GateHistogram blocks={d.activity.held_by_gate} />
+            {/* Outcomes, kept apart from the decisions that caused them. A
+                decision the loop dropped as stale or refused by the daily cap
+                still happened; it is just not a second mint. Counting them
+                together is what once rendered one mint as three. */}
+            <p className="mt-4 mb-0 text-xs text-dim">
+              {count(d.activity.executed)} executed · {count(d.activity.failed)} failed ·{" "}
+              {count(d.activity.dropped)} dropped as stale or capped
+            </p>
             {d.activity.read_errors > 0 && (
-              <p className="mt-4 mb-0 text-xs text-warn">
+              <p className="mt-2 mb-0 text-xs text-warn">
                 {count(d.activity.read_errors)} read errors, survived.
               </p>
             )}

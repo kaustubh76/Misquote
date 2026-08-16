@@ -87,10 +87,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "and nine tests exercise it against a forked BSC with real "
             "transactions — including that a recentre which cannot open leaves the "
             "wallet flat rather than stranded, and that a withdrawal reaches the "
-            "wallet rather than stopping at `tokensOwed`. What is missing is a "
-            "funded wallet and the decision to use one: `make warden` is still "
-            "wired to the recording executor, and the go/no-go is the gate for "
-            "changing that."
+            "wallet rather than stopping at `tokensOwed`. The agent also now "
+            "reconciles against the chain on boot, so a restart adopts the "
+            "position the wallet really holds instead of minting a second one "
+            "over the top of it — which is what made an unattended run unsafe. "
+            "What is missing is a funded wallet and the decision to use one: "
+            "`make warden` is still wired to the recording executor, and the "
+            "go/no-go is the gate for changing that."
         ),
         evidence=(
             # Names the capability, not a filename. An earlier wording pointed at
