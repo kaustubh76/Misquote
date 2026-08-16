@@ -200,3 +200,24 @@ def pytest_runtest_makereport(item, call):
             "free endpoints — so the later modules outlive the window."
         )
         report.longrepr = (str(item.fspath), item.location[1] or 0, f"Skipped: {reason}")
+        return
+
+    # Not a phrase we recognise, so the verdict stands — converting an unknown
+    # failure into a skip is how a real defect gets filed as weather.
+    #
+    # But it still ran against a fork of a pruning node, and the same test has
+    # been observed passing alone, skipping as pruned, and failing outright on
+    # three consecutive runs of this module. A note costs nothing and points at
+    # the check that distinguishes the two cases; without it the natural reading
+    # of a red chain suite is that the code changed.
+    if item.get_closest_marker("chainfork"):
+        report.sections.append(
+            (
+                "fork note",
+                "This ran against anvil forked from a free BSC endpoint, which "
+                "serves only recent state.\n"
+                "If it passes in isolation (`-k <name>`) but fails in the module, "
+                "suspect upstream\npruning rather than this change, and set "
+                "BSC_ARCHIVE_RPC_URL to confirm.",
+            )
+        )
