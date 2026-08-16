@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 652 tests, no network, ~35s
+make test                     # 654 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:3000
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -45,7 +45,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**684 tests: 652 offline, 32 against a live chain or a fork.**
+**686 tests: 654 offline, 32 against a live chain or a fork.**
 
 ---
 
@@ -157,9 +157,21 @@ small plausible integers that neither reverted nor looked absurd, and `0` was
 exactly the value that made the better story. The finding survives in kind (two
 pools, one DEX, no constant right for both, so `fee_protocol` still has no
 default) and not in degree. What caught it was two numbers in this repo
-disagreeing on screen, so the badge now makes that comparison itself. It is thin and we say so: it is the *only* xStocks
-v3 pool on BSC with real liquidity, NVDAx and AAPLx have no pool at all, and the
-1.00% TSLAx pool exists with zero liquidity and was refused rather than quoted.
+disagreeing on screen, so the badge now makes that comparison itself.
+
+It is thin, and measuring it properly made "thin" look generous. Liquidity is a
+stock; a replay needs flow. Three 5,000-block windows spread across thirty days
+returned **0, 0 and 1 swaps** against the flagship's **473, 325 and 171** — about
+384 swaps in a month against 372,000, and the equity figure rests on one trade.
+So **there is no equity tape and there will not be one**: `verdict(min_n=30)`
+would refuse it and cutting 384 swaps into twenty sub-windows leaves nineteen
+each. The pool stays a *generality* proof — same code, different fee tier,
+spacing and protocol fee — which is exactly what `test_equity_pool.py` asserts
+and the whole of what it asserts. It is not a venue we can quote, and the
+advantage report's third task says so rather than presenting constructed pools as
+real ones. It is also the *only* xStocks v3 pool on BSC with real liquidity at
+all; NVDAx and AAPLx have no pool at any tier, and the 1.00% TSLAx pool exists
+with zero liquidity and was refused rather than quoted.
 
 **Security: the sponsor's own escrow, verified rather than trusted.** TermiX's
 AACP builds on ERC-8004 and ERC-8183 — and their `IdentityRegistry` is

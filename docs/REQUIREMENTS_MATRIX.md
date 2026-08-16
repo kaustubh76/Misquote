@@ -677,10 +677,30 @@ the chain returns. A constant nobody re-reads is a constant that rots.
 have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity — a
 pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.
 
-**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the
-*only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and
-have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity — a
-pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.
+**Thin was generous — measured 16 Aug 2026, it barely trades at all.** Liquidity is a stock; what a
+replay needs is flow. Three 5,000-block windows spread across the last thirty days, both pools, same
+request:
+
+| Window | TSLAx/USDT 0.25% | WBNB/USDT 0.05% |
+|---|---|---|
+| 30 days ago | **0 swaps** | 473 |
+| 15 days ago | **0 swaps** | 325 |
+| 1 day ago | **1 swap** | 171 |
+| implied | ~13/day, **~384 over 30 days** | ~12,400/day, ~372,000 over 30 days |
+
+Roughly a thousandfold apart, and the equity figure rests entirely on a single trade. **So there is
+no equity tape, and there will not be one.** A 30-day history of ~384 swaps cannot support a
+P25–P75 quote: `verdict(min_n=30)` would refuse it, correctly, and cutting it into the ≥20
+sub-windows `replay/ranges.py` requires leaves ~19 swaps each.
+
+**What survives, and what does not.** The pool remains a *generality* proof — different fee tier,
+different tick spacing, different protocol fee, priced by the same code with no changes, which is
+what `tests/chain/test_equity_pool.py` asserts and all it asserts. What does not survive is any
+suggestion that the equities category can be covered by *quoting* this venue. The advantage report's
+third task stays on constructed pools until a second **liquid** pool is indexed, and it says so
+rather than presenting a synthetic comparison as a real one. This was the stop condition written
+down before the check was run: if no v3 pool has real liquidity, stop and report it rather than quote
+a dead pool.
 
 ### P-7 · The toxicity rule's false-positive rate is measurable, and it is not zero
 
