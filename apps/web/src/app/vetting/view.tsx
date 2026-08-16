@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
@@ -51,7 +52,10 @@ interface VettingArtifact {
     failed_checks?: number;
     worst?: string;
   };
-  build?: { command: string; generated_at: string; git_sha: string | null };
+  // `Build`, not a local restatement of it. The hand-written version here
+  // declared no `git_dirty`, so the field was dropped at the type boundary and
+  // the page rendered a bare sha for a run made against a dirty tree.
+  build?: Build;
 }
 
 /**
@@ -241,12 +245,7 @@ export function VettingView() {
             </Section>
           )}
 
-          {d.build && (
-            <p className="mt-10 font-mono text-xs text-faint">
-              {d.build.command} · {timestamp(d.build.generated_at)} ·{" "}
-              {d.build.git_sha ?? "no commit"}
-            </p>
-          )}
+          {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
     </Loadable>

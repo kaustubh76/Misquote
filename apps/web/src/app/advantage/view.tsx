@@ -7,13 +7,13 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { Card } from "@/components/Card";
-import { DataTable } from "@/components/DataTable";
+import { ComparisonTable } from "@/components/ComparisonTable";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
-import { amount, count, fraction, pct, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { amount, count, signed, SIGN_CLASS, signOf } from "@/lib/format";
 
 export function AdvantageView() {
   const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(null);
@@ -269,39 +269,30 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
             The supporting numbers
           </summary>
           <div className="mt-4">
-            <DataTable
+            <ComparisonTable
               caption={`${task.task}: agent against baseline`}
-              hideCaption={false}
-              columns={["Metric", "With agent", "Without"]}
-              rows={[
-                {
-                  label: "median return",
-                  value: pct(task.agent.p50),
-                  note: pct(task.baseline.p50),
-                },
-                {
-                  label: "P25 – P75",
-                  value: `${pct(task.agent.p25)} – ${pct(task.agent.p75)}`,
-                  note: `${pct(task.baseline.p25)} – ${pct(task.baseline.p75)}`,
-                },
-                {
-                  label: "in range",
-                  value: fraction(task.agent.in_range),
-                  note: fraction(task.baseline.in_range),
-                },
-                {
-                  label: "fees",
-                  value: amount(task.agent.fees),
-                  note: amount(task.baseline.fees),
-                },
-                {
-                  label: "adverse selection (upper bound)",
-                  value: amount(task.agent.lvr_upper_bound),
-                  note: amount(task.baseline.lvr_upper_bound),
-                },
-                { label: "costs", value: amount(task.agent.costs), note: amount(task.baseline.costs) },
-                { label: "moves", value: count(task.agent.moves), note: count(task.baseline.moves) },
-              ]}
+              agentLabel="With agent"
+              baselineLabel="Without"
+              agent={{
+                p25: task.agent.p25,
+                p50: task.agent.p50,
+                p75: task.agent.p75,
+                inRange: task.agent.in_range,
+                fees: task.agent.fees,
+                lvrUpperBound: task.agent.lvr_upper_bound,
+                costs: task.agent.costs,
+                moves: task.agent.moves,
+              }}
+              baseline={{
+                p25: task.baseline.p25,
+                p50: task.baseline.p50,
+                p75: task.baseline.p75,
+                inRange: task.baseline.in_range,
+                fees: task.baseline.fees,
+                lvrUpperBound: task.baseline.lvr_upper_bound,
+                costs: task.baseline.costs,
+                moves: task.baseline.moves,
+              }}
             />
             <p className="mt-3 mb-0 text-xs text-faint">
               {task.metric} · on {amount(capital)} of capital · {task.note}

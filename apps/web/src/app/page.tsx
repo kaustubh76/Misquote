@@ -1,5 +1,6 @@
 "use client";
 
+import { BuildStamp } from "@/components/BuildStamp";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
@@ -17,7 +18,6 @@ import {
   type IndexArtifact,
   type Loaded,
 } from "@/lib/artifacts";
-import { timestamp } from "@/lib/format";
 
 type AgentSlot = {
   slug: string;
@@ -172,13 +172,11 @@ export default function OverviewPage() {
           behind it is down.
         </p>
         {build?.ok && (
-          <p className="mt-2 mb-0 font-mono text-xs">
-            {build.value.command} · {timestamp(build.value.generated_at)} ·{" "}
-            {build.value.git_sha ?? "no commit"}
-            {build.value.git_dirty ? " (dirty tree)" : ""} ·{" "}
-            {build.value.events.toLocaleString("en-US")} events over{" "}
-            {build.value.span_hours}h
-          </p>
+          <BuildStamp
+            className="mt-2"
+            build={build.value}
+            extra={`${build.value.events.toLocaleString("en-US")} events over ${build.value.span_hours}h`}
+          />
         )}
       </footer>
     </Loadable>

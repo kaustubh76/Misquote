@@ -1,5 +1,6 @@
 "use client";
 
+import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
@@ -47,6 +48,10 @@ interface RegistryArtifact {
     note?: string;
     reason?: string;
   };
+  // `registry.json` has carried this since the emitter was written, and this
+  // page showed none of it — every address on it read as a standing fact rather
+  // than as something a named command read at a named time.
+  build?: Build;
 }
 
 export function RegistryView() {
@@ -286,6 +291,8 @@ export function RegistryView() {
               </Card>
             </Section>
           )}
+
+          {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
     </Loadable>

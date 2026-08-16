@@ -8,6 +8,7 @@ import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
+import { ComparisonTable } from "@/components/ComparisonTable";
 import { GateHistogram } from "@/components/GateHistogram";
 import { Pill, verdictTone } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
@@ -199,52 +200,37 @@ export function AgentDetail({ slug }: { slug: string }) {
               accountant; the only thing that differs is the function that returns a
               decision — here, <em>{adv.without_agent}</em>.
             </p>
-            <DataTable
+            {/* The row list lives in ComparisonTable, because this table and
+                the one on /advantage answer the same question from the same
+                replay and had already drifted apart once. Only the mapping from
+                this artifact's field names is local. */}
+            <ComparisonTable
               caption="Agent against baseline"
-              columns={["Metric", d.agent, adv.without_agent]}
-              hideCaption={false}
-              rows={[
-                {
-                  label: "median return",
-                  value: pct(q?.p50),
-                  note: pct(adv.baseline.p50),
-                },
-                {
-                  label: "P25 – P75",
-                  value: `${pct(q?.p25)} – ${pct(q?.p75)}`,
-                  note: `${pct(adv.baseline.p25)} – ${pct(adv.baseline.p75)}`,
-                },
-                {
-                  label: "in range",
-                  value: fraction(r.in_range_fraction),
-                  note: fraction(adv.baseline.in_range_fraction),
-                },
-                {
-                  label: "fees",
-                  value: amount(r.fees_quote),
-                  note: amount(adv.baseline.fees_quote),
-                },
-                {
-                  // Present on /advantage since it was written, absent here.
-                  // Two hand-built copies of one comparison drifted, and the
-                  // half that went missing is the cost side — the figure that
-                  // makes the agent look worse. The value was already on this
-                  // page, thirty lines below, in the replay table.
-                  label: "adverse selection (upper bound)",
-                  value: amount(r.lvr_quote_upper_bound),
-                  note: amount(adv.baseline.lvr_quote_upper_bound),
-                },
-                {
-                  label: "costs",
-                  value: amount(r.costs_quote),
-                  note: amount(adv.baseline.costs_quote),
-                },
-                {
-                  label: "moves",
-                  value: count(r.mints + r.rebalances + r.pulls),
-                  note: count(adv.baseline.moves),
-                },
-              ]}
+              agentLabel={d.agent}
+              baselineLabel={adv.without_agent}
+              agent={{
+                p25: q?.p25,
+                p50: q?.p50,
+                p75: q?.p75,
+                inRange: r.in_range_fraction,
+                fees: r.fees_quote,
+                lvrUpperBound: r.lvr_quote_upper_bound,
+                costs: r.costs_quote,
+                // `advantage.json` publishes the baseline's moves as one figure;
+                // the replay block breaks the agent's out by kind. Summed here
+                // so the row compares like with like.
+                moves: r.mints + r.rebalances + r.pulls,
+              }}
+              baseline={{
+                p25: adv.baseline.p25,
+                p50: adv.baseline.p50,
+                p75: adv.baseline.p75,
+                inRange: adv.baseline.in_range_fraction,
+                fees: adv.baseline.fees_quote,
+                lvrUpperBound: adv.baseline.lvr_quote_upper_bound,
+                costs: adv.baseline.costs_quote,
+                moves: adv.baseline.moves,
+              }}
             />
             <p className="mt-4 mb-0 text-sm">
               <span
