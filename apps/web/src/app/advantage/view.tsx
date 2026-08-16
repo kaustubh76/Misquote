@@ -196,6 +196,36 @@ function Summary({
   );
 }
 
+/**
+ * A separated band is a *finding*, not a win.
+ *
+ * The tone was `task.separated ? "pass" : "none"` — green whenever the two
+ * bands cleared each other, in either direction. So "Protect — avoid being
+ * picked off by one-way flow", where the agent loses to the baseline by
+ * 1.77pp, rendered as **✓ −1.77pp** in green: the glyph said pass, the number
+ * said loss, and the glyph is what a reader takes in first.
+ *
+ * `Pill` deliberately carries meaning three ways — shape, glyph, colour — so
+ * that removing the colour still leaves the verdict readable. That only helps
+ * if all three agree. Here the two non-colour channels were both wrong, which
+ * makes it worse for a colourblind reader than a colour-only design would have
+ * been.
+ *
+ * Separation and direction are separate facts and the artifact publishes both:
+ *
+ *   separated + ahead  → pass   the win survives the spread
+ *   separated + behind → fail   so does the loss
+ *   overlapping        → none   the sample cannot tell them apart
+ *
+ * A losing task is not a broken page. `/advantage` exists to publish the
+ * comparison honestly, and one of three tasks going the other way is the most
+ * credible thing on it.
+ */
+function taskTone(task: AdvantageTask) {
+  if (!task.separated) return "none" as const;
+  return task.delta_pp > 0 ? ("pass" as const) : ("fail" as const);
+}
+
 function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
   const sign = signOf(task.delta_pp);
 
@@ -209,9 +239,7 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
           <Heading className="m-0 text-md font-semibold">{task.task}</Heading>
         </div>
         {task.quotable ? (
-          <Pill tone={task.separated ? "pass" : "none"}>
-            {signed(task.delta_pp, 2, "pp")}
-          </Pill>
+          <Pill tone={taskTone(task)}>{signed(task.delta_pp, 2, "pp")}</Pill>
         ) : (
           <Pill tone="none">Withheld</Pill>
         )}

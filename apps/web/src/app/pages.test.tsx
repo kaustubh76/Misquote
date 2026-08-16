@@ -207,6 +207,49 @@ describe("Advantage", () => {
       expect(within(card).getByText(/loses to DIY/)).toBeInTheDocument();
     }
   });
+
+  it("does not put a green tick on a task the agent lost", async () => {
+    // The tone was `separated ? "pass" : "none"` — green whenever the bands
+    // cleared each other, in either direction. So the Protect task rendered
+    // "✓ −1.77pp": the glyph said pass and the number said loss.
+    //
+    // `Pill` carries its verdict as shape, glyph *and* colour precisely so the
+    // meaning survives without colour. Both non-colour channels were wrong
+    // here, which is worse for a colourblind reader than colour alone.
+    const d = readArtifact<AdvantageArtifact>("advantage.json");
+    render(<AdvantagePage />);
+
+    for (const task of d.tasks.filter((t) => t.quotable && t.separated)) {
+      const heading = await screen.findByRole("heading", { name: task.task });
+      const card = heading.closest("article")!;
+      // The pill, not the sentence below it — both carry the same number, and
+      // `getByText` on the figure alone matches two elements. `inline-flex` is
+      // `Pill`'s own class and nothing else in the card uses it.
+      const pill = card.querySelector("span.inline-flex")!;
+
+      if (task.delta_pp < 0) {
+        expect(pill.textContent).toContain("✕");
+        expect(pill.className).toContain("text-bad");
+      } else {
+        expect(pill.textContent).toContain("✓");
+        expect(pill.className).toContain("text-good");
+      }
+    }
+  });
+
+  it("leaves an indistinguishable task neutral rather than calling it", async () => {
+    // Overlapping bands mean the sample cannot separate the two. Neither a tick
+    // nor a cross is honest there, and the artifact publishes the fact.
+    const d = readArtifact<AdvantageArtifact>("advantage.json");
+    render(<AdvantagePage />);
+
+    for (const task of d.tasks.filter((t) => t.quotable && !t.separated)) {
+      const heading = await screen.findByRole("heading", { name: task.task });
+      const card = heading.closest("article")!;
+      const pill = card.querySelector("span.inline-flex")!;
+      expect(pill.textContent).toContain("—");
+    }
+  });
 });
 
 describe("Methods", () => {

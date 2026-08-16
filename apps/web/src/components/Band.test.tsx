@@ -93,3 +93,32 @@ describe("the engine is the authority on overlap", () => {
     expect(caption(container)).toMatch(/bands are separated/);
   });
 });
+
+describe("the axis stays legible when zero crowds an endpoint", () => {
+  const axis = (container: HTMLElement) =>
+    container.querySelector<HTMLElement>("[aria-hidden='true'].relative.mb-2");
+
+  it("drops the zero label when it would print on top of the minimum", () => {
+    // The committed Warden domain: [-3.6%, 48%] puts zero at 7% of the axis.
+    // At 390px that is 23px in, while "−3.6%" set at 10px runs to about 28px,
+    // so the two labels printed over each other and neither could be read.
+    const low: BandSeries = { label: "Warden", p25: -3.3, p50: 20, p75: 44, tone: "agent" };
+    const { container } = render(<Band series={[low]} sufficient />);
+
+    const text = axis(container)?.textContent ?? "";
+    expect(text).not.toContain("0");
+    // The endpoints still label the scale, and the zero *line* is drawn
+    // separately — the meaning is not lost with the label.
+    expect(text).toMatch(/-\d+\.\d%/);
+  });
+
+  it("keeps the zero label when there is room for it", () => {
+    const straddling: BandSeries = { label: "Warden", p25: -30, p50: 5, p75: 40, tone: "agent" };
+    const { container } = render(<Band series={[straddling]} sufficient />);
+
+    const zero = [...(axis(container)?.querySelectorAll("span") ?? [])].find(
+      (s) => s.textContent === "0",
+    );
+    expect(zero).toBeDefined();
+  });
+});

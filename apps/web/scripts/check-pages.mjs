@@ -15,9 +15,12 @@
  * was missing, and the UI correctly reported "not generated". A screenshot was
  * the first thing that showed it.
  *
- * So this checks the two properties only a browser knows:
+ * So this checks the properties only a browser knows:
  *   - no console errors or failed requests on any route, in either theme
  *   - no horizontal overflow, including at 390px
+ *   - the current page is marked in the nav, and is actually on screen — the
+ *     nav is a hidden-scrollbar scroller, so at 390px the active pill sat two
+ *     screens to the right of the visible strip and nothing was highlighted
  *
  * Exits non-zero on either. Optionally writes screenshots for a human to look
  * at, which is the other half of not shipping a UI nobody has seen.
@@ -81,6 +84,27 @@ for (const [colorScheme, width] of VIEWPORTS) {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
+    // The nav overflows to a horizontal scroller at narrow widths, so the
+    // current page's pill can sit outside the visible strip. At 390px /status
+    // showed "Misquote · Overview · Advantage" with nothing highlighted: the
+    // nav answered "what else is there" and not "where am I". Only a real
+    // browser can check this — jsdom lays nothing out, so `offsetLeft` and
+    // `clientWidth` are 0 there and any assertion passes vacuously.
+    const navCurrent = await page.evaluate(() => {
+      const list = document.querySelector('nav[aria-label="Primary"] ul');
+      const current = list?.querySelector("[aria-current]");
+      if (!list || !current) return { found: false, visible: false };
+      const l = list.getBoundingClientRect();
+      const c = current.getBoundingClientRect();
+      return { found: true, visible: c.left >= l.left - 1 && c.right <= l.right + 1 };
+    });
+    const navProblem = !navCurrent.found
+      ? "no nav link marked aria-current"
+      : !navCurrent.visible
+        ? "the current page's nav link is scrolled out of view"
+        : null;
+    if (navProblem) failures.push(`${tag}: ${navProblem}`);
+
     // Every route shipped the same <title> once, because all of them were
     // client components and none could export metadata. Seven identical tab
     // labels, seven identical history entries, and a route announcer reading
@@ -99,9 +123,13 @@ for (const [colorScheme, width] of VIEWPORTS) {
     if (problems.length) failures.push(`${tag}: ${problems.slice(0, 4).join(" | ")}`);
     if (overflow > 0) failures.push(`${tag}: ${overflow}px of horizontal overflow`);
 
+    // The per-line verdict has to include everything the run can fail on, or a
+    // route prints "ok" and the summary at the bottom disagrees with it.
+    const clean = overflow === 0 && problems.length === 0 && !navProblem;
     console.log(
-      `  ${overflow === 0 && problems.length === 0 ? "ok  " : "FAIL"}  ${tag.padEnd(30)}` +
-        `  overflow=${overflow}px  problems=${problems.length}`,
+      `  ${clean ? "ok  " : "FAIL"}  ${tag.padEnd(30)}` +
+        `  overflow=${overflow}px  problems=${problems.length}` +
+        (navProblem ? `  nav=${navProblem}` : ""),
     );
   }
 

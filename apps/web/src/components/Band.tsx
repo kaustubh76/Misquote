@@ -160,7 +160,14 @@ export function Band({
           aria-hidden="true"
         >
           <span className="absolute left-0">{pct(scale[0], 1)}</span>
-          {scale[0] < 0 && scale[1] > 0 && (
+          {/* The zero *tick* is always drawn above; only its label is
+              conditional. At 390px the committed Warden domain puts zero at 7%
+              of a 330px axis — about 23px in — while "−3.6%" set at 10px runs to
+              28px, so the two printed on top of each other and neither was
+              legible. A label that close to an endpoint also adds nothing: the
+              endpoint already says the scale starts just below zero. The line
+              keeps carrying the meaning, which is where the meaning was. */}
+          {scale[0] < 0 && scale[1] > 0 && zero > 14 && zero < 86 && (
             <span className="absolute -translate-x-1/2" style={{ left: `${zero}%` }}>
               0
             </span>
