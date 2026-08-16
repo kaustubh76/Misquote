@@ -88,9 +88,9 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
     The claim being checked comes from the evidence string's own wording, so an
     entry cannot be worded one way and verified another.
     """
-    path_text, _, claim = entry.evidence.partition("—")
+    path_text, _, raw_claim = entry.evidence.partition("—")
     path = REPO / path_text.strip()
-    claim = claim.strip().lower()
+    claim = raw_claim.strip().lower()
 
     if "empty directory" in claim:
         if path.exists():
@@ -112,6 +112,32 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
             "now has code — update tearsheet/ledger.py"
         )
 
+    elif match := re.search(r"does not import (\w+)", raw_claim):
+        # "…/__main__.py — does not import ChainExecutor". A capability claim
+        # rather than a filename claim: it holds only while that entrypoint
+        # really does not reach for the executor, so wiring signing through it
+        # breaks the claim — which is the point.
+        #
+        # Matched against `raw_claim`, not the lowercased `claim`: a symbol is
+        # case-sensitive, and searching for "chainexecutor" would pass happily
+        # against a file that imports `ChainExecutor`.
+        #
+        # Checked against the *import statements* rather than the whole file,
+        # because this file's docstring legitimately explains that the executor
+        # exists and that this entrypoint declines to use it. Naming a thing is
+        # not importing it.
+        assert path.exists(), f"{path_text.strip()} no longer exists"
+        symbol = match.group(1)
+        imports = [
+            line
+            for line in path.read_text().splitlines()
+            if line.lstrip().startswith(("import ", "from ")) and symbol in line
+        ]
+        assert not imports, (
+            f"{entry.name} is listed as not importing {symbol}, but "
+            f"{path_text.strip()} now does: {imports} — update tearsheet/ledger.py"
+        )
+
     elif match := re.search(r"no (\S+\.\w+)", claim):
         # "packages/misquote/chain/ — no executor.py"
         # Any extension, not just .py: the vetting proof-of-concept that is still
@@ -127,7 +153,8 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
     else:
         pytest.fail(
             f"{entry.name}'s evidence {entry.evidence!r} states no checkable claim. "
-            "Use 'empty directory', 'docstring only', or 'no <file>.py'."
+            "Use 'empty directory', 'docstring only', 'no <file>.py', or "
+            "'does not import <Name>'."
         )
 
 

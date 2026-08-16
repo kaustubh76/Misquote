@@ -92,7 +92,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "wired to the recording executor, and the go/no-go is the gate for "
             "changing that."
         ),
-        evidence="packages/misquote/agents/warden/ — no live_main.py",
+        evidence=(
+            # Names the capability, not a filename. The previous wording was
+            # "no live_main.py" — a file no plan ever proposed writing, so the
+            # claim would have kept passing even if signing were wired through
+            # the entrypoint that actually exists.
+            "packages/misquote/agents/warden/__main__.py — does not import ChainExecutor"
+        ),
     ),
     NotBuilt(
         name="Ops surface",
