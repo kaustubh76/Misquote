@@ -124,6 +124,25 @@ def load_tape_events(db_path: Path) -> list[Event]:
         conn.close()
 
 
+def tape_coverage_gaps(db_path: Path, first: int, last: int) -> list[tuple[int, int]] | None:
+    """Ranges inside the tape that were never read. `None` when unrecorded.
+
+    `None` and `[]` are different claims and must not be collapsed: `[]` says we
+    checked and there are no holes, `None` says this database predates the
+    coverage table and nobody can now say. Returning `[]` for both would let an
+    unverifiable tape be published as a verified one.
+    """
+    from misquote.indexer import store
+
+    conn = store.connect(db_path)
+    try:
+        if not store.coverage(conn, META.address):
+            return None
+        return store.gaps(conn, META.address, first, last)
+    finally:
+        conn.close()
+
+
 def run_agent(name: str, events: list[Event], *, policy=None, capital: float) -> dict:
     """Replay one agent and price it. Returns the card's raw material.
 
@@ -287,6 +306,7 @@ def main() -> int:
     parser.add_argument("--out", default=str(REPO / "apps" / "web" / "public" / "artifacts"))
     args = parser.parse_args()
 
+    tape_gaps: list[tuple[int, int]] | None = None
     if args.synthetic:
         events = synthetic_events(args.synthetic)
         source = "synthetic"
@@ -298,11 +318,29 @@ def main() -> int:
         if not events:
             print(f"no tape at {db}.")
             print("  Run the backfill first, or pass --synthetic 4000 to see the pipeline work.")
-            print("  The backfill needs a keyed BSC_RPC_URL: free endpoints cap eth_getLogs")
-            print("  and refuse sustained request rates.")
+            print("  uv run python -m misquote.indexer.backfill --days 30")
+            print("  Free endpoints are enough: three of them serve eth_getLogs at 5,000")
+            print("  blocks a request, and a 30-day tape is about an hour. See P-11.")
             return 1
-        span = (events[-1].ts - events[0].ts) / 86400
-        print(f"tape: {len(events):,} real swaps spanning {span:.1f} days")
+
+        # The honest span is the blocks somebody *read*, not the distance between
+        # the first event and the last. Those differ by exactly the size of any
+        # hole, and a hole is invisible in the events themselves — a quiet window
+        # and an unfetched one are both zero swaps. A card stamped `source: chain`
+        # over a tape with a hole in it is the misquote this project exists to
+        # argue against, so the gap count travels with the card.
+        ends_span = (events[-1].ts - events[0].ts) / 86400
+        tape_gaps = tape_coverage_gaps(db, events[0].block, events[-1].block)
+        print(f"tape: {len(events):,} real swaps, {ends_span:.1f} days between the two ends")
+        if tape_gaps is None:
+            print("      coverage unrecorded — this tape predates the covered table,")
+            print("      so completeness is unknown rather than confirmed")
+        elif tape_gaps:
+            missing = sum(hi - lo + 1 for lo, hi in tape_gaps)
+            print(f"      *** {len(tape_gaps)} gap(s), {missing:,} blocks never read ***")
+            print("      re-run the backfill to close them before publishing this")
+        else:
+            print("      no gaps: every block in that range was read")
 
     journal_dir = Path("data/journal")
     out_dir = Path(args.out)
@@ -398,6 +436,14 @@ def main() -> int:
                 events=len(events),
                 capital_quote=args.capital,
                 span_hours=round((events[-1].ts - events[0].ts) / 3600, 2),
+                # `span_hours` is the distance between the first event and the
+                # last, so it counts any hole as though it were history. These
+                # two say whether there is one. `null` means unrecorded, which is
+                # neither "no gaps" nor "gaps" — see `tape_coverage_gaps`.
+                tape_gaps=None if tape_gaps is None else len(tape_gaps),
+                tape_blocks_unread=(
+                    None if tape_gaps is None else sum(hi - lo + 1 for lo, hi in tape_gaps)
+                ),
             ),
             indent=2,
             sort_keys=True,
