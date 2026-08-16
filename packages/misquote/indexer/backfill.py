@@ -3,10 +3,16 @@
     uv run python -m misquote.indexer.backfill --days 30
     uv run python -m misquote.indexer.backfill --days 30 --chain 97
 
-Resumable and idempotent by construction: the cursor records the last settled
-block, a re-run starts from there, and re-fetching an already-ingested range
-inserts nothing. There is no "repair" mode because there is nothing to repair —
-if a run dies, run it again.
+Resumable and idempotent by construction: every chunk records the block range it
+actually read, a re-run fetches only the ranges nobody has, and re-fetching an
+already-ingested range inserts nothing. There is no "repair" mode because there
+is nothing to repair — if a run dies, run it again.
+
+Resuming from *coverage* rather than from the cursor is the whole point. The
+cursor is a single high-water mark, so `--days 30` used to mean "carry on from
+wherever anything last stopped" — and once the tail has run, that is the head.
+A request for thirty days of history became a five-thousand-block poll, and the
+flag was overridden rather than ignored loudly.
 """
 
 from __future__ import annotations
@@ -162,41 +168,62 @@ def main() -> int:
     if dropped:
         print(f"dropped {dropped} rows above the settled head (reorg protection)")
 
-    resume = store.cursor_for(conn, pool)
     block_seconds = measure_block_seconds(reader, safe)
-    start = args.from_block or (
-        resume + 1 if resume is not None else safe - blocks_for_days(args.days, block_seconds)
-    )
-    start = max(0, start)
+    target = min(safe, args.to_block) if args.to_block else safe
+    window_start = max(0, args.from_block or (safe - blocks_for_days(args.days, block_seconds)))
+
+    # Resume from what was actually **read**, not from the cursor.
+    #
+    # The cursor is one high-water mark maintained with max(), so `--days 30`
+    # used to compute `start = cursor + 1` and silently become "carry on from
+    # wherever anything last stopped". Once the tail has ever run, the cursor
+    # sits at the head — and a request for thirty days of history quietly turned
+    # into a five-thousand-block poll. The flag was not ignored loudly; it was
+    # overridden.
+    #
+    # `gaps()` is the honest version of the same idea, and it cannot skip a range
+    # nobody read. A database predating the coverage table reports no coverage,
+    # so this re-fetches the window; that is idempotent by construction and
+    # cheaper than trusting a claim we cannot substantiate.
+    todo = store.gaps(conn, pool, window_start, target)
 
     print(f"pool   {ref.label}")
     print(f"       {pool}")
     print(f"chain  {args.chain}   head {head:,}   settled {safe:,} (head - {reader.confirmations})")
     print(f"       {len(endpoints)} endpoint(s), pacing {args.pace:.2f}s")
     print(f"       {block_seconds:.3f} s/block, measured")
-    target = min(safe, args.to_block) if args.to_block else safe
-    print(f"range  {start:,} -> {target:,}  ({target - start + 1:,} blocks)")
-    if resume is not None:
-        print(f"resume from cursor at {resume:,}")
+    print(f"window {window_start:,} -> {target:,}  ({target - window_start + 1:,} blocks)")
+    if not todo:
+        print("       already read in full; nothing to do")
+        return 0
+    outstanding = sum(hi - lo + 1 for lo, hi in todo)
+    print(f"unread {len(todo)} range(s), {outstanding:,} blocks")
+    for lo, hi in todo[:6]:
+        print(f"       {lo:,} -> {hi:,}  ({hi - lo + 1:,})")
+    if len(todo) > 6:
+        print(f"       ... and {len(todo) - 6} more")
     print()
 
     began = time.monotonic()
+    result = {"inserted": 0, "seen": 0, "chunks": 0}
     try:
-        result = backfill(conn, reader, pool, start, target, chunk=args.chunk)
+        for lo, hi in todo:
+            part = backfill(conn, reader, pool, lo, hi, chunk=args.chunk)
+            for key in result:
+                result[key] += part[key]
     except Exception as error:  # noqa: BLE001 — the message matters more than the trace
-        done = store.cursor_for(conn, pool)
-        where = f"block {done:,}" if done is not None else "the start (nothing written yet)"
-        print(f"\nstopped at {where} after {time.monotonic() - began:.0f}s")
+        print(f"\nstopped after {time.monotonic() - began:.0f}s")
         print(f"  {type(error).__name__}: {str(error)[:120]}")
         print()
-        print("  Free BSC endpoints will not sustain a multi-day backfill: they cap")
-        print("  eth_getLogs ranges, refuse sustained request rates with 403 and")
-        print("  -32005, and all of them do it. Rotation and pacing extend the run;")
-        print("  they do not make it finish.")
+        for name, served, refused in reader.attribution():
+            print(f"  {served:>4} served  {refused:>4} refused   {name}")
         print()
-        print("  Progress is durable — the cursor advanced with the rows — so re-running")
-        print("  resumes from where this stopped. To finish in one pass, set BSC_RPC_URL")
-        print("  to a keyed endpoint (NodeReal, QuickNode, Ankr) and run again.")
+        print("  Progress is durable and recorded as coverage, so re-running resumes")
+        print("  from the ranges that were never read rather than from a high-water")
+        print("  mark. If every endpoint above refused everything, they may not serve")
+        print("  eth_getLogs at all — see requirements-matrix P-11.")
+        remaining = store.gaps(conn, pool, window_start, target)
+        print(f"  {sum(hi - lo + 1 for lo, hi in remaining):,} blocks still unread")
         return 1
     elapsed = time.monotonic() - began
 
@@ -210,7 +237,19 @@ def main() -> int:
     if summary["first_ts"]:
         span_days = (summary["last_ts"] - summary["first_ts"]) / 86400
         print(
-            f"      blocks {summary['first_block']:,}..{summary['last_block']:,}  ({span_days:.1f}d)"
+            f"      blocks {summary['first_block']:,}..{summary['last_block']:,}  "
+            f"({span_days:.1f}d between the two ends)"
+        )
+    # The span above is the distance between the first and last event and says
+    # nothing about the middle. This is the number that means what it says.
+    longest = summary["longest_covered"]
+    if longest:
+        read_days = (longest[1] - longest[0]) * block_seconds / 86400
+        print(f"      longest unbroken run {longest[0]:,}..{longest[1]:,}  ({read_days:.1f}d read)")
+    holes = store.gaps(conn, pool, window_start, target)
+    if holes:
+        print(
+            f"      {len(holes)} gap(s) left in the window, {sum(h - l + 1 for l, h in holes):,} blocks"
         )
     print(f"      cursor at {summary['cursor']:,}")
     return 0
