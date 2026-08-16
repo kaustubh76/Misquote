@@ -1,5 +1,15 @@
 import { Heading } from "@/components/Heading";
 
+/**
+ * `as` offers no `"div"`, on purpose.
+ *
+ * Both landmarks here are announced: `section` is one when it has an accessible
+ * name, `article` is one unconditionally, and the two callers that pass
+ * `as="article"` are rendering a self-contained item in a list of peers. `div`
+ * was offered and never taken — it is the one choice that removes the card from
+ * the document outline entirely, so a caller reaching for "no wrapper semantics"
+ * would silently make the card unnavigable rather than get a plain box.
+ */
 export function Card({
   children,
   className = "",
@@ -7,7 +17,7 @@ export function Card({
 }: {
   children: React.ReactNode;
   className?: string;
-  as?: "section" | "article" | "div";
+  as?: "section" | "article";
 }) {
   return (
     <Tag className={`rounded-lg border border-line bg-panel p-6 ${className}`}>

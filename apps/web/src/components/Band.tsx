@@ -17,7 +17,6 @@ export interface BandProps {
   note?: string;
   /** Individual window returns, drawn as a rug behind the band. */
   returns?: number[];
-  unit?: string;
   caption?: string;
 
   /**
@@ -91,7 +90,6 @@ export function Band({
   sufficient,
   note,
   returns = [],
-  unit = "%",
   caption,
   overlap,
   deltaPp,
@@ -121,10 +119,17 @@ export function Band({
   const scale = domain(series, returns);
   const zero = position(0, scale);
 
+  // Percent is hardcoded, and a `unit` prop that would have changed it was
+  // deleted rather than kept for a future caller. It reached only this string —
+  // the spoken one. The axis ticks go through `pct()`, which writes "%" and
+  // takes no unit, so `unit="bp"` would have had a screen reader read basis
+  // points off a chart labelled in percent. Every series drawn here is a return
+  // or a fraction; when one genuinely is not, the honest change is a unit that
+  // reaches both halves at once, not this one.
   const description = series
     .map(
       (s) =>
-        `${s.label}: P25 ${s.p25.toFixed(2)}${unit}, median ${s.p50.toFixed(2)}${unit}, P75 ${s.p75.toFixed(2)}${unit}`,
+        `${s.label}: P25 ${s.p25.toFixed(2)}%, median ${s.p50.toFixed(2)}%, P75 ${s.p75.toFixed(2)}%`,
     )
     .join("; ");
 

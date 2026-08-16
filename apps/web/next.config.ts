@@ -31,6 +31,19 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
 
   typescript: { ignoreBuildErrors: false },
+
+  // There is no ESLint in this app, and this line says so rather than
+  // configuring one. `package.json` carried a `"lint": "eslint ."` script for
+  // the whole life of the front-end while `eslint` was in no dependency list
+  // and no config file existed anywhere — so it had never once run, and the
+  // only way to find that out was to type it. The script is gone.
+  //
+  // What stands in for it: `tsc --noEmit` under strict, plus the guards in
+  // `tests/web/`, which check the things a general-purpose linter would not —
+  // that a comment naming a file names one that exists, that an artifact still
+  // matches the Python it is a copy of, that no `.tsx` writes a raw `<h2>`,
+  // that every exported function is reachable. Adding ESLint later is a fine
+  // decision; inheriting a script that pretends it is already here is not.
   eslint: { ignoreDuringBuilds: true },
 };
 

@@ -48,12 +48,22 @@
  */
 const BASE = "/artifacts";
 
+/**
+ * There is no `status` field, and the HTTP code is not lost by dropping it.
+ *
+ * One existed, carried the response code, and was read nowhere. The thing that
+ * wanted it — a `remedyFor(status)` switch mapping 404 and 403 to different
+ * advice — was deleted with `ArtifactView`. What survives is better: the code is
+ * already interpolated into `message`, in the sentence the reader sees, so a
+ * report of this failure carries "returned 404 Not Found" rather than a number
+ * a caller has to translate. `kind` is what code branches on, and it stays
+ * meaningful across the network and parse cases, which have no status at all.
+ */
 export class ArtifactError extends Error {
   constructor(
     message: string,
     readonly url: string,
     readonly kind: "http" | "parse" | "network" | "shape",
-    readonly status?: number,
   ) {
     super(message);
     this.name = "ArtifactError";
@@ -66,8 +76,13 @@ export class ArtifactError extends Error {
  * The content-type check is what stops a 404 from masquerading as malformed
  * JSON: a static server hands back an HTML error page with status 404, and
  * without this the reported fault is a parse error on `<!DOCTYPE`.
+ *
+ * Not exported. It throws, and everything on the site reads artifacts through
+ * `load`, which turns the throw into a `Loaded` the caller has to open. Handing
+ * out the throwing half invites a `getJSON(...)` with no `catch` — which is the
+ * six-line original at the top of this file, reintroduced one route at a time.
  */
-export async function getJSON<T>(name: string): Promise<T> {
+async function getJSON<T>(name: string): Promise<T> {
   const url = `${BASE}/${name}`.replace(/\/{2,}/g, "/");
   let res: Response;
 
@@ -89,7 +104,6 @@ export async function getJSON<T>(name: string): Promise<T> {
       `${url} returned ${res.status} ${res.statusText}.`,
       url,
       "http",
-      res.status,
     );
   }
 

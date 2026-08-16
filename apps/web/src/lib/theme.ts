@@ -4,7 +4,9 @@ export type Theme = "auto" | "light" | "dark";
 
 export const THEMES: readonly Theme[] = ["auto", "light", "dark"] as const;
 
-export function isTheme(value: unknown): value is Theme {
+/** Not exported: the only thing that needs narrowing is what comes back out of
+ *  storage, and `readStoredTheme` below is the one place that happens. */
+function isTheme(value: unknown): value is Theme {
   return typeof value === "string" && (THEMES as readonly string[]).includes(value);
 }
 

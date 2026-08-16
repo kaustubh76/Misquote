@@ -18,7 +18,16 @@
  * The pulse is disabled under `prefers-reduced-motion` by the global rule in
  * `globals.css`.
  */
-export function Skeleton({ className = "" }: { className?: string }) {
+/**
+ * Deliberately not exported.
+ *
+ * A lone grey box is not a loading state — it is a rectangle. What makes it one
+ * is the *shape* of what is arriving, which is `CardSkeleton`'s job, plus the
+ * spoken announcement `Loadable` places beside it. Exporting the primitive
+ * invites a caller to reach past both and hang one bar somewhere with nothing
+ * saying what it stands for. It had no importers; this keeps it that way.
+ */
+function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
