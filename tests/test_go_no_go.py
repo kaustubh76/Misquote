@@ -113,3 +113,99 @@ def test_unverified_keeps_the_verdict_off_green() -> None:
     verdict, code = gng.outcome([gng.Check("a", gng.PASS, "fine")])
     assert verdict == "GO"
     assert code == 0
+
+
+# --- the tape gate measured the wrong thing ---------------------------------
+
+
+def _tape_db(tmp_path, monkeypatch, runs, *, record_coverage=True):
+    """A database holding `runs` of read blocks, and nothing between them."""
+    from misquote.chain.addresses import pool_for
+    from misquote.core.tickmath import get_sqrt_ratio_at_tick
+    from misquote.core.types import Event, PoolMeta
+    from misquote.indexer import store
+
+    ref = pool_for(56)
+    db = tmp_path / "tape.db"
+    conn = store.connect(db)
+    store.register_pool(
+        conn,
+        PoolMeta(
+            address=ref.address,
+            chain_id=56,
+            token0=ref.token0,
+            token1=ref.token1,
+            dec0=ref.dec0,
+            dec1=ref.dec1,
+            fee_pips=ref.fee_pips,
+            tick_spacing=ref.tick_spacing,
+            fee_protocol=ref.fee_protocol,
+        ),
+    )
+    for lo, hi in runs:
+        events = [
+            Event(
+                block=block,
+                log_index=0,
+                ts=int(block * 0.45),
+                kind="swap",
+                tx=f"0x{block:064x}",
+                amount0=-(10**20),
+                amount1=10**20,
+                sqrt_price_x96=get_sqrt_ratio_at_tick(-64180),
+                liquidity=10**24,
+                tick=-64180,
+            )
+            for block in (lo, hi)
+        ]
+        store.write_events(
+            conn,
+            ref.address,
+            events,
+            advance_cursor_to=hi,
+            covered=(lo, hi) if record_coverage else None,
+            now_ts=0,
+        )
+    conn.close()
+    monkeypatch.setenv("DB_PATH", str(db))
+
+
+DAY_IN_BLOCKS = int(86_400 / 0.45)
+
+
+def test_a_tape_with_a_hole_in_it_does_not_pass(tmp_path, monkeypatch) -> None:
+    """One day at each end of a twenty-six day span.
+
+    `(max(ts) - min(ts)) / 86400` calls that twenty-six days and passed the gate.
+    It is the shape every interrupted backfill leaves, and the shape the tail
+    creates on purpose when it primes the cursor at the head.
+    """
+    _tape_db(
+        tmp_path,
+        monkeypatch,
+        [(0, DAY_IN_BLOCKS), (25 * DAY_IN_BLOCKS, 26 * DAY_IN_BLOCKS)],
+    )
+
+    check = gng.check_tape()
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert "unbroken" in check.detail
+
+
+def test_an_unbroken_thirty_days_does_pass(tmp_path, monkeypatch) -> None:
+    """The other half: the gate must still be reachable, or it is a gate that
+    can never go green and says nothing."""
+    _tape_db(tmp_path, monkeypatch, [(0, 30 * DAY_IN_BLOCKS)])
+
+    check = gng.check_tape()
+    assert check.status == gng.PASS, check.detail
+
+
+def test_rows_without_recorded_coverage_are_unknown_not_complete(tmp_path, monkeypatch) -> None:
+    """A database written before coverage existed holds real events and no record
+    of what was read to find them. The badge's rule: unknown does not become
+    pass, however many rows are in the table."""
+    _tape_db(tmp_path, monkeypatch, [(0, 30 * DAY_IN_BLOCKS)], record_coverage=False)
+
+    check = gng.check_tape()
+    assert check.status == gng.UNVERIFIED
+    assert "no coverage recorded" in check.detail

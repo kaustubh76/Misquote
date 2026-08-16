@@ -26,6 +26,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
+# Only used to turn a span of blocks into a span of days for the tape gate. The
+# indexer measures this at runtime; here a constant is fine because the gate's
+# threshold is 25 days against a 30-day target and BSC would have to change block
+# time by 20% for the rounding to matter. If it does, the indexer's measured
+# value is the one to trust.
+BSC_BLOCK_SECONDS = 0.45
+
 PASS, FAIL, UNVERIFIED = "PASS", "FAIL", "UNVERIFIED"
 
 
@@ -167,33 +174,69 @@ def check_provisional_constants() -> Check:
 
 
 def check_tape() -> Check:
+    """Thirty days of history, measured as blocks *read* rather than as the
+    distance between the first event and the last.
+
+    This gate used to compute `(max(ts) - min(ts)) / 86400`, which is the span
+    between the two ends of the tape and says nothing about the middle. A
+    database holding one day at each end of a twenty-six day span reported
+    "spanning 26.0 days" and passed — and that is the shape every interrupted
+    backfill leaves, and the shape the tail creates deliberately when it primes
+    the cursor at the head with nothing underneath.
+
+    No query over `swap` can tell that tape from a complete one, because a quiet
+    window and an unfetched window both hold zero swaps. `covered` records what
+    was read, so the number below is the longest unbroken run of blocks somebody
+    actually looked at.
+    """
     db = Path(os.environ.get("DB_PATH", REPO / "data" / "misquote.db"))
     if not db.exists():
         return Check(
             "30-day tape",
             UNVERIFIED,
             f"{db} does not exist",
-            "uv run python -m misquote.indexer.backfill --days 30 (needs a keyed BSC_RPC_URL)",
+            "uv run python -m misquote.indexer.backfill --days 30",
         )
 
     import sqlite3
 
+    from misquote.chain.addresses import pool_for
+    from misquote.indexer import store
+
+    pool = pool_for(56).address.lower()
     conn = sqlite3.connect(db)
-    row = conn.execute("SELECT count(*), min(ts), max(ts) FROM swap").fetchone()
-    conn.close()
-    count, first, last = row
+    conn.row_factory = sqlite3.Row
+    count = conn.execute("SELECT count(*) FROM swap WHERE pool = ?", (pool,)).fetchone()[0]
+    try:
+        longest = store.covered_span(conn, pool)
+    except sqlite3.OperationalError:
+        longest = None  # a database written before the covered table existed
+    finally:
+        conn.close()
+
     if not count:
         return Check("30-day tape", UNVERIFIED, "the tape is empty", "run the backfill")
 
-    days = (last - first) / 86400
+    if longest is None:
+        # Real events, no record of which ranges were read to find them. That is
+        # unknown, and the badge's rule holds here too: unknown does not become
+        # pass, however many rows are sitting in the table.
+        return Check(
+            "30-day tape",
+            UNVERIFIED,
+            f"{count:,} swaps, but no coverage recorded — completeness unknown",
+            "re-run the backfill; it records the ranges it reads",
+        )
+
+    days = (longest[1] - longest[0]) * BSC_BLOCK_SECONDS / 86400
     if days < 25:
         return Check(
             "30-day tape",
             UNVERIFIED,
-            f"{count:,} swaps spanning {days:.1f} days",
+            f"{count:,} swaps, longest unbroken run {days:.1f} days",
             "assumption A5 wants 30 days; extend the backfill",
         )
-    return Check("30-day tape", PASS, f"{count:,} swaps spanning {days:.1f} days")
+    return Check("30-day tape", PASS, f"{count:,} swaps, {days:.1f} unbroken days read from chain")
 
 
 def check_agent_advantage_report() -> Check:
