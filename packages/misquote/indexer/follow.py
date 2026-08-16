@@ -67,6 +67,14 @@ DEFAULT_POLL_SECONDS = 60.0
 # would keep hammering an endpoint after someone had said stop.
 DEFAULT_KILL_FILE = "ops/KILL"
 
+# The endpoints are a **shared** resource, and not only with other copies of this
+# process. An anvil fork proxies every state read to the same public nodes, so
+# running the chain-fork test suite can exhaust the quota and leave a tail
+# refused for as long as it takes to refill. Backing off is what lets it recover
+# instead of spending its whole budget being told no.
+BACKOFF_FACTOR = 2.0
+MAX_POLL_SECONDS = 15 * 60.0
+
 
 class Tail:
     """One pool, followed forward. Stateless between polls except for the cursor.
@@ -163,6 +171,8 @@ def follow(
     kill = Path(kill_file)
     started = time.monotonic()
     deadline = started + seconds if seconds > 0 else None
+    interval = poll_seconds
+    consecutive_refusals = 0
 
     while True:
         if kill.exists():
@@ -172,18 +182,41 @@ def follow(
         if deadline is not None and time.monotonic() >= deadline:
             break
 
+        before_refused = tail.refused
         result = tail.poll_once()
-        if progress and (result["events"] or result["primed"]):
-            label = "primed at" if result["primed"] else f"{result['events']:3d} events in"
-            print(
-                f"  t+{time.monotonic() - started:6.0f}s  {label} "
-                f"[{result['from']:,}..{result['to']:,}]  "
-                f"+{result['inserted']} rows  {tail.behind():,} blocks behind"
-            )
+        refused = tail.refused > before_refused
+        elapsed = time.monotonic() - started
 
-        if deadline is not None and time.monotonic() + poll_seconds > deadline:
+        if refused:
+            # **Say so.** This used to print only on success, so a tail refused
+            # on every poll produced an empty log — indistinguishable from a
+            # quiet pool, and identical to a tail that was working perfectly on
+            # a pool nobody was trading. A run that cannot tell you it is failing
+            # is worse than one that stops.
+            consecutive_refusals += 1
+            interval = min(interval * BACKOFF_FACTOR, MAX_POLL_SECONDS)
+            if progress:
+                print(
+                    f"  t+{elapsed:6.0f}s  REFUSED ({consecutive_refusals} in a row) "
+                    f"[{result['from']:,}..{result['to']:,}]  "
+                    f"backing off to {interval:.0f}s"
+                )
+        else:
+            if consecutive_refusals and progress:
+                print(f"  t+{elapsed:6.0f}s  recovered after {consecutive_refusals} refusals")
+            consecutive_refusals = 0
+            interval = poll_seconds
+            if progress and (result["events"] or result["primed"]):
+                label = "primed at" if result["primed"] else f"{result['events']:3d} events in"
+                print(
+                    f"  t+{elapsed:6.0f}s  {label} "
+                    f"[{result['from']:,}..{result['to']:,}]  "
+                    f"+{result['inserted']} rows  {tail.behind():,} blocks behind"
+                )
+
+        if deadline is not None and time.monotonic() + interval > deadline:
             break
-        time.sleep(poll_seconds)
+        time.sleep(interval)
 
     return {
         "polls": tail.polls,
@@ -191,6 +224,7 @@ def follow(
         "events": tail.seen,
         "inserted": tail.inserted,
         "behind": tail.behind(),
+        "consecutive_refusals": consecutive_refusals,
     }
 
 
@@ -252,8 +286,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"  {result['behind']:,} blocks behind the settled head")
     if result["refused"] and not result["polls"]:
-        print("\n  every poll was refused. Slow --poll down, or use a keyed BSC_RPC_URL.")
+        print("\n  every poll was refused, so nothing was written.")
+        print("  The endpoints are shared: an anvil fork proxies every state read to")
+        print("  the same public nodes, so running the chain-fork suite can exhaust")
+        print("  the quota. Wait for it to refill, slow --poll down, or set a keyed")
+        print("  BSC_RPC_URL.")
         return 1
+    if result["consecutive_refusals"]:
+        print(f"  ending on {result['consecutive_refusals']} consecutive refusals")
     return 0
 
 

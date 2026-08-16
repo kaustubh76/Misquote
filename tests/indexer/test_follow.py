@@ -242,3 +242,46 @@ def test_the_default_poll_rate_is_the_one_that_was_measured() -> None:
     """One request a minute sustained 6 of 6; roughly four in eleven seconds was
     refused by every endpoint. The default has to be the first of those."""
     assert DEFAULT_POLL_SECONDS >= 60.0
+
+
+# --- a tail that cannot say it is failing -----------------------------------
+
+
+def test_a_refused_tail_reports_it_rather_than_looking_quiet(conn, capsys) -> None:
+    """The defect a real run found: an empty log meant nothing at all.
+
+    `follow` used to print only when a poll returned events, so a tail refused on
+    every request produced no output — identical to a tail working perfectly on a
+    pool nobody was trading. It ran for thirty-five minutes, wrote a zero-byte
+    log, and advanced not one block.
+    """
+    reader = FakeReader(head=10_000)
+    Tail(conn, reader, POOL).poll_once()  # prime, so the next poll actually fetches
+    reader.fail = True
+    reader.advance(5_000)
+
+    result = follow(
+        conn, reader, POOL, seconds=0.2, poll_seconds=0.01, kill_file="/nonexistent", progress=True
+    )
+    printed = capsys.readouterr().out
+
+    assert result["refused"] >= 1
+    assert result["polls"] == 0
+    assert "REFUSED" in printed, "a tail that is failing must say so"
+
+
+def test_refusals_back_off_instead_of_hammering(conn) -> None:
+    """The endpoints are shared, and the quota refills with time rather than with
+    persistence. Retrying at full rate spends the whole budget being told no."""
+    reader = FakeReader(head=10_000)
+    Tail(conn, reader, POOL).poll_once()  # prime
+    reader.fail = True
+    reader.advance(5_000)
+
+    result = follow(
+        conn, reader, POOL, seconds=0.3, poll_seconds=0.01, kill_file="/nonexistent", progress=False
+    )
+    # With backoff the interval doubles each time, so a 0.3s window admits far
+    # fewer attempts than 0.3 / 0.01 = 30.
+    assert result["refused"] < 12, f"{result['refused']} attempts — it is not backing off"
+    assert result["consecutive_refusals"] == result["refused"]

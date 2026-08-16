@@ -14,9 +14,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-14T23:43:50+00:00",
+    "generated_at": "2026-08-16T08:48:54+00:00",
     "git_dirty": true,
-    "git_sha": "10a37b2",
+    "git_sha": "344fda7",
     "source": "offline"
   },
   "hire_flow": {

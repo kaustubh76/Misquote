@@ -11,7 +11,9 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "vetting.json"
+      ],
       "id": "A1",
       "kind": "assumption",
       "line": 12,
@@ -84,7 +86,10 @@
         }
       ],
       "cited_by": [
-        "advantage_short.json"
+        "advantage_short.json",
+        "grid.json",
+        "sentinel.json",
+        "warden.json"
       ],
       "id": "A5",
       "kind": "assumption",
@@ -163,7 +168,11 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "grid.json",
+        "sentinel.json",
+        "warden.json"
+      ],
       "id": "A8",
       "kind": "assumption",
       "line": 83,
@@ -457,9 +466,71 @@
       "cited_by": [],
       "id": "D-8",
       "kind": "deviation",
-      "line": 138,
+      "line": 177,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u00a73.4's imbalance rule is one-sided, and defends only one side \u2014 DEVIATED"
+    },
+    {
+      "blocks": [
+        {
+          "text": "\u00a78 sets **\u0394s = 5 seconds**. A live source that asked the chain for logs on every sample would issue twelve `eth_getLogs` a minute, and that is well past what any free BSC endpoint will serve.",
+          "type": "p"
+        },
+        {
+          "text": "**Measured against the target pool, in 2,000-block windows** \u2014 a fifteen-minute slice of chain, nothing resembling a backfill:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Cadence",
+            "Result"
+          ],
+          "rows": [
+            [
+              "~4 requests in 11 seconds",
+              "**`-32005 limit exceeded`**, all three endpoints exhausted, 3 rotations"
+            ],
+            [
+              "1 request every 60 seconds",
+              "**6 of 6 succeeded, zero rotations**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The endpoints do not object to the *range*. They object to the *rate*.",
+          "type": "p"
+        },
+        {
+          "text": "**Deviation.** `chain/live_source.py` keeps two clocks: the **decision clock** ticks at \u0394s and drives the policy, and the **poll clock** governs how often we may ask the chain anything (60s by default). Between polls, `events_since` returns nothing and `head()` returns the last head actually observed \u2014 not an interpolation. A source that filled the gap would make the agent look responsive while feeding it fiction, and a replay of that journal would be a replay of the fiction.",
+          "type": "p"
+        },
+        {
+          "text": "**What it costs.** \u00a73.4's \"m consecutive samples\" now spans `m \u00d7 poll_seconds` of wall time rather than `m \u00d7 5s` \u2014 three minutes rather than fifteen seconds at the defaults. The toxicity rule therefore reacts more slowly than the frozen spec describes. The cause is an endpoint quota, not a design preference, and a keyed RPC removes it.",
+          "type": "p"
+        },
+        {
+          "text": "**What it unblocks, and what it does not.** The same measurement splits an item this project had been treating as one blocked thing:",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**A 30-day backfill is 2,880 requests** as fast as they will be served. At the rate that works, that is two days of wall clock. Still blocked on a keyed `BSC_RPC_URL`.",
+            "**A live tail is one request per fifteen minutes of chain.** `misquote.indexer.follow` polls once a minute \u2014 fifteen times faster than the chain produces a chunk, and an order of magnitude inside the quota. **That works today, on free endpoints, with no key.**"
+          ],
+          "type": "ul"
+        },
+        {
+          "text": "So we cannot recover thirty days of *history* without a key, but we can accumulate real chain data *going forward* starting now. Nothing about that turns a two-hour tape into a thirty-day claim, and the go/no-go still reports the tape amber until it spans 25 days.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "D-9",
+      "kind": "deviation",
+      "line": 138,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The spec's sampling interval is impossible on a free endpoint \u2014 DEVIATED"
     },
     {
       "blocks": [
@@ -492,7 +563,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 517,
+      "line": 636,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -527,7 +598,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 518,
+      "line": 637,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -562,7 +633,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 519,
+      "line": 638,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -599,7 +670,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 520,
+      "line": 639,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -617,11 +688,12 @@
       "cited_by": [
         "grid.json",
         "sentinel.json",
+        "vetting.json",
         "warden.json"
       ],
       "id": "P-1",
       "kind": "correction",
-      "line": 341,
+      "line": 380,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "PancakeSwap takes 34% of every fee, and the spec never mentions it"
     },
@@ -635,7 +707,7 @@
       "cited_by": [],
       "id": "P-2",
       "kind": "correction",
-      "line": 355,
+      "line": 394,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Swap event amounts are gross of the fee"
     },
@@ -649,7 +721,7 @@
       "cited_by": [],
       "id": "P-3",
       "kind": "correction",
-      "line": 361,
+      "line": 400,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "LVR needs range clamping, worth up to 53\u00d7"
     },
@@ -667,7 +739,7 @@
       "cited_by": [],
       "id": "P-4",
       "kind": "correction",
-      "line": 369,
+      "line": 408,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) is an upper bound on LVR, not a model-free measurement"
     },
@@ -685,7 +757,7 @@
       "cited_by": [],
       "id": "P-5",
       "kind": "correction",
-      "line": 382,
+      "line": 421,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The isomorphism claim is stronger than the literature supports \u2014 **docs**"
     },
@@ -712,10 +784,12 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "vetting.json"
+      ],
       "id": "P-6",
       "kind": "correction",
-      "line": 468,
+      "line": 587,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -782,45 +856,68 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 423,
+      "line": 542,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
     {
       "blocks": [
         {
-          "text": "**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool (`slot0.feeProtocol = 3400`), where Uniswap's is off by default, and that reconstructing fees from volume overstates LP earnings by **1.52\u00d7**.",
+          "text": "> **This item was published wrong, by us, and the correction is more useful than the original.** > The first version claimed TSLAx/USDT reports `feeProtocol = 0` \u2014 that LPs keep the entire fee on > that venue. They keep 68%. The reader took **`slot0[2]`**, which is `observationIndex`, instead of > **`slot0[5]`**, which is `feeProtocol`.",
           "type": "p"
         },
         {
-          "text": "Resolving a tokenized-equity venue for the TermiX track's equities category turned up the other half of that lesson. **TSLAx/USDT 0.25%** (`0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492`, read via `scripts/find_equity_pool.py`) reports **`feeProtocol = 0`**. Same DEX, same factory, same contracts \u2014 and LPs keep the **entire** fee.",
+          "text": "**P-1** established that PancakeSwap takes 34% of every fee on our WBNB/USDT pool, where Uniswap's is off by default, and that reconstructing fees from volume overstates LP earnings by **1.52\u00d7**.",
+          "type": "p"
+        },
+        {
+          "text": "Resolving a tokenized-equity venue for the equities category turned up the other half of that lesson. Read correctly:",
           "type": "p"
         },
         {
           "head": [
             "Pool",
-            "`feeProtocol`",
+            "raw `slot0[5]`",
+            "decoded",
             "LP keeps",
             "Effective fee"
           ],
           "rows": [
             [
               "WBNB/USDT 0.05%",
+              "222,825,800",
               "**3400**",
               "66%",
               "0.033%"
             ],
             [
               "TSLAx/USDT 0.25%",
-              "**0**",
-              "100%",
-              "0.250%"
+              "209,718,400",
+              "**3200**",
+              "68%",
+              "0.170%"
             ]
           ],
           "type": "table"
         },
         {
-          "text": "So the protocol fee is not a property of PancakeSwap; it is a property of **the pool**. Either constant would have been wrong somewhere: hardcoding Pancake's 3400 understates LP earnings on the equity pool by a third, and hardcoding Uniswap's 0 overstates them by 1.52\u00d7 on the flagship. This is why `PoolMeta.fee_protocol` was given **no default** and must be supplied \u2014 a decision that cost one line and has now been load-bearing twice, in opposite directions.",
+          "text": "Pancake packs the field as `fee0 | (fee1 << 16)`, both `uint16`, so 222,825,800 is 3400 twice and 209,718,400 is 3200 twice.",
+          "type": "p"
+        },
+        {
+          "text": "**The finding survives in kind, not in degree.** Two pools on one DEX really do charge different protocol fees, so no constant is right for both and `PoolMeta.fee_protocol` still has **no default**. But it is 34% against 32%, not 34% against nothing, and the dramatic version was an artefact.",
+          "type": "p"
+        },
+        {
+          "text": "**Why it survived.** Index 2 held `101` on the flagship and `0` on the equity pool \u2014 small, plausible integers. Nothing reverted, nothing looked absurd, and `0` was *exactly* the value that made an interesting story. A wrong number that confirms a thesis gets less scrutiny than a wrong number that contradicts one, which is the general lesson and the uncomfortable one.",
+          "type": "p"
+        },
+        {
+          "text": "**What caught it.** Not a test \u2014 two numbers in the same repository disagreeing. The new pool badge printed `feeProtocol 100` for a pool `chain/addresses.py` records as `3400`, and the discrepancy was visible only because both were on screen at once. So `vetting/badge.py` now performs that comparison itself: **\"recorded values match chain\"** fails when a constant in this repo no longer matches what the chain returns. A constant nobody re-reads is a constant that rots.",
+          "type": "p"
+        },
+        {
+          "text": "**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the *only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity \u2014 a pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.",
           "type": "p"
         },
         {
@@ -828,12 +925,85 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "vetting.json"
+      ],
       "id": "P-8",
       "kind": "correction",
-      "line": 396,
+      "line": 496,
       "source": "docs/REQUIREMENTS_MATRIX.md",
-      "title": "Two pools on the same DEX, two different protocol fees \u2014 read it, never model it"
+      "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Building the chain executor made a latent design problem concrete, and the fix needed the executor to exist before it was safe to attempt.",
+          "type": "p"
+        },
+        {
+          "text": "**What was wrong.** `WardenLive.step()` called the executor and *then* applied the decision, which is correct on its own. But `WardenLoop` kept a **second** path: `_decide_forever` called `step()` \u2014 which had already executed \u2014 and *also* queued the same decision for `_execute_forever`, which called its own `executor_call`. Three consequences:",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**Every decision was acted on twice**, unless one of the two executors was inert. In production it was: `WardenLive` held a `SimulatedExecutor` and `executor_call` held a `RecordingExecutor`, so nothing broke *because nothing could act*. Wiring a real executor to either would have broken it.",
+            "**Failure did not roll back.** `_execute_forever` journalled `failed:` and left the engine alone, because `step()` had already committed the position.",
+            "**The loop's safety machinery governed the inert path.** `max_actions_per_day` reads `stats.actions_executed`, incremented only on the queue path \u2014 so actions performed inside `step()` were never counted against the cap. Same for the staleness drop."
+          ],
+          "type": "ul"
+        },
+        {
+          "text": "**The constraint that shaped the fix.** `Engine.set_position` rebuilds the `LvrAccountant`, and the next `engine.step` observes that position \u2014 so deferring execution by even one sample changes the observation feeding the policy, and **L1's byte-for-byte fingerprint** with it. The split therefore happens *below* `step()`, which keeps its exact previous behaviour:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "`decide(t)`",
+            "observe, ingest, decide. Executes nothing, applies nothing."
+          ],
+          "rows": [
+            [
+              "`perform(d)`",
+              "execute, **then** apply \u2014 and only on success."
+            ],
+            [
+              "`step(t)`",
+              "`decide` + `perform`, unchanged. What `run_until` and L1 use."
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The loop uses the halves; every synchronous caller uses `step`. L1 was run after each edit rather than at the end, and stayed green throughout.",
+          "type": "p"
+        },
+        {
+          "text": "**A consequence worth publishing rather than engineering away:** the loop's decisions can now diverge from a replay's, because a replay assumes execution is instantaneous and always succeeds. A live agent whose transaction takes three minutes to confirm genuinely does not hold the position yet. That is reality, not a defect, and L1 continues to compare the *policy*, which is what it always claimed.",
+          "type": "p"
+        },
+        {
+          "text": "**Partial failure is now a distinct outcome.** A recentre closes before it opens, so a failure between the legs leaves the wallet flat and solvent \u2014 but left the engine believing it held a range that no longer existed, and it would never re-mint because it thought it was already in. `PositionClosedNotReopened` carries the dead token id; `_execute` catches it, puts the engine flat to match the chain, and re-raises so the loop still journals the failure.",
+          "type": "p"
+        },
+        {
+          "text": "**And the agent now asks the chain what it holds.** `ChainExecutor.observe()` enumerates the wallet's NFPM tokens \u2014 Pancake's manager is `ERC721Enumerable`, `supportsInterface(0x780e9d63)` verified on mainnet rather than inferred from Uniswap's ABI \u2014 and returns the live position in *this* pool, matched on `(token0, token1, fee)` because the same pair runs at four tiers. Without it a restart believes it holds nothing, mints a second position, and orphans the first: capital in the pool with no fee accounting, no rebalancing and no kill switch pointed at it. That single failure is what made an unattended 24-hour run unsafe.",
+          "type": "p"
+        },
+        {
+          "text": "**It refuses when the answer is ambiguous.** A wallet holding *two* live positions in one pool cannot say which is the agent's, and adopting one would leave the other unmanaged \u2014 so `observe()` raises and names them both. Found by test ordering: the fork suite's earlier tests left positions behind and the third one adopted the wrong one.",
+          "type": "p"
+        },
+        {
+          "text": "**Also, while the fork suite ran:** a pruned upstream node (`missing trie node`) now reports as a **skip** rather than a failure, naming `BSC_ARCHIVE_RPC_URL`. A suite that is intermittently red for a reason nobody can fix teaches people to ignore it being red for a real one.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-9",
+      "kind": "correction",
+      "line": 435,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
     {
       "blocks": [
@@ -857,7 +1027,7 @@
       "cited_by": [],
       "id": "V-1",
       "kind": "defect",
-      "line": 163,
+      "line": 202,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba was fitted per tick and consumed per log-price \u2014 **the worst one**"
     },
@@ -875,7 +1045,7 @@
       "cited_by": [],
       "id": "V-2",
       "kind": "defect",
-      "line": 185,
+      "line": 224,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`\u03ba_default` was an invented number \u2014 **provisional pending Step 8**"
     },
@@ -889,7 +1059,7 @@
       "cited_by": [],
       "id": "V-3",
       "kind": "defect",
-      "line": 195,
+      "line": 234,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`float(\"nan\")` made every `Decision` unequal to itself \u2014 **would have blocked T1**"
     },
@@ -903,7 +1073,7 @@
       "cited_by": [],
       "id": "V-4",
       "kind": "defect",
-      "line": 204,
+      "line": 243,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "R2 tested absolute fees where \u00a73.3 asks for fee *gain*"
     },
@@ -917,7 +1087,7 @@
       "cited_by": [],
       "id": "V-5",
       "kind": "defect",
-      "line": 212,
+      "line": 251,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The MEV haircut was charged on position value, not rebalanced notional"
     },
@@ -931,7 +1101,7 @@
       "cited_by": [],
       "id": "V-6",
       "kind": "defect",
-      "line": 219,
+      "line": 258,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Rounding: `w_t` floored, and `c_t` rounded twice"
     },
@@ -945,7 +1115,7 @@
       "cited_by": [],
       "id": "V-7",
       "kind": "defect",
-      "line": 227,
+      "line": 266,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`q` was undefined in practice \u2014 the spec contradicts itself"
     },
@@ -959,7 +1129,7 @@
       "cited_by": [],
       "id": "V-8",
       "kind": "defect",
-      "line": 234,
+      "line": 273,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The \u03c3 estimator compressed silence into volatility"
     },
@@ -981,7 +1151,7 @@
       "cited_by": [],
       "id": "V-9",
       "kind": "defect",
-      "line": 241,
+      "line": 280,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two tests asserted nothing"
     },
@@ -996,10 +1166,12 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "vetting.json"
+      ],
       "id": "V-10",
       "kind": "defect",
-      "line": 256,
+      "line": 295,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "No validation on `Observation`, and an unmintable clamp"
     },
@@ -1037,7 +1209,7 @@
       "cited_by": [],
       "id": "V-11",
       "kind": "defect",
-      "line": 269,
+      "line": 308,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u00a73.4's imbalance arm was wired to nothing \u2014 **found by building a third agent**"
     },
@@ -1059,7 +1231,7 @@
       "cited_by": [],
       "id": "V-12",
       "kind": "defect",
-      "line": 301,
+      "line": 340,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The policy and the engine applied *different* toxicity rules"
     },
@@ -1093,7 +1265,7 @@
       "cited_by": [],
       "id": "V-13",
       "kind": "defect",
-      "line": 312,
+      "line": 351,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The synthetic tape was not a possible history"
     }

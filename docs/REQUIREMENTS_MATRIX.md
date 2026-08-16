@@ -432,6 +432,39 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-10 · The tail could not tell you it was failing, and the endpoints are shared
+
+Left `misquote.indexer.follow` running unattended to accumulate a real tape. Thirty-five minutes
+later it had written **a zero-byte log and advanced not one block**.
+
+Two defects, and the second is the one that hid the first.
+
+**The endpoints are a shared, exhaustible resource across *tools*, not just across copies of this
+process.** anvil forks from the same public nodes and proxies *every* state read to them, so running
+the chain-fork suite — thirteen tests, a minute of mints and burns — exhausts the `eth_getLogs` quota
+and leaves the tail refused with `-32005` for as long as it takes to refill. Measured directly
+afterwards: `safe_head()` answered fine, and a 2,000-block `eth_getLogs` on the very next range came
+back refused.
+
+**And `follow` printed only on success.** Its progress line was inside
+`if result["events"] or result["primed"]`, so a tail refused on every single poll produced *no
+output at all* — indistinguishable from a tail working perfectly on a pool nobody was trading. The
+same shape as the `LiveChainSource.status()` counters, which exist for exactly this reason; the tail's
+own progress output had never been given the same treatment.
+
+**Fixed.** A refusal now prints, with a running count of consecutive refusals, and the poll interval
+**backs off** (×2, capped at 15 minutes) rather than hammering a node whose quota refills with time
+rather than with persistence. Recovery prints too, so a tail that comes back says so. The summary
+names the anvil interaction explicitly, because "wait for the quota to refill" is not guessable from
+`-32005`.
+
+Two tests: one asserts the word REFUSED reaches the output, one asserts a 0.3-second window admits
+fewer than twelve attempts rather than thirty.
+
+**The general form, and it has now cost this project twice:** a process whose failure mode is silence
+is worse than one that stops. The first instance was the engine reporting toxicity rates of zero
+before it had a verdict; this is the second.
+
 ### P-9 · The live loop had two execution paths — **fixed 16 Aug 2026**
 
 Building the chain executor made a latent design problem concrete, and the fix needed the executor to

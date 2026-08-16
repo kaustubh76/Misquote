@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-14T23:43:53+00:00",
+  "generated_at": "2026-08-16T08:48:57+00:00",
   "mainnet": false,
   "fast": true,
   "skipped": [
@@ -11,7 +11,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 75 deselected, 1 warning in 2.49s",
+      "detail": "7 passed, 105 deselected, 1 warning in 2.24s",
       "remedy": "",
       "blocking": false
     },
@@ -46,8 +46,8 @@
     {
       "name": "30-day tape",
       "status": "UNVERIFIED",
-      "detail": "the tape is empty",
-      "remedy": "run the backfill",
+      "detail": "719 swaps spanning 0.1 days",
+      "remedy": "assumption A5 wants 30 days; extend the backfill",
       "blocking": true
     },
     {
@@ -60,8 +60,8 @@
     {
       "name": "24h testnet burn-in",
       "status": "UNVERIFIED",
-      "detail": "no journal from a burn-in run",
-      "remedy": "run the agent on testnet for 24h; the journal is the evidence",
+      "detail": "journal covers 0.2h across 181 rows",
+      "remedy": "the gate is 24h unattended",
       "blocking": true
     },
     {
