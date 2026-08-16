@@ -27,8 +27,9 @@ important line in the tearsheet generator.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from misquote.core.types import Params, Policy, PoolMeta
 from misquote.replay.driver import CostModel, ReplayDriver, ReplayResult
@@ -241,6 +242,43 @@ def quote_from_results(
     )
 
 
+# Populated by `quote()` immediately before a pool is forked, and read by the
+# worker in the child. It is never pickled, and that is the point: `policy` is a
+# closure (`sentinel_policy` returns one, and so does `grid_policy`) and so is
+# every `tape_factory` in this repository. Neither survives a pickle, so a
+# spawn-based pool cannot carry them and passing them per-task is not an option.
+# Fork hands the child the parent's memory instead, copy-on-write, and the only
+# thing crossing the pipe is a pair of small integers.
+_FORKED: dict[str, Any] = {}
+
+
+def _replay_one(index: tuple[int, int]) -> ReplayResult:
+    """One (window, perturbation) replay, reading the inherited `_FORKED`."""
+    window_index, variant_index = index
+    start, end = _FORKED["spans"][window_index]
+    tape = _FORKED["tape_factory"](start, end)
+    try:
+        driver = ReplayDriver(
+            _FORKED["meta"],
+            params=_FORKED["variants"][variant_index],
+            costs=_FORKED["costs"],
+            capital_quote=_FORKED["capital_quote"],
+            policy=_FORKED["policy"],
+        )
+        result = driver.run(tape)
+    finally:
+        tape.close()
+
+    # Everything the quote reads is a scalar: samples, hours, in_range_fraction,
+    # rebalances, net_quote. `decisions` and `timestamps` hold ~24,000 entries
+    # per window and are read by nothing downstream — `quote()` passes `results`
+    # to `quote_from_results` and nowhere else. Shipping them back would cost
+    # more than the replay that produced them.
+    result.decisions = []
+    result.timestamps = []
+    return result
+
+
 def quote(
     meta: PoolMeta,
     tape_factory,
@@ -251,6 +289,8 @@ def quote(
     windows: int | None = None,
     perturbation_fraction: float = 0.25,
     policy: Policy | None = None,
+    map_fn: Callable[[Callable[..., Any], Iterable[Any]], Iterator[Any]] | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> Quote:
     """Replay across sub-windows and parameter perturbations, then quote.
 
@@ -258,6 +298,24 @@ def quote(
     tape is stateful in its frontier and cannot be rewound — deliberately, since
     rewinding is how a replay quietly restarts its clock — so reusing one across
     windows would raise rather than silently produce a wrong answer.
+
+    `map_fn` decides *where* the window x perturbation replays run; this function
+    decides *what* runs. It defaults to the builtin `map`, so every existing
+    caller and test is unaffected, and `misquote.ops.parallel.fork_map(n)` spreads
+    them across processes. The capability lives there rather than here because
+    `replay` is a pure layer and `tests/test_layering.py` bans it from importing
+    `multiprocessing` — a rule that caught the first version of this code.
+
+    The replays are independent by construction: each builds its own driver over
+    its own tape and shares no state. So parallelising changes no arithmetic
+    anywhere, which is the whole reason it is the right lever. Sigma's value
+    feeds the policy and T1/L1 compare decisions bitwise, so making the estimator
+    incremental would change summation order and therefore change bits; running
+    the same arithmetic on eight cores cannot.
+
+    Measured on the 30-day WBNB/USDT tape: 1,839 events/s, 60 replays of ~125,700
+    events each, 4.6 hours for the four agents the showcase runs. 86% of that is
+    the sigma estimator recomputing its whole ~841-bar window on every event.
     """
     base = params or Params()
     window_count = windows or base.replay_windows
@@ -274,20 +332,45 @@ def quote(
             capital_quote=capital_quote,
         )
 
-    results: list[ReplayResult] = []
-    for start, end in rolling_windows(first_ts, last_ts, window_count):
-        for variant in variants:
-            tape = tape_factory(start, end)
-            try:
-                driver = ReplayDriver(
-                    meta,
-                    params=variant,
-                    costs=costs,
-                    capital_quote=capital_quote,
-                    policy=policy,
-                )
-                results.append(driver.run(tape))
-            finally:
-                tape.close()
+    spans = rolling_windows(first_ts, last_ts, window_count)
+    plan = [(w, v) for w in range(len(spans)) for v in range(len(variants))]
 
-    return quote_from_results(results, windows=window_count, perturbation_count=len(variants))
+    _FORKED.update(
+        meta=meta,
+        spans=spans,
+        variants=variants,
+        tape_factory=tape_factory,
+        costs=costs,
+        capital_quote=capital_quote,
+        policy=policy,
+    )
+    try:
+        # `_FORKED` is populated *before* the first result is pulled, because a
+        # forking `map_fn` creates its pool lazily on the first `next()` and the
+        # children inherit whatever is here at that moment.
+        #
+        # Both maps yield in submission order, so `results` is assembled exactly
+        # as a plain loop would assemble it — which is what keeps `returns` and
+        # `net_positive` identical rather than merely equivalent.
+        runner = map_fn or map
+        results = []
+        for done, result in enumerate(runner(_replay_one, plan), start=1):
+            results.append(result)
+            if on_progress:
+                on_progress(done, len(plan))
+    finally:
+        _FORKED.clear()
+
+    return quote_from_results(
+        results,
+        windows=window_count,
+        perturbation_count=len(variants),
+        # Forwarded, which it was not. `quote_from_results` divides net token1 by
+        # this to turn an amount into a return, and its default is 1000.0 — so a
+        # caller passing `capital_quote=5000` replayed with 5,000 of capital and
+        # had the result divided by 1,000, reporting a return five times too
+        # high. The early-return path above passed it; this one did not, and the
+        # two disagreed in silence. Both CLIs default to 1000.0, which is why it
+        # never showed.
+        capital_quote=capital_quote,
+    )

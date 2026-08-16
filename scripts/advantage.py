@@ -47,8 +47,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
+import time
 from pathlib import Path
 
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
@@ -56,6 +58,7 @@ from misquote.chain.addresses import TARGET_POOL
 from misquote.core.policy import passive_policy
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Event, PoolMeta
+from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
 from misquote.replay.tape import MemoryTape
@@ -136,7 +139,15 @@ def synthetic_events(
     return events
 
 
-def _run(events: list[Event], policy, *, capital: float, meta: PoolMeta = META):
+def _run(
+    events: list[Event],
+    policy,
+    *,
+    capital: float,
+    meta: PoolMeta = META,
+    jobs: int | None = None,
+    label: str = "",
+):
     """One replay and one quote, through the engine, for a given policy.
 
     `policy=None` means Warden. Both columns of every comparison go through this
@@ -151,14 +162,40 @@ def _run(events: list[Event], policy, *, capital: float, meta: PoolMeta = META):
             return MemoryTape(events)
         return MemoryTape([e for e in events if start <= e.ts <= end])
 
-    quote = compute_quote(meta, factory, capital_quote=capital, windows=20, policy=policy)
+    # Six of these per report, each 60 replays over half the tape. On the 30-day
+    # chain tape that is 6.9 hours serial, measured — so it says where it is.
+    started = time.monotonic()
+
+    def progress(done: int, total: int) -> None:
+        if label and (done == total or done % 10 == 0):
+            rate = (time.monotonic() - started) / done
+            print(
+                f"  {label}: {done}/{total} replays  ~{rate * (total - done) / 60:.0f} min left",
+                flush=True,
+            )
+
+    quote = compute_quote(
+        meta,
+        factory,
+        capital_quote=capital,
+        windows=20,
+        policy=policy,
+        map_fn=fork_map(jobs) if jobs else None,
+        on_progress=progress,
+    )
     return result, quote
 
 
-def task_earn(events: list[Event], *, capital: float, venue: str) -> Comparison:
+def task_earn(
+    events: list[Event], *, capital: float, venue: str, jobs: int | None = None
+) -> Comparison:
     """Can an agent earn more than a position you mint once and forget?"""
-    base_result, base_quote = _run(events, passive_policy, capital=capital)
-    agent_result, agent_quote = _run(events, None, capital=capital)  # None = Warden
+    base_result, base_quote = _run(
+        events, passive_policy, capital=capital, jobs=jobs, label="earn/baseline"
+    )
+    agent_result, agent_quote = _run(
+        events, None, capital=capital, jobs=jobs, label="earn/warden"
+    )  # None = Warden
     return compare(
         task="Earn — fees on a liquidity position",
         category="trading",
@@ -173,14 +210,28 @@ def task_earn(events: list[Event], *, capital: float, venue: str) -> Comparison:
     )
 
 
-def task_protect(events: list[Event], *, capital: float, venue: str) -> Comparison:
+def task_protect(
+    events: list[Event], *, capital: float, venue: str, jobs: int | None = None
+) -> Comparison:
     """Does leaving when flow turns one-way pay for itself?
 
     An ablation: the same agent, the same band, the same reanchoring, with only
     the withdrawal decision switched off in the baseline.
     """
-    base_result, base_quote = _run(events, sentinel_policy(NEVER_WITHDRAW), capital=capital)
-    agent_result, agent_quote = _run(events, sentinel_policy(SentinelParams()), capital=capital)
+    base_result, base_quote = _run(
+        events,
+        sentinel_policy(NEVER_WITHDRAW),
+        capital=capital,
+        jobs=jobs,
+        label="protect/baseline",
+    )
+    agent_result, agent_quote = _run(
+        events,
+        sentinel_policy(SentinelParams()),
+        capital=capital,
+        jobs=jobs,
+        label="protect/sentinel",
+    )
     return compare(
         task="Protect — avoid being picked off by one-way flow",
         category="security",
@@ -196,7 +247,11 @@ def task_protect(events: list[Event], *, capital: float, venue: str) -> Comparis
 
 
 def task_choose(
-    deep_toxic: list[Event], shallow_healthy: list[Event], *, capital: float
+    deep_toxic: list[Event],
+    shallow_healthy: list[Event],
+    *,
+    capital: float,
+    jobs: int | None = None,
 ) -> Comparison:
     """Does screening a pool before entering it beat picking the deepest one?
 
@@ -204,8 +259,12 @@ def task_choose(
     pointed at: depth chose one, the flow screen chose the other. That isolates
     the due-diligence decision from the strategy entirely.
     """
-    base_result, base_quote = _run(deep_toxic, None, capital=capital)
-    agent_result, agent_quote = _run(shallow_healthy, None, capital=capital)
+    base_result, base_quote = _run(
+        deep_toxic, None, capital=capital, jobs=jobs, label="choose/deepest"
+    )
+    agent_result, agent_quote = _run(
+        shallow_healthy, None, capital=capital, jobs=jobs, label="choose/screened"
+    )
     return compare(
         task="Choose — which pool to provide liquidity to",
         category="security",
@@ -388,16 +447,18 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float) ->
     }
 
 
-def build(events: list[Event], *, capital: float, venue: str) -> list[Comparison]:
+def build(
+    events: list[Event], *, capital: float, venue: str, jobs: int | None = None
+) -> list[Comparison]:
     """The three tasks. Kept separate from I/O so a test can call it directly."""
     deep_toxic = synthetic_events(
         len(events), seed=11, drift=0.55, liquidity=4 * 1_275_390_104_039_763_402_054_142
     )
     shallow_healthy = synthetic_events(len(events), seed=11, drift=0.0)
     return [
-        task_earn(events, capital=capital, venue=venue),
-        task_protect(events, capital=capital, venue=venue),
-        task_choose(deep_toxic, shallow_healthy, capital=capital),
+        task_earn(events, capital=capital, venue=venue, jobs=jobs),
+        task_protect(events, capital=capital, venue=venue, jobs=jobs),
+        task_choose(deep_toxic, shallow_healthy, capital=capital, jobs=jobs),
     ]
 
 
@@ -406,6 +467,12 @@ def main() -> int:
     parser.add_argument("--db", default=str(REPO / "data" / "misquote.db"))
     parser.add_argument("--synthetic", type=int, default=0, help="use N synthetic swaps instead")
     parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=(os.cpu_count() or 1),
+        help="processes for the window replays; 1 for serial. Results are identical either way.",
+    )
     parser.add_argument("--out", default=str(REPO / "docs" / "AGENT_ADVANTAGE.md"))
     parser.add_argument(
         "--artifact", default=str(REPO / "apps" / "web" / "public" / "artifacts" / "advantage.json")
@@ -440,7 +507,10 @@ def main() -> int:
         span = (events[-1].ts - events[0].ts) / 86400
         print(f"tape: {len(events):,} real swaps spanning {span:.1f} days")
 
-    comparisons = build(events, capital=args.capital, venue=venue)
+    jobs = args.jobs if args.jobs and args.jobs > 0 else None
+    if jobs:
+        print(f"replays: {jobs} processes (identical results — tests/replay/test_ranges.py)")
+    comparisons = build(events, capital=args.capital, venue=venue, jobs=jobs)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

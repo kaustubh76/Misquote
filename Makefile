@@ -60,11 +60,16 @@ fork-diff:  ## everything that needs a live chain or a fork
 replay-tests:  ## T1-T4 + L1 explicitly, against the committed 30d tape
 	$(UV) run pytest tests/replay -m '' -v
 
-indexer:  ## backfill the target pool. NEEDS A KEYED RPC. usage: make indexer POOL=0x...
-	# 2,880 requests as fast as they will be served. Free endpoints refuse that
-	# rate — measured: ~4 requests in 11s exhausts all three. Use indexer-follow
-	# if you have no key.
-	$(UV) run python -m misquote.indexer.backfill --pool $(POOL)
+indexer:  ## backfill the target pool. usage: make indexer POOL=0x...
+	# 1,152 requests at 5,000 blocks for thirty days, and free endpoints serve
+	# them: measured 16 Aug 2026, 1,151 chunks, zero refused, 62 minutes, no key.
+	# The "NEEDS A KEYED RPC" this line used to carry was our own defect — two of
+	# three configured endpoints served no logs at all, and the health check
+	# tested chain id. See requirements-matrix P-11.
+	#
+	# Resumes from the ranges nobody has read, not from a cursor, so re-running
+	# after a failure fills the holes rather than appending past them.
+	$(UV) run python -u -m misquote.indexer.backfill --pool $(POOL)
 
 indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
 	# The same read as the backfill, one chunk per poll. BSC produces a
@@ -76,7 +81,7 @@ indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
 	# Only three of 22 public endpoints serve eth_getLogs at all; the rest answer
 	# for chain 56 and refuse every log query. `connect_all` probes for the
 	# capability and prints the ones it skips.
-	$(UV) run python -m misquote.indexer.follow --seconds $(FOLLOW_S)
+	$(UV) run python -u -m misquote.indexer.follow --seconds $(FOLLOW_S)
 
 warden:  ## run the Warden against a live chain. It records rather than signs, by choice.
 	$(UV) run python -m misquote.agents.warden --chain $(CHAIN) --seconds $(WARDEN_S)
@@ -98,19 +103,19 @@ go-no-go-fast:  ## same, without the test suites
 	$(UV) run python scripts/go_no_go.py --fast
 
 showcase:  ## replay the agents on the indexed tape and write the web artifacts
-	$(UV) run python scripts/showcase.py
+	$(UV) run python -u scripts/showcase.py
 
 showcase-demo:  ## same, on a clearly-labelled synthetic tape (no chain data needed)
-	$(UV) run python scripts/showcase.py --synthetic 9000
+	$(UV) run python -u scripts/showcase.py --synthetic 9000
 
 advantage:  ## hired agent vs doing it yourself, on the indexed tape
-	$(UV) run python scripts/advantage.py
+	$(UV) run python -u scripts/advantage.py
 
 advantage-demo:  ## same, on a synthetic tape long enough to clear the 24h window floor
-	$(UV) run python scripts/advantage.py --synthetic $(ADV_N)
+	$(UV) run python -u scripts/advantage.py --synthetic $(ADV_N)
 
 advantage-short:  ## the same report on too little history — every task withheld
-	$(UV) run python scripts/advantage.py --synthetic $(ADV_SHORT_N) \
+	$(UV) run python -u scripts/advantage.py --synthetic $(ADV_SHORT_N) \
 		--out docs/AGENT_ADVANTAGE_SHORT.md \
 		--artifact apps/web/public/artifacts/advantage_short.json
 

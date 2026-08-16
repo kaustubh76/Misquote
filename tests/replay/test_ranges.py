@@ -9,6 +9,8 @@ themselves are honest.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from misquote.replay.driver import ReplayResult
@@ -170,3 +172,154 @@ def test_no_results_at_all_refuses_rather_than_dividing_by_zero() -> None:
     q = quote_from_results([], windows=20, perturbation_count=3)
     assert not q.sufficient
     assert q.p50 == 0.0
+
+
+# --- running the windows in parallel must change nothing ---------------------
+#
+# `quote` can spread its 20 windows x 3 perturbations across processes, because
+# the replays are independent: each builds its own driver over its own tape and
+# shares no state. On the 30-day chain tape a serial run is 4.6 hours per agent,
+# measured, and 86% of that is the sigma estimator recomputing its whole ~841-bar
+# window on every event.
+#
+# Parallelism was chosen over making sigma incremental for one reason: sigma's
+# value feeds the policy, and T1/L1 compare decisions **bitwise**. An incremental
+# EWMA changes summation order and therefore changes bits. Running the same
+# arithmetic on eight cores cannot. This test is what makes that claim checkable
+# rather than merely argued — and it demands exact equality, not approximate,
+# because approximate is what the argument says is impossible.
+
+
+# `quote` refuses a window shorter than the 24h policy horizon and refuses a
+# quote built on fewer than MIN_SAMPLES replays. Each window covers half the
+# history, so a usable tape has to span at least 48 hours and be cut into at
+# least ceil(MIN_SAMPLES / 3) windows.
+#
+# `make_events` runs at a ~25s mean gap, so 48 hours of it is ~7,000 events and
+# sixty replays of that is minutes per assertion. Stretching the gaps gets the
+# span without the volume: only `ts` moves, so the price path, the amounts and
+# every fee are bit-identical to the generator's. It is a quieter pool, not a
+# different one.
+_STRETCH = 12
+
+
+def _sparse_tape(count: int = 1000, seed: int = 5):
+    from _helpers import make_events
+
+    events = make_events(count, seed=seed)
+    first = events[0].ts
+    return [dataclasses.replace(e, ts=first + (e.ts - first) * _STRETCH) for e in events]
+
+
+def _quote_with(jobs: int | None, *, capital: float = 1000.0, events=None):
+    from _helpers import META
+
+    from misquote.ops.parallel import fork_map
+    from misquote.replay.ranges import quote
+    from misquote.replay.tape import MemoryTape
+
+    tape = events if events is not None else _sparse_tape()
+
+    def factory(start, end):
+        if start is None:
+            return MemoryTape(tape)
+        return MemoryTape([e for e in tape if start <= e.ts <= end])
+
+    return quote(
+        META,
+        factory,
+        windows=7,
+        capital_quote=capital,
+        map_fn=fork_map(jobs) if jobs else None,
+    )
+
+
+@pytest.fixture(scope="module")
+def both():
+    """Computed once: twenty-one replays each, twice, is not free."""
+    return _quote_with(None), _quote_with(4)
+
+
+def test_parallel_windows_give_bitwise_identical_quotes(both) -> None:
+    serial, parallel = both
+
+    assert parallel == serial, "the parallel quote is not the serial quote"
+    # Spelled out, because dataclass equality on floats is exact but a reader
+    # should not have to know that to trust the line above.
+    assert parallel.returns == serial.returns
+    assert (parallel.p25, parallel.p50, parallel.p75) == (serial.p25, serial.p50, serial.p75)
+    assert parallel.net_positive == serial.net_positive
+    assert parallel.samples == serial.samples
+
+
+def test_the_comparison_above_is_not_between_two_refusals(both) -> None:
+    """Two quotes that both declined to quote are equal, and prove nothing.
+
+    This guard has already earned itself once: the first version of the test
+    above ran on a 1,200-event tape spanning eight hours, every window fell under
+    the 24h horizon, and it compared two empty `Quote`s and passed.
+    """
+    serial, _ = both
+
+    assert serial.sufficient, serial.note
+    assert len(serial.returns) >= MIN_SAMPLES
+    assert any(r != 0.0 for r in serial.returns), "every window returned exactly zero"
+
+
+def test_progress_is_reported_once_per_replay() -> None:
+    """A 45-minute run that prints nothing until it exits is the tail's P-10
+    failure wearing different clothes."""
+    seen: list[tuple[int, int]] = []
+
+    from _helpers import META
+
+    from misquote.replay.ranges import quote
+    from misquote.replay.tape import MemoryTape
+
+    tape = _sparse_tape(400)
+    quote(
+        META,
+        lambda start, end: MemoryTape(
+            tape if start is None else [e for e in tape if start <= e.ts <= end]
+        ),
+        windows=4,
+        on_progress=lambda done, total: seen.append((done, total)),
+    )
+
+    assert seen, "no progress was reported at all"
+    assert seen[-1][0] == seen[-1][1], "the last report did not say it had finished"
+    assert [d for d, _ in seen] == list(range(1, len(seen) + 1)), "progress skipped or repeated"
+
+
+def test_capital_reaches_the_division_it_is_the_denominator_of(monkeypatch) -> None:
+    """`quote` replayed with the caller's capital and normalised by the default.
+
+    `quote_from_results` turns net token1 into a return by dividing by
+    `capital_quote`, whose default is 1000.0. `quote` accepted the parameter and
+    passed it to every `ReplayDriver` — and then omitted it from that call, so
+    `capital_quote=5000` replayed with 5,000 of capital and divided the result by
+    1,000, reporting a return five times too high. The early-return path passed
+    it and this one did not; both CLIs default to 1000.0, which is why nothing
+    ever showed.
+
+    Asserted on the forwarding rather than on the number, because the number is
+    not scale-invariant and cannot be used as the check. Gas is a *fixed* cost
+    per rebalance (`CostModel.gas_quote`), so a larger position genuinely earns a
+    better return by amortising it — measured here, p50 moves -1.337 -> -1.107
+    for a 5x position, and that is the cost model behaving correctly rather than
+    a denominator being wrong. A test asserting invariance would have been
+    asserting something false.
+    """
+    from misquote.replay import ranges
+
+    seen: list[float] = []
+    real = ranges.quote_from_results
+
+    def spy(results, **kwargs):
+        seen.append(kwargs["capital_quote"])
+        return real(results, **kwargs)
+
+    monkeypatch.setattr(ranges, "quote_from_results", spy)
+    _quote_with(None, capital=7500.0, events=_sparse_tape(300))
+
+    assert seen == [7500.0], f"capital_quote reached the division as {seen}"

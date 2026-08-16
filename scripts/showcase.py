@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
+import time
 from pathlib import Path
 
 from misquote.agents.grid.policy import GridParams, decide_grid
@@ -34,6 +36,7 @@ from misquote.chain.addresses import TARGET_POOL
 from misquote.core.policy import passive_policy
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import Event, PoolMeta
+from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
 from misquote.replay.tape import MemoryTape
@@ -143,7 +146,9 @@ def tape_coverage_gaps(db_path: Path, first: int, last: int) -> list[tuple[int, 
         conn.close()
 
 
-def run_agent(name: str, events: list[Event], *, policy=None, capital: float) -> dict:
+def run_agent(
+    name: str, events: list[Event], *, policy=None, capital: float, jobs: int | None = None
+) -> dict:
     """Replay one agent and price it. Returns the card's raw material.
 
     `policy` is passed to the driver, not installed over the engine module's
@@ -152,6 +157,8 @@ def run_agent(name: str, events: list[Event], *, policy=None, capital: float) ->
     not nest, and leaves the wrong policy installed if anything between the swap
     and the restore raises. `None` means Warden.
     """
+    started = time.monotonic()
+    print(f"{name}: full replay over {len(events):,} events …", flush=True)
     driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital, policy=policy)
     result = driver.run(MemoryTape(events))
     estimators = read_estimators(driver)
@@ -161,7 +168,29 @@ def run_agent(name: str, events: list[Event], *, policy=None, capital: float) ->
             return MemoryTape(events)
         return MemoryTape([e for e in events if start <= e.ts <= end])
 
-    quote = compute_quote(META, factory, capital_quote=capital, windows=20, policy=policy)
+    # A 30-day tape is 60 replays of ~125,000 events per agent — 4.6 hours
+    # serial, measured. The first attempt at this printed nothing for thirty
+    # minutes and then died to a timeout, which is P-10's failure in different
+    # clothes: a long job that cannot say it is alive.
+    def progress(done: int, total: int) -> None:
+        if done == total or done % 5 == 0:
+            rate = (time.monotonic() - started) / done
+            print(
+                f"  {name}: {done}/{total} replays  "
+                f"{rate:.1f}s each  ~{rate * (total - done) / 60:.0f} min left",
+                flush=True,
+            )
+
+    quote = compute_quote(
+        META,
+        factory,
+        capital_quote=capital,
+        windows=20,
+        policy=policy,
+        map_fn=fork_map(jobs) if jobs else None,
+        on_progress=progress,
+    )
+    print(f"{name}: done in {(time.monotonic() - started) / 60:.1f} min", flush=True)
     return {"name": name, "result": result, "quote": quote, "estimators": estimators}
 
 
@@ -303,6 +332,12 @@ def main() -> int:
     parser.add_argument("--db", default=str(REPO / "data" / "misquote.db"))
     parser.add_argument("--synthetic", type=int, default=0, help="use N synthetic swaps instead")
     parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=(os.cpu_count() or 1),
+        help="processes for the window replays; 1 for serial. Results are identical either way.",
+    )
     parser.add_argument("--out", default=str(REPO / "apps" / "web" / "public" / "artifacts"))
     args = parser.parse_args()
 
@@ -350,22 +385,30 @@ def main() -> int:
     # replay plus twenty windows times three perturbations — so folding it into
     # the loop would have tripled the most expensive thing this script does to
     # produce three identical answers.
+    jobs = args.jobs if args.jobs and args.jobs > 0 else None
+    if jobs:
+        print(f"replays: {jobs} processes (identical results — tests/replay/test_ranges.py)")
+
     print("baseline: passive_policy (mint once, never move) …")
-    baseline = run_agent("DIY (passive)", events, policy=passive_policy, capital=args.capital)
+    baseline = run_agent(
+        "DIY (passive)", events, policy=passive_policy, capital=args.capital, jobs=jobs
+    )
 
     runs = [
-        run_agent("Warden", events, capital=args.capital),
+        run_agent("Warden", events, capital=args.capital, jobs=jobs),
         run_agent(
             "Grid",
             events,
             policy=lambda obs, params, meta: decide_grid(obs, GridParams(), meta),
             capital=args.capital,
+            jobs=jobs,
         ),
         run_agent(
             "Sentinel",
             events,
             policy=sentinel_policy(SentinelParams()),
             capital=args.capital,
+            jobs=jobs,
         ),
     ]
 
