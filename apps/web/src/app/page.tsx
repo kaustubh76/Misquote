@@ -1,5 +1,6 @@
 "use client";
 
+import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -142,8 +143,7 @@ export default function OverviewPage() {
         )}
 
         {index?.ok && index.value.not_built.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-lg font-semibold">Advertised, and not built</h2>
+          <Section title="Advertised, and not built" className="mt-12" headingClassName="text-lg font-semibold">
             <p className="mt-2 mb-5 max-w-[64ch] text-sm text-dim">
               The README describes four agent categories and an activation path. These are
               the parts that do not exist. They are listed here rather than omitted,
@@ -155,7 +155,7 @@ export default function OverviewPage() {
                 <NotBuiltCard key={entry.name} entry={entry} />
               ))}
             </div>
-          </section>
+          </Section>
         )}
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -70,9 +71,7 @@ export function MethodsView() {
       )}
 
       {/* ------------------------------------------- the window arithmetic -- */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold">
-          {/* Two forms. The loaded one names both figures; the unloaded one
+      <Section title={<>{/* Two forms. The loaded one names both figures; the unloaded one
               states the relationship and no magnitude, because "~31h" and
               "62.2h" were literals standing in for numbers nobody had fetched —
               on the page that argues a floor a UI could get wrong is not a
@@ -85,8 +84,7 @@ export function MethodsView() {
             </>
           ) : (
             <>Why the quote window is shorter than the tape</>
-          )}
-        </h2>
+          )}</>} className="mt-10">
         <Card>
           <p className="mt-0 text-sm text-dim">
             A single replay over the whole tape is <em>one</em> observation. One number
@@ -145,11 +143,10 @@ export function MethodsView() {
             </p>
           )}
         </Card>
-      </section>
+      </Section>
 
       {/* ------------------------------------------------------- the floors -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">The four floors</h2>
+      <Section title="The four floors">
         <p className="mb-5 max-w-[64ch] text-sm text-dim">
           Each of these can stop this product from printing a number. They are published
           here with the values the code enforces — including the numbers in these four
@@ -204,11 +201,10 @@ export function MethodsView() {
             </p>
           </Card>
         </div>
-      </section>
+      </Section>
 
       {/* ------------------------------------------------ no look-ahead --- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">Why the replay cannot cheat</h2>
+      <Section title="Why the replay cannot cheat">
         <Card>
           <p className="mt-0 text-sm text-dim">
             A backtest that can see the future is the easiest way to produce an impressive
@@ -236,7 +232,7 @@ export function MethodsView() {
             Verified by tests T1–T4 and L1 — <code className="font-mono text-xs">make replay-tests</code>.
           </p>
         </Card>
-      </section>
+      </Section>
 
       <p className="mt-10 text-sm">
         <Link href="/assumptions">Every assumption these methods rest on →</Link>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -125,34 +126,30 @@ export function AssumptionsView() {
             </ul>
           </nav>
 
-          <section className="mt-10">
-            <h2 className="mb-5 text-lg font-semibold">
-              Assumptions ({assumptions.length})
-            </h2>
+          <Section title={<>Assumptions ({assumptions.length})</>} className="mt-10" headingClassName="mb-5 text-lg font-semibold">
             <div className="grid gap-5">
               {assumptions.map((entry) => (
                 <EntryCard key={entry.id} entry={entry} />
               ))}
             </div>
-          </section>
+          </Section>
 
           {Object.entries(d.sections).map(([key, blocks]) =>
             blocks.length === 0 ? null : (
-              <section key={key} className="mt-10">
-                <h2 className="mb-5 text-lg font-semibold capitalize">
-                  {key.replace(/_/g, " ")}
-                </h2>
+              <Section
+                key={key}
+                className="mt-10"
+                headingClassName="mb-5 text-lg font-semibold capitalize"
+                title={key.replace(/_/g, " ")}
+              >
                 <Card>
                   <Blocks blocks={blocks} />
                 </Card>
-              </section>
+              </Section>
             ),
           )}
 
-          <section className="mt-10">
-            <h2 className="mb-2 text-lg font-semibold">
-              Deviations, defects and corrections ({others.length})
-            </h2>
+          <Section title={<>Deviations, defects and corrections ({others.length})</>} className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
               Cards cite these alongside the assumptions — the 34% protocol fee is{" "}
               <code className="font-mono text-xs">P-1</code>, and it lives in the
@@ -164,7 +161,7 @@ export function AssumptionsView() {
                 <EntryCard key={entry.id} entry={entry} />
               ))}
             </div>
-          </section>
+          </Section>
 
           <p className="mt-10 text-sm text-faint">
             Generated from {d.sources.join(" and ")}.
@@ -188,7 +185,7 @@ function EntryCard({ entry }: { entry: Entry }) {
           <span className="rounded-sm border border-line bg-panel-2 px-2 py-0.5 font-mono text-xs text-warn">
             {entry.id}
           </span>
-          <h3 className="m-0 text-md font-semibold">{entry.title}</h3>
+          <Heading className="m-0 text-md font-semibold">{entry.title}</Heading>
         </div>
         <span className="font-mono text-xs text-faint">
           {KIND_LABEL[entry.kind] ?? entry.kind}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -83,7 +84,7 @@ export function AdvantageView() {
           <Card className="mb-8">
             <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
-                <h2 className="mt-0 mb-2 text-lg font-semibold">Across all three tasks</h2>
+                <Heading className="mt-0 mb-2 text-lg font-semibold">Across all three tasks</Heading>
                 <p className="m-0 font-mono text-sm text-warn">{d.overall.label}</p>
                 <p className="mt-3 mb-0 max-w-[56ch] text-sm text-dim">
                   {/* The refusal is the headline, and it is deliberate. */}
@@ -113,16 +114,23 @@ export function AdvantageView() {
             </div>
           </Card>
 
-          {/* ----------------------------------------------------- the tasks -- */}
-          <div className="grid gap-6">
-            {d.tasks.map((task) => (
-              <TaskCard key={task.task} task={task} capital={d.capital_quote} />
-            ))}
-          </div>
+          {/* The three task cards had no heading above them at all — three h2s
+              in a bare div, introduced by nothing. A reader navigating by
+              heading met them with no idea what they were a list of. */}
+          <Section
+            title="The three tasks"
+            className="mt-8"
+            intro="Each done both ways, through the same engine. The baseline differs per task, because three tasks with one baseline is one task relabelled."
+          >
+            <div className="grid gap-6">
+              {d.tasks.map((task) => (
+                <TaskCard key={task.task} task={task} capital={d.capital_quote} />
+              ))}
+            </div>
+          </Section>
 
           {/* ------------------------------------------- the refusal, live -- */}
-          <section className="mt-12">
-            <h2 className="text-lg font-semibold">The same report, on too little history</h2>
+          <Section title="The same report, on too little history" className="mt-12" headingClassName="text-lg font-semibold">
             <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
               A floor nobody has seen bite is indistinguishable from a floor that is not
               wired up. Below is the identical report — same three tasks, same machinery,
@@ -160,7 +168,7 @@ export function AdvantageView() {
                 cite="A5"
               />
             )}
-          </section>
+          </Section>
 
           <p className="mt-10 text-sm">
             <Link href="/methods">How each of these quotes was constructed →</Link>
@@ -198,7 +206,7 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
           <div className="mb-1 font-mono text-xs tracking-wide text-faint uppercase">
             {task.category} · {task.venue}
           </div>
-          <h2 className="m-0 text-md font-semibold">{task.task}</h2>
+          <Heading className="m-0 text-md font-semibold">{task.task}</Heading>
         </div>
         {task.quotable ? (
           <Pill tone={task.separated ? "pass" : "none"}>

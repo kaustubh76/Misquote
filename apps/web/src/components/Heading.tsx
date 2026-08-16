@@ -94,7 +94,11 @@ export function Section({
   const level = useHeadingLevel();
 
   return (
-    <section className={className}>
+    // `data-heading-scope` marks *this* element rather than every <section> in
+    // the DOM, because `Card` defaults to rendering a <section> too. The outline
+    // test keys off it to assert that everything inside a Section sits strictly
+    // below the Section's own title.
+    <section data-heading-scope="" className={className}>
       <Heading className={headingClassName}>{title}</Heading>
       {intro && <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">{intro}</p>}
       <HeadingLevel value={level + 1}>{children}</HeadingLevel>

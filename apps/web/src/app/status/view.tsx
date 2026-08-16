@@ -1,5 +1,6 @@
 "use client";
 
+import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
@@ -117,14 +118,13 @@ export function StatusView() {
             </div>
           )}
 
-          <section className="mt-8">
-            <h2 className="mb-4 text-lg font-semibold">Gates</h2>
+          <Section title="Gates">
             <div className="grid gap-3">
               {d.checks.map((check) => (
                 <Card key={check.name} className="!p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="m-0 text-sm font-semibold">{check.name}</h3>
+                      <Heading className="m-0 text-sm font-semibold">{check.name}</Heading>
                       <p className="mt-1 mb-0 font-mono text-xs break-words text-dim">
                         {check.detail}
                       </p>
@@ -137,18 +137,17 @@ export function StatusView() {
                 </Card>
               ))}
             </div>
-          </section>
+          </Section>
 
           {index?.ok && index.value.not_built.length > 0 && (
-            <section className="mt-12">
-              <h2 className="text-lg font-semibold">What is not built</h2>
+            <Section title="What is not built" className="mt-12" headingClassName="text-lg font-semibold">
               <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
                 Separate from the gates above, which measure whether what exists is ready.
                 These are the capabilities the README advertises and the repository does
                 not contain. Each names the path you can check the claim against.
               </p>
               <LedgerTable entries={index.value.not_built} />
-            </section>
+            </Section>
           )}
 
           <p className="mt-10 font-mono text-xs text-faint">

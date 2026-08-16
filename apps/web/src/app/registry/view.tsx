@@ -1,5 +1,6 @@
 "use client";
 
+import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
@@ -96,8 +97,7 @@ export function RegistryView() {
       {d && (
         <>
           {/* ------------------------------------------------- the hire flow -- */}
-          <section className="mt-10">
-            <h2 className="mb-2 text-lg font-semibold">Hiring an agent, end to end</h2>
+          <Section title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
               The interesting number is not the total. It is how many of these the person
               doing the hiring has to sign.
@@ -177,11 +177,10 @@ export function RegistryView() {
                 </p>
               </div>
             </Card>
-          </section>
+          </Section>
 
           {/* ----------------------------------------------------- the escrow -- */}
-          <section className="mt-8">
-            <h2 className="mb-4 text-lg font-semibold">The escrow contract</h2>
+          <Section title="The escrow contract">
             {d.hire_flow.escrow.available ? (
               <Card>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -203,11 +202,10 @@ export function RegistryView() {
                 floor="registry/erc8183.py::escrow_address raises rather than returning a plausible address"
               />
             )}
-          </section>
+          </Section>
 
           {/* --------------------------------------------------- the registry -- */}
-          <section className="mt-8">
-            <h2 className="mb-4 text-lg font-semibold">ERC-8004 identity registry</h2>
+          <Section title="ERC-8004 identity registry">
             {d.identity.surveyed ? (
               <Card>
                 <DataTable
@@ -257,12 +255,11 @@ export function RegistryView() {
                 ]}
               />
             </Card>
-          </section>
+          </Section>
 
           {/* ------------------------------------------------------- the AACP -- */}
           {d.aacp.available && (
-            <section className="mt-8">
-              <h2 className="mb-4 text-lg font-semibold">TermiX AACP</h2>
+            <Section title="TermiX AACP">
               <Card>
                 {d.aacp.shares_our_identity_registry && (
                   <div className="mb-4 rounded-md border border-good-line bg-good-bg/40 p-4">
@@ -287,7 +284,7 @@ export function RegistryView() {
                   <p className="mt-4 mb-0 text-xs text-faint">{d.aacp.note}</p>
                 )}
               </Card>
-            </section>
+            </Section>
           )}
         </>
       )}

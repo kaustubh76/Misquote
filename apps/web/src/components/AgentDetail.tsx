@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Section } from "@/components/Heading";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
@@ -96,8 +97,7 @@ export function AgentDetail({ slug }: { slug: string }) {
       </div>
 
       {/* ---------------------------------------------------------- quote -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">What it would have earned</h2>
+      <Section title="What it would have earned">
         <Card>
           <Band
             sufficient={d.quote_sufficient && !!q}
@@ -159,11 +159,10 @@ export function AgentDetail({ slug }: { slug: string }) {
             </div>
           )}
         </Card>
-      </section>
+      </Section>
 
       {/* ------------------------------------------------------- verdicts -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">Verdicts</h2>
+      <Section title="Verdicts">
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader
@@ -188,12 +187,11 @@ export function AgentDetail({ slug }: { slug: string }) {
             </p>
           </Card>
         </div>
-      </section>
+      </Section>
 
       {/* ------------------------------------------------------ vs the DIY -- */}
       {adv && (
-        <section className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold">Against doing it yourself</h2>
+        <Section title="Against doing it yourself">
           <Card>
             <p className="mt-0 mb-4 text-sm text-dim">
               The baseline is not a different program. It runs through the same replay
@@ -247,12 +245,11 @@ export function AgentDetail({ slug }: { slug: string }) {
               <span className="text-dim">— {adv.verdict}</span>
             </p>
           </Card>
-        </section>
+        </Section>
       )}
 
       {/* ------------------------------------------------------- activity -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">What it actually did</h2>
+      <Section title="What it actually did">
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader title="Replay" />
@@ -293,11 +290,10 @@ export function AgentDetail({ slug }: { slug: string }) {
             )}
           </Card>
         </div>
-      </section>
+      </Section>
 
       {/* ----------------------------------------------------- estimators -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">The parameters behind the range</h2>
+      <Section title="The parameters behind the range">
         <Card>
           {e.kappa_is_fallback ? (
             <Refusal
@@ -346,11 +342,10 @@ export function AgentDetail({ slug }: { slug: string }) {
             />
           </div>
         </Card>
-      </section>
+      </Section>
 
       {/* ----------------------------------------------------- provenance -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">Provenance</h2>
+      <Section title="Provenance">
         <Card>
           <DataTable
             caption="Where these numbers came from"
@@ -380,13 +375,10 @@ export function AgentDetail({ slug }: { slug: string }) {
             </p>
           )}
         </Card>
-      </section>
+      </Section>
 
       {/* -------------------------------------------------------- caveats -- */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold">
-          Things this number does not know ({d.caveats.length})
-        </h2>
+      <Section title={<>Things this number does not know ({d.caveats.length})</>}>
         <Card>
           <ul className="m-0 list-none space-y-4 p-0">
             {d.caveats.map((c, i) => (
@@ -396,7 +388,7 @@ export function AgentDetail({ slug }: { slug: string }) {
             ))}
           </ul>
         </Card>
-      </section>
+      </Section>
     </div>
   );
 }
