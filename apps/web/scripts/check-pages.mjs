@@ -37,6 +37,7 @@ const ROUTES = [
   ["methods", "/methods/"],
   ["assumptions", "/assumptions/"],
   ["registry", "/registry/"],
+  ["vetting", "/vetting/"],
   ["status", "/status/"],
 ];
 

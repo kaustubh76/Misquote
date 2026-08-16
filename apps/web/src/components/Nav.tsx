@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/methods", label: "Methods" },
   { href: "/assumptions", label: "Assumptions" },
   { href: "/registry", label: "Registry" },
+  { href: "/vetting", label: "Vetting" },
   { href: "/status", label: "Status" },
 ] as const;
 

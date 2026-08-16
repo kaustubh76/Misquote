@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges
+.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -122,10 +122,13 @@ status:  ## run every readiness gate and publish the result
 	# exit code must keep meaning something.
 	-$(UV) run python scripts/go_no_go.py --fast --json
 
+vetting:  ## republish the badges make vet left on disk as the site's artifact
+	$(UV) run python scripts/vetting_report.py --chain $(CHAIN)
+
 registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
 	$(UV) run python scripts/registry_report.py
 
-artifacts: showcase-demo advantage-demo advantage-short assumptions registry status  ## every artifact the site reads
+artifacts: showcase-demo advantage-demo advantage-short assumptions registry vetting status  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev

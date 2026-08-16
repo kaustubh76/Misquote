@@ -9,6 +9,7 @@ import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
+import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
 vi.mock("next/navigation", () => ({
@@ -297,5 +298,80 @@ describe("Overview never shows a bare region", () => {
       expect(container.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
     );
     expect(screen.getByRole("heading", { name: "Warden" })).toBeInTheDocument();
+  });
+});
+
+describe("Vetting", () => {
+  it("renders a section per pool with its checks", async () => {
+    const d = readArtifact<{ pools: { label: string; checks?: { name: string }[] }[] }>(
+      "vetting.json",
+    );
+    render(<VettingPage />);
+
+    for (const pool of d.pools) {
+      expect(await screen.findByRole("heading", { name: pool.label })).toBeInTheDocument();
+    }
+    // Scoped to one pool: every pool runs the same nine checks, so the names
+    // are deliberately not unique across the page.
+    const first = screen
+      .getByRole("heading", { name: d.pools[0]!.label })
+      .closest("[data-heading-scope]") as HTMLElement;
+    for (const check of d.pools[0]?.checks ?? []) {
+      expect(within(first).getByRole("heading", { name: check.name })).toBeInTheDocument();
+    }
+  });
+
+  it("treats an unknown check as a refusal, not a failure", async () => {
+    // badge.py turns a read it could not make into UNKNOWN rather than a
+    // default, and counts it as blocking. So it is the machine declining to
+    // say — a Refusal. ErrorNotice sets role="alert"; Refusal does not, and
+    // that single difference is the whole claim.
+    const d = readArtifact<Record<string, unknown>>("vetting.json");
+    const pools = (d.pools as Record<string, unknown>[]).map((p, i) =>
+      i === 0
+        ? {
+            ...p,
+            checks: [
+              {
+                name: "protocol fee read",
+                status: "UNKNOWN",
+                detail: "the node did not answer",
+                provenance: "P-1",
+              },
+            ],
+          }
+        : p,
+    );
+    serveArtifacts({ overrides: { "vetting.json": { ...d, pools } } });
+    render(<VettingPage />);
+
+    expect(await screen.findByText("the node did not answer")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says so plainly when nothing has been badged", async () => {
+    serveArtifacts({
+      overrides: {
+        "vetting.json": {
+          surveyed: false,
+          reason: "no pool has been badged — run `make vet`",
+          chain_id: 56,
+          badge_dir: "vetting/badges",
+          pools: [],
+          summary: { pools: 0, badged: 0 },
+        },
+      },
+    });
+    render(<VettingPage />);
+
+    expect(await screen.findByText(/No pool has been badged/)).toBeInTheDocument();
+    // A refusal, not an error: nothing broke, nothing was read.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names the artifact when the fetch fails", async () => {
+    serveArtifacts({ missing: ["vetting.json"] });
+    render(<VettingPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/vetting\.json/);
   });
 });
