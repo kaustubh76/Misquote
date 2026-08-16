@@ -185,7 +185,11 @@ function EntryCard({ entry, agentSlugs }: { entry: Entry; agentSlugs: Set<string
       id={entry.id}
       tabIndex={-1}
       // Anchored deep links land under a sticky header without this.
-      className="scroll-mt-20 rounded-lg border border-line bg-panel p-6 target:border-accent"
+      // `min-w-0`: a grid item defaults to `min-width: auto`, so it refuses to
+      // shrink below its own min-content width. One long token inside — a code
+      // span, a table cell — then pushes the whole card wider than its column
+      // and the document scrolls sideways at 390px.
+      className="min-w-0 scroll-mt-20 rounded-lg border border-line bg-panel p-6 target:border-accent"
     >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
