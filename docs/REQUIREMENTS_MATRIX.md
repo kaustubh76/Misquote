@@ -511,6 +511,22 @@ queue in front of a node, not work, and it sits uncomfortably close to a 60s pol
 
 **Verified live:** 4 polls, 0 refused, 214 real swaps, both dead endpoints skipped by name.
 
+**And then the thing it was blocking, done.** A 30-day backfill of the target pool, on free
+endpoints, with `BSC_RPC_URL` unset:
+
+| | |
+|---|---|
+| chunks | **1,151**, zero refused, zero rotations |
+| wall clock | **3,737s** (62 minutes) |
+| written | **251,194 swaps**, 5,553 mints, 6,544 burns |
+| coverage | **one unbroken run**, 110,495,529 → 116,254,249 — 29.99 days |
+
+The two measures agree — `30.0d between the two ends` and `30.0d read` — which is what a tape with
+no holes in it looks like, and the first time this project has been able to say that rather than
+assume it. The readiness gate now reports **PASS: 251,194 swaps, 30.0 unbroken days read from
+chain**, and the go/no-go's top blocker, recorded since Step 8 as "needs a keyed `BSC_RPC_URL`",
+was never about the key.
+
 **The general form, and it is the third instance:** *a measurement that cannot attribute its own
 result will be over-read.* `BscReader` rotates silently and reports only a rotation count, so D-9's
 "all three endpoints exhausted / 6 of 6 succeeded" was really a statement about whichever endpoint
