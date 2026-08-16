@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 660 tests, no network, ~35s
+make test                     # 663 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:3000
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -30,7 +30,8 @@ Each of these is a test you can run, not a claim.
 
 | Claim | How it is checked | Where |
 |---|---|---|
-| The tick math matches PancakeSwap's exactly | 19,546 comparisons against the real Solidity, exact integer equality, zero mismatches | `make vectors-check` |
+| The tick math matches PancakeSwap's exactly | 19,546 answers recorded from the real Solidity at pinned commits, and replayed against ours on every commit — exact integer equality, no tolerance anywhere | `make vectors-verify`, published at `/vectors` |
+| …and still matches freshly deployed Solidity | The same comparison, regenerated against a contract deployed to a local chain rather than read from disk | `make vectors-check` (needs foundry + anvil) |
 | The replay cannot see the future | **T1**, bitwise: run twice, second run replaces every event after a cut with seeded noise, decision sequences compared with every float packed to its exact bits — plus a negative control proving tampering *does* change later decisions | `tests/replay/test_engine.py` |
 | The live agent and the replay are the same policy | **L1**: the live driver, its own file and own loop, runs over a tape-backed chain source; decisions compared byte for byte | `tests/replay/test_l1_equivalence.py` |
 | Our position math matches the real contracts | Mint through the real NonfungiblePositionManager on a BSC fork, compare amounts and principal to **one wei** | `make fork-diff` |
@@ -45,7 +46,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**692 tests: 660 offline, 32 against a live chain or a fork.**
+**695 tests: 663 offline, 32 against a live chain or a fork.**
 
 ---
 

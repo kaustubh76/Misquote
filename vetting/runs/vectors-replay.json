@@ -1,0 +1,35 @@
+{
+  "cases_covered": 19546,
+  "command": "pytest tests/core/test_vectors.py",
+  "digests": {
+    "constants": "5646dd135f4e2d02",
+    "fee_growth_inside": "2b1c9edf0713c19f",
+    "get_amount0_delta": "f7433be1c611f3c9",
+    "get_amount1_delta": "ddb34abed2a13a11",
+    "get_amounts_for_liquidity": "113e6859b5ddc6ee",
+    "get_liquidity_for_amounts": "242ee1c1c6d7e70b",
+    "get_sqrt_ratio_at_tick": "1f27806475cd53ae",
+    "get_tick_at_sqrt_ratio": "abe1465ff86bd4b1",
+    "tokens_owed": "ec076204fd3bee25"
+  },
+  "exit_code": 0,
+  "generated_at": "2026-08-16T19:09:10+00:00",
+  "git_dirty": true,
+  "git_sha": "3006032",
+  "groups_replayed": [
+    "constants",
+    "fee_growth_inside",
+    "get_amount0_delta",
+    "get_amount1_delta",
+    "get_amounts_for_liquidity",
+    "get_liquidity_for_amounts",
+    "get_sqrt_ratio_at_tick",
+    "get_tick_at_sqrt_ratio",
+    "tokens_owed"
+  ],
+  "outcome": "PASS",
+  "source": "the committed vectors, replayed",
+  "summary_line": "10 passed, 1 warning in 1.07s",
+  "tests_failed": 0,
+  "tests_passed": 10
+}

@@ -8,6 +8,7 @@ import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
+import VectorsPage from "./vectors/page";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
@@ -32,6 +33,7 @@ const VIEWS = [
   // Absent since /vetting was built, so the page added most recently was the
   // one page whose heading outline nothing checked.
   ["Vetting", <VettingPage key="v" />],
+  ["Vectors", <VectorsPage key="vec" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
 ] as const;
 

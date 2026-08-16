@@ -42,7 +42,7 @@ import pytest
 
 from misquote.chain.addresses import TARGET_POOL
 from misquote.registry import erc8004, erc8183
-from misquote.tearsheet import ledger
+from misquote.tearsheet import ledger, vectors
 
 REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
@@ -91,6 +91,12 @@ PROJECTIONS: tuple[tuple[str, str, Callable[[], Any]], ...] = (
     ("registry.json", "hire_flow.terminal_states", lambda: list(erc8183.TERMINAL)),
     ("registry.json", "identity.identity_registry", lambda: erc8004.IDENTITY_REGISTRY),
     ("registry.json", "identity.reputation_note", lambda: erc8004.REPUTATION_IS_NOT_DISPLAYED),
+    # The whole corpus block: case counts, seeds, digests and the upstream
+    # commits. A pure function of files on disk, which is what makes it
+    # assertable — and what makes it worth asserting, since `make vectors` can
+    # regenerate those files and leave the published counts describing a corpus
+    # that no longer exists.
+    ("vectors.json", "corpus", vectors.corpus),
 )
 
 
@@ -193,4 +199,31 @@ def test_status_is_deliberately_not_projected() -> None:
     assert not any(artifact == "status.json" for artifact, _, _ in PROJECTIONS), (
         "status.json records a go/no-go run. Re-deriving it means re-running "
         "every gate, and a faked run is worth less than no test."
+    )
+
+
+def test_the_vector_verification_is_deliberately_not_projected() -> None:
+    """The corpus is asserted above. Whether it still replays is not.
+
+    `vectors.json` carries both halves on purpose, and only one of them belongs
+    here. The corpus is files on disk. The verification is the outcome of
+    `pytest tests/core/test_vectors.py`, and there is no way to re-derive it
+    that is not simply running the suite again — inside a test, from a test
+    about that suite.
+
+    Worth stating as a test rather than only in prose, because the two blocks
+    sit side by side in one artifact and the obvious next edit is to widen the
+    entry above from `corpus` to the whole document. That would either make
+    this file spawn a pytest subprocess or, far worse, quietly assert that a
+    recorded PASS equals a recorded PASS — which proves the file can be read.
+
+    The staleness question that *does* matter is handled where it can be:
+    `vectors_report.py` re-digests the corpus at publish time and compares it
+    against what the receipt says it replayed, so a receipt that has been
+    invalidated reports as stale instead of as a pass.
+    """
+    projected = [field for artifact, field, _ in PROJECTIONS if artifact == "vectors.json"]
+    assert projected == ["corpus"], (
+        f"vectors.json should project its corpus and nothing else, got {projected}. "
+        "The verification block is the outcome of a test run."
     )

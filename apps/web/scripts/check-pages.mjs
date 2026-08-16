@@ -38,6 +38,7 @@ const ROUTES = [
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
   ["methods", "/methods/"],
+  ["vectors", "/vectors/"],
   ["assumptions", "/assumptions/"],
   ["registry", "/registry/"],
   ["vetting", "/vetting/"],

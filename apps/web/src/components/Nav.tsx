@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/", label: "Overview" },
   { href: "/advantage", label: "Advantage" },
   { href: "/methods", label: "Methods" },
+  { href: "/vectors", label: "Vectors" },
   { href: "/assumptions", label: "Assumptions" },
   { href: "/registry", label: "Registry" },
   { href: "/vetting", label: "Vetting" },

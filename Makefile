@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -135,10 +135,21 @@ status:  ## run every readiness gate and publish the result
 vetting:  ## republish the badges make vet left on disk as the site's artifact
 	$(UV) run python scripts/vetting_report.py --chain $(CHAIN)
 
+vectors-verify:  ## replay the committed vectors and record what pytest said
+	# The only thing allowed to claim the vectors were replayed, because it is
+	# the only thing that watches the replay. Exits non-zero when it fails, so a
+	# broken proof is not a quiet file change.
+	$(UV) run python scripts/vectors_verify.py
+
+vectors-report:  ## publish the vector corpus, and whatever replay was recorded
+	# Reads files. Runs no test, deploys no contract, reaches no network — which
+	# is what lets it sit inside `make artifacts`.
+	$(UV) run python scripts/vectors_report.py
+
 registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
 	$(UV) run python scripts/registry_report.py
 
-artifacts: showcase-demo advantage-demo advantage-short assumptions registry vetting status  ## every artifact the site reads
+artifacts: showcase-demo advantage-demo advantage-short assumptions registry vetting vectors-report status  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev

@@ -19,6 +19,7 @@ const ROUTES = [
   ["Overview", "/"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],
+  ["Vectors", "/vectors"],
   ["Assumptions", "/assumptions"],
   ["Registry", "/registry"],
   ["Vetting", "/vetting"],
