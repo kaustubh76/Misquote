@@ -96,12 +96,20 @@ def write_events(
     events: Sequence[Event],
     *,
     advance_cursor_to: int | None = None,
+    covered: tuple[int, int] | None = None,
     now_ts: int = 0,
 ) -> int:
     """Insert a batch and optionally advance the cursor, atomically.
 
     Returns the number of rows actually inserted, which is zero on a re-run —
     the property the whole design turns on, and one the caller can assert.
+
+    `covered` is the block range the caller actually *read* to produce these
+    events, which is not recoverable from the events themselves: a window with no
+    swaps in it and a window nobody fetched are the same empty list. Pass it, and
+    a hole in the tape becomes a fact the database can state. Omit it, and the
+    rows still land — coverage simply stays unrecorded, which reports as unknown
+    rather than as complete.
     """
     pool = pool.lower()
     swaps = [_swap_row(pool, e) for e in events if e.kind == "swap"]
@@ -155,6 +163,9 @@ def write_events(
                 (pool, advance_cursor_to, now_ts),
             )
 
+        if covered is not None:
+            _record_covered(conn, pool, covered[0], covered[1])
+
         inserted = _total_rows(conn, pool) - before
         conn.execute("COMMIT")
         return inserted
@@ -171,8 +182,90 @@ def _total_rows(conn: sqlite3.Connection, pool: str) -> int:
 
 
 def cursor_for(conn: sqlite3.Connection, pool: str) -> int | None:
+    """Where reading stopped. **Not** a claim that everything below it is here."""
     row = conn.execute("SELECT last_block FROM cursor WHERE pool = ?", (pool.lower(),)).fetchone()
     return int(row["last_block"]) if row else None
+
+
+# --- what was actually read -------------------------------------------------
+
+
+def _record_covered(conn: sqlite3.Connection, pool: str, lo: int, hi: int) -> None:
+    """Merge [lo, hi] into the pool's coverage. Caller holds the transaction.
+
+    Adjacent counts as overlapping — [1000, 1999] and [2000, 2999] are one run,
+    not two — or every chunk boundary would read as a one-block hole and the
+    gaps report would be noise nobody could act on.
+    """
+    touching = (pool, lo - 1, hi + 1)
+    for row in conn.execute(
+        "SELECT from_block, to_block FROM covered "
+        "WHERE pool = ? AND to_block >= ? AND from_block <= ?",
+        touching,
+    ).fetchall():
+        lo = min(lo, int(row["from_block"]))
+        hi = max(hi, int(row["to_block"]))
+    conn.execute(
+        "DELETE FROM covered WHERE pool = ? AND to_block >= ? AND from_block <= ?", touching
+    )
+    conn.execute(
+        "INSERT INTO covered (pool, from_block, to_block) VALUES (?, ?, ?)", (pool, lo, hi)
+    )
+
+
+def coverage(conn: sqlite3.Connection, pool: str) -> list[tuple[int, int]]:
+    """The block ranges this database has actually read, merged and ordered.
+
+    Empty means "we do not know", not "nothing" — a database written before
+    coverage was recorded holds real events and no record of what was fetched to
+    find them. Callers must not read the empty list as an absence of history.
+    """
+    return [
+        (int(row["from_block"]), int(row["to_block"]))
+        for row in conn.execute(
+            "SELECT from_block, to_block FROM covered WHERE pool = ? ORDER BY from_block",
+            (pool.lower(),),
+        )
+    ]
+
+
+def gaps(
+    conn: sqlite3.Connection, pool: str, from_block: int, to_block: int
+) -> list[tuple[int, int]]:
+    """The sub-ranges of [from_block, to_block] that were never read.
+
+    An unread range is not the same as a quiet one, and this is the only place
+    that difference is expressible. On a database with no coverage recorded the
+    answer is the whole interval — unknown, reported as unknown.
+    """
+    holes: list[tuple[int, int]] = []
+    at = from_block
+    for lo, hi in coverage(conn, pool):
+        if hi < from_block:
+            continue
+        if lo > to_block:
+            break
+        if lo > at:
+            holes.append((at, min(lo - 1, to_block)))
+        at = max(at, hi + 1)
+        if at > to_block:
+            break
+    if at <= to_block:
+        holes.append((at, to_block))
+    return holes
+
+
+def covered_span(conn: sqlite3.Connection, pool: str) -> tuple[int, int] | None:
+    """The longest **contiguous** run of blocks actually read, or None.
+
+    This is the honest answer to "how much history do we hold", and it is the one
+    `max(ts) - min(ts)` was standing in for. A tape with one day at each end of a
+    twenty-six day span has a longest run of one day, and should say so.
+    """
+    runs = coverage(conn, pool)
+    if not runs:
+        return None
+    return max(runs, key=lambda run: run[1] - run[0])
 
 
 def rewind(conn: sqlite3.Connection, pool: str, to_block: int) -> int:
@@ -192,6 +285,14 @@ def rewind(conn: sqlite3.Connection, pool: str, to_block: int) -> int:
             ).rowcount
         conn.execute(
             "UPDATE cursor SET last_block = min(last_block, ?) WHERE pool = ?", (to_block, pool)
+        )
+        # Coverage has to retreat with the rows. Leaving it would claim we hold
+        # blocks whose events this call just deleted — a hole that the one
+        # mechanism built to find holes would report as covered.
+        conn.execute("DELETE FROM covered WHERE pool = ? AND from_block > ?", (pool, to_block))
+        conn.execute(
+            "UPDATE covered SET to_block = ? WHERE pool = ? AND to_block > ?",
+            (to_block, pool, to_block),
         )
         conn.execute("COMMIT")
         return removed
@@ -246,4 +347,9 @@ def tape_summary(conn: sqlite3.Connection, pool: str) -> dict[str, object]:
         "first_block": row["first_block"],
         "last_block": row["last_block"],
         "cursor": cursor_for(conn, pool),
+        # `first_ts`/`last_ts` describe the two ends and nothing between them, so
+        # anything reading a *span* off them is reading the wrong number the
+        # moment the tape has a hole. These two say which blocks were read.
+        "covered": coverage(conn, pool),
+        "longest_covered": covered_span(conn, pool),
     }

@@ -113,6 +113,12 @@ class Tail:
         if start is None:
             # Nothing recorded yet: begin at the head rather than at genesis.
             # A tail is not a backfill and must not silently become one.
+            #
+            # **Deliberately no `covered=`.** This moves the cursor without
+            # reading a single block, so everything beneath it is unread — this
+            # call is the very act that creates the hole the `covered` table
+            # exists to describe. Recording coverage here would have the tail
+            # certify a tape it has never looked at.
             store.write_events(self.conn, self.pool, [], advance_cursor_to=head, now_ts=_now())
             return {"from": head, "to": head, "events": 0, "inserted": 0, "primed": 1}
 
@@ -132,7 +138,7 @@ class Tail:
             return {"from": start, "to": end, "events": 0, "inserted": 0, "primed": 0}
 
         inserted = store.write_events(
-            self.conn, self.pool, events, advance_cursor_to=end, now_ts=_now()
+            self.conn, self.pool, events, advance_cursor_to=end, covered=(start, end), now_ts=_now()
         )
         self.polls += 1
         self.seen += len(events)

@@ -115,11 +115,42 @@ CREATE TABLE IF NOT EXISTS pool_state (
     PRIMARY KEY (pool, block)
 );
 
--- How far the tape is complete. Advanced only to (head - confirmations), inside
--- the same transaction as the inserts it covers, so a crash can never leave a
--- gap between what was written and what the cursor claims was written.
+-- Where reading stopped. Advanced only to (head - confirmations), inside the
+-- same transaction as the inserts it covers, so a crash can never leave a gap
+-- between what was written and what the cursor claims was written.
+--
+-- **This is a resume point, not a claim of completeness**, and it used to say it
+-- was one. It is a single high-water mark maintained with max(), so it cannot
+-- describe a tape with a hole in it — and the tail *starts* by putting it at the
+-- head with nothing underneath, which is exactly such a tape. See `covered`.
 CREATE TABLE IF NOT EXISTS cursor (
     pool       TEXT PRIMARY KEY,
     last_block INTEGER NOT NULL,
     updated_ts INTEGER NOT NULL
 );
+
+-- Which block ranges were actually *read*, as distinct from which ones produced
+-- events.
+--
+-- The distinction is the whole point: a quiet 5,000-block window and a window
+-- nobody ever fetched both contain zero swaps, and no query over `swap` can tell
+-- them apart. So "how much real history do we hold" was being answered by
+-- `max(ts) - min(ts)`, which measures the distance between the two ends of the
+-- tape and says nothing whatever about the middle. A tape holding one day at
+-- each end of a twenty-six-day span reported "spanning 26 days" and passed the
+-- readiness gate. Every interrupted backfill produces that shape.
+--
+-- Ranges are merged on insert, so coverage is a minimal ordered set and a gap is
+-- a real gap rather than a chunk boundary. Written in the same transaction as
+-- the rows, for the same reason the cursor is.
+--
+-- Note that a database predating this table reports **no** coverage rather than
+-- full coverage. That is deliberate and it is the badge's rule: unknown does not
+-- become pass. We cannot honestly reconstruct which ranges an older run read.
+CREATE TABLE IF NOT EXISTS covered (
+    pool       TEXT NOT NULL,
+    from_block INTEGER NOT NULL,
+    to_block   INTEGER NOT NULL,
+    PRIMARY KEY (pool, from_block)
+);
+CREATE INDEX IF NOT EXISTS covered_pool_range ON covered (pool, to_block);

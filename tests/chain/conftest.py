@@ -114,11 +114,21 @@ def manager(tmp_path_factory):
     pm.ensure_allowance(WBNB_MAINNET, 2**200)
     pm.ensure_allowance(USDT_MAINNET, 2**200)
 
-    yield pm
-
-    os.environ["MISQUOTE_DRY_RUN"] = "1"
-    proc.terminate()
-    proc.wait(timeout=30)
+    try:
+        yield pm
+    finally:
+        # Found a two-day-old anvil from an earlier run still holding its port.
+        # The teardown used to sit bare after the `yield`, so anything that threw
+        # on the way out — including `wait` timing out — left the process behind,
+        # and a forked anvil looks completely idle while it does. Nothing in the
+        # suite would ever mention it.
+        os.environ["MISQUOTE_DRY_RUN"] = "1"
+        proc.terminate()
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)
 
 
 def range_around(manager: PositionManager, half_width_ticks: int) -> tuple[int, int]:

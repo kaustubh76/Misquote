@@ -87,8 +87,18 @@ def backfill(
 
         # The cursor advances with the rows, in one transaction. A crash between
         # them would otherwise leave a gap nothing downstream could detect.
+        #
+        # `covered` records the range we actually read, which the events cannot
+        # tell you: a chunk with no swaps in it and a chunk nobody fetched both
+        # arrive here as an empty list. An interrupted backfill is precisely how
+        # a tape acquires a hole, and this is what makes the hole nameable.
         inserted += store.write_events(
-            conn, pool, events, advance_cursor_to=end, now_ts=int(time.time())
+            conn,
+            pool,
+            events,
+            advance_cursor_to=end,
+            covered=(start, end),
+            now_ts=int(time.time()),
         )
         total_events += len(events)
         chunks += 1
