@@ -60,7 +60,7 @@ def test_every_advertised_module_actually_imports() -> None:
 
 
 def test_runnable_modules_have_an_entry_point() -> None:
-    """Importing is not enough: `python -m pkg` needs `pkg/__main__.py`.
+    """Importing is not enough: `python -m <pkg>` needs a `__main__` module in it.
 
     `misquote.agents.warden` imported cleanly and still could not be executed,
     which is how `make warden` stayed broken while looking fine.
