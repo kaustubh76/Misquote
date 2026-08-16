@@ -25,7 +25,18 @@ from misquote.indexer.reader import BscReader, RangeTooLarge, connect_all
 # from 864,000 blocks to 5.76 million. A stale constant here silently backfills
 # the wrong span.
 BSC_BLOCK_SECONDS_FALLBACK = 0.45
-DEFAULT_CHUNK = 2000
+
+# The ceiling both log-serving endpoints declare, measured 16 Aug 2026: 5,000 is
+# served, 10,000 is refused with "exceed maximum block range: 5000". 2,000 was
+# never the measured limit — it was the number the previous endpoint set
+# tolerated, and those endpoints turned out to serve no logs at all.
+#
+# The width is the scarce resource, not the wall clock. Requests are what the
+# endpoints ration, so 5,000 crosses the same history for 40% of the requests.
+# `RangeTooLarge` still halves this on refusal, and "exceed maximum block range"
+# lands in that classifier rather than the transient one, so an endpoint with a
+# tighter cap corrects itself instead of retrying into it.
+DEFAULT_CHUNK = 5000
 MIN_CHUNK = 50
 
 
@@ -114,7 +125,7 @@ def main() -> int:
     ref = pool_for(args.chain)
     pool = (args.pool or ref.address).lower()
 
-    endpoints = connect_all(args.chain)
+    endpoints = connect_all(args.chain, on_reject=lambda url, why: print(f"  skip  {url} — {why}"))
     reader = BscReader(endpoints, pace_seconds=args.pace)
     head = reader.head_block()
     safe = reader.safe_head()

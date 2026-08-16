@@ -187,9 +187,12 @@ def build_source(chain_id: int, poll_seconds: float) -> tuple[LiveChainSource, P
         tick_spacing=pool.tick_spacing,
         fee_protocol=pool.fee_protocol,
     )
-    endpoints = connect_all(chain_id)
-    if not endpoints:
-        raise SystemExit(f"no reachable RPC for chain {chain_id}")
+    try:
+        endpoints = connect_all(
+            chain_id, on_reject=lambda url, why: print(f"  skip  {url} — {why}")
+        )
+    except RuntimeError as error:
+        raise SystemExit(str(error)) from error
     reader = BscReader(endpoints, pace_seconds=0.2)
     return LiveChainSource(meta, reader, poll_seconds=poll_seconds), meta
 

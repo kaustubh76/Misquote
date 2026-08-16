@@ -238,9 +238,12 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     pool = pool_for(args.chain)
-    endpoints = connect_all(args.chain)
-    if not endpoints:
-        print(f"no reachable RPC for chain {args.chain}")
+    try:
+        endpoints = connect_all(
+            args.chain, on_reject=lambda url, why: print(f"  skip  {url} — {why}")
+        )
+    except RuntimeError as error:
+        print(f"  {error}")
         return 1
     reader = BscReader(endpoints, pace_seconds=0.2)
 
@@ -262,7 +265,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"        {pool.address}")
     print(f"  db    {args.db}")
     print(f"  rate  one poll every {args.poll:.0f}s, at most {args.chunk:,} blocks each")
-    print("        measured: 1 req/60s sustains; ~4 req/11s is refused by every endpoint")
+    print(f"  rpc   {len(endpoints)} endpoint(s) that serve eth_getLogs")
+    print("        measured: 8 public BSC endpoints answer for chain 56 and serve no logs")
     print(f"  stop  touch {DEFAULT_KILL_FILE}\n")
 
     try:

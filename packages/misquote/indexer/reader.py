@@ -57,9 +57,41 @@ _RANGE_TOO_LARGE = ("range too large", "block range", "more than", "query return
 
 DEFAULT_ATTEMPTS = 6
 
+# Measured 16 Aug 2026, one request at a time, against the target pool.
+#
+# **Answering for chain 56 does not mean serving logs.** Every bnbchain
+# dataseed, both defibit hosts and ninicoin answer `eth_chainId` and
+# `eth_blockNumber` in milliseconds and refuse *every* `eth_getLogs` with
+# -32005 "limit exceeded" — including a one-block query filtered to an address
+# that holds no logs. Not a width cap, not pruning: they do not serve logs.
+#
+# Of 22 public endpoints surveyed, three did: the two below and publicnode.
+# Asked for the identical 2,000-block range they returned identical answers —
+# 73 logs, same transaction hashes, same data, same order — so rotating between
+# them cannot blend two histories into one tape.
+#
+# Two more serve logs under a declared width, and are listed here for the day
+# the ones below stop: 1rpc.io/bnb caps at 50 blocks, bsc.blockrazor.xyz at 25.
+# Both are under the 134 blocks/request that keeping level with the head costs
+# at one request a minute, so neither can sustain a tail on its own.
+#
+# Both log-serving endpoints declare the same 5,000-block ceiling — see
+# `backfill.DEFAULT_CHUNK`.
 PUBLIC_RPCS: dict[int, tuple[str, ...]] = {
     56: (
+        # Serves logs, and does the work: latency tracked the response size
+        # (6.5s for 2,000 blocks, 15.8s for 5,000), which is what a node doing
+        # the query looks like.
+        "https://bsc.rpc.blxrbdn.com",
+        # Serves logs, but answered in ~41s regardless of width — including the
+        # refusal, where there was nothing to compute. That is a queue in front
+        # of the node, not work, and 41s is uncomfortably close to the 60s poll.
+        # Second, so the tail meets it only when the first is down.
+        "https://rpc-bsc.48.club",
+        # Serves logs, but 403s under burst — it answered, refused, and answered
+        # again inside four minutes.
         "https://bsc-rpc.publicnode.com",
+        # State reads only, kept because eth_call is all most callers want.
         "https://bsc-dataseed.bnbchain.org",
         "https://bsc-dataseed1.defibit.io",
     ),
@@ -171,12 +203,69 @@ def connect(chain_id: int, rpc_url: str | None = None, *, timeout: float = 20.0)
     raise RuntimeError(f"no usable RPC for chain {chain_id}\n  " + "\n  ".join(failures))
 
 
-def connect_all(chain_id: int, *, timeout: float = 20.0) -> list[Web3]:
-    """Every endpoint that answers for this chain, in preference order.
+# Far enough behind the tip that an unsettled block is never the reason a probe
+# fails, close enough that no endpoint can call it history.
+_PROBE_DEPTH = 20
+
+# An address that holds no logs, so a healthy node answers `[]` immediately.
+_PROBE_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+
+def serves_logs(w3: Web3) -> bool:
+    """Will this endpoint answer an `eth_getLogs` at all?
+
+    One block, filtered to an address with no logs. A node that serves logs
+    returns `[]` in a few milliseconds; a node that does not refuses, and the
+    refusal is the answer we came for.
+
+    The cheapness is only sound because the refusal was measured **not** to
+    depend on the response. The hosts that refuse, refuse this exact query too —
+    empty, one block, no matches. Had they been refusing on result size instead,
+    an empty probe is the one query they would gladly serve, every one of them
+    would have passed, and this would be a check that cannot fail. That is the
+    same shape as V-11, and it is worth the two extra requests it took to rule
+    out.
+    """
+    try:
+        block = int(w3.eth.block_number) - _PROBE_DEPTH
+        w3.eth.get_logs(
+            {
+                "fromBlock": block,
+                "toBlock": block,
+                "address": Web3.to_checksum_address(_PROBE_ADDRESS),
+            }  # type: ignore[arg-type]
+        )
+    except Exception:  # noqa: BLE001 — any refusal is a refusal
+        return False
+    return True
+
+
+def connect_all(
+    chain_id: int,
+    *,
+    timeout: float = 20.0,
+    needs_logs: bool = True,
+    on_reject: Callable[[str, str], None] | None = None,
+) -> list[Web3]:
+    """Every endpoint that answers for this chain **and can do the job**, in
+    preference order.
 
     A long backfill will exhaust any one public endpoint's rate limit — they
     return 403 rather than 429, and no amount of backoff persuades them. Having
     somewhere else to go is the only thing that actually works.
+
+    `needs_logs` defaults to true because all three callers here index events,
+    and because selecting on chain id alone is what produced P-10. Eight public
+    BSC endpoints answer `eth_chainId` and serve no logs whatsoever; picking one
+    of those gave a tail that refused every request forever while looking like a
+    quiet pool. The health check has to test the capability the caller will
+    actually use, not the cheapest one available.
+
+    `on_reject(url, reason)` reports each endpoint dropped and why. Callers with
+    a console pass a printer: an endpoint silently missing from the rotation is
+    how a run ends up slower than it should be with nothing to point at — and if
+    the endpoint dropped is the operator's own configured `BSC_RPC_URL`, they
+    are entitled to hear about it rather than wonder why their key seems unused.
     """
     from web3.middleware import ExtraDataToPOAMiddleware
 
@@ -191,12 +280,24 @@ def connect_all(chain_id: int, *, timeout: float = 20.0) -> list[Web3]:
         try:
             w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": timeout}))
             w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-            if w3.eth.chain_id == chain_id:
-                out.append(w3)
-        except Exception:  # noqa: BLE001 — an unreachable endpoint is just one fewer
+            actual = w3.eth.chain_id
+        except Exception as error:  # noqa: BLE001 — an unreachable endpoint is just one fewer
+            if on_reject:
+                on_reject(url, type(error).__name__)
             continue
+        if actual != chain_id:
+            if on_reject:
+                on_reject(url, f"serves chain {actual}, not {chain_id}")
+            continue
+        if needs_logs and not serves_logs(w3):
+            if on_reject:
+                on_reject(url, "answers for the chain but serves no eth_getLogs")
+            continue
+        out.append(w3)
+
     if not out:
-        raise RuntimeError(f"no usable RPC for chain {chain_id}")
+        what = "that serves eth_getLogs" if needs_logs else "usable"
+        raise RuntimeError(f"no RPC for chain {chain_id} {what}")
     return out
 
 
