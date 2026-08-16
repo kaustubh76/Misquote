@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Band, overlaps, type BandSeries } from "./Band";
+import { textFrom } from "@/test/harness";
 
 const agent: BandSeries = { label: "Warden", p25: 36.88, p50: 37.74, p75: 38.72, tone: "agent" };
 const diy: BandSeries = { label: "DIY", p25: 5.63, p50: 9.99, p75: 26.05, tone: "baseline" };
@@ -11,7 +12,7 @@ describe("a withheld quote is a result, not an empty chart", () => {
     render(<Band series={[]} sufficient={false} note={note} />);
 
     expect(screen.getByText(/Quote withheld/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(note))).toBeInTheDocument();
+    expect(screen.getByText(textFrom(note))).toBeInTheDocument();
     // A withheld quote must not be drawn as a band at 0-0-0, which would read
     // as "we measured zero" rather than "we declined to say".
     expect(screen.getByRole("img")).toHaveAccessibleName(/withheld/i);

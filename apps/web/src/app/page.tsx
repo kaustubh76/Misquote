@@ -129,7 +129,12 @@ export default function OverviewPage() {
               // page this replaces used Promise.all, so a single 404 erased
               // every card and blamed it on the pipeline never having run.
               return slot.result.ok ? (
-                <AgentCard key={slot.slug} ref_={ref_} data={slot.result.value} />
+                <AgentCard
+                  key={slot.slug}
+                  ref_={ref_}
+                  data={slot.result.value}
+                  baseline={index.value.baseline}
+                />
               ) : (
                 <ErrorNotice
                   key={slot.slug}

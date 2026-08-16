@@ -201,7 +201,7 @@ export function AgentDetail({ slug }: { slug: string }) {
             </p>
             <DataTable
               caption="Agent against baseline"
-              columns={["Metric", "Agent", "Doing it yourself"]}
+              columns={["Metric", d.agent, adv.without_agent]}
               hideCaption={false}
               rows={[
                 {
@@ -223,6 +223,16 @@ export function AgentDetail({ slug }: { slug: string }) {
                   label: "fees",
                   value: amount(r.fees_quote),
                   note: amount(adv.baseline.fees_quote),
+                },
+                {
+                  // Present on /advantage since it was written, absent here.
+                  // Two hand-built copies of one comparison drifted, and the
+                  // half that went missing is the cost side — the figure that
+                  // makes the agent look worse. The value was already on this
+                  // page, thirty lines below, in the replay table.
+                  label: "adverse selection (upper bound)",
+                  value: amount(r.lvr_quote_upper_bound),
+                  note: amount(adv.baseline.lvr_quote_upper_bound),
                 },
                 {
                   label: "costs",

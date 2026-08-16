@@ -5,9 +5,26 @@ import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
 import { Pill, verdictTone } from "@/components/Pill";
 import { amount, count, fraction, hours, signed, SIGN_CLASS, signOf } from "@/lib/format";
-import type { AgentArtifact, AgentRef } from "@/lib/artifacts";
+import type { AgentArtifact, AgentRef, IndexArtifact } from "@/lib/artifacts";
 
-export function AgentCard({ ref_, data }: { ref_: AgentRef; data: AgentArtifact }) {
+export function AgentCard({
+  ref_,
+  data,
+  baseline,
+}: {
+  ref_: AgentRef;
+  data: AgentArtifact;
+  /**
+   * What the DIY series is called, from `index.json`.
+   *
+   * The emitter has always written `{name: "DIY (passive)", description: …}`
+   * and nothing read it, so this card printed the literal "Doing it yourself"
+   * while its own detail page printed `advantage.without_agent`. A card and its
+   * detail page disagreeing about what the grey band represents is a small
+   * misquote, and it was shipped.
+   */
+  baseline?: IndexArtifact["baseline"];
+}) {
   const q = data.quote_detail;
   const r = data.replay;
   const adv = data.advantage;
@@ -41,7 +58,7 @@ export function AgentCard({ ref_, data }: { ref_: AgentRef; data: AgentArtifact 
                 ...(adv?.quotable
                   ? [
                       {
-                        label: "Doing it yourself",
+                        label: baseline?.name ?? adv.without_agent,
                         p25: adv.baseline.p25,
                         p50: adv.baseline.p50,
                         p75: adv.baseline.p75,
