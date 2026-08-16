@@ -48,11 +48,9 @@ REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
 
 
-def _load_showcase():
-    """`scripts/` is not a package, so import the emitter by path."""
-    spec = importlib.util.spec_from_file_location(
-        "misquote_showcase_emitter", REPO / "scripts" / "showcase.py"
-    )
+def _script(name: str, module_name: str):
+    """`scripts/` is not a package, so import an emitter by path."""
+    spec = importlib.util.spec_from_file_location(module_name, REPO / "scripts" / name)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -60,7 +58,8 @@ def _load_showcase():
     return module
 
 
-showcase = _load_showcase()
+showcase = _script("showcase.py", "misquote_showcase_emitter")
+assumptions = _script("assumptions.py", "misquote_assumptions_emitter")
 
 
 def dotted(document: Any, path: str) -> Any:
@@ -128,6 +127,61 @@ def test_the_ledger_parity_is_ordered_not_just_set_equal() -> None:
 
     published = json.loads(path.read_text())["not_built"]
     assert [entry["name"] for entry in published] == [e.name for e in ledger.NOT_BUILT]
+
+
+def test_the_published_assumption_sheet_still_matches_its_sources() -> None:
+    """The whole sheet, re-derived from the two documents it is made of.
+
+    Its own line entry above would not be enough: the failure was not one field
+    drifting but the entire artifact freezing while `docs/REQUIREMENTS_MATRIX.md`
+    moved underneath it. `P-10` and `P-11` were missing outright, and every
+    matrix line number rendered on the page was wrong — `P-9` published as
+    `:435` while sitting at 578, `P-6` as `:587` while sitting at 750. Those
+    render as precise source citations, `docs/REQUIREMENTS_MATRIX.md:435`, which
+    is exactly the kind of number a reader goes and checks.
+
+    Qualifies under this file's rule because re-deriving it is two markdown
+    files parsed and a directory of small JSON globbed — milliseconds, and
+    already factored out as `build_payload` so this test calls the emitter
+    rather than a copy of it.
+
+    The cost is the same one the module docstring already states: an edit to
+    either source document needs `make assumptions` in the same commit. That is
+    the guard working, and the alternative is a page confidently citing line
+    numbers that moved months ago.
+    """
+    path = ARTIFACTS / "assumptions.json"
+    if not path.exists():
+        pytest.skip("no assumptions.json; run `make assumptions`")
+
+    published = json.loads(path.read_text())
+    expected = as_json(
+        assumptions.build_payload(
+            REPO / "docs" / "ASSUMPTIONS.md",
+            REPO / "docs" / "REQUIREMENTS_MATRIX.md",
+            ARTIFACTS,
+        )
+    )
+
+    # Ids first. A whole-payload mismatch prints two 80KB documents, and the
+    # question a reader has is almost always "which entry moved".
+    assert [e["id"] for e in published["entries"]] == [e["id"] for e in expected["entries"]], (
+        "the published sheet no longer holds the same entries as its sources — "
+        "run `make assumptions`"
+    )
+    moved = [
+        e["id"]
+        for e, w in zip(published["entries"], expected["entries"], strict=True)
+        if (e["source"], e["line"]) != (w["source"], w["line"])
+    ]
+    assert not moved, f"these entries cite a source line they have moved away from: {moved}"
+
+    assert published == expected, (
+        "assumptions.json no longer matches what the emitter derives from "
+        "docs/ASSUMPTIONS.md and docs/REQUIREMENTS_MATRIX.md. The documents are "
+        "the source — regenerate in the same commit that edits them "
+        "(`make assumptions`)."
+    )
 
 
 def test_status_is_deliberately_not_projected() -> None:

@@ -87,9 +87,7 @@
       ],
       "cited_by": [
         "advantage_short.json",
-        "grid.json",
-        "sentinel.json",
-        "warden.json"
+        "status.json"
       ],
       "id": "A5",
       "kind": "assumption",
@@ -109,10 +107,6 @@
         },
         {
           "text": "The synthetic borrower used for the health story is separately and clearly labeled as synthetic.",
-          "type": "p"
-        },
-        {
-          "text": "---",
           "type": "p"
         }
       ],
@@ -431,10 +425,6 @@
         {
           "text": "**Resolution.** Until it exists, protection is kill switch (b), the local hard-stop, plus a **dedicated hot wallet holding only the capped capital and gas**, so the blast radius is bounded by construction rather than by a contract call. The runbook says this plainly rather than implying (a) is live.",
           "type": "p"
-        },
-        {
-          "text": "---",
-          "type": "p"
         }
       ],
       "cited_by": [],
@@ -457,16 +447,12 @@
         {
           "text": "**Deviation.** Implemented as `|imb_t| > z_pull` in `policy.imbalance_toxic()`, and written down here rather than resolved in silence. The cost is symmetric and small: with `z_pull = 2.5` and `M = 50`, the two-sided rule fires on roughly twice as many samples as the one-sided one, all of them cases the spec's own rationale \u2014 \"the next pool flow is arbitrage\" \u2014 plainly intends to cover.",
           "type": "p"
-        },
-        {
-          "text": "---",
-          "type": "p"
         }
       ],
       "cited_by": [],
       "id": "D-8",
       "kind": "deviation",
-      "line": 177,
+      "line": 186,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u00a73.4's imbalance rule is one-sided, and defends only one side \u2014 DEVIATED"
     },
@@ -499,6 +485,10 @@
         },
         {
           "text": "The endpoints do not object to the *range*. They object to the *rate*.",
+          "type": "p"
+        },
+        {
+          "text": "> **Corrected 16 Aug 2026 \u2014 see P-11.** The table is what was observed; the sentence under it is a > conclusion the observation could not support. `BscReader` rotates endpoints silently and reports > only a rotation count, so \"all three endpoints exhausted\" and \"6 of 6 succeeded\" are both really > statements about *whichever endpoint happened to answer*. Measured per-endpoint two days later, two > of the three in that list refuse `eth_getLogs` at **any** rate and **any** width, including a > one-block query \u2014 so the successful six were very likely all served by the one endpoint that works, > and the rate was never the whole story. The deviation below still stands: two clocks are the right > design, and the cost it names is real. It is the causal claim that was over-read.",
           "type": "p"
         },
         {
@@ -563,7 +553,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 636,
+      "line": 799,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -598,7 +588,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 637,
+      "line": 800,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -633,7 +623,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 638,
+      "line": 801,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -670,7 +660,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 639,
+      "line": 802,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -693,7 +683,7 @@
       ],
       "id": "P-1",
       "kind": "correction",
-      "line": 380,
+      "line": 389,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "PancakeSwap takes 34% of every fee, and the spec never mentions it"
     },
@@ -707,7 +697,7 @@
       "cited_by": [],
       "id": "P-2",
       "kind": "correction",
-      "line": 394,
+      "line": 403,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Swap event amounts are gross of the fee"
     },
@@ -721,7 +711,7 @@
       "cited_by": [],
       "id": "P-3",
       "kind": "correction",
-      "line": 400,
+      "line": 409,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "LVR needs range clamping, worth up to 53\u00d7"
     },
@@ -739,7 +729,7 @@
       "cited_by": [],
       "id": "P-4",
       "kind": "correction",
-      "line": 408,
+      "line": 417,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) is an upper bound on LVR, not a model-free measurement"
     },
@@ -757,7 +747,7 @@
       "cited_by": [],
       "id": "P-5",
       "kind": "correction",
-      "line": 421,
+      "line": 430,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The isomorphism claim is stronger than the literature supports \u2014 **docs**"
     },
@@ -778,10 +768,6 @@
         {
           "text": "Citation corrections for the tearsheet: the Cartea\u2013Jaimungal\u2013Penalva page references are doubtful and that book's market-making chapter uses a linear-quadratic framework that is **not** the A-S formula, so cite Avellaneda\u2013Stoikov 2008 Eqs. 29/30 directly; and arXiv:2106.12033 has no author \"Fritschi\".",
           "type": "p"
-        },
-        {
-          "text": "---",
-          "type": "p"
         }
       ],
       "cited_by": [
@@ -789,7 +775,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 587,
+      "line": 750,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -856,7 +842,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 542,
+      "line": 705,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -921,7 +907,45 @@
           "type": "p"
         },
         {
-          "text": "**The equities venue is thin, and that is stated rather than smoothed over.** TSLAx/USDT 0.25% is the *only* xStocks v3 pool on BSC with usable liquidity (1.58e18). NVDAx and AAPLx are bridged to BSC and have **no v3 pool at any fee tier**. The 1.00% TSLAx/USDT pool exists with **zero** liquidity \u2014 a pool on paper, correctly refused by the discovery script's liquidity floor rather than quoted.",
+          "text": "**Thin was generous \u2014 measured 16 Aug 2026, it barely trades at all.** Liquidity is a stock; what a replay needs is flow. Three 5,000-block windows spread across the last thirty days, both pools, same request:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Window",
+            "TSLAx/USDT 0.25%",
+            "WBNB/USDT 0.05%"
+          ],
+          "rows": [
+            [
+              "30 days ago",
+              "**0 swaps**",
+              "473"
+            ],
+            [
+              "15 days ago",
+              "**0 swaps**",
+              "325"
+            ],
+            [
+              "1 day ago",
+              "**1 swap**",
+              "171"
+            ],
+            [
+              "implied",
+              "~13/day, **~384 over 30 days**",
+              "~12,400/day, ~372,000 over 30 days"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Roughly a thousandfold apart, and the equity figure rests entirely on a single trade. **So there is no equity tape, and there will not be one.** A 30-day history of ~384 swaps cannot support a P25\u2013P75 quote: `verdict(min_n=30)` would refuse it, correctly, and cutting it into the \u226520 sub-windows `replay/ranges.py` requires leaves ~19 swaps each.",
+          "type": "p"
+        },
+        {
+          "text": "**What survives, and what does not.** The pool remains a *generality* proof \u2014 different fee tier, different tick spacing, different protocol fee, priced by the same code with no changes, which is what `tests/chain/test_equity_pool.py` asserts and all it asserts. What does not survive is any suggestion that the equities category can be covered by *quoting* this venue. The advantage report's third task stays on constructed pools until a second **liquid** pool is indexed, and it says so rather than presenting a synthetic comparison as a real one. This was the stop condition written down before the check was run: if no v3 pool has real liquidity, stop and report it rather than quote a dead pool.",
           "type": "p"
         }
       ],
@@ -930,7 +954,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 496,
+      "line": 639,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1001,9 +1025,212 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 435,
+      "line": 578,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Left `misquote.indexer.follow` running unattended to accumulate a real tape. Thirty-five minutes later it had written **a zero-byte log and advanced not one block**.",
+          "type": "p"
+        },
+        {
+          "text": "Two defects, and the second is the one that hid the first.",
+          "type": "p"
+        },
+        {
+          "text": "**The endpoints are a shared, exhaustible resource across *tools*, not just across copies of this process.** anvil forks from the same public nodes and proxies *every* state read to them, so running the chain-fork suite \u2014 thirteen tests, a minute of mints and burns \u2014 exhausts the `eth_getLogs` quota and leaves the tail refused with `-32005` for as long as it takes to refill. Measured directly afterwards: `safe_head()` answered fine, and a 2,000-block `eth_getLogs` on the very next range came back refused.",
+          "type": "p"
+        },
+        {
+          "text": "> **That diagnosis was wrong \u2014 see P-11.** The two observations are real and so is the anvil > contention, but they do not add up to the conclusion. `safe_head()` answering while `eth_getLogs` > refuses is not evidence of a drained quota; it is evidence that the endpoint serves one method and > not the other, which is exactly what it turned out to be. The refusal was permanent, not > refilling, and no amount of waiting would have fixed it. Backing off was still the right thing to > build \u2014 it is what let the tail survive a day of this without hammering anyone \u2014 but it also made > the counter-evidence arrive slowly enough to look like confirmation.",
+          "type": "p"
+        },
+        {
+          "text": "**And `follow` printed only on success.** Its progress line was inside `if result[\"events\"] or result[\"primed\"]`, so a tail refused on every single poll produced *no output at all* \u2014 indistinguishable from a tail working perfectly on a pool nobody was trading. The same shape as the `LiveChainSource.status()` counters, which exist for exactly this reason; the tail's own progress output had never been given the same treatment.",
+          "type": "p"
+        },
+        {
+          "text": "**Fixed.** A refusal now prints, with a running count of consecutive refusals, and the poll interval **backs off** (\u00d72, capped at 15 minutes) rather than hammering a node whose quota refills with time rather than with persistence. Recovery prints too, so a tail that comes back says so. The summary names the anvil interaction explicitly, because \"wait for the quota to refill\" is not guessable from `-32005`.",
+          "type": "p"
+        },
+        {
+          "text": "Two tests: one asserts the word REFUSED reaches the output, one asserts a 0.3-second window admits fewer than twelve attempts rather than thirty.",
+          "type": "p"
+        },
+        {
+          "text": "**The general form, and it has now cost this project twice:** a process whose failure mode is silence is worse than one that stops. The first instance was the engine reporting toxicity rates of zero before it had a verdict; this is the second.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-10",
+      "kind": "correction",
+      "line": 537,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The tail could not tell you it was failing, and the endpoints are shared"
+    },
+    {
+      "blocks": [
+        {
+          "text": "P-10 gave the tail a voice, and it spent the next day using it: four consecutive refusals on the same 2,000-block range, backing off to fifteen minutes, having advanced **not one block in twenty-four hours**. P-10 records the cause as quota drained by concurrent anvil forks. That was wrong, and the backoff hid it \u2014 by the time the counter-evidence arrived it looked like confirmation.",
+          "type": "p"
+        },
+        {
+          "text": "**Three measurements, one request at a time, each ruling out an explanation:**",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Question",
+            "Measurement",
+            "Rules out"
+          ],
+          "rows": [
+            [
+              "Is it the rate?",
+              "`eth_blockNumber` answered instantly by the endpoint refusing `eth_getLogs`, same connection",
+              "a rate limit"
+            ],
+            [
+              "Is it the depth?",
+              "identical refusal at the head and 178,000 blocks back",
+              "pruning / historical depth"
+            ],
+            [
+              "Is it the width?",
+              "a **one-block** query refused",
+              "a range cap"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "None of them. `eth_getLogs` is unavailable to us on those hosts \u2014 not rationed, not capped, absent.",
+          "type": "p"
+        },
+        {
+          "text": "**Surveying 22 public BSC endpoints, three serve logs:**",
+          "type": "p"
+        },
+        {
+          "head": [
+            "Endpoint",
+            "`eth_chainId`",
+            "`eth_getLogs`"
+          ],
+          "rows": [
+            [
+              "`bsc.rpc.blxrbdn.com`",
+              "56",
+              "**serves**, \u22645,000 blocks"
+            ],
+            [
+              "`rpc-bsc.48.club`",
+              "56",
+              "**serves**, \u22645,000 blocks"
+            ],
+            [
+              "`bsc-rpc.publicnode.com`",
+              "56",
+              "**serves**, 403s under burst"
+            ],
+            [
+              "4\u00d7 `bsc-dataseed*.bnbchain.org`, 2\u00d7 `defibit.io`, `ninicoin.io`",
+              "56",
+              "**`-32005` at every width**"
+            ],
+            [
+              "`1rpc.io/bnb`",
+              "56",
+              "serves, declared cap **50 blocks**"
+            ],
+            [
+              "`bsc.blockrazor.xyz`",
+              "56",
+              "serves, declared cap **25 blocks**"
+            ],
+            [
+              "`meowrpc.com`",
+              "56",
+              "`eth_getLogs is not supported`"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The last two are usable and still useless for this: keeping level with the head costs 8,000 blocks an hour, which at one request a minute is **134 blocks a request**. A 50-block cap cannot sustain a tail whatever the poll rate.",
+          "type": "p"
+        },
+        {
+          "text": "**Which makes the defect ours.** `connect_all` kept every endpoint answering `eth_chainId` with 56 \u2014 and all eight of the log-refusing hosts do, in milliseconds. Two of our three configured endpoints could never do the job the module exists for, and the health check could not tell, because it tested the cheapest capability rather than the one the caller was about to use. **A tail refused on every request is indistinguishable from a tail working perfectly on a pool nobody is trading.**",
+          "type": "p"
+        },
+        {
+          "text": "This is V-11's shape exactly: a gate that cannot fail, passing, while the thing it was meant to protect is broken. V-11 was a toxicity arm fed a literal `0.0`; this is a health check fed the wrong question.",
+          "type": "p"
+        },
+        {
+          "text": "**Before adding the two new endpoints, they had to agree.** The reader rotates on failure, so one range can come from one host and the next from another, and two hosts disagreeing about a block would produce a tape blended from two histories with nothing downstream able to notice. Asked for an identical 2,000-block range all three returned **73 logs, identical transaction hashes, identical data, identical order**.",
+          "type": "p"
+        },
+        {
+          "text": "**The fix.** `serves_logs(w3)` \u2014 one block, one address that holds no logs, so a healthy node answers `[]` in milliseconds. `connect_all(..., needs_logs=True)` filters on it; `connect`, which serves the registry and the write path, still selects on chain id and is not charged for a probe it does not need. `on_reject(url, why)` reports every dropped endpoint, so an operator whose own keyed `BSC_RPC_URL` fails the probe hears about it rather than wondering why their key seems unused.",
+          "type": "p"
+        },
+        {
+          "text": "**The probe is cheap only because the refusal was measured not to depend on the response.** The refusing hosts refuse this exact empty one-block query too. Had they been refusing on result size, an empty probe is the query they would most gladly serve, all eight would have passed, and this would be one more check that cannot fail. Two extra requests to rule that out, and they were the two that mattered.",
+          "type": "p"
+        },
+        {
+          "text": "**Two numbers found on the way.** Both log-serving endpoints declare a **5,000-block ceiling** (5,000 served, 10,000 refused with `exceed maximum block range: 5000`), so `DEFAULT_CHUNK` moves from 2,000 \u2014 never a measured limit, just what the old set tolerated \u2014 to 5,000: the same history for 40% of the requests, and requests are the rationed thing. And `blxrbdn` goes ahead of `48.club`, whose latency was **~41s regardless of width, refusals included**; a fixed 41s with nothing to compute is a queue in front of a node, not work, and it sits uncomfortably close to a 60s poll.",
+          "type": "p"
+        },
+        {
+          "text": "**Verified live:** 4 polls, 0 refused, 214 real swaps, both dead endpoints skipped by name.",
+          "type": "p"
+        },
+        {
+          "text": "**And then the thing it was blocking, done.** A 30-day backfill of the target pool, on free endpoints, with `BSC_RPC_URL` unset:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "chunks",
+            "**1,151**, zero refused, zero rotations"
+          ],
+          "rows": [
+            [
+              "wall clock",
+              "**3,737s** (62 minutes)"
+            ],
+            [
+              "written",
+              "**251,194 swaps**, 5,553 mints, 6,544 burns"
+            ],
+            [
+              "coverage",
+              "**one unbroken run**, 110,495,529 \u2192 116,254,249 \u2014 29.99 days"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The two measures agree \u2014 `30.0d between the two ends` and `30.0d read` \u2014 which is what a tape with no holes in it looks like, and the first time this project has been able to say that rather than assume it. The readiness gate now reports **PASS: 251,194 swaps, 30.0 unbroken days read from chain**, and the go/no-go's top blocker, recorded since Step 8 as \"needs a keyed `BSC_RPC_URL`\", was never about the key.",
+          "type": "p"
+        },
+        {
+          "text": "**The general form, and it is the third instance:** *a measurement that cannot attribute its own result will be over-read.* `BscReader` rotates silently and reports only a rotation count, so D-9's \"all three endpoints exhausted / 6 of 6 succeeded\" was really a statement about whichever endpoint happened to answer \u2014 and the six successes were very likely all served by the one endpoint that works. The instrument could not see the thing that mattered, so the conclusion drawn from it named the wrong cause, and that wrong cause sat in this document for two days looking measured.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-11",
+      "kind": "correction",
+      "line": 444,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
     {
       "blocks": [
@@ -1027,7 +1254,7 @@
       "cited_by": [],
       "id": "V-1",
       "kind": "defect",
-      "line": 202,
+      "line": 211,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba was fitted per tick and consumed per log-price \u2014 **the worst one**"
     },
@@ -1045,7 +1272,7 @@
       "cited_by": [],
       "id": "V-2",
       "kind": "defect",
-      "line": 224,
+      "line": 233,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`\u03ba_default` was an invented number \u2014 **provisional pending Step 8**"
     },
@@ -1059,7 +1286,7 @@
       "cited_by": [],
       "id": "V-3",
       "kind": "defect",
-      "line": 234,
+      "line": 243,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`float(\"nan\")` made every `Decision` unequal to itself \u2014 **would have blocked T1**"
     },
@@ -1073,7 +1300,7 @@
       "cited_by": [],
       "id": "V-4",
       "kind": "defect",
-      "line": 243,
+      "line": 252,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "R2 tested absolute fees where \u00a73.3 asks for fee *gain*"
     },
@@ -1087,7 +1314,7 @@
       "cited_by": [],
       "id": "V-5",
       "kind": "defect",
-      "line": 251,
+      "line": 260,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The MEV haircut was charged on position value, not rebalanced notional"
     },
@@ -1101,7 +1328,7 @@
       "cited_by": [],
       "id": "V-6",
       "kind": "defect",
-      "line": 258,
+      "line": 267,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Rounding: `w_t` floored, and `c_t` rounded twice"
     },
@@ -1115,7 +1342,7 @@
       "cited_by": [],
       "id": "V-7",
       "kind": "defect",
-      "line": 266,
+      "line": 275,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`q` was undefined in practice \u2014 the spec contradicts itself"
     },
@@ -1129,7 +1356,7 @@
       "cited_by": [],
       "id": "V-8",
       "kind": "defect",
-      "line": 273,
+      "line": 282,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The \u03c3 estimator compressed silence into volatility"
     },
@@ -1151,7 +1378,7 @@
       "cited_by": [],
       "id": "V-9",
       "kind": "defect",
-      "line": 280,
+      "line": 289,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two tests asserted nothing"
     },
@@ -1171,7 +1398,7 @@
       ],
       "id": "V-10",
       "kind": "defect",
-      "line": 295,
+      "line": 304,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "No validation on `Observation`, and an unmintable clamp"
     },
@@ -1209,7 +1436,7 @@
       "cited_by": [],
       "id": "V-11",
       "kind": "defect",
-      "line": 308,
+      "line": 317,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u00a73.4's imbalance arm was wired to nothing \u2014 **found by building a third agent**"
     },
@@ -1231,7 +1458,7 @@
       "cited_by": [],
       "id": "V-12",
       "kind": "defect",
-      "line": 340,
+      "line": 349,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The policy and the engine applied *different* toxicity rules"
     },
@@ -1256,16 +1483,12 @@
         {
           "text": "**A one-directional test fixture is worth naming as a class of defect.** It cannot exercise any rule that depends on direction, and it makes every such rule look like it passes.",
           "type": "p"
-        },
-        {
-          "text": "---",
-          "type": "p"
         }
       ],
       "cited_by": [],
       "id": "V-13",
       "kind": "defect",
-      "line": 351,
+      "line": 360,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The synthetic tape was not a possible history"
     }
@@ -1274,10 +1497,6 @@
     "estimator_fits": [
       {
         "text": "Each rendered quote carries its actual fitted values in the tearsheet appendix: \u03c3, \u03ba, the \u03ba fit's r\u00b2, and whether the \u03ba fallback was used. **A quote computed with a fallback \u03ba says so on the card.**",
-        "type": "p"
-      },
-      {
-        "text": "---",
         "type": "p"
       }
     ],
@@ -1404,18 +1623,6 @@
           ]
         ],
         "type": "table"
-      },
-      {
-        "text": "### Estimator fits",
-        "type": "p"
-      },
-      {
-        "text": "Each rendered quote carries its actual fitted values in the tearsheet appendix: \u03c3, \u03ba, the \u03ba fit's r\u00b2, and whether the \u03ba fallback was used. **A quote computed with a fallback \u03ba says so on the card.**",
-        "type": "p"
-      },
-      {
-        "text": "---",
-        "type": "p"
       }
     ],
     "protocol_fee": [
@@ -1454,10 +1661,6 @@
       },
       {
         "text": "**Non-goal, recorded deliberately:** Warden does **not** stake positions into MasterChefV3 for CAKE emissions. Staking transfers NFT ownership and adds a withdrawal path that complicates the kill switch, and emission rewards would contaminate the \"fee APR net of realized LVR\" metric with a number that isn't a fee.",
-        "type": "p"
-      },
-      {
-        "text": "---",
         "type": "p"
       }
     ],
@@ -1511,51 +1714,6 @@
       },
       {
         "text": "**Note on decimals.** BSC's USDT is an 18-decimal token, unlike Ethereum's 6-decimal USDT. The value is read from `decimals()` rather than assumed, because assuming 6 would misprice every position by twelve orders of magnitude.",
-        "type": "p"
-      },
-      {
-        "text": "### The protocol fee: an LP does not keep 0.05%",
-        "type": "p"
-      },
-      {
-        "text": "**PancakeSwap's protocol fee is on by default. Uniswap's is not.** Read from this pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions, so **the protocol takes 34% and liquidity providers keep 66%.**",
-        "type": "p"
-      },
-      {
-        "head": [
-          "Nominal fee tier",
-          "0.05%"
-        ],
-        "rows": [
-          [
-            "Protocol share",
-            "34%"
-          ],
-          [
-            "**What an LP actually earns**",
-            "**0.033%**"
-          ]
-        ],
-        "type": "table"
-      },
-      {
-        "text": "Every fee number this product displays is computed on 0.033%, not 0.05%. Reconstructing fees from swap volume times the fee tier \u2014 the natural way to write a replay engine, and what most analytics do \u2014 overstates LP earnings by a factor of **1.52**, and that error lands directly on NetFeeAPR, which is the headline figure on every card. The value is settable per pool by governance, so it is read from chain rather than hardcoded, and fee growth read from `feeGrowthInside` is already net of it (the two paths must not both apply the deduction).",
-        "type": "p"
-      },
-      {
-        "text": "**Testnet mirror.** Burn-in runs on chapel's **WBNB/BUSD 0.05%** pool ([`0xEF15\u2026d11d`](https://testnet.bscscan.com/address/0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d)), not WBNB/USDT: chapel's WBNB/USDT pool at this tier exists but was initialized at `MAX_TICK` and never seeded, so it holds zero liquidity. The mirror shares the fee tier, and therefore the tick spacing and `w_min`, so a range computed on chapel is structurally the range that will be computed on mainnet.",
-        "type": "p"
-      },
-      {
-        "text": "*Why this pool:* deepest BSC v3 pool, so the \u03ba fit in \u00a75.2 has the best chance of clearing its r\u00b2 \u2265 0.5 bar on real data, and the swap stream is dense enough for the toxicity imbalance signal to mean something. The CEX leg for the gap signal is Binance `bnbusdt@bookTicker`, a public WebSocket with no API key.",
-        "type": "p"
-      },
-      {
-        "text": "**Non-goal, recorded deliberately:** Warden does **not** stake positions into MasterChefV3 for CAKE emissions. Staking transfers NFT ownership and adds a withdrawal path that complicates the kill switch, and emission rewards would contaminate the \"fee APR net of realized LVR\" metric with a number that isn't a fee.",
-        "type": "p"
-      },
-      {
-        "text": "---",
         "type": "p"
       }
     ]

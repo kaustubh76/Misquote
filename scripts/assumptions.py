@@ -29,6 +29,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -135,6 +136,25 @@ def to_blocks(lines: list[str]) -> list[dict[str, Any]]:
             table.append(line)
             continue
         flush_table()
+
+        # A horizontal rule, dropped rather than rendered.
+        #
+        # `---` reached none of the cases below it and fell through to the
+        # paragraph buffer, so nine cards on the site — A6, D-7, D-8, P-6, V-13
+        # and four of the five named sections — ended in a paragraph whose
+        # entire text was "---". Every one of them is a markdown separator
+        # sitting before the next heading, and the card border it turns into
+        # already does that job.
+        #
+        # Checked after the bullet-continuation and table cases and before the
+        # bullet case, because `- item` is a bullet and `---` is not: the bullet
+        # regex requires whitespace after the dash, which is exactly the
+        # distinction, and a table's `|---|` separator starts with `|` and was
+        # handled above.
+        if re.fullmatch(r"\s*(-{3,}|\*{3,}|_{3,})\s*", line):
+            flush_paragraph()
+            flush_bullets()
+            continue
 
         if re.match(r"^\s*[-*]\s+", line):
             flush_paragraph()
@@ -268,9 +288,34 @@ def parse_table_entries(path: Path) -> list[Entry]:
     return entries
 
 
-def section(path: Path, title: str) -> list[dict[str, Any]]:
-    """One named, id-less section — Parameters, Target pool — as blocks."""
+def section(path: Path, title: str, siblings: Collection[str] = ()) -> list[dict[str, Any]]:
+    """One named, id-less section — Parameters, Target pool — as blocks.
+
+    `siblings` is every title that is being extracted separately, and stopping
+    at one is not the same rule as stopping at a shallower heading.
+
+    Depth alone was the rule, and two of the five sections are `###` nested
+    under a `##` that is also extracted:
+
+        ## Parameters          <- extracted
+        ### Estimator fits     <- extracted too, and *inside* the above
+        ## Target pool         <- extracted
+        ### The protocol fee…  <- extracted too, and inside that one
+
+    So `Parameters` collected everything up to `Target pool`, swallowing
+    `Estimator fits` whole, and `Estimator fits` then collected the same lines
+    again. The page rendered the estimator-fits prose twice and the protocol-fee
+    explanation *and its table* twice — separated by other sections, because
+    `sections` is emitted with sorted keys, so the repeat read as new content
+    rather than as an obvious duplicate. The swallowed `### …` heading line came
+    through as a paragraph too, since `to_blocks` has no heading case and never
+    expected to see one.
+
+    A section now ends where the next extracted section begins, whatever its
+    depth, which is what "this section" meant all along.
+    """
     lines = path.read_text().splitlines()
+    others = {t for t in siblings if t != title}
     collecting = False
     depth = 0
     body: list[str] = []
@@ -281,12 +326,34 @@ def section(path: Path, title: str) -> list[dict[str, Any]]:
             collecting = True
             depth = len(heading.group(1))
             continue
-        if collecting and heading and len(heading.group(1)) <= depth:
-            break
+        if collecting and heading:
+            if len(heading.group(1)) <= depth or heading.group(2).strip() in others:
+                break
         if collecting:
             body.append(line)
 
     return to_blocks(body)
+
+
+#: The named, id-less sections, keyed by the artifact field they become.
+#:
+#: One table rather than five `section()` calls, because every call needs to
+#: know all the other titles in order to stop at them. Split across five call
+#: sites, adding a sixth section means remembering to tell the other five about
+#: it — and forgetting is silent: the new section renders, and so does the copy
+#: of it swallowed by whichever section encloses it.
+SECTIONS: dict[str, str] = {
+    "parameters": "Parameters",
+    "estimator_fits": "Estimator fits",
+    "target_pool": "Target pool",
+    "protocol_fee": "The protocol fee: an LP does not keep 0.05%",
+    "settled_vs_displayed": "What settles versus what is displayed",
+}
+
+
+def build_sections(sheet: Path) -> dict[str, list[dict[str, Any]]]:
+    titles = tuple(SECTIONS.values())
+    return {key: section(sheet, title, titles) for key, title in SECTIONS.items()}
 
 
 # The A-series never hyphenates (A1, A10); every other series always does
@@ -312,16 +379,31 @@ def citations_in(value: Any) -> set[str]:
     return found
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--out", default=str(REPO / "apps" / "web" / "public" / "artifacts" / "assumptions.json")
-    )
-    args = parser.parse_args()
+class DuplicateIds(Exception):
+    """Two entries answering to one anchor. Raised rather than resolved."""
 
-    sheet = REPO / "docs" / "ASSUMPTIONS.md"
-    matrix = REPO / "docs" / "REQUIREMENTS_MATRIX.md"
+    def __init__(self, ids: list[str]) -> None:
+        super().__init__(f"duplicate ids across the two documents: {sorted(set(ids))}")
+        self.ids = sorted(set(ids))
 
+
+def build_payload(sheet: Path, matrix: Path, out_dir: Path) -> dict[str, Any]:
+    """The whole artifact, as a value, without writing anything.
+
+    Split out of `main` so that a test can re-derive the published sheet and
+    compare. It is worth being able to: `assumptions.json` sat eleven commits
+    stale, missing P-10 and P-11 entirely, and printing matrix line numbers up
+    to 163 lines from where the entry actually was — as a *precise* citation,
+    `docs/REQUIREMENTS_MATRIX.md:435`, which is the kind of number a reader
+    checks. Nothing compared the artifact to its sources.
+
+    Cheap enough to call in a test, which is the bar
+    `tests/web/test_artifact_projections.py` sets for what may be asserted: two
+    markdown files parsed and a directory of small JSON globbed. That makes the
+    whole payload a projection, `cited_by` included — and `cited_by` is the
+    field that once linkified `vetting.json` into a link to `/agent/vetting`,
+    a page that does not exist.
+    """
     # Headings first, then table rows. A heading is the richer definition, so
     # where an id has both — as the G-series would if it ever gets promoted to
     # a section — the heading wins and the row is not a duplicate.
@@ -347,13 +429,11 @@ def main() -> int:
         by_id.setdefault(entry.id, entry)
 
     if duplicates:
-        # Two entries answering to one anchor means a citation resolves to
-        # whichever the parser happened to see first. Refuse rather than pick.
-        print(f"error: duplicate ids across the two documents: {sorted(set(duplicates))}")
-        return 1
+        # A citation would resolve to whichever the parser happened to see
+        # first. Refuse rather than pick.
+        raise DuplicateIds(duplicates)
 
     # Which artifacts cite which assumption, so an entry can show its callers.
-    out_dir = Path(args.out).parent
     for artifact in sorted(out_dir.glob("*.json")):
         if artifact.name == "assumptions.json":
             continue
@@ -375,26 +455,38 @@ def main() -> int:
         }
     )
 
-    payload = {
+    return {
         "entries": [by_id[key].to_dict() for key in sorted(by_id, key=sort_key)],
-        "sections": {
-            "parameters": section(sheet, "Parameters"),
-            "estimator_fits": section(sheet, "Estimator fits"),
-            "target_pool": section(sheet, "Target pool"),
-            "protocol_fee": section(sheet, "The protocol fee: an LP does not keep 0.05%"),
-            "settled_vs_displayed": section(sheet, "What settles versus what is displayed"),
-        },
+        "sections": build_sections(sheet),
         "sources": [str(sheet.relative_to(REPO)), str(matrix.relative_to(REPO))],
         "unresolved_citations": unresolved,
     }
 
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--out", default=str(REPO / "apps" / "web" / "public" / "artifacts" / "assumptions.json")
+    )
+    args = parser.parse_args()
+
     out = Path(args.out)
+    try:
+        payload = build_payload(
+            REPO / "docs" / "ASSUMPTIONS.md",
+            REPO / "docs" / "REQUIREMENTS_MATRIX.md",
+            out.parent,
+        )
+    except DuplicateIds as duplicate:
+        print(f"error: {duplicate}")
+        return 1
+
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
-    print(f"{len(by_id)} entries -> {out}")
-    if unresolved:
-        print(f"  WARNING: cited but not found in either document: {unresolved}")
+    print(f"{len(payload['entries'])} entries -> {out}")
+    if payload["unresolved_citations"]:
+        print(f"  WARNING: cited but not found: {payload['unresolved_citations']}")
     return 0
 
 
