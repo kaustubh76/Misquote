@@ -358,11 +358,21 @@ export function AssumptionsView() {
               headingClassName="mb-2 text-lg font-semibold"
             >
               <p className="mb-5 max-w-[68ch] text-sm text-dim">
+                {/* "the 34% protocol fee" was typed here, on the page whose own
+                    thesis two screens up is that every number must trace. And
+                    the entry it pointed at has since been superseded by another
+                    entry rendered on this same page: P-8 concludes "it is 34%
+                    against 32%, not 34% against nothing… no constant is right
+                    for both", and /vetting shows the second pool at 68%. So the
+                    example was not just untraced, it was the exact error P-8
+                    exists to record. The pointer stays; the number goes. */}
                 Deviations, defects, corrections and gaps. Cards cite these alongside the
-                assumptions — the 34% protocol fee is{" "}
-                <code className="font-mono text-xs">P-1</code>, and it lives in the
-                requirements matrix rather than the assumption sheet. Both are published
-                here so that no citation on any card resolves to nothing.
+                assumptions — the protocol fee this pool actually charges is{" "}
+                <code className="font-mono text-xs">P-1</code>, and the reason no single
+                figure covers both pools is <code className="font-mono text-xs">P-8</code>.
+                Both live in the requirements matrix rather than the assumption sheet, and
+                both are published here so that no citation on any card resolves to
+                nothing.
               </p>
               <div className="grid gap-5">
                 {others.map((entry) => (

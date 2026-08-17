@@ -1,16 +1,32 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ROUTES } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "No such page" };
 
-const ROUTES = [
-  ["/", "Overview", "the three agents, and the fourth that is not built"],
-  ["/advantage", "Advantage", "hiring an agent against doing the job yourself"],
-  ["/methods", "Methods", "how a quote is made, and what stops it being made"],
-  ["/assumptions", "Assumptions", "every number here traces to one of these"],
-  ["/registry", "Registry", "ERC-8004 and ERC-8183, and what a hire costs"],
-  ["/status", "Status", "the readiness gates, and what is not built"],
-] as const;
+/**
+ * What each route is for. Keyed by href, and the *routes* come from `ROUTES`.
+ *
+ * This was a second hand-maintained list of the site's pages, and it drifted to
+ * six against eight — omitting `/vectors` and `/vetting`, the two newest — while
+ * the page around it said "exactly the pages listed below and nothing else". A
+ * reader who mistyped `/vetting` was told the site has no such page, on the one
+ * page whose entire job is to say what the site does have.
+ *
+ * A missing blurb degrades to the route's own nav label rather than dropping
+ * the entry, so a route added to `ROUTES` appears here whether or not anyone
+ * remembers this map.
+ */
+const BLURB: Record<string, string> = {
+  "/": "every agent that exists, and everything advertised that does not",
+  "/advantage": "hiring an agent against doing the job yourself",
+  "/methods": "how a quote is made, and what stops it being made",
+  "/vectors": "the tick math, compared against Uniswap's own Solidity",
+  "/assumptions": "every number here traces to one of these",
+  "/registry": "ERC-8004 and ERC-8183, and what a hire costs",
+  "/vetting": "the pools and addresses, read from chain",
+  "/status": "the readiness gates, and what is not built",
+};
 
 /**
  * A 404 that belongs to this site.
@@ -41,14 +57,14 @@ export default function NotFound() {
       </p>
 
       <ul className="mt-8 grid list-none gap-3 p-0 sm:grid-cols-2">
-        {ROUTES.map(([href, name, blurb]) => (
+        {ROUTES.map(({ href, label }) => (
           <li key={href}>
             <Link
               href={href}
               className="block rounded-md border border-line bg-panel p-4 no-underline hover:border-accent"
             >
-              <span className="block text-md font-semibold text-ink">{name}</span>
-              <span className="mt-1 block text-sm text-dim">{blurb}</span>
+              <span className="block text-md font-semibold text-ink">{label}</span>
+              <span className="mt-1 block text-sm text-dim">{BLURB[href] ?? label}</span>
             </Link>
           </li>
         ))}

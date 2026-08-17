@@ -9,8 +9,13 @@ export const metadata: Metadata = {
     default: "Misquote — agent marketplace for BNB Chain",
     template: "%s — Misquote",
   },
+  // "traces to chain state" picked the flattering half of a contradiction the
+  // site reports elsewhere as a failing gate: the agent artifacts are replayed
+  // over indexed chain history, `advantage.json` is a synthetic tape, and
+  // /status marks that UNVERIFIED. Each page states its own source in a banner;
+  // the description no longer states one for all of them.
   description:
-    "Every other marketplace misquotes you. This one shows its math: P25–P75 ranges where every number traces to chain state or a published assumption, and withholds the number when the evidence is too thin.",
+    "Every other marketplace misquotes you. This one shows its math: P25–P75 ranges where every number traces to a published artifact, each page saying whether its tape was chain history or synthetic, and no number at all where the evidence is too thin.",
   other: { "color-scheme": "dark light" },
 };
 
@@ -37,14 +42,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
 
+        {/* Names the directory, not three files.
+            It listed `index.json`, `warden.json` and `advantage.json` and said
+            "every number on this site is in them". There are thirteen: every
+            figure on /status is in `status.json`, every one on /vectors is in
+            `vectors.json`, and so on. A reader with JavaScript off followed
+            that instruction to three files and was told that was all of them. */}
         <noscript>
           <div className="mx-auto max-w-5xl px-5 pb-16 text-sm text-dim">
             This page renders precomputed JSON, which needs JavaScript to fetch. The
-            underlying artifacts are plain files and can be read directly at{" "}
-            <code className="font-mono">artifacts/index.json</code>,{" "}
-            <code className="font-mono">artifacts/warden.json</code> and{" "}
-            <code className="font-mono">artifacts/advantage.json</code> — every number on
-            this site is in them.
+            artifacts are plain files and can be read directly:{" "}
+            <code className="font-mono">artifacts/</code> holds one per page —{" "}
+            <code className="font-mono">index.json</code> lists the agents, and each page
+            names the file it reads in the footer it prints when JavaScript is on.
           </div>
         </noscript>
       </body>

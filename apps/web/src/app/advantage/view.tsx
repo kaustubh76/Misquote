@@ -42,7 +42,10 @@ export function AdvantageView() {
         Does hiring an agent beat doing the job yourself?
       </h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Three tasks, each done both ways. The baseline is{" "}
+        {/* The task count comes from the report, here and in every heading
+            below it. It was typed in five places against one artifact field. */}
+        {d ? `${d.summary.tasks} tasks` : "Each task"}, each done both ways. The baseline
+        is{" "}
         <strong className="text-ink">not a different program</strong>: it runs through the
         same replay driver, the same tape, the same cost model and the same
         adverse-selection accountant. The only thing that differs between the two columns
@@ -84,18 +87,29 @@ export function AdvantageView() {
           <Card className="mb-8">
             <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
-                <Heading className="mt-0 mb-2 text-lg font-semibold">Across all three tasks</Heading>
+                <Heading className="mt-0 mb-2 text-lg font-semibold">
+                  Across all {count(d.summary.tasks)} tasks
+                </Heading>
                 <p className="m-0 font-mono text-sm text-warn">{d.overall.label}</p>
                 <p className="mt-3 mb-0 max-w-[56ch] text-sm text-dim">
-                  {/* The refusal is the headline, and it is deliberate. */}
-                  The overall verdict uses the same thirty-observation floor the cards use,
-                  so with three tasks it <strong className="text-ink">refuses to call it</strong>.
-                  Three tapes are not evidence about a strategy, and a report claiming
-                  &ldquo;the agent wins 3 of 3&rdquo; from three tapes would be doing the
-                  thing this project argues against. What carries the argument is each
-                  task&rsquo;s own quote, where the sample is {" "}
-                  {d.tasks[0] ? "twenty sub-windows times three perturbations" : "many windows"},
-                  not one.
+                  {/* The refusal is the headline, and it is deliberate.
+                      Three things here were typed. "thirty-observation floor"
+                      spelled out a number `d.overall.label` already renders one
+                      line above ("need 30"). The strawman said "the agent wins
+                      3 of 3" while `summary` reports 2 ahead and 1 behind — the
+                      report is *rendered beside it* saying so, and inventing a
+                      more flattering claim to refuse is its own small misquote.
+                      And the sample clause was a fake derivation: a ternary on
+                      `d.tasks[0]` emitting a fixed string containing two numbers
+                      `advantage.json` does not carry at any level. */}
+                  The overall verdict uses the same floor the cards use, so with{" "}
+                  {count(d.summary.tasks)} tasks it{" "}
+                  <strong className="text-ink">refuses to call it</strong>. A handful of
+                  tapes is not evidence about a strategy, and a report announcing that the
+                  agent led on {count(d.summary.agent_ahead)} of {count(d.summary.tasks)}{" "}
+                  would be doing the thing this project argues against. What carries the
+                  argument is each task&rsquo;s own quote, drawn from many windows rather
+                  than one run.
                 </p>
               </div>
 
@@ -118,9 +132,9 @@ export function AdvantageView() {
               in a bare div, introduced by nothing. A reader navigating by
               heading met them with no idea what they were a list of. */}
           <Section
-            title="The three tasks"
+            title={<>The {count(d.summary.tasks)} tasks</>}
             className="mt-8"
-            intro="Each done both ways, through the same engine. The baseline differs per task, because three tasks with one baseline is one task relabelled."
+            intro="Each done both ways, through the same engine. The baseline differs per task, because several tasks with one baseline is one task relabelled."
           >
             <div className="grid gap-6">
               {d.tasks.map((task) => (
@@ -133,9 +147,9 @@ export function AdvantageView() {
           <Section title="The same report, on too little history" className="mt-12" headingClassName="text-lg font-semibold">
             <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
               A floor nobody has seen bite is indistinguishable from a floor that is not
-              wired up. Below is the identical report — same three tasks, same machinery,
+              wired up. Below is the identical report — same tasks, same machinery,
               same code path — run against a tape too short for a single sub-window to
-              reach the 24-hour policy horizon. It produces no numbers at all, which is
+              reach the policy horizon. It produces no numbers at all, which is
               the correct answer and the point.
             </p>
 
@@ -218,7 +232,7 @@ function Summary({
  *   overlapping        → none   the sample cannot tell them apart
  *
  * A losing task is not a broken page. `/advantage` exists to publish the
- * comparison honestly, and one of three tasks going the other way is the most
+ * comparison honestly, and a task going the other way is the most
  * credible thing on it.
  */
 function taskTone(task: AdvantageTask) {

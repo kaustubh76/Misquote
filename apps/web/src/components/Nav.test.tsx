@@ -95,3 +95,29 @@ describe("an agent detail page is somewhere, not nowhere", () => {
     ).toHaveLength(0);
   });
 });
+
+
+describe("the 404 lists the site it is refusing to show", () => {
+  it("names every route the nav does", async () => {
+    // `not-found.tsx` kept its own copy of the route list and it drifted to six
+    // against eight, omitting /vectors and /vetting — while the page said "this
+    // site contains exactly the pages listed below and nothing else". A reader
+    // who mistyped /vetting was told the site has no such page, on the one page
+    // whose job is to say what the site does have.
+    const { default: NotFound } = await import("@/app/not-found");
+    render(<NotFound />);
+
+    for (const [label, href] of ROUTES) {
+      expect(screen.getByRole("link", { name: new RegExp(label) })).toHaveAttribute(
+        "href",
+        href,
+      );
+    }
+    // And nothing beyond them, since the page claims to be exhaustive.
+    const listed = screen
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"))
+      .filter((h) => h && !h.startsWith("#"));
+    expect(new Set(listed)).toEqual(new Set(ROUTES.map(([, href]) => href)));
+  });
+});

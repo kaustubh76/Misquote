@@ -4,17 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ROUTES } from "@/lib/routes";
 
-const LINKS = [
-  { href: "/", label: "Overview" },
-  { href: "/advantage", label: "Advantage" },
-  { href: "/methods", label: "Methods" },
-  { href: "/vectors", label: "Vectors" },
-  { href: "/assumptions", label: "Assumptions" },
-  { href: "/registry", label: "Registry" },
-  { href: "/vetting", label: "Vetting" },
-  { href: "/status", label: "Status" },
-] as const;
+
 
 /**
  * Where the reader is: on this page, or somewhere under it.
@@ -172,7 +164,7 @@ export function Nav() {
             ref={ref}
             className="flex list-none items-center gap-1 overflow-x-auto p-1.5 -m-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {LINKS.map((link) => {
+            {ROUTES.map((link) => {
               const active = activeness(pathname, link.href);
               return (
                 <li key={link.href} className="shrink-0">
