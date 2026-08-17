@@ -239,12 +239,25 @@ def test_the_baseline_is_charged_the_same_cost_model_as_the_agent() -> None:
     Both columns go through one `_run`, so this asserts the consequence."""
     events = synthetic_events(SMALL)
     protect = task_protect(events, capital=1000.0, venue="test")
+
     # One mint each at the same CostModel means the same per-move charge.
+    #
+    # The base is **half the capital**, not all of it: opening a position swaps
+    # one asset into the other to reach the target composition, and A4 charges
+    # its bps on what is swapped. This assertion used to multiply by the full
+    # 1,000 — which is what the driver did, against A4's own wording and against
+    # the notional the engine hands the policy. See P-13.
     per_move = CostModel()
+    entry_notional = 1000.0 / 2.0
     expected_open = (
-        per_move.gas_quote + 1000.0 * (per_move.slippage_bps + per_move.mev_haircut_bps) / 10_000.0
+        per_move.gas_quote
+        + entry_notional * (per_move.slippage_bps + per_move.mev_haircut_bps) / 10_000.0
     )
     assert protect.baseline_costs == pytest.approx(expected_open * protect.baseline_moves)
+
+    # The symmetry is the actual claim, and it holds without knowing the formula:
+    # whatever a move costs, both columns pay the same for it.
+    assert protect.agent_costs == pytest.approx(expected_open * protect.agent_moves)
 
 
 # --- the artifact -----------------------------------------------------------

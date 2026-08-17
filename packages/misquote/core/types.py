@@ -309,6 +309,26 @@ class Decision:
         return self.action is not Action.HOLD
 
 
+# What one recentre costs in gas — burn, collect, mint — in token1.
+#
+# It lives in core because it existed in two places and they disagreed.
+# `replay.driver.CostModel` and `chain.source.TapeChainSource` each carried
+# their own default, so correcting one and not the other changed what the two
+# drivers charged for the same move — and **test L1 failed on the next run**,
+# which is exactly what L1 is for. Both read this now.
+#
+# 600,000 gas units at BSC's prevailing 0.05 gwei is 3.0e-5 BNB, about two
+# cents. `chain/live_source.py` derives the same figure from the chain at
+# runtime (`REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`); this is the constant
+# the replay uses when there is no chain to ask.
+#
+# **What is still not implemented:** A4 promises "gas at the gas price
+# prevailing in the historical block". The swap tape carries no gas price — the
+# schema has no column for one — so a replay charges today's gas for a move made
+# three weeks ago. Recording that rather than quietly meeting a weaker standard.
+DEFAULT_GAS_QUOTE = 3.0e-5
+
+
 # What an agent *is*, to this system: a pure function from everything it may
 # observe to what it intends to do. Nothing else — no pool handle, no clock, no
 # I/O. An agent wanting any of those would have to ask through `Observation`,

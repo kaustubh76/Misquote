@@ -19,7 +19,15 @@ from dataclasses import dataclass, field
 from misquote.core.liquidity import get_liquidity_for_amounts
 from misquote.core.position import apply_decision
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Action, Decision, Event, Params, Policy, PoolMeta
+from misquote.core.types import (
+    DEFAULT_GAS_QUOTE,
+    Action,
+    Decision,
+    Event,
+    Params,
+    Policy,
+    PoolMeta,
+)
 from misquote.replay.engine import Engine, MarketState
 
 
@@ -33,8 +41,21 @@ class CostModel:
     of number this product exists to argue against.
     """
 
-    gas_quote: float = 0.5  # trailing median gas x price, in token1
-    slippage_bps: float = 5.0  # on the rebalanced notional
+    # One recentre — burn, collect, mint — at BSC's prevailing gas price, in
+    # token1. `chain/live_source.py` computes exactly this from the chain as
+    # `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`; measured 17 Aug 2026 at
+    # 0.05 gwei, that is 600,000 x 5e7 / 1e18 = 3.0e-5 BNB, about two cents.
+    #
+    # This field held **0.5** — the same quantity the live source measures, in
+    # the same units, **16,667x too large**, with a comment claiming it was a
+    # trailing median. Nothing measured it. On the 30-day tape Grid paid 26.0 in
+    # costs against 0.164 of fees, and the quote it produced was a statement
+    # about this constant rather than about the strategy. See P-13.
+    gas_quote: float = DEFAULT_GAS_QUOTE
+
+    # Both bps figures are charged on the **rebalanced notional** — what a
+    # recentre actually swaps — not on the whole position. See `_move_cost`.
+    slippage_bps: float = 5.0
     mev_haircut_bps: float = 10.0  # assumption A4
 
 
@@ -198,7 +219,8 @@ class ReplayDriver:
 
         # MINT or REBALANCE: settle what the old position earned, then open the
         # new one and charge for the privilege.
-        if position.in_market:
+        recentring = position.in_market
+        if recentring:
             self._settle(market)
             result.rebalances += 1
         else:
@@ -215,7 +237,7 @@ class ReplayDriver:
                 liquidity=liquidity,
             )
         )
-        result.total_costs += self._move_cost()
+        result.total_costs += self._move_cost(recentring=recentring)
 
     def _size(self, decision: Decision, market: MarketState) -> int:
         """Liquidity for `capital_quote`, capped at A1's share of the pool."""
@@ -240,8 +262,33 @@ class ReplayDriver:
         self._result.total_fees += accountant.total_fees
         self._result.total_lvr += accountant.total_lvr
 
-    def _move_cost(self) -> float:
-        notional = self.capital_quote
+    def _move_cost(self, *, recentring: bool) -> float:
+        """A4's cost of one move: gas, plus slippage and MEV on what is *swapped*.
+
+        This charged both bps figures against `self.capital_quote` — the entire
+        position, on every move — while `Engine._inventory` computed A4's actual
+        base, `abs(value0 - value1) / 2`, and handed it to the policy as
+        `rebalance_notional_quote`. So R2 decided whether a move paid for itself
+        using one number and this ledger charged for it using another. See P-13.
+
+        **The two cases are genuinely different and the first fix conflated
+        them.** Recentring swaps only enough to restore the target composition,
+        which is A4's imbalance base and is near zero on a well-centred position.
+        *Opening* one swaps about half the capital into the other token — a flat
+        position has `value0 == value1 == 0`, so A4's formula reads zero there and
+        would have made every mint slippage-free. A test caught it, correctly:
+        the cost of entering is not the cost of adjusting.
+        """
+        if recentring:
+            observation = self.engine.last_observation
+            notional = (
+                observation.rebalance_notional_quote
+                if observation is not None
+                else self.capital_quote
+            )
+        else:
+            # Entering from a single asset: half of it has to become the other.
+            notional = self.capital_quote / 2.0
         slippage = notional * self.costs.slippage_bps / 10_000.0
         mev = notional * self.costs.mev_haircut_bps / 10_000.0
         return self.costs.gas_quote + slippage + mev

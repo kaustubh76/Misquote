@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from misquote.core.errors import LookAheadError
-from misquote.core.types import Event
+from misquote.core.types import DEFAULT_GAS_QUOTE, Event
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +84,7 @@ class TapeChainSource:
 
     __slots__ = ("_tape", "_ts", "_sqrt_price", "_tick", "_liquidity", "_gas_quote", "_block")
 
-    def __init__(self, tape, *, gas_quote: float = 0.5) -> None:
+    def __init__(self, tape, *, gas_quote: float = DEFAULT_GAS_QUOTE) -> None:
         self._tape = tape
         self._ts = tape.first_ts or 0
         self._sqrt_price = 0

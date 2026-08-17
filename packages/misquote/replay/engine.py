@@ -93,6 +93,7 @@ class Engine:
         "_toxic_streak",
         "_clear_streak",
         "_last_decision",
+        "_last_observation",
         "_fee_rate_current",
         "_fee_rate_target",
         "_fee_window",
@@ -136,6 +137,7 @@ class Engine:
         self._toxic_streak = 0
         self._clear_streak = 0
         self._last_decision: Decision | None = None
+        self._last_observation: Observation | None = None
         self._fee_rate_current = 0.0
         self._fee_rate_target = 0.0
         # Trailing pool-wide LP fee flow. It lives here rather than in each
@@ -218,8 +220,20 @@ class Engine:
         self._clear_streak = 0 if is_toxic else self._clear_streak + 1
 
         self._last_decision = decision
+        # Kept so the driver can charge A4's cost against the notional the
+        # *policy* was shown, rather than recomputing a second one. The driver
+        # used to bill slippage and MEV against the whole position while R2
+        # weighed the move against `abs(value0 - value1) / 2` — so the gate that
+        # decides whether a move pays for itself and the ledger that charges for
+        # it were reading different numbers. See P-13.
+        self._last_observation = observation
         self.decisions += 1
         return decision
+
+    @property
+    def last_observation(self) -> Observation | None:
+        """The observation behind the most recent decision, or None before one."""
+        return self._last_observation
 
     # --- assembling the Observation ---------------------------------------
 
