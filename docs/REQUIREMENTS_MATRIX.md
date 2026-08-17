@@ -448,6 +448,60 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-12 · The agent left and came back 2,585 times, and nothing counted — **fixed 17 Aug 2026**
+
+The first quote ever produced from the 30-day chain tape, and it is not a quote of anything anyone
+would run:
+
+| | mint | recentre | pull | costs | fees | net | quote |
+|---|---|---|---|---|---|---|---|
+| Warden | **2,585** | **0** | **2,584** | 5,170.00 | 0.234 | −5,169.83 | −6,851% |
+| Sentinel | 1,761 | 0 | 1,760 | 3,522.00 | 0.044 | −3,521.97 | −4,488% |
+| Grid | 1 | 12 | 0 | 26.00 | 0.164 | −25.90 | −33.7% |
+
+A pull-and-return every seventeen minutes for a month, spending **5.2× the deployed capital** on gas,
+slippage and the MEV haircut to earn 0.234 of token1. Grid never pulls and looks ordinary, which is
+what pointed at the pull path rather than at the cost model — and the arithmetic confirms the costs
+are correct *for the number of actions*: 2,585 × (0.5 gas + 0.5 slippage + 1.0 MEV) = 5,170 exactly.
+The action **count** was the defect.
+
+**Synthetic data could not have found this.** P-7 measured §3.4's toxicity rule firing 16 times in 62
+hours on a driftless random walk — 0.26/hour, every one a false positive. Real BSC flow fires it at
+**3.6/hour, roughly fourteen times as often.** The rule is behaving as specified; the specification
+never considered how often "as specified" would be.
+
+**Two causes, both invisible until a tape was busy enough.**
+
+*The daily budget reset on every return.* `apply_decision` set `rebalances_today = 0` whenever
+`current.in_market` was false — which is true of every re-entry after a pull. The PULL branch three
+lines above deliberately carries the count forward and says so: *"an agent cannot reset its own daily
+limit by pulling and re-minting."* The very next action discarded it. **The comment described a
+defence the code did not provide.** `token_id` cannot be the discriminator, because PULL nulls it and
+should — on chain the NFT really is burned. `last_rebalance_ts` is what survives, and is zero only on
+a position nothing has ever acted on.
+
+*Nothing bounded the return at all.* §3.4 caps rebalances and is silent on how often a position may
+leave and come back, so the re-entry path checked only `clear_streak >= m_clear` and `not toxic`.
+
+**And the live loop had already noticed.** `agents/warden/loop.py:221` caps `actions_executed` at
+8/day; the replay engine had no cap whatever. So the replay was pricing **5,169 actions where the
+live agent would have performed 240** — the two drivers were not running the same agent in any
+economic sense, and the published quote described behaviour the live agent would refuse. **L1 cannot
+see this**: L1 compares decisions, and the cap sat above the decision layer in one driver and nowhere
+in the other. This is the third time the fix has been *move the thing into the shared layer rather
+than maintain it twice*, which is now a rule rather than an observation.
+
+**Resolution.** The budget lives in the policy, below both drivers, and is **deliberately
+asymmetric: it gates coming back, never leaving.** An agent that cannot afford to re-enter sits flat,
+which is safe and costs nothing. An agent forbidden to *exit* because it had spent its budget would
+be held inside precisely the flow the rule exists to escape — the one outcome worse than churning. A
+test asserts a pull is still granted at ten times the daily cap.
+
+**Deviation, recorded rather than resolved:** §3.4 does not authorise a re-entry budget. It is
+imposed because the spec is silent and the silence costs 5.2× capital on real flow, and because the
+live loop had already imposed its own version unilaterally. The spec-faithful reading is the one in
+the table above.
+
 ### P-11 · Two of our three endpoints could never serve logs, and the health check said they were fine — **fixed 16 Aug 2026**
 
 P-10 gave the tail a voice, and it spent the next day using it: four consecutive refusals on the same
