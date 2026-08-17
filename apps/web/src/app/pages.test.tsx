@@ -277,17 +277,24 @@ describe("Methods", () => {
     expect(heading).toHaveTextContent(warden.replay.hours.toFixed(1));
   });
 
-  it("renders the four floors from the emitted values", async () => {
+  it("renders every floor the emitter published, and counts them", async () => {
+    // The heading said "The four floors" and so did this test, while `floors`
+    // carried five keys — `in_range_floor`, which decides the in-range verdict
+    // on every card. Both the page and the assertion hardcoded the same wrong
+    // count, on the section whose own argument is that a floor a UI could get
+    // wrong is not a floor. Both now count what the artifact contains.
     const warden = readArtifact<AgentArtifact>("warden.json");
+    const names = Object.keys(warden.floors);
     render(<MethodsPage />);
 
-    await screen.findByRole("heading", { name: "The four floors" });
-    expect(
-      screen.getByText(`min_windows = ${warden.floors.min_windows}`),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(`min_observations = ${warden.floors.min_observations}`),
-    ).toBeInTheDocument();
+    await screen.findByRole("heading", { name: `The ${names.length} floors` });
+
+    // Every floor gets a card carrying its own name and value — so a sixth
+    // added to the emitter fails here rather than being silently uncounted.
+    for (const name of names) {
+      const value = warden.floors[name as keyof typeof warden.floors];
+      expect(screen.getByText(`${name} = ${value}`)).toBeInTheDocument();
+    }
   });
 });
 

@@ -29,8 +29,14 @@ export function AgentCard({
   const r = data.replay;
   const adv = data.advantage;
 
+  // `min-w-0`: a grid item defaults to `min-width: auto` and refuses to
+  // shrink below its own min-content width. The quote line carries figures
+  // whose width is the artifact's business — at the current tape they read
+  // "-7012.06% – -6650.81%" — and one long enough pushed the card 39px past
+  // a 350px column, scrolling the whole document sideways at 390px. Caught
+  // by `make web-check`; invisible at 1280 and invisible to jsdom.
   return (
-    <Card as="article">
+    <Card as="article" className="min-w-0">
       <CardHeader
         eyebrow={ref_.category}
         title={data.agent}

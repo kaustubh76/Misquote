@@ -10,7 +10,7 @@ import { DataTable } from "@/components/DataTable";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
-import { count, EMPTY, hours } from "@/lib/format";
+import { count, EMPTY, fraction, hours } from "@/lib/format";
 
 /**
  * How a quote is made, and why its window is shorter than the tape.
@@ -37,15 +37,24 @@ export function MethodsView() {
   const d = state?.ok ? state.value : null;
   const q = d?.quote_detail ?? null;
   const floors = d?.floors ?? null;
+  // Counted from the artifact. Five cards are written out below because each
+  // needs its own sentence; this is what stops the *heading* disagreeing with
+  // them, and what would catch a sixth floor being added to the emitter.
+  const floorCount = floors ? Object.keys(floors).length : null;
 
   return (
     <Loadable loading={state === null} what="the method detail">
       <h1 className="text-2xl font-semibold">How a quote is made</h1>
       <p className="mt-3 max-w-[64ch] text-dim">
-        Every figure on this site is a replay: the policy is run over recorded pool
-        history, priced net of fees, adverse selection and every cost of having been
-        there. What follows is the arithmetic between that replay and the range on the
-        card.
+        {/* Two corrections. "Every figure on this site" was false — /vetting,
+            /registry, /vectors and /status are chain reads and test runs, not
+            replays, and /advantage is a synthetic tape. And "net of fees" has
+            the sign backwards: fees are income. The card's own row says "fees
+            earned", and net = fees − adverse selection − costs. */}
+        Every <strong className="text-ink">quote</strong> on this site is a replay: the
+        policy is run over recorded pool history, and what it earned is priced net of
+        adverse selection and every cost of having been there. What follows is the
+        arithmetic between that replay and the range on the card.
       </p>
 
       {state && !state.ok && (
@@ -131,25 +140,47 @@ export function MethodsView() {
 
           {q && d && floors && (
             <p className="mb-0 text-sm text-dim">
+              {/* The division was derived; the *conclusion* was typed, and it
+                  reversed when the tape grew. At 62h, 20 disjoint windows were
+                  ~3.1h each and "far too short for a 24h horizon" was true. At
+                  725.7h they are ~36.3h each — comfortably over the floor — and
+                  the sentence argued against its own two rendered numbers. So
+                  the comparison is now made rather than asserted, and the
+                  trade is stated in the terms that hold either way. */}
               Overlapping rather than disjoint is a deliberate trade.{" "}
               {count(q.windows)} disjoint windows over this tape would be about{" "}
-              {/* Divided by the window count the artifact reports, not by a
-                  literal 20 — the two agree today and would part company the
-                  moment the emitter changed, silently and in prose. */}
-              {hours(d.replay.hours / q.windows)} each — far too short for a{" "}
-              {floors.min_window_hours}h policy horizon to mean anything. Overlap costs
-              independence and buys length, and length is what the horizon needs.{" "}
-              <Cite id="A5" />
+              {hours(d.replay.hours / q.windows)} each
+              {d.replay.hours / q.windows < floors.min_window_hours ? (
+                <>
+                  {" "}
+                  — below the {hours(floors.min_window_hours)} policy horizon, so each one
+                  would measure nothing
+                </>
+              ) : (
+                <>
+                  , which clears the {hours(floors.min_window_hours)} horizon. Overlapping
+                  them buys more of it: {count(q.windows)} windows of{" "}
+                  {hours(q.hours_per_window)} against {count(q.windows)} of{" "}
+                  {hours(d.replay.hours / q.windows)}
+                </>
+              )}
+              . Overlap costs independence and buys length, and length is what the horizon
+              needs. <Cite id="A5" />
             </p>
           )}
         </Card>
       </Section>
 
       {/* ------------------------------------------------------- the floors -- */}
-      <Section title="The four floors">
+      {/* Counted, not typed. This said "The four floors" while `floors`
+          carried five keys — `in_range_floor` decides `verdicts.in_range` and
+          renders as "threshold 70%" on every card, so it is a floor by every
+          definition this page uses. A hardcoded count of the floors, on the
+          section arguing that a floor a UI could get wrong is not a floor. */}
+      <Section title={<>The {count(floorCount)} floors</>}>
         <p className="mb-5 max-w-[64ch] text-sm text-dim">
           Each of these can stop this product from printing a number. They are published
-          here with the values the code enforces — including the numbers in these four
+          here with the values the code enforces — including the numbers in these
           titles, which were hardcoded until a test served a different artifact and
           they failed to follow it. A floor a UI could get wrong is not a floor.
         </p>
@@ -161,8 +192,8 @@ export function MethodsView() {
               eyebrow={`min_windows = ${floors?.min_windows ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
-              Below this the quote is withheld entirely rather than estimated from four
-              windows. <Cite id="A5" />
+              Below this the quote is withheld entirely rather than estimated from a
+              handful. <Cite id="A5" />
             </p>
           </Card>
 
@@ -172,8 +203,13 @@ export function MethodsView() {
               eyebrow={`min_window_hours = ${floors?.min_window_hours ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
-              A window shorter than the policy horizon is a measurement of nothing.
-              Twenty of them are still twenty measurements of nothing.
+              {/* "Twenty of them are still twenty measurements of nothing" —
+                  the exact restatement this section says it eliminated, one
+                  card below the sentence saying so. `pages.test.tsx` serves
+                  `min_windows: 999`; the title followed and this did not. */}
+              A window shorter than the policy horizon is a measurement of nothing.{" "}
+              {count(floors?.min_windows)} of them are still{" "}
+              {count(floors?.min_windows)} measurements of nothing.
             </p>
           </Card>
 
@@ -183,9 +219,30 @@ export function MethodsView() {
               eyebrow={`min_hours_to_annualise = ${floors?.min_hours_to_annualise ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
-              Under a week of history, the figure is reported as-is with the span
-              attached — {q ? <code className="font-mono text-xs">{q.basis}</code> : null}{" "}
-              — rather than multiplied up into an annual rate nobody can support.
+              {/* This offered `q.basis` as an example of the *not*-annualised
+                  path while the artifact reports `annualised`, so the card
+                  illustrated its rule with a case that breaks it. Which side
+                  of the floor this run falls on is knowable, so it is said. */}
+              Below it, the figure is reported as-is with the span attached rather than
+              multiplied up into an annual rate nobody can support.{" "}
+              {q && d && floors && (
+                <>
+                  This run is{" "}
+                  <strong className="text-ink">
+                    {d.replay.hours >= floors.min_hours_to_annualise ? "over" : "under"}
+                  </strong>{" "}
+                  it at {hours(d.replay.hours)}, so the quote reads{" "}
+                  <code className="font-mono text-xs">{q.basis}</code>
+                  {q.annualised && (
+                    <>
+                      {" "}
+                      — which multiplies a {hours(d.replay.hours)} result up to a year,
+                      and is why a loss here reads as a figure no position could sustain
+                    </>
+                  )}
+                  .
+                </>
+              )}
             </p>
           </Card>
 
@@ -198,6 +255,22 @@ export function MethodsView() {
               Below the floor the tearsheet prints &ldquo;no verdict&rdquo; and the count
               that was missing. A card saying &ldquo;83% win rate&rdquo; on twelve
               observations is worth less than one that refuses.
+            </p>
+          </Card>
+
+          {/* The fifth. It was missing while the heading said four — and it is
+              the only one of the five that decides a *verdict* rather than
+              whether a number prints at all, which is presumably how it came to
+              be left out of a section about withholding. */}
+          <Card>
+            <CardHeader
+              title={<>{fraction(floors?.in_range_floor)} of the time in range</>}
+              eyebrow={`in_range_floor = ${floors?.in_range_floor ?? EMPTY}`}
+            />
+            <p className="m-0 text-sm text-dim">
+              The one floor here that does not withhold a number but calls one. A position
+              below it fails the in-range verdict on every card, and the threshold is shown
+              beside the verdict rather than left to be inferred from it.
             </p>
           </Card>
         </div>

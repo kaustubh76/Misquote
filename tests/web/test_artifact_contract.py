@@ -87,7 +87,11 @@ AGENT_FIELDS: dict[str, str] = {
     "floors.min_window_hours": "methods/view.tsx",
     "floors.min_hours_to_annualise": "methods/view.tsx",
     "floors.min_observations": "methods/view.tsx",
-    "floors.in_range_floor": "",
+    # Was `""` — emitted and rendered nowhere, which is how `/methods` came to
+    # say "The four floors" over a block of five. It is the only floor that
+    # calls a verdict rather than withholding a number, and it decides the
+    # in-range PASS/FAIL on every card.
+    "floors.in_range_floor": "methods/view.tsx",
     "estimators.sigma_per_sqrt_hour": "AgentDetail.tsx",
     "estimators.sigma_ready": "AgentDetail.tsx",
     "estimators.kappa_per_tick": "AgentDetail.tsx",
