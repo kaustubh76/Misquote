@@ -50,22 +50,38 @@ REFIT_INTERVAL_S = 24 * 3600
 # problem turns on, so it is named once and used everywhere.
 TICK_IN_LOGPRICE = math.log(1.0001)
 
-# PROVISIONAL, and labelled as such on every card that uses it.
+# **Gap item G-4, closed on measurement.** Spec section 5.2 says "fall back to
+# kappa_default and label it"; the section 8 parameter table has no kappa row at
+# all, so the value was never given. This held a placeholder of 500 per
+# log-price — a stated order-of-magnitude guess rather than an invented constant,
+# because an unpublished number that sets the range width is what Readme rule 6
+# forbids.
 #
-# Spec section 5.2 says "fall back to kappa_default and label it" but the
-# section 8 parameter table has no kappa row at all — the value was never
-# given. An unpublished number that sets the range width is exactly what
-# Readme rule 6 forbids, so this is a placeholder with a stated basis rather
-# than an invented constant: 500 per log-price is the order of magnitude a real
-# 0.05% pool fit produces (a per-tick decay near 0.05), and it yields a
-# half-width in the tens of ticks rather than the tens of thousands.
+# Fitted 17 Aug 2026 on the 30-day WBNB/USDT tape — 252,923 real swaps, coverage
+# recorded as one unbroken run, no gaps:
 #
-# Step 8 backfills 30 days of the target pool and replaces this with the
-# measured value, published as gap item G-4 alongside the r-squared that
-# produced it. A default derived from the pool it will be used on is defensible
-# in a way a round number never is.
-PROVISIONAL_KAPPA_PER_LOGPRICE = 500.0
-PROVISIONAL_KAPPA_PER_TICK = PROVISIONAL_KAPPA_PER_LOGPRICE * TICK_IN_LOGPRICE
+#     kappa = 3600.91 per log-price   (0.36007 per tick)
+#     r^2   = 0.847 over 8,096 swaps in 5 daily buckets
+#
+# **The guess was low by 7.2x**, and a low kappa is a wide range: the placeholder
+# had been quoting ranges materially wider than this pool's own fill behaviour
+# supports.
+#
+# **The r-squared is not evidence, and assumption A8 said so in advance.** A8
+# records that this exponential form is misspecified — excursion frequency for a
+# random walk decays as a power law — and that it scores r^2 ~ 0.84 on pure
+# Brownian data, clearing the spec's own r^2 >= 0.5 gate while being the wrong
+# shape. The fit on real history scores **0.847**, which is indistinguishable
+# from that null. So this number is now derived from the pool it is used on,
+# which is strictly better than a round number, and it is still a weak parameter
+# fitted with the wrong functional form. Both halves get published.
+FITTED_KAPPA_PER_LOGPRICE = 3600.91
+FITTED_KAPPA_PER_TICK = FITTED_KAPPA_PER_LOGPRICE * TICK_IN_LOGPRICE
+
+# The fallback keeps its own name because it is a different claim: what to use
+# when a fit is unavailable or fails the r^2 floor, not what the fit found.
+KAPPA_FALLBACK_PER_LOGPRICE = FITTED_KAPPA_PER_LOGPRICE
+KAPPA_FALLBACK_PER_TICK = FITTED_KAPPA_PER_TICK
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +124,12 @@ class KappaFit:
     def label(self) -> str:
         per_tick = f"{self.kappa_per_tick:.4f}/tick"
         if self.is_fallback:
-            return f"kappa = {per_tick} (provisional default; fit r^2 = {self.r_squared:.2f})"
+            # "fallback", not "provisional": since G-4 the default is itself the
+            # value fitted on this pool's 30-day history, so a card taking this
+            # path is not quoting a guess. It is quoting last month's fit because
+            # this window could not produce one that cleared the r^2 floor —
+            # which is a weaker claim than a live fit and a stronger one than 500.
+            return f"kappa = {per_tick} (G-4 fallback; this window's r^2 = {self.r_squared:.2f})"
         return f"kappa = {per_tick} (fitted, r^2 = {self.r_squared:.2f}, {self.swaps_used} swaps)"
 
 
@@ -145,7 +166,7 @@ def fit_kappa(
     *,
     window_seconds: int = TRAILING_SECONDS,
     bucket_edges: tuple[int, ...] = DEFAULT_BUCKET_EDGES,
-    kappa_default_per_tick: float = PROVISIONAL_KAPPA_PER_TICK,
+    kappa_default_per_tick: float = KAPPA_FALLBACK_PER_TICK,
     r2_floor: float = R2_FLOOR,
 ) -> KappaFit:
     """Fit `ln(rate) = ln A - kappa * delta` over depth buckets.
@@ -200,7 +221,7 @@ class KappaEstimator(TrailingEstimator):
         self,
         *,
         window_seconds: int = TRAILING_SECONDS,
-        kappa_default_per_tick: float = PROVISIONAL_KAPPA_PER_TICK,
+        kappa_default_per_tick: float = KAPPA_FALLBACK_PER_TICK,
         max_swaps: int = 500_000,
     ) -> None:
         super().__init__()

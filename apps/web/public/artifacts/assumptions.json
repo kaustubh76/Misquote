@@ -118,7 +118,7 @@
       ],
       "id": "A6",
       "kind": "assumption",
-      "line": 148,
+      "line": 165,
       "source": "docs/ASSUMPTIONS.md",
       "title": "Showcase Mode is a labeled counterfactual"
     },
@@ -161,13 +161,24 @@
         {
           "text": "**Every card that uses \u03ba shows its r\u00b2 and whether the fallback was used.** We treat \u03ba as a labelled weak parameter rather than a measured one. The honest summary: the range width is driven mainly by the volatility term, and the \u03ba term is a disclosed approximation.",
           "type": "p"
+        },
+        {
+          "text": "**Confirmed on real history, 17 Aug 2026 \u2014 the prediction above was exact.** Fitting \u03ba on the 30-day WBNB/USDT tape (252,923 swaps, no gaps) gives **\u03ba = 3600.91 per log-price with r\u00b2 = 0.847 over 8,096 swaps**, published as gap item **G-4**. That r\u00b2 is *the same number this paragraph predicted pure Brownian noise would produce*, to two decimal places. So the fit clears \u00a75.2's r\u00b2 \u2265 0.5 gate on real data exactly as it would on data containing no information at all, which is the clearest possible demonstration that **the r\u00b2 is not evidence the functional form is right** \u2014 it is evidence only that a straight line fits a decaying curve tolerably over a short range.",
+          "type": "p"
+        },
+        {
+          "text": "Two things follow, and they point in opposite directions, so both are published:",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**The default is better than it was.** It is now derived from the pool it is used on rather than from an order-of-magnitude guess, and the guess was **low by 7.2\u00d7** \u2014 a low \u03ba widens the range, so every quote produced before this was wider than the pool's own fill behaviour supports.",
+            "**It is no more trustworthy as a parameter.** Nothing here rescues the functional form, and the deeper mismatch above \u2014 that an LP places no order at a chosen depth \u2014 is untouched by having measured the wrong thing more carefully."
+          ],
+          "type": "ul"
         }
       ],
-      "cited_by": [
-        "grid.json",
-        "sentinel.json",
-        "warden.json"
-      ],
+      "cited_by": [],
       "id": "A8",
       "kind": "assumption",
       "line": 83,
@@ -188,7 +199,7 @@
       "cited_by": [],
       "id": "A9",
       "kind": "assumption",
-      "line": 100,
+      "line": 117,
       "source": "docs/ASSUMPTIONS.md",
       "title": "Equation (2) prices no adverse selection"
     },
@@ -214,7 +225,7 @@
       ],
       "id": "A10",
       "kind": "assumption",
-      "line": 112,
+      "line": 129,
       "source": "docs/ASSUMPTIONS.md",
       "title": "What we call LVR is an upper bound on it"
     },
@@ -236,7 +247,7 @@
       "cited_by": [],
       "id": "A11",
       "kind": "assumption",
-      "line": 132,
+      "line": 149,
       "source": "docs/ASSUMPTIONS.md",
       "title": "Fees are prorated by how much of a swap happened inside the range"
     },
@@ -554,7 +565,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 799,
+      "line": 806,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -589,7 +600,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 800,
+      "line": 807,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -624,7 +635,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 801,
+      "line": 808,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -646,11 +657,11 @@
             ],
             [
               "Value",
-              "*pending Step 8*"
+              "**3600.91 /log-price** (0.36007 /tick)"
             ],
             [
               "Rationale",
-              "Will be the value fitted on 30 days of the target pool's real history, published with its r\u00b2. Held as `PROVISIONAL_KAPPA_PER_LOGPRICE = 500` until then, and labelled as provisional on every card that uses it. See V-2."
+              "Fitted 17 Aug 2026 on the 30-day WBNB/USDT tape: 252,923 real swaps, coverage one unbroken run, **r\u00b2 = 0.847 over 8,096 swaps**. The placeholder was 500 \u2014 **low by 7.2\u00d7**, and a low \u03ba is a *wide* range, so every earlier quote was wider than this pool's own fill behaviour supports. **Read the r\u00b2 with A8 open:** A8 records that this exponential form scores r\u00b2 \u2248 0.84 on pure Brownian data, so 0.847 is indistinguishable from the null and is not evidence the form is right. Derived from the pool it is used on, which beats a round number, and still a weak parameter fitted with the wrong functional form. See V-2."
             ]
           ],
           "type": "table"
@@ -661,7 +672,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 802,
+      "line": 809,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -684,7 +695,7 @@
       ],
       "id": "P-1",
       "kind": "correction",
-      "line": 389,
+      "line": 396,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "PancakeSwap takes 34% of every fee, and the spec never mentions it"
     },
@@ -698,7 +709,7 @@
       "cited_by": [],
       "id": "P-2",
       "kind": "correction",
-      "line": 403,
+      "line": 410,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Swap event amounts are gross of the fee"
     },
@@ -712,7 +723,7 @@
       "cited_by": [],
       "id": "P-3",
       "kind": "correction",
-      "line": 409,
+      "line": 416,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "LVR needs range clamping, worth up to 53\u00d7"
     },
@@ -730,7 +741,7 @@
       "cited_by": [],
       "id": "P-4",
       "kind": "correction",
-      "line": 417,
+      "line": 424,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) is an upper bound on LVR, not a model-free measurement"
     },
@@ -748,7 +759,7 @@
       "cited_by": [],
       "id": "P-5",
       "kind": "correction",
-      "line": 430,
+      "line": 437,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The isomorphism claim is stronger than the literature supports \u2014 **docs**"
     },
@@ -777,7 +788,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 750,
+      "line": 757,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -844,7 +855,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 705,
+      "line": 712,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -957,7 +968,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 639,
+      "line": 646,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1028,7 +1039,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 578,
+      "line": 585,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1070,7 +1081,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 537,
+      "line": 544,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1231,7 +1242,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 444,
+      "line": 451,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1270,6 +1281,10 @@
         {
           "text": "**Resolution.** Renamed `PROVISIONAL_KAPPA_PER_LOGPRICE` with its basis stated in the source. Step 8 fits \u03ba on 30 days of the target pool's real history and publishes the measured value as **G-4** with its r\u00b2. A default derived from the pool it will be used on is defensible; a round number is not.",
           "type": "p"
+        },
+        {
+          "text": "**Closed 17 Aug 2026.** The constant is now `FITTED_KAPPA_PER_LOGPRICE = 3600.91`, measured on the 30-day tape at r\u00b2 = 0.847 over 8,096 swaps \u2014 see **G-4**. The placeholder was **low by 7.2\u00d7**. The gate that guarded this used to grep the source for the identifier `PROVISIONAL_KAPPA_PER_LOGPRICE`, which meant a rename would have cleared it without fitting anything; it now compares the published constant against the \u03ba a chain-sourced card actually fitted, and fails on more than 10% divergence. A gate a rename can satisfy is not a gate.",
+          "type": "p"
         }
       ],
       "cited_by": [],
@@ -1277,7 +1292,7 @@
       "kind": "defect",
       "line": 233,
       "source": "docs/REQUIREMENTS_MATRIX.md",
-      "title": "`\u03ba_default` was an invented number \u2014 **provisional pending Step 8**"
+      "title": "`\u03ba_default` was an invented number \u2014 **fitted and published as G-4, 17 Aug 2026**"
     },
     {
       "blocks": [
@@ -1289,7 +1304,7 @@
       "cited_by": [],
       "id": "V-3",
       "kind": "defect",
-      "line": 243,
+      "line": 250,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`float(\"nan\")` made every `Decision` unequal to itself \u2014 **would have blocked T1**"
     },
@@ -1303,7 +1318,7 @@
       "cited_by": [],
       "id": "V-4",
       "kind": "defect",
-      "line": 252,
+      "line": 259,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "R2 tested absolute fees where \u00a73.3 asks for fee *gain*"
     },
@@ -1317,7 +1332,7 @@
       "cited_by": [],
       "id": "V-5",
       "kind": "defect",
-      "line": 260,
+      "line": 267,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The MEV haircut was charged on position value, not rebalanced notional"
     },
@@ -1331,7 +1346,7 @@
       "cited_by": [],
       "id": "V-6",
       "kind": "defect",
-      "line": 267,
+      "line": 274,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Rounding: `w_t` floored, and `c_t` rounded twice"
     },
@@ -1345,7 +1360,7 @@
       "cited_by": [],
       "id": "V-7",
       "kind": "defect",
-      "line": 275,
+      "line": 282,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "`q` was undefined in practice \u2014 the spec contradicts itself"
     },
@@ -1359,7 +1374,7 @@
       "cited_by": [],
       "id": "V-8",
       "kind": "defect",
-      "line": 282,
+      "line": 289,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The \u03c3 estimator compressed silence into volatility"
     },
@@ -1381,7 +1396,7 @@
       "cited_by": [],
       "id": "V-9",
       "kind": "defect",
-      "line": 289,
+      "line": 296,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two tests asserted nothing"
     },
@@ -1402,7 +1417,7 @@
       ],
       "id": "V-10",
       "kind": "defect",
-      "line": 304,
+      "line": 311,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "No validation on `Observation`, and an unmintable clamp"
     },
@@ -1440,7 +1455,7 @@
       "cited_by": [],
       "id": "V-11",
       "kind": "defect",
-      "line": 317,
+      "line": 324,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u00a73.4's imbalance arm was wired to nothing \u2014 **found by building a third agent**"
     },
@@ -1462,7 +1477,7 @@
       "cited_by": [],
       "id": "V-12",
       "kind": "defect",
-      "line": 349,
+      "line": 356,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The policy and the engine applied *different* toxicity rules"
     },
@@ -1492,7 +1507,7 @@
       "cited_by": [],
       "id": "V-13",
       "kind": "defect",
-      "line": 360,
+      "line": 367,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The synthetic tape was not a possible history"
     }

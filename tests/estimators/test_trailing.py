@@ -18,8 +18,8 @@ from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import Event
 from misquote.estimators.base import TrailingEstimator
 from misquote.estimators.kappa import (
-    PROVISIONAL_KAPPA_PER_LOGPRICE,
-    PROVISIONAL_KAPPA_PER_TICK,
+    KAPPA_FALLBACK_PER_LOGPRICE,
+    KAPPA_FALLBACK_PER_TICK,
     TICK_IN_LOGPRICE,
     KappaEstimator,
     fit_kappa,
@@ -248,8 +248,8 @@ def test_kappa_is_recovered_from_a_synthetic_exponential_decay() -> None:
 def test_too_few_swaps_falls_back_and_says_so() -> None:
     fit = fit_kappa([(5, 0)] * 10)
     assert fit.is_fallback
-    assert fit.kappa_per_tick == PROVISIONAL_KAPPA_PER_TICK
-    assert "default" in fit.label
+    assert fit.kappa_per_tick == KAPPA_FALLBACK_PER_TICK
+    assert "fallback" in fit.label
 
 
 def test_a_depth_distribution_with_no_decay_falls_back() -> None:
@@ -262,7 +262,7 @@ def test_a_depth_distribution_with_no_decay_falls_back() -> None:
     """
     fit = fit_kappa([(500, 0)] * 400)
     assert fit.is_fallback
-    assert fit.kappa_per_tick == PROVISIONAL_KAPPA_PER_TICK
+    assert fit.kappa_per_tick == KAPPA_FALLBACK_PER_TICK
     assert fit.r_squared == 0.0
 
 
@@ -307,8 +307,16 @@ def test_the_label_distinguishes_a_fitted_kappa_from_a_guessed_one() -> None:
         ]
     )
     bad = fit_kappa([(5, 0)] * 10)
-    assert "fitted" in good.label and "default" not in good.label
-    assert "default" in bad.label
+    assert "fitted" in good.label and "fallback" not in good.label
+    assert "fallback" in bad.label
+
+    # Since G-4 the fallback *is* a fitted number — the one measured on this
+    # pool's 30-day history — so the label no longer says "provisional default".
+    # The distinction it has to carry is unchanged and is the whole point: a
+    # range computed from this window's data is a different claim from one
+    # computed from last month's, even when both are fits.
+    assert "G-4" in bad.label
+    assert str(round(KAPPA_FALLBACK_PER_TICK, 4)) in bad.label
 
 
 def test_the_estimator_evicts_swaps_older_than_its_window() -> None:
@@ -320,7 +328,7 @@ def test_the_estimator_evicts_swaps_older_than_its_window() -> None:
 
     est.set_decision_time(100_000)  # far beyond the one-hour window
     assert not est.ready
-    assert est.value() == pytest.approx(PROVISIONAL_KAPPA_PER_LOGPRICE)
+    assert est.value() == pytest.approx(KAPPA_FALLBACK_PER_LOGPRICE)
 
 
 def test_refitting_at_the_same_instant_cannot_change_the_answer() -> None:
@@ -341,7 +349,7 @@ def test_kappa_uses_swap_depth_not_absolute_tick() -> None:
     for i in range(500):
         est.ingest(swap(i + 1, i, -64180))
     assert not est.ready  # no swap moved the price, so there is nothing to fit
-    assert est.value() == pytest.approx(PROVISIONAL_KAPPA_PER_LOGPRICE)
+    assert est.value() == pytest.approx(KAPPA_FALLBACK_PER_LOGPRICE)
 
 
 # --- price conversion -------------------------------------------------------

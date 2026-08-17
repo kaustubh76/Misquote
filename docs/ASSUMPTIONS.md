@@ -97,6 +97,23 @@ volatility rather than providing an independent fill-rate trade-off.
 weak parameter rather than a measured one. The honest summary: the range width is driven mainly by
 the volatility term, and the κ term is a disclosed approximation.
 
+**Confirmed on real history, 17 Aug 2026 — the prediction above was exact.** Fitting κ on the 30-day
+WBNB/USDT tape (252,923 swaps, no gaps) gives **κ = 3600.91 per log-price with r² = 0.847 over 8,096
+swaps**, published as gap item **G-4**. That r² is *the same number this paragraph predicted pure
+Brownian noise would produce*, to two decimal places. So the fit clears §5.2's r² ≥ 0.5 gate on real
+data exactly as it would on data containing no information at all, which is the clearest possible
+demonstration that **the r² is not evidence the functional form is right** — it is evidence only
+that a straight line fits a decaying curve tolerably over a short range.
+
+Two things follow, and they point in opposite directions, so both are published:
+
+- **The default is better than it was.** It is now derived from the pool it is used on rather than
+  from an order-of-magnitude guess, and the guess was **low by 7.2×** — a low κ widens the range, so
+  every quote produced before this was wider than the pool's own fill behaviour supports.
+- **It is no more trustworthy as a parameter.** Nothing here rescues the functional form, and the
+  deeper mismatch above — that an LP places no order at a chosen depth — is untouched by having
+  measured the wrong thing more carefully.
+
 ## A9 · Equation (2) prices no adverse selection
 
 **Added.** Baseline Avellaneda–Stoikov assumes the mid is an exogenous martingale and that fill

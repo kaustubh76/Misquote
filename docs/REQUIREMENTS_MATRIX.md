@@ -230,7 +230,7 @@ and `kappa_per_logprice` (what the policy consumes), with one named conversion b
 `tests/core/test_units.py` asserts the round trip, the plausibility band, and that the unconverted
 value is still absurd — so the bug cannot return quietly.
 
-### V-2 · `κ_default` was an invented number — **provisional pending Step 8**
+### V-2 · `κ_default` was an invented number — **fitted and published as G-4, 17 Aug 2026**
 
 §5.2 says "fall back to `κ_default` and label it"; the §8 parameter table has no κ row at all. The
 implementation used 50.0, an unpublished number that was the dominant driver of range width whenever
@@ -239,6 +239,13 @@ the fallback path was taken — a direct breach of `Readme.md` rule 6.
 **Resolution.** Renamed `PROVISIONAL_KAPPA_PER_LOGPRICE` with its basis stated in the source. Step 8
 fits κ on 30 days of the target pool's real history and publishes the measured value as **G-4** with
 its r². A default derived from the pool it will be used on is defensible; a round number is not.
+
+**Closed 17 Aug 2026.** The constant is now `FITTED_KAPPA_PER_LOGPRICE = 3600.91`, measured on the
+30-day tape at r² = 0.847 over 8,096 swaps — see **G-4**. The placeholder was **low by 7.2×**. The
+gate that guarded this used to grep the source for the identifier `PROVISIONAL_KAPPA_PER_LOGPRICE`,
+which meant a rename would have cleared it without fitting anything; it now compares the published
+constant against the κ a chain-sourced card actually fitted, and fails on more than 10% divergence.
+A gate a rename can satisfy is not a gate.
 
 ### V-3 · `float("nan")` made every `Decision` unequal to itself — **would have blocked T1**
 
@@ -799,7 +806,7 @@ in the UI, so a reader can disagree with the number without having to reverse-en
 | **G-1** | `M` | §3.4, trailing swap count for the imbalance z-score | **50** | Long enough for a stable z-score on a busy pool, short enough to react within minutes. |
 | **G-2** | `arb_cost_bps` | §3.4, toxicity threshold | **5 bps** | BSC gas plus a CEX taker fee, the round-trip cost an arbitrageur must clear. |
 | **G-3** | `N` | §4.2, InRange% floor for the bonded instrument | **70%** | Binary and chain-checkable, per §4.2's requirement that the floor need no counterfactual. |
-| **G-4** | `κ_default` | §5.2, referenced but never given a value | *pending Step 8* | Will be the value fitted on 30 days of the target pool's real history, published with its r². Held as `PROVISIONAL_KAPPA_PER_LOGPRICE = 500` until then, and labelled as provisional on every card that uses it. See V-2. |
+| **G-4** | `κ_default` | §5.2, referenced but never given a value | **3600.91 /log-price** (0.36007 /tick) | Fitted 17 Aug 2026 on the 30-day WBNB/USDT tape: 252,923 real swaps, coverage one unbroken run, **r² = 0.847 over 8,096 swaps**. The placeholder was 500 — **low by 7.2×**, and a low κ is a *wide* range, so every earlier quote was wider than this pool's own fill behaviour supports. **Read the r² with A8 open:** A8 records that this exponential form scores r² ≈ 0.84 on pure Brownian data, so 0.847 is indistinguishable from the null and is not evidence the form is right. Derived from the pool it is used on, which beats a round number, and still a weak parameter fitted with the wrong functional form. See V-2. |
 
 ---
 

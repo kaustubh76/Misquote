@@ -161,16 +161,63 @@ def check_published_assumptions() -> Check:
 
 
 def check_provisional_constants() -> Check:
-    """A number that sets the range width and traces to nothing is a rule 6 breach."""
-    kappa = (REPO / "packages" / "misquote" / "estimators" / "kappa.py").read_text()
-    if "PROVISIONAL_KAPPA_PER_LOGPRICE" in kappa:
+    """A number that sets the range width and traces to nothing is a rule 6 breach.
+
+    This used to be a grep for the identifier `PROVISIONAL_KAPPA_PER_LOGPRICE`,
+    which meant renaming the constant would have cleared it without fitting
+    anything. A gate satisfied by a rename is not a gate. It now checks the
+    *number*: the published G-4 default has to agree with the kappa a chain
+    sourced card actually fitted, the way `vetting/badge.py` checks recorded
+    addresses against the chain rather than against themselves.
+    """
+    from misquote.estimators.kappa import FITTED_KAPPA_PER_LOGPRICE
+
+    source = (REPO / "packages" / "misquote" / "estimators" / "kappa.py").read_text()
+    if "PROVISIONAL_KAPPA" in source:
         return Check(
             "no provisional constants",
             UNVERIFIED,
             "kappa still falls back to a provisional default",
-            "Step 8b: fit on 30 days of the target pool and publish as G-4",
+            "fit on 30 days of the target pool and publish as G-4",
         )
-    return Check("no provisional constants", PASS, "kappa is fitted from real history")
+
+    card = REPO / "apps" / "web" / "public" / "artifacts" / "warden.json"
+    if not card.exists():
+        return Check(
+            "no provisional constants",
+            UNVERIFIED,
+            "no card to check the published kappa against",
+            "make showcase",
+        )
+    payload = json.loads(card.read_text())
+    if payload.get("source") != "chain":
+        return Check(
+            "no provisional constants",
+            UNVERIFIED,
+            f"the card is {payload.get('source')!r}, so its kappa fitted nothing real",
+            "make showcase, on the indexed tape",
+        )
+
+    fitted = payload.get("estimators", {}).get("kappa_per_logprice")
+    r_squared = payload.get("estimators", {}).get("kappa_r_squared")
+    if fitted is None:
+        return Check("no provisional constants", UNVERIFIED, "the card records no kappa")
+
+    drift = abs(fitted - FITTED_KAPPA_PER_LOGPRICE) / max(1e-9, FITTED_KAPPA_PER_LOGPRICE)
+    if drift > 0.10:
+        return Check(
+            "no provisional constants",
+            FAIL,
+            f"published G-4 is {FITTED_KAPPA_PER_LOGPRICE:,.0f}/log-price, "
+            f"the card fitted {fitted:,.0f} — {drift:.0%} apart",
+            "re-derive G-4 from the current tape, or explain the divergence",
+        )
+    return Check(
+        "no provisional constants",
+        PASS,
+        f"kappa {FITTED_KAPPA_PER_LOGPRICE:,.0f}/log-price, fitted (r^2 {r_squared:.2f}), "
+        f"card agrees to {drift:.1%}",
+    )
 
 
 def check_tape() -> Check:
