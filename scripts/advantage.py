@@ -164,11 +164,17 @@ def _run(
 
     # Six of these per report, each 60 replays over half the tape. On the 30-day
     # chain tape that is 6.9 hours serial, measured — so it says where it is.
-    started = time.monotonic()
+    # Timed from the first completed window rather than from entry, so the full
+    # replay above and a pool that dispatches eight at once are not read as slow
+    # replays. The first version reported "~67 min left" while doing better.
+    began = [0.0]
 
     def progress(done: int, total: int) -> None:
+        if done == 1:
+            began[0] = time.monotonic()
         if label and (done == total or done % 10 == 0):
-            rate = (time.monotonic() - started) / done
+            elapsed = time.monotonic() - began[0]
+            rate = elapsed / max(1, done - 1) if done > 1 else elapsed
             print(
                 f"  {label}: {done}/{total} replays  ~{rate * (total - done) / 60:.0f} min left",
                 flush=True,

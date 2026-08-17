@@ -172,9 +172,22 @@ def run_agent(
     # serial, measured. The first attempt at this printed nothing for thirty
     # minutes and then died to a timeout, which is P-10's failure in different
     # clothes: a long job that cannot say it is alive.
+    #
+    # Timed from the window phase rather than from entry. The first version
+    # divided *total* elapsed — which includes the serial full replay above, 137s
+    # on a 30-day tape — by the number of *window* replays done, and reported
+    # "72.8s each, ~67 min left" while the real throughput was better than that.
+    # An estimate that is reliably wrong in one direction is a small lie.
+    windows_began = [0.0]
+
     def progress(done: int, total: int) -> None:
+        if done == 1:
+            windows_began[0] = time.monotonic()
         if done == total or done % 5 == 0:
-            rate = (time.monotonic() - started) / done
+            # Rate over the replays *since the first completed one*, so a pool
+            # that dispatches eight at once is not read as eight slow replays.
+            elapsed = time.monotonic() - windows_began[0]
+            rate = elapsed / max(1, done - 1) if done > 1 else elapsed
             print(
                 f"  {name}: {done}/{total} replays  "
                 f"{rate:.1f}s each  ~{rate * (total - done) / 60:.0f} min left",
