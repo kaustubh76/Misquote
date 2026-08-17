@@ -457,15 +457,29 @@ def build(
     events: list[Event], *, capital: float, venue: str, jobs: int | None = None
 ) -> list[Comparison]:
     """The three tasks. Kept separate from I/O so a test can call it directly."""
+    earn = task_earn(events, capital=capital, venue=venue, jobs=jobs)
+    protect = task_protect(events, capital=capital, venue=venue, jobs=jobs)
+
+    # Built here rather than at the top of this function, which is where they
+    # used to be. Task 3's two venues are each `len(events)` long — on the 30-day
+    # chain tape that is a further ~500MB beside the real one — and tasks 1 and 2
+    # never touch them. Holding them through those tasks costs memory for a third
+    # of the run, while eight forked workers are competing for it.
+    #
+    # That is not a tidiness point. The parallel replay was measured to be bound
+    # by memory bandwidth rather than by cores: eight workers sit at 82% CPU and
+    # deliver 3x, not 8x. Memory held for no reason is the one resource actually
+    # in contention.
+    #
+    # Same seeds, same lengths, same order of results — only the moment of
+    # construction moves.
     deep_toxic = synthetic_events(
         len(events), seed=11, drift=0.55, liquidity=4 * 1_275_390_104_039_763_402_054_142
     )
     shallow_healthy = synthetic_events(len(events), seed=11, drift=0.0)
-    return [
-        task_earn(events, capital=capital, venue=venue, jobs=jobs),
-        task_protect(events, capital=capital, venue=venue, jobs=jobs),
-        task_choose(deep_toxic, shallow_healthy, capital=capital, jobs=jobs),
-    ]
+    choose = task_choose(deep_toxic, shallow_healthy, capital=capital, jobs=jobs)
+
+    return [earn, protect, choose]
 
 
 def main() -> int:
