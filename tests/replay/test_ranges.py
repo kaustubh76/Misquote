@@ -323,3 +323,30 @@ def test_capital_reaches_the_division_it_is_the_denominator_of(monkeypatch) -> N
     _quote_with(None, capital=7500.0, events=_sparse_tape(300))
 
     assert seen == [7500.0], f"capital_quote reached the division as {seen}"
+
+
+def test_a_second_concurrent_quote_refuses_rather_than_overwriting(monkeypatch) -> None:
+    """`quote` keeps the state its forked workers inherit in a module-level dict.
+
+    A second call while the first is mid-flight would overwrite the spans, the
+    policy and the tape factory the first is replaying against — and the first
+    would carry on and return a perfectly plausible quote of the wrong thing.
+    Both callers are single-threaded scripts today, which is precisely the sort
+    of assumption that stops holding without anybody deciding it should.
+    """
+    from misquote.replay import ranges
+
+    monkeypatch.setitem(ranges._FORKED, "meta", object())  # a call already in flight
+
+    with pytest.raises(RuntimeError, match="already running"):
+        _quote_with(None, events=_sparse_tape(200))
+
+
+def test_the_guard_clears_itself_so_a_later_call_still_works() -> None:
+    """A guard that latched would turn one failure into every subsequent one."""
+    from misquote.replay import ranges
+
+    _quote_with(None, events=_sparse_tape(200))
+    assert ranges._FORKED == {}, "state outlived the call that set it"
+
+    _quote_with(None, events=_sparse_tape(200))  # would raise if it had latched

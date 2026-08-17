@@ -335,6 +335,18 @@ def quote(
     spans = rolling_windows(first_ts, last_ts, window_count)
     plan = [(w, v) for w in range(len(spans)) for v in range(len(variants))]
 
+    # Module-level state, because a forked worker inherits it and a pickled one
+    # could not carry it. That makes `quote` non-reentrant: a second call while
+    # this one is mid-flight would overwrite the spans and policy the first is
+    # replaying against, and the result would be a plausible quote of the wrong
+    # thing. Both callers today are single-threaded scripts, which is exactly the
+    # sort of assumption that stops being true without anyone deciding it should.
+    if _FORKED:
+        raise RuntimeError(
+            "quote() is already running in this process. It keeps the state its "
+            "workers inherit in a module-level dict, so it cannot be re-entered "
+            "or called from two threads; run the calls in sequence."
+        )
     _FORKED.update(
         meta=meta,
         spans=spans,
