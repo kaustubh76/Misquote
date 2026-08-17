@@ -91,9 +91,20 @@ def apply_decision(
     if lower is None or upper is None:
         raise ValueError(f"{action} needs a target range")
 
-    moving = current.in_market
     # Continue today's count, or start a fresh one if the day has rolled over.
     prior = rebalances_today(current, ts)
+
+    # Only a *first ever* entry starts the count at zero. This used to test
+    # `current.in_market`, which is false for every re-entry after a pull — so a
+    # re-mint reset the counter, and the PULL branch above preserved a number the
+    # very next action discarded. Its comment claims an agent "cannot reset its
+    # own daily limit by pulling and re-minting"; that is exactly what it could
+    # do, and on the 30-day chain tape it did so 2,585 times.
+    #
+    # `token_id is None` cannot be the discriminator, because PULL nulls it — on
+    # chain the NFT really is burned. `last_rebalance_ts` is what survives: it is
+    # zero only on a position that has never been acted on at all.
+    first_ever = current.last_rebalance_ts <= 0
     return PositionState(
         lower=lower,
         upper=upper,
@@ -101,5 +112,5 @@ def apply_decision(
         token_id=token_id if token_id is not None else current.token_id,
         minted_ts=ts,
         last_rebalance_ts=ts,
-        rebalances_today=prior + 1 if moving else 0,
+        rebalances_today=0 if first_ever else prior + 1,
     )

@@ -424,3 +424,103 @@ def test_the_passive_policy_ignores_toxicity_by_design() -> None:
     the thing the active policy is measured against."""
     obs = make_obs(cex_gap=0.05, toxic_streak=99)
     assert passive_policy(obs, PARAMS, META).action is Action.HOLD
+
+
+# --- the pull-and-return cycle, and what bounds it --------------------------
+#
+# The 30-day chain tape ran Warden into **2,585 mints and 2,584 pulls, and zero
+# recentres** — a pull-and-return every seventeen minutes for a month. It spent
+# 5,170 of token1 on costs against a deployed 1,000 to earn 0.234, and quoted
+# -6,851% annualised. Section 3.4 caps rebalances and says nothing whatever
+# about how often a position may leave and come back.
+#
+# Two things were wrong underneath, and only real data was busy enough to show
+# either. See requirements-matrix P-12.
+
+
+def test_a_return_after_a_pull_counts_against_todays_budget() -> None:
+    """`apply_decision` reset the counter on every re-entry.
+
+    The PULL branch deliberately carries the count forward, with a comment that
+    an agent "cannot reset its own daily limit by pulling and re-minting". The
+    re-mint then set it to zero, because the test was `current.in_market` and a
+    flat position is not in market. The comment described a defence the code did
+    not provide.
+    """
+    from misquote.core.position import CLOSED, apply_decision
+
+    opened = apply_decision(CLOSED, Action.MINT, 1_000_000, lower=-64400, upper=-64000)
+    assert opened.rebalances_today == 0, "a first mint is not a rebalance"
+
+    pulled = apply_decision(opened, Action.PULL, 1_000_100)
+    assert pulled.rebalances_today == 0
+
+    back = apply_decision(pulled, Action.MINT, 1_000_200, lower=-64400, upper=-64000)
+    assert back.rebalances_today == 1, "the return reset the budget it should spend"
+
+    out_again = apply_decision(back, Action.PULL, 1_000_300)
+    once_more = apply_decision(out_again, Action.MINT, 1_000_400, lower=-64400, upper=-64000)
+    assert once_more.rebalances_today == 2
+
+
+def test_a_first_mint_still_starts_the_count_at_zero() -> None:
+    """The rule this file already documents, which the fix must not break:
+    there was nothing to rebalance, so opening is not a rebalance."""
+    from misquote.core.position import CLOSED, apply_decision
+
+    assert apply_decision(CLOSED, Action.MINT, 1_000_000, lower=-1, upper=1).rebalances_today == 0
+
+
+def test_the_count_still_rolls_over_at_the_day_boundary() -> None:
+    """A per-day cap that never resets is a lifetime cap. That was a real defect
+    once and the fix must not reintroduce it."""
+    from misquote.core.position import CLOSED, SECONDS_PER_DAY, apply_decision
+
+    opened = apply_decision(CLOSED, Action.MINT, 1_000_000, lower=-1, upper=1)
+    spent = apply_decision(opened, Action.RECENTER, 1_000_100, lower=-2, upper=2)
+    assert spent.rebalances_today == 1
+
+    tomorrow = apply_decision(
+        spent, Action.RECENTER, 1_000_100 + SECONDS_PER_DAY, lower=-3, upper=3
+    )
+    assert tomorrow.rebalances_today == 1, "yesterday's spending followed it into today"
+
+
+def test_re_entry_is_refused_once_the_daily_budget_is_gone() -> None:
+    """Nothing bounded the return, so a flickering toxicity signal bought a
+    fresh position every time it cleared."""
+    flat = make_position(
+        lower=None,
+        upper=None,
+        liquidity=0,
+        token_id=None,
+        rebalances_today=PARAMS.max_rebalances_per_day,
+    )
+    obs = make_obs(position=flat, clear_streak=PARAMS.m_clear + 5, swap_imbalance_z=0.0)
+
+    decision = decide(obs, PARAMS, META)
+    assert decision.action is Action.HOLD
+    assert dict(decision.reasons)["reentry_affordable"] == 0.0
+
+
+def test_re_entry_is_allowed_while_the_budget_lasts() -> None:
+    """The other half — a gate that can never open is not a gate."""
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None, rebalances_today=0)
+    obs = make_obs(position=flat, clear_streak=PARAMS.m_clear + 5, swap_imbalance_z=0.0)
+
+    decision = decide(obs, PARAMS, META)
+    assert decision.action in (Action.MINT, Action.REENTER)
+    assert dict(decision.reasons)["reentry_affordable"] == 1.0
+
+
+def test_leaving_is_never_refused_for_want_of_budget() -> None:
+    """The asymmetry is the whole point, and it is the half that protects money.
+
+    An agent held inside toxic flow because it had run out of budget is worse
+    off than one that churns: churn costs gas, and being unable to leave costs
+    the position. Exit stays unconditional however much has been spent today.
+    """
+    held = make_position(rebalances_today=PARAMS.max_rebalances_per_day * 10)
+    obs = make_obs(position=held, swap_imbalance_z=PARAMS.z_pull + 1.0)
+
+    assert decide(obs, PARAMS, META).action is Action.PULL

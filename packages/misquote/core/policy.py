@@ -413,17 +413,34 @@ def decide(obs: Observation, params: Params, meta: PoolMeta) -> Decision:
 
     if not obs.position.in_market:
         # Out of market: the only question is whether it is safe to come back.
+        #
+        # **And whether we can afford to.** Coming back costs gas, slippage and
+        # the MEV haircut every time, and section 3.4 says nothing about how
+        # often it may happen. On the 30-day chain tape it happened 2,585 times —
+        # a pull-and-return every seventeen minutes for a month, no recentres at
+        # all — and spent 5.2x the deployed capital on costs to earn 0.23 of
+        # token1. See requirements-matrix P-12.
+        #
+        # The budget is deliberately asymmetric: it gates coming **back**, never
+        # leaving. An agent that cannot afford to re-enter sits flat, which is
+        # safe and free. An agent forbidden to *exit* because it had run out of
+        # budget would be held inside exactly the flow the rule exists to escape,
+        # and that is the one outcome worse than churning.
         ready = obs.clear_streak >= params.m_clear
+        spent = rebalances_today(obs.position, obs.t)
+        affordable = spent < params.max_rebalances_per_day
         action = Action.HOLD
         target_l: Tick | None = None
         target_u: Tick | None = None
-        if not toxic and ready:
+        if not toxic and ready and affordable:
             action = Action.MINT if obs.position.token_id is None else Action.REENTER
             target_l, target_u = lower, upper
 
         reasons = (
             ("in_market", 0.0),
             ("reentry_ready", float(ready)),
+            ("reentry_affordable", float(affordable)),
+            ("reentries_today", float(spent)),
             ("m_clear", float(params.m_clear)),
             *sorted(tox_terms.items()),
         )
