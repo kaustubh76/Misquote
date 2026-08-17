@@ -448,6 +448,57 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-13 · The published quote was a statement about a constant — **fixed 17 Aug 2026**
+
+Chasing why Grid earned 0.164 of token1 while paying 26.0 in costs led somewhere worse than P-12's
+churn. **Assumption A4 describes a cost model the replay driver did not implement**, and A4 is not an
+internal note — it is in the sheet a judge is invited to audit:
+
+> "10 bps of **rebalanced notional** … plus gas at the gas price **prevailing in the historical
+> block** … plus modeled slippage against the pool's **actual liquidity at that moment**"
+
+| A4 promises | the driver did | factor |
+|---|---|---|
+| 10 bps of the rebalanced notional | 10 bps of the **whole position** | position ÷ notional |
+| gas at the historical block's price | hardcoded `gas_quote = 0.5` | **16,667×** |
+| slippage vs the pool's actual liquidity | flat 5 bps of the whole position | — |
+
+**The gas figure is the sharpest.** `chain/live_source.py` computes exactly this quantity from the
+chain — `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18` — and at BSC's prevailing 0.05 gwei that is
+600,000 × 5e7 / 1e18 = **3.0e-5 BNB, about two cents**. The constant claimed in its own comment to be
+a "trailing median gas × price". Nothing had measured it.
+
+**The notional is the more interesting one.** `Engine._inventory` already computes A4's base —
+`abs(value0 - value1) / 2`, *"half the imbalance, not the whole position"*, in its own comment — and
+hands it to the policy as `rebalance_notional_quote`, where **R2 uses it to decide whether a move
+pays for itself**. The driver then charged that same move against `capital_quote`. So the gate
+deciding whether to move and the ledger charging for it were reading different numbers, and on a
+well-centred position they differ by orders of magnitude.
+
+**Why it survived.** Both errors run *pessimistic*. A project whose entire thesis is "we publish the
+number that makes us look worse" is the least likely thing in the world to interrogate a number that
+is unflatteringly large — and the docstring's "deliberately conservative" supplied a ready
+explanation for any figure that looked too harsh. **Being wrong in the conservative direction is
+still being wrong**, and it is the harder direction to notice, because every incentive that normally
+catches an error is pointing the other way.
+
+**Two guards fired during the fix, and both were right.**
+
+*L1 went red.* The gas constant lived in `CostModel` **and** in `chain.source.TapeChainSource`, so
+correcting one changed what the two drivers charged for the same move. That is the **fourth** time
+the answer has been *one constant, both readers* — and the first time the tripwire caught it inside a
+single test run rather than weeks later. It now lives in `core/types.py` as `DEFAULT_GAS_QUOTE`.
+
+*A cost test went red, and it was right.* The first fix used A4's imbalance base for **every** move.
+But a flat position has `value0 == value1 == 0`, so A4's formula reads zero there and **every opening
+mint would have been slippage-free**. Entering swaps roughly half the capital into the other token;
+adjusting swaps only the drift. The cost of entering is not the cost of adjusting.
+
+**Recorded, not fixed.** A4 also promises gas "prevailing in the historical block". The swap tape has
+no gas column — the schema never had one — so a replay charges *today's* gas for a move made three
+weeks ago. Indexing per-block gas prices would close it. Written down rather than quietly meeting the
+weaker standard and calling A4 satisfied.
+
 ### P-12 · The agent left and came back 2,585 times, and nothing counted — **fixed 17 Aug 2026**
 
 The first quote ever produced from the 30-day chain tape, and it is not a quote of anything anyone
