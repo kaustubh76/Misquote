@@ -73,8 +73,28 @@ export function AgentCard({
 
       {q?.sufficient && (
         <p className="mt-3 mb-0 text-xs text-faint">
-          P25–P75 across {count(q.samples)} sub-windows of ~{hours(q.hours_per_window)}{" "}
+          {/* `windows`, not `samples`. `samples` is windows × perturbations —
+              the observation count, and the denominator on every verdict — so
+              this line read "across 60 sub-windows of ~362.9h each", which is
+              21,771 hours drawn from a 725.7h tape. Impossible on its face, and
+              it contradicted /methods, which the next line links to and which
+              breaks the two apart in a table: "windows 20 · perturbations 3 ·
+              = observations 60". The value was derived all along; the noun was
+              the hardcoded part. */}
+          P25–P75 across {count(q.windows)} sub-windows of ~{hours(q.hours_per_window)}{" "}
           each, {q.annualised ? "annualised" : "not annualised"}.{" "}
+          {/* How many of those windows finished in profit, next to the range
+              rather than a page away. The engine publishes `net_positive` and
+              the detail page has always shown it; the card showed a median and
+              nothing else. On the current tape that median is -6,851%
+              *annualised* — a 726h loss multiplied up into a rate nobody can
+              support — and "0 of 60" is both the more useful fact and the one
+              that tells a reader the magnitude is not a unit error. Neither
+              number is invented or softened: both are read from the artifact,
+              and the verdicts below already say FAIL. */}
+          <span className={q.net_positive === 0 ? "text-warn" : undefined}>
+            {count(q.net_positive)} of {count(q.samples)} observations finished in profit.
+          </span>{" "}
           {/* The card used to print the quote's window length beside the tape's
               total length with no explanation, so it appeared to contradict
               itself: "over 31h" directly above "44,802 over 62.2h". */}

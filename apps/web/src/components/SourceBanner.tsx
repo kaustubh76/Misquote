@@ -4,10 +4,16 @@ import { Badge } from "@/components/Badge";
  * Whether these numbers came from chain history or from a stand-in.
  *
  * The distinction is not a caveat, it is what the numbers mean, so it is stated
- * at the top of the page rather than in a footnote at the bottom. Every artifact
- * in the repo currently carries `"source": "synthetic"` — `scripts/showcase.py`
- * calls mistaking one for the other "the failure this whole project is named
- * after", and this is the surface that makes it hard to.
+ * at the top of the page rather than in a footnote at the bottom.
+ * `scripts/showcase.py` calls mistaking one for the other "the failure this
+ * whole project is named after", and this is the surface that makes it hard to.
+ *
+ * Both branches are live, which is worth saying because this comment used to
+ * claim otherwise. The agent artifacts and the index are replayed over indexed
+ * chain history; `advantage.json` and `advantage_short.json` are synthetic, and
+ * `/status` reports that as a failing gate rather than a footnote. So the two
+ * pages a reader is most likely to compare — `/` and `/advantage`, one linked
+ * from the other — carry different banners on purpose.
  */
 export function SourceBanner({
   source,

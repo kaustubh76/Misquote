@@ -68,8 +68,28 @@ describe("the card renders what the emitter actually produced", () => {
     render(<AgentCard ref_={ref} data={warden} />);
     // Only meaningful when there is a quote; a withheld card has no window
     // length to reconcile against the tape.
-    if (warden.quote_detail?.sufficient) {
-      expect(screen.getByText(/sub-windows of/)).toBeInTheDocument();
+    const q = warden.quote_detail;
+    if (q?.sufficient) {
+      // The count beside "sub-windows" must be `windows`, never `samples`.
+      // It was `samples` (60), which claimed 60 windows of ~362.9h each — 21,771
+      // hours drawn from a 725.7h tape, impossible on its face — and
+      // contradicted /methods, which this card links to on the next line and
+      // which separates the two in a table.
+      expect(
+        screen.getByText(new RegExp(`${q.windows} sub-windows of`)),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(`${q.samples} sub-windows`))).not.toBeInTheDocument();
+      expect(q.samples).toBe(q.windows * q.perturbations);
+
+      // And how many of them finished in profit, beside the range rather than a
+      // page away. On the current tape the median is annualised and deeply
+      // negative; "0 of 60" is the fact that tells a reader it is a result and
+      // not a unit error.
+      expect(
+        screen.getByText(
+          new RegExp(`${q.net_positive} of ${q.samples} observations finished in profit`),
+        ),
+      ).toBeInTheDocument();
       expect(screen.getByText(/Why that differs from the/)).toBeInTheDocument();
     } else {
       expect(screen.getByText(/Quote withheld/)).toBeInTheDocument();

@@ -169,18 +169,32 @@ export function AgentDetail({ slug }: { slug: string }) {
                     note: `tape is ${hours(r.hours)} — see Methods`,
                   },
                   {
-                    label: "windows finishing in profit",
+                    // "observations", not "windows". The denominator is
+                    // `samples` — windows × perturbations — so labelling it
+                    // windows claimed 60 of them where the row two above says
+                    // there are 20. Same confusion `AgentCard` had, pointing
+                    // the other way: there the count was wrong for the noun,
+                    // here the noun is wrong for the count.
+                    label: "observations finishing in profit",
                     value: `${count(q.net_positive)} of ${count(q.samples)}`,
+                    tone: q.net_positive === 0 ? "text-warn" : undefined,
                   },
                   { label: "basis", value: q.basis },
                 ]}
               />
               <p className="mt-3 mb-0 text-xs text-faint">
-                A window is half the tape, so twenty of them overlap. Overlap trades
-                independence for length — twenty windows of{" "}
-                {hours(q.hours_per_window)} each say more about a{" "}
-                {d.floors.min_window_hours}h policy horizon than twenty disjoint slivers
-                would. <Link href="/methods">Full method →</Link>
+                {/* Every magnitude here is read. "twenty" appeared three times
+                    as a word and "half the tape" as an assertion, all of them
+                    quantities the artifact publishes — and all of them wrong
+                    the moment the emitter windows differently. `hours()` on the
+                    floor too: interpolated raw, a null rendered as
+                    "h policy horizon". */}
+                A window covers {pct((100 * q.hours_per_window) / r.hours, 0)} of the tape,
+                so {count(q.windows)} of them overlap. Overlap trades independence for
+                length — {count(q.windows)} windows of {hours(q.hours_per_window)} each say
+                more about a {hours(d.floors.min_window_hours)} policy horizon than{" "}
+                {count(q.windows)} disjoint slivers would.{" "}
+                <Link href="/methods">Full method →</Link>
               </p>
             </div>
           )}
@@ -188,8 +202,8 @@ export function AgentDetail({ slug }: { slug: string }) {
       </Section>
 
       {/* ------------------------------------------------------- verdicts -- */}
-      {/* The two n's differ by three orders of magnitude — 44,802 against 60 —
-          because they count different things: one decision at a time across the
+      {/* The two n's differ by orders of magnitude — half a million against 60
+          — because they count different things: one decision at a time across the
           replay, against one return per window of the quote. Side by side with
           nothing but "n =" on each, the smaller one reads as the weaker
           evidence, when it is the one built out of the quote this page exists to
@@ -283,11 +297,12 @@ export function AgentDetail({ slug }: { slug: string }) {
 
       {/* ------------------------------------------------------- activity -- */}
       {/* These two cards are not two views of one run. The left is the replay
-          — 44,802 decisions over 62 hours of tape, none of which happened. The
+          — half a million decisions over hundreds of hours of tape, none of
+          which happened. The
           right is `activity`, read from the decision journal of a live loop
           that ran for a quarter of an hour. They sat side by side under one
           heading with no scale on either, so the gate histogram read as an
-          account of the 44,802. Each card now states its own source and span,
+          account of the replay's. Each card now states its own source and span,
           and the heading no longer calls a counterfactual "what it did". */}
       <Section
         title="What it did, and what it would have done"

@@ -40,9 +40,22 @@ describe("Overview", () => {
     }
   });
 
-  it("declares the tape as synthetic rather than burying it", async () => {
+  it("declares which tape it is, matching the artifact rather than a literal", async () => {
+    // This asserted "Synthetic tape" outright and went red the moment the
+    // artifacts were regenerated against real chain history — failing for the
+    // wrong reason, and pinning the site to one of two states the banner is
+    // built to distinguish. What must hold is that the banner agrees with
+    // `index.source`, whichever it says.
+    const index = readArtifact<IndexArtifact>("index.json");
     render(<OverviewPage />);
-    expect(await screen.findByText(/Synthetic tape — not chain data/)).toBeInTheDocument();
+
+    const expected =
+      index.source === "chain" ? /Indexed chain history/ : /Synthetic tape — not chain data/;
+    const forbidden =
+      index.source === "chain" ? /Synthetic tape — not chain data/ : /Indexed chain history/;
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(screen.queryByText(forbidden)).not.toBeInTheDocument();
   });
 
   it("shows the fourth category as not built instead of omitting it", async () => {
