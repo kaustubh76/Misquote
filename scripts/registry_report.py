@@ -44,7 +44,27 @@ def hire_flow() -> dict[str, Any]:
     steps = erc8183.steps()
 
     try:
-        escrow: dict[str, Any] = {"available": True, "address": erc8183.escrow_address(BSC_MAINNET)}
+        escrow: dict[str, Any] = {
+            "available": True,
+            "address": erc8183.escrow_address(BSC_MAINNET),
+            # The findings, not a boolean summarising them.
+            #
+            # This emitted `{available, address}` and the web page rendered a
+            # green "Verified" pill beside the words "a chain check confirmed
+            # it" — while the same artifact said `"source": "offline"` and "no
+            # registry read was attempted". `available` is a dict lookup, not a
+            # read, so the page was asserting a verdict from prose that the
+            # artifact deliberately did not carry.
+            #
+            # `JOB_ESCROW_EVIDENCE` is what a real check recorded, and its own
+            # comment says why it is a list rather than a flag: the gap between
+            # "a live escrow that settles in the token we already use" and "we
+            # have exercised ERC-8183's job interface here" is the slippage this
+            # project exists to catch. Two of the six entries are a NOT VERIFIED
+            # clause and a SECURITY note about the escrow being upgradeable —
+            # the strongest caveats in the codebase, and neither had a surface.
+            "evidence": list(erc8183.JOB_ESCROW_EVIDENCE.get(BSC_MAINNET, ())),
+        }
     except erc8183.NoVerifiedDeployment as exc:
         # Published as the refusal it is. A field reading "—" would look like a
         # rendering bug; this is a finding.

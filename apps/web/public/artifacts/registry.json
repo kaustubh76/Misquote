@@ -14,16 +14,25 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-16T08:48:54+00:00",
+    "generated_at": "2026-08-17T16:50:50+00:00",
     "git_dirty": true,
-    "git_sha": "344fda7",
+    "git_sha": "92038cf",
     "source": "offline"
   },
   "hire_flow": {
     "client_transaction_count": 4,
     "escrow": {
       "address": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
-      "available": true
+      "available": true,
+      "evidence": [
+        "TermiX AACP `TermixEscrow` (USDT). Address appears in TermiX's own live config at /api/v1/config/contracts, and our recorded snapshot matched it with zero mismatches across 16 addresses.",
+        "EIP-1967 proxy: 170 bytes of code whose bytecode contains the 1967 implementation slot constant; implementation 0xbc8225ee...1e854 holds 17,941 bytes.",
+        "`settlementToken()` returns 0x55d3...7955 \u2014 read off the escrow itself, and byte-identical to our USDT_MAINNET and to token0 of the flagship pool.",
+        "TermiX's IdentityRegistry is 0x8004A169...a432, byte-identical to the ERC-8004 registry this codebase already reads, whose `name()` answers 'AgentIdentity'.",
+        "NOT VERIFIED: the ERC-8183 job interface itself. `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert, so the accessors are named something else and no job has been read back. Until one has, this is a verified escrow, not a verified ERC-8183 escrow.",
+        "SECURITY: `owner()` returns 0x1095ded9...5e42. The contract holding escrowed funds is upgradeable by that owner, so the code a job is escrowed under is not the code it may be settled under. That is a property of the venue, not a defect, but a marketplace that routes user funds through it should say so rather than discover it later.",
+        "NO TESTNET: TermiX documents chains 56 and 8453 only. Anything that writes runs on a fork first."
+      ]
     },
     "states": [
       "Open",

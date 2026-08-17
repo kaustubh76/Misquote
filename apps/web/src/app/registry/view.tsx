@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
-import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type Loaded } from "@/lib/artifacts";
@@ -28,7 +27,7 @@ interface RegistryArtifact {
     client_transaction_count: number;
     states: string[];
     terminal_states: string[];
-    escrow: { available: boolean; address?: string; reason?: string };
+    escrow: { available: boolean; address?: string; reason?: string; evidence?: string[] };
   };
   identity: {
     surveyed: boolean;
@@ -77,6 +76,17 @@ export function RegistryView() {
         is an on-chain job under ERC-8183, and what the ERC-8004 identity registry contains
         when you go and read it rather than quoting its size.
       </p>
+      {/* The second half of that sentence promises a survey that this run may
+          not have made — `identity.surveyed` is false without an RPC, and the
+          section below then renders a refusal directly under a claim to have
+          read it. Said here rather than left to be discovered two sections
+          down. */}
+      {d && !d.identity.surveyed && (
+        <p className="mt-2 max-w-[68ch] text-sm text-warn">
+          This run did not read the registry — the ERC-8183 half below needs no network and
+          is complete; the ERC-8004 half says why it is missing rather than estimating it.
+        </p>
+      )}
 
       {state === null && (
         <div className="mt-10">
@@ -197,13 +207,56 @@ export function RegistryView() {
                   <p className="m-0 font-mono text-sm break-all">
                     {d.hire_flow.escrow.address}
                   </p>
-                  <Pill tone="pass">Verified</Pill>
+                  {/* No verdict pill. This said `<Pill tone="pass">Verified</Pill>`
+                      beside the sentence "carried only because a chain check
+                      confirmed it" — while this same artifact says
+                      `"source": "offline"` and "no registry read was attempted".
+                      `available` is a dict lookup, not a read, so the pill was a
+                      verdict typed into the view.
+
+                      The findings a real check recorded are published now, and
+                      they are what goes here: seven of them, two of which are a
+                      NOT VERIFIED clause and a SECURITY note. A reader can weigh
+                      those. A green tick asks them not to. */}
+                  <span className="font-mono text-xs text-faint">
+                    {count(d.hire_flow.escrow.evidence?.length)} recorded findings
+                  </span>
                 </div>
                 <p className="mt-3 mb-0 text-sm text-dim">
-                  Carried only because a chain check confirmed it — bytecode present, and
-                  the identity registry beside it answering as the contract we already
-                  read. A table on a vendor&rsquo;s website is a claim, not a verification.
+                  A table on a vendor&rsquo;s website is a claim, not a verification. What
+                  follows was read from the chain and written down — including the parts
+                  that are still unverified.
                 </p>
+                {d.hire_flow.escrow.evidence?.length ? (
+                  <ul className="mt-4 mb-0 list-none space-y-3 p-0">
+                    {d.hire_flow.escrow.evidence.map((finding) => {
+                      // The emitter's own prefixes decide the tone. "NOT
+                      // VERIFIED" and "SECURITY" are the two most important
+                      // lines in the list and would otherwise read as four more
+                      // reassurances in a row of reassurances.
+                      const caveat = /^(NOT VERIFIED|SECURITY|NO TESTNET)\b/.exec(finding);
+                      return (
+                        <li
+                          key={finding}
+                          className={`border-l-2 pl-4 text-sm ${
+                            caveat ? "border-warn-line text-warn" : "border-line text-dim"
+                          }`}
+                        >
+                          {caveat && (
+                            <strong className="mr-1 font-mono text-xs">{caveat[1]}</strong>
+                          )}
+                          {caveat ? finding.slice(caveat[0].length).replace(/^:\s*/, "") : finding}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <Refusal
+                    title="No findings were published for this address"
+                    reason="The artifact carries the address but not the evidence behind it."
+                    floor="run `make registry`"
+                  />
+                )}
               </Card>
             ) : (
               <Refusal

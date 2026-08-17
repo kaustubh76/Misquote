@@ -315,6 +315,53 @@ describe("Assumptions", () => {
   });
 });
 
+describe("Registry: the escrow claims only what was recorded", () => {
+  interface Reg {
+    hire_flow: { escrow: { available: boolean; evidence?: string[] } };
+    identity: { surveyed: boolean };
+  }
+
+  it("shows the recorded findings instead of a verdict nobody computed", async () => {
+    // This rendered a green "Verified" pill beside "a chain check confirmed it"
+    // while the same artifact says `source: offline` and "no registry read was
+    // attempted". `available` is a dict lookup, not a read.
+    const reg = readArtifact<Reg>("registry.json");
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The escrow contract" });
+
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+
+    // One item per recorded finding. Matched by count plus a tail fragment
+    // rather than by whole string: a caveat renders its "NOT VERIFIED" prefix
+    // in its own <strong>, so the line is two nodes and a full-text match on it
+    // would silently never fire.
+    const items = [...document.querySelectorAll("li")].map((li) => li.textContent ?? "");
+    for (const finding of reg.hire_flow.escrow.evidence ?? []) {
+      const tail = finding.slice(-40);
+      expect(items.some((text) => text.includes(tail))).toBe(true);
+    }
+  });
+
+  it("carries the NOT VERIFIED clause, which is the point of publishing the list", async () => {
+    // `JOB_ESCROW_EVIDENCE`'s own comment: the gap between "a live escrow that
+    // settles in the token we already use" and "we have exercised ERC-8183's
+    // job interface here" is the slippage this project exists to catch. That
+    // sentence had no surface at all while the page showed a green tick.
+    const reg = readArtifact<Reg>("registry.json");
+    const caveats = (reg.hire_flow.escrow.evidence ?? []).filter((e) =>
+      /^(NOT VERIFIED|SECURITY|NO TESTNET)\b/.test(e),
+    );
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The escrow contract" });
+
+    expect(caveats.length).toBeGreaterThan(0);
+    for (const caveat of caveats) {
+      const label = /^(NOT VERIFIED|SECURITY|NO TESTNET)/.exec(caveat)?.[1] ?? "";
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("Registry", () => {
   it("leads with the number of transactions the client signs", async () => {
     render(<RegistryPage />);
