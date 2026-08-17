@@ -221,36 +221,134 @@ def test_the_counterfactual_badge_survives() -> None:
         assert "Badge" in sources[view], f"{view} stopped rendering the badge"
 
 
+def strip_styling(source: str) -> str:
+    """Remove class strings, which are full of numbers that mean nothing here.
+
+    `max-w-[68ch]`, `text-[0.85em]`, `sm:grid-cols-2`, `mt-10` — Tailwind
+    encodes layout as digits, and none of it is a claim to a reader. Scanning it
+    made `68`, `24` and `0.85` look like smuggled artifact values in nearly
+    every file.
+
+    What is left is the text and the expressions, which is where a hardcoded
+    figure would actually reach someone.
+    """
+    source = re.sub(r'className="[^"]*"', "", source)
+    source = re.sub(r"className=\{[^}]*\}", "", source, flags=re.DOTALL)
+    return source
+
+
 def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
     """`Readme.md` rule 6, enforced mechanically.
 
     Every displayed number must trace to the artifact. A literal copied into a
     component looks identical to a rendered one and stops updating silently.
+
+    ## What this used to miss
+
+    It opened three artifacts of thirteen — `warden`, `grid`, `sentinel` — and
+    within those took floats only at |x| >= 10 and ints only at |x| >= 1000. An
+    audit of the nine pages found a dozen hardcoded values, and **not one of
+    them was reachable by that rule**:
+
+    * `index.json`, `build.json`, `advantage*.json`, `registry.json`,
+      `vetting.json`, `addresses.json`, `vectors.json`, `status.json` were never
+      opened at all.
+    * `min_windows: 20`, `min_observations: 30`, `windows: 20`,
+      `perturbations: 3`, `in_range_floor: 0.7` fell under both thresholds — and
+      those are precisely the floors the pages restated.
+    * `24.0` and `168.0` entered the set as `"24.00"` and `"168.00"`, so no page
+      writing `24h` or `168h` could ever match.
+
+    Every artifact is read now, and a value qualifies on being *distinctive*
+    rather than large. Both forms of a float are checked, so `24.0` catches a
+    page that writes `24`.
+
+    ## Spelled-out numerals
+
+    "twenty", "thirty", "three" evaded it completely, and that is how the worst
+    findings hid: `/methods` restating its own window floor as "Twenty of them",
+    `/advantage` claiming a "thirty-observation floor" and "twenty sub-windows
+    times three perturbations". Only words for values in a `floors` block are
+    checked — every floor is a number a page has a motive to restate, and the
+    set is small enough that a false positive is a real finding.
     """
     if not (ARTIFACTS / "warden.json").exists():
         pytest.skip("no artifacts; run `make showcase-demo`")
 
     literals: set[str] = set()
-    for name in ("warden.json", "grid.json", "sentinel.json"):
-        data = json.loads((ARTIFACTS / name).read_text())
+    spelled: dict[str, str] = {}
 
-        def walk(o: object) -> None:
-            if isinstance(o, dict):
-                for v in o.values():
-                    walk(v)
-            elif isinstance(o, list):
-                for v in o:
-                    walk(v)
-            elif isinstance(o, float):
-                # Distinctive values only: 0.0, 1.0 and small integers appear
-                # legitimately in layout code.
-                text = f"{o:.2f}"
-                if abs(o) >= 10 and text not in {"100.00"}:
+    #: What a bare integer cannot be distinguished from.
+    #:
+    #: A one- or two-digit integer is a Tailwind scale step, a grid span, a
+    #: z-index or a pixel threshold as often as it is an artifact value.
+    #: Scanning for them flagged `pad = 32` in the nav's scroll maths, `zero >
+    #: 14` in the band's axis, and the "83% win rate" hypothetical on /methods —
+    #: three constants that belong exactly where they are.
+    #:
+    #: So this rule does not cover them, and that hole is stated rather than
+    #: allowlisted: an allowlist would grow every time layout code moved, and a
+    #: guard people edit to silence is a guard people stop reading. What covers
+    #: the small values that matter is the spelled-out scan below — every floor
+    #: is two digits, and every floor is a number a page has a motive to
+    #: restate.
+    def _too_ambiguous(text: str) -> bool:
+        return text.isdigit() and len(text) <= 2
+
+    #: Small integers and round decimals appear legitimately in layout code —
+    #: grid spans, opacities, durations — so they are never treated as
+    #: artifact values. Anything outside this is distinctive enough to matter.
+    UNDISTINCTIVE = {"0", "1", "2", "3", "4", "5", "6", "8", "10", "12", "100"}
+
+    WORDS = {
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine",
+        10: "ten",
+        12: "twelve",
+        20: "twenty",
+        24: "twenty-four",
+        30: "thirty",
+        168: "one hundred and sixty-eight",
+    }
+
+    def add(value: object) -> None:
+        if isinstance(value, bool):
+            return
+        if isinstance(value, float):
+            # Both renderings: `24.0` is written `24` by a page and `24.00` by
+            # a formatter, and the old rule only ever built the second.
+            for text in (f"{value:.2f}", f"{value:g}"):
+                if text not in UNDISTINCTIVE and not _too_ambiguous(text):
                     literals.add(text)
-            elif isinstance(o, int) and abs(o) >= 1000:
-                literals.add(str(o))
+        elif isinstance(value, int) and not _too_ambiguous(str(value)):
+            literals.add(str(value))
 
+    def walk(o: object) -> None:
+        if isinstance(o, dict):
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+        else:
+            add(o)
+
+    for path in sorted(ARTIFACTS.glob("*.json")):
+        data = json.loads(path.read_text())
         walk(data)
+        # Floors get their words checked too — see the docstring.
+        for block in ("floors",):
+            for value in (data.get(block) or {}).values():
+                word = WORDS.get(int(value)) if isinstance(value, int | float) else None
+                if word:
+                    spelled[word] = f"{block} value {value}"
 
     offenders: list[str] = []
     for path in [*WEB_SRC.rglob("*.tsx"), *WEB_SRC.rglob("*.ts")]:
@@ -261,9 +359,21 @@ def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
         # they exist to prevent — that prose is the opposite of a smuggled
         # literal, and flagging it would train the next person to delete the
         # explanation rather than the hardcoding.
-        text = strip_comments(path.read_text())
+        text = strip_styling(strip_comments(path.read_text()))
+        where = path.relative_to(REPO)
         for literal in literals:
-            if literal in text:
-                offenders.append(f"{path.relative_to(REPO)} contains {literal!r}")
+            # Bounded, so `68` does not match `ERC-8183` or `max-w-[68ch]` and
+            # `56` does not match a chain id inside an identifier. A bare
+            # substring scan was survivable only while the thresholds kept every
+            # literal long; dropping them made almost every file a false
+            # positive, which is worse than the hole it closed.
+            if re.search(rf"(?<![\w.-]){re.escape(literal)}(?![\w.-])", text):
+                offenders.append(f"{where} contains {literal!r}")
+        for word, why in spelled.items():
+            if re.search(rf"\b{word}\b", text, re.IGNORECASE):
+                offenders.append(f"{where} spells out {word!r} ({why})")
 
-    assert not offenders, f"hardcoded artifact values in the UI: {sorted(offenders)}"
+    assert not offenders, (
+        "hardcoded artifact values in the UI — read them from the artifact "
+        f"instead: {sorted(offenders)}"
+    )
