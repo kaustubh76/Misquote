@@ -113,12 +113,51 @@ export function VettingView() {
   }, []);
 
   const d = state?.ok ? state.value : null;
+  const a = addrs?.ok ? addrs.value : null;
+  const addressSummary = a?.surveyed ? a.summary : null;
+
+  /**
+   * The page's rollup, across every subject on it.
+   *
+   * `worst` follows `badge.Badge.verdict`: FAIL beats UNKNOWN beats WARN beats
+   * PASS. An unknown is deliberately not a pass — a check nobody could make and
+   * a check that came back clean must not produce the same headline.
+   */
+  const RANK = ["PASS", "WARN", "UNKNOWN", "FAIL"];
+
+  /**
+   * A subject-level verdict's tone.
+   *
+   * Both rollup pills were `verdict === "PASS" ? "pass" : "fail"`, so a WARN or
+   * an UNKNOWN rendered in the failure colour with its own word beside it —
+   * the exact collapse this file argues against at length for the per-check
+   * pills, made two levels up. `CheckList` gets it right; the pills above it
+   * did not.
+   */
+  const verdictTone = (v?: string) =>
+    v === "PASS" ? "pass" : v === "FAIL" ? "fail" : ("unverified" as const);
+  const verdicts = [d?.surveyed ? d.summary.worst : null, a?.surveyed ? a.verdict : null]
+    .filter((v): v is string => Boolean(v));
+  const worstVerdict =
+    verdicts.sort((x, y) => RANK.indexOf(y) - RANK.indexOf(x))[0] ?? "UNKNOWN";
+
+  // The pool counts are optional on the artifact, so each is defaulted rather
+  // than asserted — an emitter that stops publishing one should subtract from
+  // the rollup, not blank the page.
+  const pools = d?.surveyed ? d.summary : null;
+  const totals = {
+    subjects: (pools?.pools ?? 0) + (addressSummary ? 1 : 0),
+    checks: (pools?.checks ?? 0) + (addressSummary?.checked ?? 0),
+    unknown: (pools?.unknown_checks ?? 0) + (addressSummary?.unknown ?? 0),
+    failed: (pools?.failed_checks ?? 0) + (addressSummary?.failed ?? 0),
+  };
+
   const proofs = index?.ok
     ? index.value.not_built.filter((e) => e.category === "Due diligence")
     : [];
 
   return (
-    <Loadable loading={state === null} what="the pool badges">
+    <Loadable loading={state === null} what="the due-diligence reads">
       {/* Two subjects, so the title cannot be "Pool due diligence" any more.
           Pools are what an agent provides liquidity to; the addresses below are
           the contracts a signer is aimed at, and a pool can pass every check
@@ -163,17 +202,31 @@ export function VettingView() {
         </div>
       )}
 
+      {/* The rollup counts every subject on the page.
+          It read `vetting.json` alone — "18 checks" above a page showing 29 —
+          and `worst verdict` never looked at the addresses at all, so an
+          address FAIL would still have shown PASS at the top. Both artifacts
+          publish the counts; neither was read. `worst` takes the more severe of
+          the two by the same ordering `badge.py` uses: FAIL beats UNKNOWN beats
+          WARN beats PASS. */}
+      {(d?.surveyed || addressSummary) && (
+        <div className="mt-8 flex flex-wrap items-center gap-2">
+          <Badge tone={worstVerdict === "PASS" ? "neutral" : "warn"}>
+            worst verdict: {worstVerdict}
+          </Badge>
+          <span className="font-mono text-xs text-faint">
+            {count(totals.checks)} checks across {count(totals.subjects)} subjects ·{" "}
+            {count(totals.unknown)} unknown · {count(totals.failed)} failed
+          </span>
+        </div>
+      )}
+
       {d?.surveyed && (
         <>
-          <div className="mt-8 flex flex-wrap items-center gap-2">
-            <Badge tone={d.summary.worst === "PASS" ? "neutral" : "warn"}>
-              worst verdict: {d.summary.worst}
-            </Badge>
-            <span className="font-mono text-xs text-faint">
-              {count(d.summary.badged)} of {count(d.summary.pools)} pools badged ·{" "}
-              {count(d.summary.checks)} checks · {count(d.summary.unknown_checks)} unknown ·{" "}
-              {count(d.summary.failed_checks)} failed
-            </span>
+          <div className="mt-6 font-mono text-xs text-faint">
+            pools: {count(d.summary.badged)} of {count(d.summary.pools)} badged ·{" "}
+            {count(d.summary.checks)} checks · {count(d.summary.unknown_checks)} unknown ·{" "}
+            {count(d.summary.failed_checks)} failed
           </div>
 
           {d.pools.map((pool) => (
@@ -198,9 +251,7 @@ export function VettingView() {
                     }
                     title={pool.safe_to_provide ? "Cleared to provide" : "Not cleared"}
                     aside={
-                      <Pill tone={pool.safe_to_provide ? "pass" : "fail"}>
-                        {pool.verdict}
-                      </Pill>
+                      <Pill tone={verdictTone(pool.verdict)}>{pool.verdict}</Pill>
                     }
                   />
 
@@ -214,53 +265,6 @@ export function VettingView() {
               )}
             </Section>
           ))}
-
-          {/* The addresses the signer is aimed at. Same renderer as the pools
-              above, because they are the same question — named checks, chain
-              readings, a verdict — asked about a different subject. */}
-          <Section title="The addresses the signer is pointed at" className="mt-12">
-            {addrs?.ok && addrs.value.surveyed ? (
-              <Card>
-                <CardHeader
-                  eyebrow={
-                    <span className="font-mono">
-                      chain {addrs.value.chain_id}
-                      {addrs.value.block != null && ` · block ${addrs.value.block.toLocaleString("en-US")}`}
-                    </span>
-                  }
-                  title="Read, and cross-checked against each other"
-                  aside={
-                    <Pill tone={addrs.value.verdict === "PASS" ? "pass" : "fail"}>
-                      {addrs.value.verdict}
-                    </Pill>
-                  }
-                />
-                <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                  Any single reading can be made to look right by pointing at a plausible
-                  contract. The interesting checks are the ones where two readings have to
-                  agree — the factory naming the pool that the pool names itself, the
-                  position manager naming the factory — because making those agree requires
-                  actually being the deployment.
-                </p>
-                <CheckList checks={addrs.value.checks ?? []} />
-                <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
-                  read {timestamp(addrs.value.read_at)} · {hours(addrs.value.age_hours)} ago
-                  {addrs.value.record && ` · ${addrs.value.record}`}
-                </p>
-              </Card>
-            ) : (
-              <Refusal
-                title="The addresses were not verified"
-                reason={
-                  addrs?.ok
-                    ? (addrs.value.reason ?? "no reading was recorded")
-                    : "addresses.json has not been generated — run `make addresses`"
-                }
-                floor="an address nobody checked and an address checked clean look identical once rendered"
-              />
-            )}
-          </Section>
-
           {proofs.length > 0 && (
             <Section
               title="What a badge still cannot do"
@@ -278,6 +282,54 @@ export function VettingView() {
           {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
+
+
+        {/* The addresses the signer is aimed at. Same renderer as the pools
+            above, because they are the same question — named checks, chain
+            readings, a verdict — asked about a different subject. */}
+        <Section title="The addresses the signer is pointed at" className="mt-12">
+          {addrs?.ok && addrs.value.surveyed ? (
+            <Card>
+              <CardHeader
+                eyebrow={
+                  <span className="font-mono">
+                    chain {addrs.value.chain_id}
+                    {addrs.value.block != null && ` · block ${addrs.value.block.toLocaleString("en-US")}`}
+                  </span>
+                }
+                title="Read, and cross-checked against each other"
+                aside={
+                  <Pill tone={verdictTone(addrs.value.verdict)}>
+                    {addrs.value.verdict}
+                  </Pill>
+                }
+              />
+              <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
+                Any single reading can be made to look right by pointing at a plausible
+                contract. The interesting checks are the ones where two readings have to
+                agree — the factory naming the pool that the pool names itself, the
+                position manager naming the factory — because making those agree requires
+                actually being the deployment.
+              </p>
+              <CheckList checks={addrs.value.checks ?? []} />
+              <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
+                read {timestamp(addrs.value.read_at)} · {hours(addrs.value.age_hours)} ago
+                {addrs.value.record && ` · ${addrs.value.record}`}
+              </p>
+            </Card>
+          ) : (
+            <Refusal
+              title="The addresses were not verified"
+              reason={
+                addrs?.ok
+                  ? (addrs.value.reason ?? "no reading was recorded")
+                  : "addresses.json has not been generated — run `make addresses`"
+              }
+              floor="an address nobody checked and an address checked clean look identical once rendered"
+            />
+          )}
+        </Section>
+
     </Loadable>
   );
 }

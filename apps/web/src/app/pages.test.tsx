@@ -468,6 +468,52 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     expect(within(section).queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("survives vetting.json being unsurveyed, which used to hide it entirely", async () => {
+    // The address <Section> was nested inside `{d?.surveyed && (`. With no pool
+    // badged — a routine state, `make vet` needs a chain — the second subject
+    // disappeared with its own artifact present and clean, and nothing said a
+    // second subject existed. The existing "nothing has been badged" test
+    // asserted the pool refusal and never looked for it.
+    serveArtifacts({
+      overrides: {
+        "vetting.json": {
+          surveyed: false,
+          reason: "no badges on disk",
+          chain_id: 56,
+          badge_dir: "vetting/badges",
+          pools: [],
+          summary: { pools: 0, badged: 0 },
+        },
+      },
+    });
+    render(<VettingPage />);
+
+    const heading = await screen.findByRole("heading", {
+      name: /addresses the signer is pointed at/i,
+    });
+    const section = heading.closest("[data-heading-scope]") as HTMLElement;
+    const a = readArtifact<Addrs>("addresses.json");
+
+    if (a.surveyed) {
+      for (const check of a.checks ?? []) {
+        expect(within(section).getByRole("heading", { name: check.name })).toBeInTheDocument();
+      }
+    }
+  });
+
+  it("counts every subject on the page, not just the pools", async () => {
+    // The rollup read `vetting.json` alone — "18 checks" above a page showing
+    // 29 — and `worst verdict` never looked at the addresses, so an address
+    // FAIL would still have shown PASS at the top.
+    const v = readArtifact<{ surveyed: boolean; summary: { checks?: number } }>("vetting.json");
+    const a = readArtifact<Addrs & { summary?: { checked: number } }>("addresses.json");
+    render(<VettingPage />);
+    await screen.findByRole("heading", { name: /addresses the signer is pointed at/i });
+
+    const expected = (v.surveyed ? (v.summary.checks ?? 0) : 0) + (a.surveyed ? (a.summary?.checked ?? 0) : 0);
+    expect(screen.getByText(new RegExp(`${expected} checks across`))).toBeInTheDocument();
+  });
+
   it("survives the artifact being absent entirely", async () => {
     serveArtifacts({ missing: ["addresses.json"] });
     render(<VettingPage />);
