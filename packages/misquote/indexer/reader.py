@@ -95,9 +95,27 @@ PUBLIC_RPCS: dict[int, tuple[str, ...]] = {
         "https://bsc-dataseed.bnbchain.org",
         "https://bsc-dataseed1.defibit.io",
     ),
+    # Chapel. Surveyed 18 Aug 2026, and it is worse than mainnet: of eleven
+    # public testnet endpoints, **exactly one** serves `eth_getLogs`. Every
+    # `data-seed-prebsc-*` host, `bsc-testnet.bnbchain.org` and
+    # `bsc-testnet-dataseed.bnbchain.org` answer for chain 97 and refuse every
+    # log query with the same "limit exceeded" as their mainnet counterparts.
+    #
+    # Both endpoints this list used to hold were in that group — one unreachable,
+    # one log-refusing — so `connect_all(97)` raised and the testnet burn-in
+    # could never have started. The capability probe from P-11 is what turned
+    # that from a silent failure into a refusal naming the reason.
+    #
+    # **One working endpoint is no redundancy.** A tail or a burn-in on Chapel
+    # stops entirely if this host does, and rotation has nowhere to go. Recorded
+    # rather than designed around: the fix is a keyed testnet RPC, and the
+    # burn-in is a 24-hour run rather than a permanent service.
     97: (
-        "https://bsc-testnet-rpc.publicnode.com",
+        "https://bsc-prebsc-dataseed.bnbchain.org",  # the only one that serves logs
+        # State reads only — kept so `connect(97)` (registry, write path) still
+        # has somewhere to go when the one above is down.
         "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+        "https://bsc-testnet.bnbchain.org",
     ),
 }
 

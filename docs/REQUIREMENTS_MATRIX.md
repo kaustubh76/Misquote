@@ -623,6 +623,18 @@ queue in front of a node, not work, and it sits uncomfortably close to a 60s pol
 
 **Verified live:** 4 polls, 0 refused, 214 real swaps, both dead endpoints skipped by name.
 
+**And on Chapel it is worse — surveyed 18 Aug 2026, of eleven public testnet endpoints exactly
+one serves `eth_getLogs`.** Every `data-seed-prebsc-*` host, `bsc-testnet.bnbchain.org` and
+`bsc-testnet-dataseed.bnbchain.org` answer for chain 97 and refuse every log query with the same
+"limit exceeded". `https://bsc-prebsc-dataseed.bnbchain.org` is the only one that does not.
+
+Both endpoints `PUBLIC_RPCS[97]` held were in that group — one unreachable, one log-refusing — so
+**the 24-hour testnet burn-in could never have started**, and before the capability probe existed it
+would have failed as a tail that polled forever and wrote nothing. It now refuses at connect time
+and names the reason. Worth stating plainly: **one working endpoint is no redundancy.** A burn-in on
+Chapel stops entirely if that host does, and rotation has nowhere to go. That is a reason to want a
+keyed testnet RPC, not a reason to pretend the risk is absent.
+
 **And then the thing it was blocking, done.** A 30-day backfill of the target pool, on free
 endpoints, with `BSC_RPC_URL` unset:
 

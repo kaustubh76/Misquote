@@ -565,7 +565,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 911,
+      "line": 923,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -600,7 +600,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 912,
+      "line": 924,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -635,7 +635,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 913,
+      "line": 925,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -672,7 +672,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 914,
+      "line": 926,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -788,7 +788,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 862,
+      "line": 874,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -855,7 +855,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 817,
+      "line": 829,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -968,7 +968,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 751,
+      "line": 763,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1039,7 +1039,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 690,
+      "line": 702,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1081,7 +1081,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 649,
+      "line": 661,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1203,6 +1203,14 @@
         },
         {
           "text": "**Verified live:** 4 polls, 0 refused, 214 real swaps, both dead endpoints skipped by name.",
+          "type": "p"
+        },
+        {
+          "text": "**And on Chapel it is worse \u2014 surveyed 18 Aug 2026, of eleven public testnet endpoints exactly one serves `eth_getLogs`.** Every `data-seed-prebsc-*` host, `bsc-testnet.bnbchain.org` and `bsc-testnet-dataseed.bnbchain.org` answer for chain 97 and refuse every log query with the same \"limit exceeded\". `https://bsc-prebsc-dataseed.bnbchain.org` is the only one that does not.",
+          "type": "p"
+        },
+        {
+          "text": "Both endpoints `PUBLIC_RPCS[97]` held were in that group \u2014 one unreachable, one log-refusing \u2014 so **the 24-hour testnet burn-in could never have started**, and before the capability probe existed it would have failed as a tail that polled forever and wrote nothing. It now refuses at connect time and names the reason. Worth stating plainly: **one working endpoint is no redundancy.** A burn-in on Chapel stops entirely if that host does, and rotation has nowhere to go. That is a reason to want a keyed testnet RPC, not a reason to pretend the risk is absent.",
           "type": "p"
         },
         {
