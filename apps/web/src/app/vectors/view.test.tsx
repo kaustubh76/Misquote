@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts } from "@/test/harness";
 import VectorsPage from "./page";
@@ -27,7 +27,14 @@ afterEach(() => {
 
 async function loaded() {
   render(<VectorsPage />);
-  return screen.findByRole("heading", { name: /against the real Solidity/ });
+  // Waits for the *loaded* state, not the h1. The heading renders before the
+  // fetch resolves — it sits outside the `{d && …}` guard — so awaiting it
+  // returns while the page is still a skeleton, and every assertion after it
+  // races the artifact. That produced exactly one failure in four full runs,
+  // which is the worst possible amount.
+  await waitFor(() =>
+    expect(document.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
+  );
 }
 
 /**

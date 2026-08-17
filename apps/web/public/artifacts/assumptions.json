@@ -12,6 +12,7 @@
         }
       ],
       "cited_by": [
+        "addresses.json",
         "vetting.json"
       ],
       "id": "A1",
@@ -771,6 +772,7 @@
         }
       ],
       "cited_by": [
+        "addresses.json",
         "vetting.json"
       ],
       "id": "P-6",
@@ -950,6 +952,7 @@
         }
       ],
       "cited_by": [
+        "addresses.json",
         "vetting.json"
       ],
       "id": "P-8",
@@ -1394,6 +1397,7 @@
         }
       ],
       "cited_by": [
+        "addresses.json",
         "vetting.json"
       ],
       "id": "V-10",

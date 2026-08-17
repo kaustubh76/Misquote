@@ -4,15 +4,37 @@ import { useEffect, useState } from "react";
 import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
-import { WithCitations } from "@/components/Cite";
-import { Heading, Section } from "@/components/Heading";
+import { CheckList } from "@/components/CheckList";
+import { Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
 import { Loadable } from "@/components/LoadingStatus";
-import { Pill, type PillTone } from "@/components/Pill";
+import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
 import { count, hours, shortAddress, timestamp } from "@/lib/format";
+
+/**
+ * What `make vet-addresses` recorded, or a stated reason it recorded nothing.
+ *
+ * `surveyed: false` is a routine state, not an exceptional one:
+ * `verify_addresses.py` reaches for a list of public BSC endpoints rather than
+ * a configured key, and public endpoints are unreliable. Zero checks failing
+ * and zero checks run render identically unless the artifact says which.
+ */
+interface AddressArtifact {
+  chain_id: number;
+  surveyed: boolean;
+  reason?: string;
+  verdict?: string;
+  block?: number | null;
+  read_at?: string;
+  age_hours?: number;
+  record?: string;
+  checks?: VettingCheck[];
+  summary?: { checked: number; failed: number; unknown: number };
+  build?: Build;
+}
 
 interface VettingCheck {
   name: string;
@@ -67,25 +89,24 @@ interface VettingArtifact {
  * not a `Pill` and certainly not an `ErrorNotice`. Amber is never green, and it
  * is not red either.
  */
-const CHECK_TONE: Record<string, PillTone> = {
-  PASS: "pass",
-  WARN: "unverified",
-  FAIL: "fail",
-};
 
 export function VettingView() {
   const [state, setState] = useState<Loaded<VettingArtifact> | null>(null);
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
+  const [addrs, setAddrs] = useState<Loaded<AddressArtifact> | null>(null);
 
   useEffect(() => {
     let live = true;
-    Promise.all([load<VettingArtifact>("vetting.json"), load<IndexArtifact>("index.json")]).then(
-      ([v, i]) => {
-        if (!live) return;
-        setState(v);
-        setIndex(i);
-      },
-    );
+    Promise.all([
+      load<VettingArtifact>("vetting.json"),
+      load<IndexArtifact>("index.json"),
+      load<AddressArtifact>("addresses.json"),
+    ]).then(([v, i, a]) => {
+      if (!live) return;
+      setState(v);
+      setIndex(i);
+      setAddrs(a);
+    });
     return () => {
       live = false;
     };
@@ -98,11 +119,16 @@ export function VettingView() {
 
   return (
     <Loadable loading={state === null} what="the pool badges">
-      <h1 className="text-2xl font-semibold">Pool due diligence</h1>
+      {/* Two subjects, so the title cannot be "Pool due diligence" any more.
+          Pools are what an agent provides liquidity to; the addresses below are
+          the contracts a signer is aimed at, and a pool can pass every check
+          here while the factory constant used to find it points elsewhere. */}
+      <h1 className="text-2xl font-semibold">Due diligence, read from chain</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Every pool a listed agent touches, read from chain and checked against the defects
-        this project actually hit. Each check names the matrix item that paid for it, so a
-        reader can go and see the arithmetic rather than take the badge&rsquo;s word.
+        Every pool a listed agent touches, and every contract address the signer is
+        pointed at, read from chain and checked against the defects this project actually
+        hit. Each check names the matrix item that paid for it, so a reader can go and see
+        the arithmetic rather than take the badge&rsquo;s word.
       </p>
 
       {state === null && (
@@ -178,49 +204,7 @@ export function VettingView() {
                     }
                   />
 
-                  <ul className="m-0 list-none space-y-4 p-0">
-                    {(pool.checks ?? []).map((check) =>
-                      check.status === "UNKNOWN" ? (
-                        // Not a pill. The read did not happen, so there is no
-                        // finding to colour — only a refusal to claim one.
-                        <li key={check.name}>
-                          <Refusal
-                            title={check.name}
-                            reason={check.detail}
-                            floor={check.provenance}
-                          />
-                        </li>
-                      ) : (
-                        <li
-                          key={check.name}
-                          className="border-l-2 border-line pl-4 first:border-l-2"
-                        >
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            {/* Explicitly h4. `Card` cannot provide a level —
-                                `CardHeader` arrives as a child, so the card
-                                never knows whether it has a title. Without
-                                this, each check is a sibling of the verdict it
-                                is the evidence for. The escape hatch exists for
-                                exactly this, and using it is visible in a diff. */}
-                            <Heading level={4} className="m-0 text-sm font-semibold">
-                              {check.name}
-                            </Heading>
-                            <Pill tone={CHECK_TONE[check.status] ?? "info"}>
-                              {check.status}
-                            </Pill>
-                          </div>
-                          <p className="mt-1 mb-0 font-mono text-xs break-words text-dim">
-                            {check.detail}
-                          </p>
-                          <p className="mt-1 mb-0 text-xs text-faint">
-                            {/* The provenance strings cite matrix items, so P-6
-                                and V-10 become links into /assumptions. */}
-                            <WithCitations text={check.provenance} />
-                          </p>
-                        </li>
-                      ),
-                    )}
-                  </ul>
+                  <CheckList checks={pool.checks ?? []} />
 
                   <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                     read {timestamp(pool.read_at)} · {hours(pool.age_hours)} ago ·{" "}
@@ -230,6 +214,52 @@ export function VettingView() {
               )}
             </Section>
           ))}
+
+          {/* The addresses the signer is aimed at. Same renderer as the pools
+              above, because they are the same question — named checks, chain
+              readings, a verdict — asked about a different subject. */}
+          <Section title="The addresses the signer is pointed at" className="mt-12">
+            {addrs?.ok && addrs.value.surveyed ? (
+              <Card>
+                <CardHeader
+                  eyebrow={
+                    <span className="font-mono">
+                      chain {addrs.value.chain_id}
+                      {addrs.value.block != null && ` · block ${addrs.value.block.toLocaleString("en-US")}`}
+                    </span>
+                  }
+                  title="Read, and cross-checked against each other"
+                  aside={
+                    <Pill tone={addrs.value.verdict === "PASS" ? "pass" : "fail"}>
+                      {addrs.value.verdict}
+                    </Pill>
+                  }
+                />
+                <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
+                  Any single reading can be made to look right by pointing at a plausible
+                  contract. The interesting checks are the ones where two readings have to
+                  agree — the factory naming the pool that the pool names itself, the
+                  position manager naming the factory — because making those agree requires
+                  actually being the deployment.
+                </p>
+                <CheckList checks={addrs.value.checks ?? []} />
+                <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
+                  read {timestamp(addrs.value.read_at)} · {hours(addrs.value.age_hours)} ago
+                  {addrs.value.record && ` · ${addrs.value.record}`}
+                </p>
+              </Card>
+            ) : (
+              <Refusal
+                title="The addresses were not verified"
+                reason={
+                  addrs?.ok
+                    ? (addrs.value.reason ?? "no reading was recorded")
+                    : "addresses.json has not been generated — run `make addresses`"
+                }
+                floor="an address nobody checked and an address checked clean look identical once rendered"
+              />
+            )}
+          </Section>
 
           {proofs.length > 0 && (
             <Section

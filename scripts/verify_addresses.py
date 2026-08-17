@@ -19,10 +19,16 @@ intend to trade.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
+from typing import Any
 
+from eth_abi import decode, encode
 from web3 import Web3
 from web3.exceptions import Web3Exception
+
+from misquote.vetting import addresses
 
 RPCS: dict[int, tuple[str, ...]] = {
     56: (
@@ -61,6 +67,8 @@ CANDIDATES: dict[int, dict[str, str]] = {
         "cake": "0xFa60D973F7642B748046464e165A65B7323b0DEE",
     },
 }
+
+RECORD_DIR = Path(__file__).resolve().parents[1] / "vetting" / "addresses"
 
 TARGET_FEE = 500  # 0.05% in pips
 
@@ -252,14 +260,99 @@ def scan_pools(w3: Web3, factory, addrs: dict[str, str]) -> None:
             print(f"{a + '/' + b:12s} {fee:6d}  {addr} {tick:9d} {liq:30,d}{usable}")
 
 
+class Web3Reader:
+    """`vetting.addresses.Reader`, backed by a real node.
+
+    The judgement lives in `packages/misquote/vetting/addresses.py` and takes a
+    protocol, so every verdict in it is exercised without a chain by
+    `tests/vetting/test_address_checks.py`. This is the thin half that cannot be:
+    it turns a signature and some arguments into an `eth_call`.
+
+    Raising is the contract. `survey()` turns any exception into `UNKNOWN`,
+    which is blocking — a read that did not happen must never be a pass — so
+    swallowing an error here would be the one thing that breaks the guarantee.
+    """
+
+    def __init__(self, w3: Web3) -> None:
+        self.w3 = w3
+
+    def code_size(self, address: str) -> int:
+        return len(self.w3.eth.get_code(Web3.to_checksum_address(address)))
+
+    def call(self, address: str, signature: str, *args: Any) -> Any:
+        types = [t for t in signature[signature.index("(") + 1 : -1].split(",") if t]
+        selector = Web3.keccak(text=signature)[:4]
+        encoded = encode(types, [_arg(t, a) for t, a in zip(types, args, strict=True)])
+        raw = self.w3.eth.call(
+            {"to": Web3.to_checksum_address(address), "data": selector + encoded}
+        )
+        # Every signature this module uses returns exactly one value, and the
+        # return type is not in the signature string — so it is inferred from
+        # the name rather than parsed. A new check with a different shape has
+        # to add itself here, which is the right place to notice.
+        return _decode(signature, raw)
+
+
+def _arg(abi_type: str, value: Any) -> Any:
+    return Web3.to_checksum_address(value) if abi_type == "address" else value
+
+
+_RETURNS = {
+    "getPool": "address",
+    "token0": "address",
+    "token1": "address",
+    "factory": "address",
+    "fee": "uint24",
+    "tickSpacing": "int24",
+}
+
+
+def _decode(signature: str, raw: bytes) -> Any:
+    name = signature.split("(")[0]
+    return decode([_RETURNS[name]], raw)[0]
+
+
+def record_survey(w3: Web3, chain_id: int, out: Path) -> int:
+    """Run the structured checks and write down what they found.
+
+    Separate from the stdout report above, which predates it and does more —
+    `--scan` in particular walks candidate pools looking for liquidity, which is
+    discovery rather than verification. This writes the verification half in a
+    form `scripts/addresses_report.py` can republish.
+    """
+    report = addresses.survey(Web3Reader(w3), chain_id)
+    report.block = w3.eth.block_number
+
+    payload = report.to_dict()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+    print(f"\nrecorded {payload['summary']['checked']} checks -> {out}")
+    print(f"verdict  {payload['verdict']}")
+    return 0 if report.verdict == "PASS" else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--chain", type=int, default=56, choices=(56, 97))
     ap.add_argument("--scan", action="store_true", help="list candidate pools and their liquidity")
+    ap.add_argument(
+        "--out",
+        nargs="?",
+        const=str(RECORD_DIR / "{chain}.json"),
+        help="also write the structured checks here, for the web report to republish",
+    )
     args = ap.parse_args()
 
     chain_id = args.chain
     w3 = connect(chain_id)
+
+    if args.out:
+        # The structured pass, written for the site to republish. Runs the
+        # checks in `misquote.vetting.addresses`, which derive from
+        # `chain/addresses.py` rather than from this file's `CANDIDATES` copy.
+        return record_survey(w3, chain_id, Path(args.out.replace("{chain}", str(chain_id))))
+
     addrs = {k: Web3.to_checksum_address(v) for k, v in CANDIDATES[chain_id].items()}
     r = Report()
 

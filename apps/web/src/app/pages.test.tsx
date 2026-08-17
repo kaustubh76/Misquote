@@ -393,6 +393,76 @@ describe("Overview never shows a bare region", () => {
   });
 });
 
+describe("Vetting: the addresses the signer is pointed at", () => {
+  interface Addrs {
+    surveyed: boolean;
+    verdict?: string;
+    checks?: { name: string; status: string }[];
+  }
+
+  it("renders every recorded check, through the same renderer as the pools", async () => {
+    // Pools and addresses are the same question — named checks, chain
+    // readings, a verdict — asked about two subjects. `CheckList` being
+    // shareable is the argument that they really are the same shape.
+    const a = readArtifact<Addrs>("addresses.json");
+    render(<VettingPage />);
+
+    const heading = await screen.findByRole("heading", {
+      name: /addresses the signer is pointed at/i,
+    });
+    const section = heading.closest("[data-heading-scope]") as HTMLElement;
+
+    if (!a.surveyed) {
+      expect(within(section).getByText(/were not verified/)).toBeInTheDocument();
+      return;
+    }
+    for (const check of a.checks ?? []) {
+      expect(within(section).getByRole("heading", { name: check.name })).toBeInTheDocument();
+    }
+  });
+
+  it("refuses rather than showing zero when nothing was recorded", async () => {
+    // `verify_addresses.py` reaches for public BSC endpoints rather than a
+    // configured key, so "no reading was taken" is routine here. An address
+    // nobody checked and an address checked clean must not render alike.
+    serveArtifacts({
+      overrides: {
+        "addresses.json": {
+          chain_id: 56,
+          surveyed: false,
+          reason: "no address verification has been recorded",
+          checks: [],
+        },
+      },
+    });
+    render(<VettingPage />);
+
+    const heading = await screen.findByRole("heading", {
+      name: /addresses the signer is pointed at/i,
+    });
+    const section = heading.closest("[data-heading-scope]") as HTMLElement;
+
+    expect(within(section).getByText(/were not verified/)).toBeInTheDocument();
+    expect(within(section).getByText(/no address verification has been recorded/)).toBeInTheDocument();
+    // A refusal, not an error. Nothing broke.
+    expect(within(section).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("survives the artifact being absent entirely", async () => {
+    serveArtifacts({ missing: ["addresses.json"] });
+    render(<VettingPage />);
+
+    const heading = await screen.findByRole("heading", {
+      name: /addresses the signer is pointed at/i,
+    });
+    expect(
+      within(heading.closest("[data-heading-scope]") as HTMLElement).getByText(
+        /has not been generated/,
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Vetting", () => {
   it("renders a section per pool with its checks", async () => {
     const d = readArtifact<{ pools: { label: string; checks?: { name: string }[] }[] }>(

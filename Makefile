@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -135,6 +135,14 @@ status:  ## run every readiness gate and publish the result
 vetting:  ## republish the badges make vet left on disk as the site's artifact
 	$(UV) run python scripts/vetting_report.py --chain $(CHAIN)
 
+vet-addresses:  ## check every address in chain/addresses.py against chain, and record it
+	# The reading half. Needs a reachable BSC RPC; `make addresses` republishes
+	# whatever this leaves on disk and needs nothing.
+	$(UV) run python scripts/verify_addresses.py --chain $(CHAIN) --out
+
+addresses:  ## republish what vet-addresses recorded as the site's artifact
+	$(UV) run python scripts/addresses_report.py --chain $(CHAIN)
+
 vectors-verify:  ## replay the committed vectors and record what pytest said
 	# The only thing allowed to claim the vectors were replayed, because it is
 	# the only thing that watches the replay. Exits non-zero when it fails, so a
@@ -149,7 +157,14 @@ vectors-report:  ## publish the vector corpus, and whatever replay was recorded
 registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
 	$(UV) run python scripts/registry_report.py
 
-artifacts: showcase-demo advantage-demo advantage-short assumptions registry vetting vectors-report status  ## every artifact the site reads
+# `assumptions` runs late, and the order is load-bearing. The sheet's
+# `cited_by` is built by globbing every *other* artifact in the output
+# directory, so an emitter that runs after it is invisible to it. Listed
+# before them, the sheet only looked correct because the previous run's files
+# were still on disk — on a clean checkout the citations would have been built
+# from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
+# surfaced it: the projection guard went red the moment that artifact appeared.
+artifacts: showcase-demo advantage-demo advantage-short registry vetting addresses vectors-report assumptions status  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev
