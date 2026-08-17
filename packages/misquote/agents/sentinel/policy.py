@@ -47,7 +47,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from misquote.core.policy import _round_to_spacing, toxicity
+from misquote.core.policy import _round_to_spacing, reentry_affordable, toxicity
 from misquote.core.types import (
     Action,
     Decision,
@@ -183,6 +183,23 @@ def decide_sentinel(
         if obs.clear_streak < clear_needed:
             reasons.append(("reason_wait_clear_streak", 1.0))
             return _decision(Action.HOLD, centre, width, obs, reasons, hold=True)
+
+        # Coming back costs gas, slippage and the MEV haircut every time, and
+        # Sentinel's whole active behaviour is leaving and returning — so it is
+        # the agent this bound matters most to. On the 30-day chain tape it made
+        # **1,761 round trips**, spending 3,522 against a deployed 1,000 to earn
+        # 0.044 of token1. See requirements-matrix P-12.
+        #
+        # Shared with Warden rather than restated, because the first version of
+        # this fix went into `core.policy.decide` alone and left Sentinel
+        # untouched — capping one agent and not the other in the same run, on the
+        # same tape, for want of one call.
+        affordable, spent = reentry_affordable(obs, params)
+        reasons.append(("reentries_today", float(spent)))
+        if not affordable:
+            reasons.append(("reason_wait_budget", 1.0))
+            return _decision(Action.HOLD, centre, width, obs, reasons, hold=True)
+
         reasons.append(("reason_enter", 1.0))
         # MINT the first time, REENTER after a pull. Section 3.4's action is
         # "re-enter when the signal clears", and recording it as a distinct

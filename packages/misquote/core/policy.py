@@ -222,6 +222,29 @@ def gap_condition_holds(obs: Observation, params: Params, meta: PoolMeta) -> boo
     return abs(obs.cex_gap) * 10_000.0 > meta.fee_bps + params.arb_cost_bps
 
 
+def reentry_affordable(obs: Observation, params: Params) -> tuple[bool, int]:
+    """Whether the position can afford to come back, and what it has spent today.
+
+    One function, consulted by every agent that can leave the market, because
+    Warden and Sentinel each keeping their own copy of a rule is exactly how V-12
+    happened — the policy tested `imb > z_pull` while the engine tested
+    `|imb| > z_pull`, and nothing could notice.
+
+    It happened again here and immediately. The re-entry budget went into
+    Warden's `decide` and not into `decide_sentinel`, so the fixed run capped
+    Warden at 249 round trips and left Sentinel at 1,761 — the same defect, on
+    the same tape, in the same run, because the rule existed twice. The rule
+    written down in P-12 that morning was *move it into the shared layer rather
+    than maintain it twice*, and this is what ignoring it costs.
+
+    Returns the verdict and the count, because every caller wants to publish the
+    count in its reasons and recomputing it separately is how the two would
+    drift apart again.
+    """
+    spent = rebalances_today(obs.position, obs.t)
+    return spent < params.max_rebalances_per_day, spent
+
+
 def imbalance_toxic(obs: Observation, params: Params) -> bool:
     """Section 3.4's second arm: is flow running one way hard enough to pull?
 
@@ -427,8 +450,7 @@ def decide(obs: Observation, params: Params, meta: PoolMeta) -> Decision:
         # budget would be held inside exactly the flow the rule exists to escape,
         # and that is the one outcome worse than churning.
         ready = obs.clear_streak >= params.m_clear
-        spent = rebalances_today(obs.position, obs.t)
-        affordable = spent < params.max_rebalances_per_day
+        affordable, spent = reentry_affordable(obs, params)
         action = Action.HOLD
         target_l: Tick | None = None
         target_u: Tick | None = None

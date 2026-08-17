@@ -306,3 +306,82 @@ def test_an_unreachable_z_pull_is_refused_rather_than_accepted() -> None:
 
     Params(z_pull=8.0, imbalance_window=100)  # sqrt(100) = 10, reachable
     assert Params().z_pull < Params().imbalance_window ** 0.5, "the default must be reachable"
+
+
+# --- the same bound, on both agents -----------------------------------------
+
+
+def test_sentinel_will_not_re_enter_once_the_daily_budget_is_gone() -> None:
+    """Sentinel's whole active behaviour is leaving and returning, so it is the
+    agent this bound matters most to — and it is the one the first version of
+    the fix missed.
+
+    P-12 went into `core.policy.decide` and not into `decide_sentinel`. The run
+    that proved it capped Warden at 249 round trips and left Sentinel at 1,761,
+    on the same tape, in the same run, because the rule existed in two places and
+    only one of them was edited. It is one function now.
+    """
+    params = Params()
+    # Same UTC day as the observation's clock (t=100_000). `rebalances_today`
+    # zeroes a count whose last move was yesterday — correctly, it is a per-day
+    # cap — so a fixture straddling midnight tests the rollover, not the budget.
+    flat = dataclasses.replace(
+        OUT_OF_MARKET,
+        last_rebalance_ts=99_000,
+        rebalances_today=params.max_rebalances_per_day,
+    )
+    obs = observation(position=flat, clear_streak=99, swap_imbalance_z=0.0)
+
+    decision = decide_sentinel(obs, params, META)
+    assert decision.action is Action.HOLD
+    assert dict(decision.reasons)["reason_wait_budget"] == 1.0
+
+
+def test_sentinel_re_enters_while_the_budget_lasts() -> None:
+    """A gate that can never open is not a gate."""
+    params = Params()
+    flat = dataclasses.replace(OUT_OF_MARKET, last_rebalance_ts=99_000, rebalances_today=0)
+    obs = observation(position=flat, clear_streak=99, swap_imbalance_z=0.0)
+
+    assert decide_sentinel(obs, params, META).action is Action.REENTER
+
+
+def test_sentinel_still_leaves_with_no_budget_left() -> None:
+    """The asymmetry, checked on this agent too. Exit is never rationed: an agent
+    held inside toxic flow because it had spent its budget is worse off than one
+    that churns."""
+    params = Params()
+    held = dataclasses.replace(
+        position(minted=0),
+        last_rebalance_ts=99_000,
+        rebalances_today=params.max_rebalances_per_day * 10,
+    )
+    obs = observation(position=held, swap_imbalance_z=params.z_pull + 1.0)
+
+    assert decide_sentinel(obs, params, META).action is Action.PULL
+
+
+def test_both_agents_read_the_same_budget_function() -> None:
+    """Not a style point. V-12 was Warden and the engine applying two different
+    imbalance rules, and P-12 was two policies applying two different re-entry
+    rules. Both were invisible until an agent leaned on the half that was wrong.
+    """
+    import inspect
+
+    from misquote.agents.sentinel import policy as sentinel_module
+    from misquote.core import policy as core_module
+
+    for module in (core_module, sentinel_module):
+        source = inspect.getsource(module)
+        assert "reentry_affordable(" in source, (
+            f"{module.__name__} does not consult the shared re-entry budget"
+        )
+
+    # Deliberately not asserting that neither module mentions
+    # `max_rebalances_per_day` anywhere else. `core.policy` reads it directly in
+    # R3, which caps *recentring* — a different rule that happens to share a
+    # parameter. An assertion that banned the name would have been a test of
+    # spelling rather than of behaviour, and would have failed on correct code.
+    assert "max_rebalances_per_day" not in inspect.getsource(sentinel_module), (
+        "Sentinel restates the budget rule instead of calling it"
+    )
