@@ -147,6 +147,7 @@ export function AgentCard({
         <CostBars
           caption={`${data.agent}: where the money went`}
           net={r.net_quote}
+          unit={data.quote_symbol}
           rows={[
             { label: "fees earned", value: r.fees_quote, direction: "earned" },
             {

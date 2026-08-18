@@ -7,6 +7,9 @@ ENV    ?= testnet
 N      ?= 2000
 CHAIN  ?= 56
 FOLLOW_S ?= 3600
+# Where `web-check` builds and serves from. Not `.next`, which `make web`
+# is serving, and not `out/`, which `make web-build` writes.
+WEB_CHECK_DIR ?= .next-check
 WARDEN_S ?= 600
 # The advantage report cuts its tape into 20 overlapping sub-windows, each half
 # the span, and refuses to quote a window shorter than the 24h policy horizon
@@ -183,16 +186,19 @@ web-check:  ## load the built site in a real browser: console errors + 390px ove
 	# This is the only check that runs real layout, and it earns its keep — the
 	# whole suite was green while every route but "/" fetched its artifacts from
 	# a page-relative path and rendered an error state.
-	# Builds into `.next-check`, not `.next`, so this does not swap chunks out
-	# from under a `make web` that is serving from the latter.
+	# Builds into `$(WEB_CHECK_DIR)`, not `.next`, so this does not swap chunks
+	# out from under a `make web` that is serving from the latter.
 	#
-	# That is necessary and, measured, not sufficient: a dev server still ends
-	# up 500ing on `/` after a check, with a React Client Manifest error naming
-	# Next's own devtools. Something beyond `distDir` is shared. Until that is
-	# found, treat the two as mutually exclusive — run this, then restart
-	# `make web`. Recorded rather than left for the next person to rediscover as
-	# "the app is broken".
-	cd apps/web && NEXT_DIST_DIR=.next-check pnpm build
-	cd apps/web/out && (python3 -m http.server 8099 & echo $$! > /tmp/misquote-web.pid) && sleep 2
+	# **And serves the directory it just built**, which is the whole reason this
+	# is a variable. Setting `distDir` moved the static export too: with the
+	# default it lands in `out/`, and with an override it lands in the override.
+	# For three commits this target built into `.next-check` and then served
+	# `out/` — a build from before the override existed. It reported "every
+	# route clean" against a site that had not been rebuilt in ninety minutes,
+	# which is a worse failure than the one it was written to catch.
+	cd apps/web && NEXT_DIST_DIR=$(WEB_CHECK_DIR) pnpm build
+	# Fails loudly rather than serving a stale tree if the export moves again.
+	test -f apps/web/$(WEB_CHECK_DIR)/index.html
+	cd apps/web/$(WEB_CHECK_DIR) && (python3 -m http.server 8099 & echo $$! > /tmp/misquote-web.pid) && sleep 2
 	cd apps/web && node scripts/check-pages.mjs $(if $(SHOTS),--shots $(SHOTS),); \
 		status=$$?; kill `cat /tmp/misquote-web.pid` 2>/dev/null; exit $$status

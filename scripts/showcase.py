@@ -280,6 +280,13 @@ def emit(
     payload["counterfactual"] = True
     payload["badge"] = COUNTERFACTUAL_BADGE
     payload["source"] = source
+    # The unit of every `*_quote` figure below, carried rather than assumed.
+    # `net_quote` is token1, which on this pool is WBNB and not the USDT the
+    # label's pair reads as — see the note on `PoolRef.quote_symbol`. The front
+    # end renders no unit at all when this is absent, which is the right answer
+    # for an artifact written before this field existed and the wrong one to
+    # guess at.
+    payload["quote_symbol"] = TARGET_POOL.quote_symbol
     payload["replay"] = {
         "samples": result.samples,
         "hours": round(result.hours, 2),
@@ -467,6 +474,7 @@ def main() -> int:
                 # omission invisible rather than disclosed.
                 "not_built": ledger.to_dicts(),
                 "pool": TARGET_POOL.label,
+                "quote_symbol": TARGET_POOL.quote_symbol,
                 "pool_address": TARGET_POOL.address,
                 "counterfactual": True,
                 "badge": COUNTERFACTUAL_BADGE,
@@ -491,6 +499,7 @@ def main() -> int:
                 source=source,
                 events=len(events),
                 capital_quote=args.capital,
+                quote_symbol=TARGET_POOL.quote_symbol,
                 span_hours=round((events[-1].ts - events[0].ts) / 3600, 2),
                 # `span_hours` is the distance between the first event and the
                 # last, so it counts any hole as though it were history. These

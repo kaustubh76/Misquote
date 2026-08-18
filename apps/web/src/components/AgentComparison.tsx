@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { amount, count, fraction, pct, SIGN_CLASS, signOf } from "@/lib/format";
+import { count, fraction, money, pct, SIGN_CLASS, signOf } from "@/lib/format";
 import type { AgentArtifact, AgentRef } from "@/lib/artifacts";
 
 /**
@@ -22,6 +22,12 @@ import type { AgentArtifact, AgentRef } from "@/lib/artifacts";
  * as long means twice the loss. Scaling each row to itself would make three
  * very different results look identical, which is the mistake `GateHistogram`
  * documents at length.
+ *
+ * A shared scale is only meaningful if the figures share a unit, so the unit is
+ * taken from the agents rather than assumed, and only when they agree. They do
+ * agree today — one run, one pool — but the pool is a constant somebody can
+ * change, and `EQUITY_POOL` quotes in tokenized Tesla shares. Drawing WBNB and
+ * TSLAx on one axis would be a category error rendered as a ranking.
  */
 export interface ComparedAgent {
   ref: AgentRef;
@@ -41,6 +47,20 @@ export function AgentComparison({
   // One scale across every agent. `Math.abs` because a profitable agent and a
   // loss-making one belong on the same axis; the sign is carried by the figure.
   const worst = Math.max(...agents.map((a) => Math.abs(a.data.replay.net_quote)), 0);
+
+  // Unanimous or nothing. `undefined` covers both "no artifact said" and "they
+  // disagreed"; the second also suppresses the shared-scale claim below, since
+  // in that case the bars are comparing quantities that are not comparable.
+  // "Net loss" was written into the caption. Every agent on the 30-day chain
+  // tape loses, so it read correctly for as long as that was the only tape
+  // anyone looked at — and on a run where all three profit it captions three
+  // green bars "the largest loss". Derived from the signs instead.
+  const signs = new Set(agents.map((a) => signOf(a.data.replay.net_quote)));
+  const extreme = signs.size === 1 && signs.has("neg") ? "loss" : signs.size === 1 && signs.has("pos") ? "gain" : "amount";
+
+  const units = new Set(agents.map((a) => a.data.quote_symbol));
+  const unit = units.size === 1 ? [...units][0] : undefined;
+  const commensurable = units.size === 1;
 
   return (
     <div className="rounded-lg border border-line bg-panel-2 p-5">
@@ -71,7 +91,7 @@ export function AgentComparison({
                       and "−0% of the worst" for a real $0.68 loss is worse than
                       opaque. The bar carries the ratio; the figure carries the
                       amount, which is what a reader came for. */}
-                  <span className={SIGN_CLASS[signOf(r.net_quote)]}>{amount(r.net_quote)}</span>
+                  <span className={SIGN_CLASS[signOf(r.net_quote)]}>{money(r.net_quote, unit)}</span>
                 </span>
               </div>
 
@@ -87,8 +107,17 @@ export function AgentComparison({
       </ul>
 
       <p className="mt-4 mb-0 border-t border-line pt-3 text-xs text-faint">
-        Net loss on {agents.length} agents over one tape, on one scale — longest bar is the
-        largest loss.
+        {commensurable ? (
+          <>
+            {agents.length} agents over one tape, on one scale — longest bar is the
+            largest {extreme}.
+          </>
+        ) : (
+          <>
+            These agents report in different units, so the bars rank nothing — read the
+            figures.
+          </>
+        )}
         {inRangeFloor !== undefined && ` In range is called against a ${pct(100 * inRangeFloor, 0)} floor.`}
       </p>
     </div>

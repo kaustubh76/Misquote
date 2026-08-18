@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { amount, EMPTY, fraction, pct, signOf, signed } from "./format";
+import { EMPTY, amount, fraction, money, pct, signOf, signed } from "./format";
 
 describe("missing values never acquire a judgement", () => {
   // The bug: `net > 0 ? "pos" : "neg"`. `undefined > 0` is false, so the else
@@ -46,5 +46,40 @@ describe("precision matches the claim", () => {
 
   it("converts fractions to percentages", () => {
     expect(fraction(0.5956)).toBe("59.6%");
+  });
+});
+
+describe("a figure carries the unit it is denominated in", () => {
+  it("attaches the unit to a value that exists", () => {
+    // `-186.74` was on the front page unlabelled, and a reader supplies
+    // dollars. `*_quote` is token1, which on this pool is WBNB — so it is
+    // roughly a hundred thousand dollars, not a hundred and eighty-seven.
+    // ASCII hyphen, not U+2212: `amount()` delegates to `toLocaleString`,
+    // which emits one, while `signed()` writes the typographic minus itself.
+    // The two disagree; pinned here as the current fact rather than wished away.
+    expect(money(-186.742015, "WBNB")).toBe("-186.74 WBNB");
+  });
+
+  it("never attaches a unit to a value that does not exist", () => {
+    // "— WBNB" would give a unit to a measurement that was not taken. Every
+    // absent-value path collapses to the em dash alone.
+    expect(money(undefined, "WBNB")).toBe(EMPTY);
+    expect(money(null, "WBNB")).toBe(EMPTY);
+    expect(money(NaN, "WBNB")).toBe(EMPTY);
+    expect(money(Infinity, "WBNB")).toBe(EMPTY);
+  });
+
+  it("renders bare when the artifact does not say what the unit is", () => {
+    // Artifacts written before the emitter carried `quote_symbol` genuinely do
+    // not know. Bare is honest; a default would be the project's own failure.
+    expect(money(-186.742015)).toBe("-186.74");
+    expect(money(-186.742015, undefined)).toBe("-186.74");
+  });
+
+  it("separates figure from unit with a non-breaking space", () => {
+    // So `186.74 WBNB` cannot wrap onto two lines, leaving a bare number at the
+    // end of one — which is the defect this function exists to remove.
+    expect(money(186.74, "WBNB")).not.toContain(" WBNB");
+    expect(money(186.74, "WBNB")).toContain(" WBNB");
   });
 });

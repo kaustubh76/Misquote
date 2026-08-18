@@ -34,6 +34,42 @@ export function amount(v: unknown, decimals = 2): string {
   });
 }
 
+/**
+ * An amount with the unit it is denominated in.
+ *
+ * Every money figure on this site was rendered bare — `-186.74`, `0.02`,
+ * `1,000.00` — and a reader supplies the missing unit from context. The context
+ * says dollars. It is not dollars.
+ *
+ * `*_quote` means **token1**, which on the flagship pool is WBNB:
+ * `CostModel.gas_quote` is documented as "3.0e-5 BNB, about two cents", and
+ * `ranges.py` divides "net token1" by capital to get a return. So `-186.74` is
+ * 186.74 BNB, roughly a hundred thousand dollars, and it was on the front page
+ * looking like the price of a bicycle.
+ *
+ * The unit cannot be read off the pair name, which is the trap that makes this
+ * a field rather than a regex. The label is `PancakeSwap v3 WBNB/USDT 0.05%`;
+ * pairs are written base-first; the quote asset in the trading sense is USDT
+ * and it is token0. Taking "the quote" from the label gives the one token these
+ * figures are certainly *not* in. `PoolRef.quote_symbol` records token1 and a
+ * test cross-checks it against both halves of the label.
+ *
+ * When `unit` is absent the figure renders bare, because an artifact written
+ * before the emitter carried the field genuinely does not say what it is in,
+ * and "we did not record it" beats a confident guess. When the *value* is
+ * absent it renders as the em dash alone — never `— WBNB`, which would attach a
+ * unit to a measurement that does not exist.
+ *
+ * The separator is a non-breaking space, so `186.74 WBNB` cannot wrap with
+ * the figure on one line and its unit on the next — which is a bare number
+ * again, in the layout where the cards are narrowest.
+ */
+export function money(v: unknown, unit?: string, decimals = 2): string {
+  if (!isNum(v)) return EMPTY;
+  const figure = amount(v, decimals);
+  return unit ? `${figure}\u00a0${unit}` : figure;
+}
+
 /** A percentage already expressed in percentage points (37.74 -> "37.74%"). */
 export function pct(v: unknown, decimals = 2): string {
   if (!isNum(v)) return EMPTY;

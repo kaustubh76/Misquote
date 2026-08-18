@@ -256,6 +256,7 @@ export function AgentDetail({ slug }: { slug: string }) {
                 this artifact's field names is local. */}
             <ComparisonTable
               caption="Agent against baseline"
+              unit={d.quote_symbol}
               agentLabel={d.agent}
               baselineLabel={adv.without_agent}
               agent={{
@@ -334,6 +335,7 @@ export function AgentDetail({ slug }: { slug: string }) {
               <CostBars
                 caption={`${d.agent}: where the money went`}
                 net={r.net_quote}
+                unit={d.quote_symbol}
                 rows={[
                   { label: "fees earned", value: r.fees_quote, direction: "earned" },
                   {

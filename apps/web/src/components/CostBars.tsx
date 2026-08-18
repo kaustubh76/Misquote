@@ -1,4 +1,4 @@
-import { amount, SIGN_CLASS, signOf } from "@/lib/format";
+import { amount, money, SIGN_CLASS, signOf } from "@/lib/format";
 
 /**
  * Where the money went: what the position earned, and what it paid to be there.
@@ -6,7 +6,7 @@ import { amount, SIGN_CLASS, signOf } from "@/lib/format";
  * `net = fees − adverse selection − costs` is an identity the engine enforces,
  * so these bars account for the whole result rather than sampling it. It was
  * ten table rows, which left the reader to do the subtraction and to notice the
- * order of magnitude themselves. On the committed tape:
+ * order of magnitude themselves. On the 30-day chain tape:
  *
  *     warden     fees 0.02   LVR 0.01   costs 186.76   net -186.74
  *     grid       fees 0.16   LVR 0.06   costs   0.78   net   -0.68
@@ -28,6 +28,16 @@ import { amount, SIGN_CLASS, signOf } from "@/lib/format";
  * Every figure is written beside its bar, so the numbers survive a reader who
  * cannot judge length — and colour is never the only signal: earned and spent
  * are separated by position and by label as well as by tone.
+ *
+ * ## The unit
+ *
+ * Stated twice and nowhere else: on the denominator, because a scale without a
+ * unit is not a scale, and on the net, because that is the figure that leaves
+ * the chart — in a screenshot, in a sentence, in somebody's memory. The rows
+ * inherit it from the denominator they are drawn against and stay bare, which
+ * is the ordinary convention and keeps three short numbers readable.
+ *
+ * `186.76` is not a hundred and eighty-seven dollars. It is that many BNB.
  */
 export interface CostRow {
   label: string;
@@ -40,11 +50,14 @@ export function CostBars({
   rows,
   net,
   caption,
+  unit,
 }: {
   rows: CostRow[];
   /** Optional so an absent value renders as a refusal rather than a profit. */
   net?: number;
   caption: string;
+  /** What these figures are denominated in. Omitted when the artifact does not say. */
+  unit?: string;
 }) {
   // The denominator, stated rather than implied. Guarded against an all-zero
   // set so a fresh artifact renders flat bars instead of dividing by zero.
@@ -81,14 +94,14 @@ export function CostBars({
 
       <figcaption className="mt-3 flex items-baseline justify-between gap-3 border-t border-line pt-2 text-xs">
         <span className="text-faint">
-          net — bars scaled against {amount(largest)}, the largest component
+          net — bars scaled against {money(largest, unit)}, the largest component
         </span>
         {/* `signOf`, not `net < 0`. An absent net compares false and would
             have rendered green — a missing measurement shown as a profit. The
             helper returns "none" for a value that is not a number, which is a
             distinct tone from zero. */}
         <span className={`tabular font-semibold ${SIGN_CLASS[signOf(net)]}`}>
-          {amount(net)}
+          {money(net, unit)}
         </span>
       </figcaption>
     </figure>

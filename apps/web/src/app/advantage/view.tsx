@@ -13,7 +13,7 @@ import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
-import { amount, count, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { count, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
 
 export function AdvantageView() {
   const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(null);
@@ -135,7 +135,7 @@ export function AdvantageView() {
           >
             <div className="grid gap-6">
               {d.tasks.map((task) => (
-                <TaskCard key={task.task} task={task} capital={d.capital_quote} />
+                <TaskCard key={task.task} task={task} capital={d.capital_quote} unit={d.quote_symbol} />
               ))}
             </div>
           </Section>
@@ -237,7 +237,15 @@ function taskTone(task: AdvantageTask) {
   return task.delta_pp > 0 ? ("pass" as const) : ("fail" as const);
 }
 
-function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
+function TaskCard({
+  task,
+  capital,
+  unit,
+}: {
+  task: AdvantageTask;
+  capital: number;
+  unit?: string;
+}) {
   const sign = signOf(task.delta_pp);
 
   return (
@@ -315,6 +323,7 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
                 task. */}
             <ComparisonTable
               caption={`${task.task}: agent against baseline`}
+              unit={unit}
               agentLabel={task.with_agent}
               baselineLabel={task.without_agent}
               agent={{
@@ -339,7 +348,7 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
               }}
             />
             <p className="mt-3 mb-0 text-xs text-faint">
-              {task.metric} · on {amount(capital)} of capital · {task.note}
+              {task.metric} · on {money(capital, unit)} of capital · {task.note}
             </p>
           </div>
         </details>

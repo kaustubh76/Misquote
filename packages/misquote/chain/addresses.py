@@ -58,6 +58,22 @@ class PoolRef:
     fee_protocol: int  # numerator out of 10,000, from slot0.feeProtocol
     label: str
 
+    # The symbol of **token1**, because every `*_quote` field in this codebase
+    # is denominated in token1 — `CostModel.gas_quote` is BNB, `net_quote` is
+    # BNB, `capital_quote` is BNB.
+    #
+    # This field exists because two meanings of "quote" collide here and they
+    # point at *different tokens*. In the trading sense the quote asset is the
+    # one you price in, which on this pool is USDT — the docstring above says
+    # exactly that. In the field-name sense `_quote` means token1, which is
+    # WBNB. So the pair reads WBNB/USDT, the quote asset is USDT, and a figure
+    # named `net_quote` is in WBNB. Anything that derives the unit from `label`
+    # by taking the second symbol gets the wrong token, confidently.
+    #
+    # Recorded rather than derived for that reason, and cross-checked against
+    # `label` by `tests/chain/test_addresses.py`.
+    quote_symbol: str
+
     @property
     def lp_fee_share(self) -> float:
         """Fraction of each swap fee that reaches liquidity providers.
@@ -118,6 +134,7 @@ TARGET_POOL = PoolRef(
     tick_spacing=10,
     fee_protocol=3400,  # LPs keep 66%; effective fee 0.033%, not 0.05%
     label="PancakeSwap v3 WBNB/USDT 0.05%",
+    quote_symbol="WBNB",
 )
 
 # Chapel's own WBNB/USDT pool at this tier exists but was initialized at MAX_TICK
@@ -137,6 +154,7 @@ TESTNET_MIRROR_POOL = PoolRef(
     tick_spacing=10,
     fee_protocol=3400,
     label="PancakeSwap v3 WBNB/BUSD 0.05% (chapel mirror)",
+    quote_symbol="WBNB",
 )
 
 # Tesla xStock — a *tokenized equity*, and the reason this project can say
@@ -185,6 +203,7 @@ EQUITY_POOL = PoolRef(
     tick_spacing=50,
     fee_protocol=3200,  # slot0[5] & 0xFFFF — LPs keep 68%, not 100%. See P-8.
     label="PancakeSwap v3 TSLAx/USDT 0.25%",
+    quote_symbol="TSLAx",
 )
 
 POOLS: dict[int, PoolRef] = {

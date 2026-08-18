@@ -83,3 +83,45 @@ describe("a net nobody measured", () => {
     expect(net.className).not.toContain("text-bad");
   });
 });
+
+describe("the unit the figures are in", () => {
+  it("states it on the denominator and on the net, and nowhere else", () => {
+    // A scale without a unit is not a scale; the net is the figure that leaves
+    // the chart in a screenshot. The three rows inherit it from the
+    // denominator and stay bare, which is the ordinary table convention.
+    render(
+      <CostBars
+        rows={warden}
+        net={-186.74}
+        unit="WBNB"
+        caption="Warden: where the money went"
+      />,
+    );
+
+    const caption = within(chart()).getByText(/bars scaled against/i);
+    expect(caption).toHaveTextContent(/186\.76\s*WBNB/);
+    expect(within(chart()).getByText(/-186\.74\s*WBNB/)).toBeInTheDocument();
+
+    // Not on the rows. Three short numbers stay readable.
+    expect(within(chart()).getByText("+0.02")).toBeInTheDocument();
+  });
+
+  it("renders bare when the artifact does not say what the unit is", () => {
+    // An artifact written before the emitter carried `quote_symbol` does not
+    // know. A default here would be this project's own failure mode.
+    render(<CostBars rows={warden} net={-186.74} caption="Warden: where the money went" />);
+
+    expect(within(chart()).getByText("-186.74")).toBeInTheDocument();
+    expect(within(chart()).queryByText(/WBNB/)).toBeNull();
+  });
+
+  it("never gives a unit to a net nobody measured", () => {
+    // `— WBNB` would attach a denomination to a measurement that was not taken,
+    // which reads as a figure rather than as its absence.
+    render(<CostBars rows={warden} unit="WBNB" caption="Warden: where the money went" />);
+
+    const figures = within(chart()).getAllByText("—");
+    expect(figures.length).toBeGreaterThan(0);
+    for (const el of figures) expect(el.textContent).not.toMatch(/WBNB/);
+  });
+});

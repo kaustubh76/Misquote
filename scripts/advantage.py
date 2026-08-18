@@ -410,6 +410,9 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float) ->
         "badge": COUNTERFACTUAL_BADGE,
         "source": source,
         "capital_quote": capital,
+        # token1, which is WBNB here and not the USDT the pair label
+        # reads as. See the note on `PoolRef.quote_symbol`.
+        "quote_symbol": TARGET_POOL.quote_symbol,
         "summary": summarise(comparisons),
         "overall": {"called": overall(comparisons).called, "label": str(overall(comparisons))},
         "tasks": [

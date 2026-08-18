@@ -80,7 +80,7 @@ describe("Overview leads with the comparison", () => {
     render(<OverviewPage />);
     await screen.findByRole("heading", { name: index.agents[0]!.name });
 
-    const caption = screen.getByText(/longest bar is the largest loss/);
+    const caption = screen.getByText(/longest bar is the largest/);
     const panel = caption.closest("div")!;
     for (const agent of index.agents) {
       expect(within(panel).getByRole("link", { name: agent.name })).toHaveAttribute(
@@ -95,14 +95,16 @@ describe("Overview leads with the comparison", () => {
     // length — the mistake `GateHistogram` documents at length.
     const warden = readArtifact<AgentArtifact>("warden.json");
     const grid = readArtifact<AgentArtifact>("grid.json");
+    const sentinel = readArtifact<AgentArtifact>("sentinel.json");
+    const index = readArtifact<IndexArtifact>("index.json");
     render(<OverviewPage />);
-    await screen.findByText(/longest bar is the largest loss/);
+    await screen.findByText(/longest bar is the largest/);
 
     // Scoped to the comparison panel. An unscoped `li div > div` also matches
     // every CostBars bar inside the three cards below, whose widths differ
     // anyway — so the assertion passed with all three comparison bars pinned to
     // 100%, which a mutation run caught.
-    const panel = (await screen.findByText(/longest bar is the largest loss/)).closest(
+    const panel = (await screen.findByText(/longest bar is the largest/)).closest(
       "div",
     )!;
     const bars = [...panel.querySelectorAll<HTMLElement>("li div > div")].map((el) =>
@@ -110,17 +112,41 @@ describe("Overview leads with the comparison", () => {
     );
     expect(bars).toHaveLength(3);
 
-    // The larger absolute loss must draw the longer bar, and by the right ratio.
-    const ratio = Math.abs(grid.replay.net_quote) / Math.abs(warden.replay.net_quote);
-    const [longest, shortest] = [Math.max(...bars), Math.min(...bars)];
-    expect(longest).toBe(100);
-    expect(shortest / longest).toBeCloseTo(ratio, 1);
+    // Every bar against the same denominator, checked against every artifact
+    // rather than against two of them. Naming Grid as the shortest was an
+    // assumption about the committed numbers, not about the component: it held
+    // until a regenerated tape made Sentinel the smallest, and then failed for
+    // a reason that had nothing to do with scaling.
+    // Element-wise, in the order the index lists the agents — so this pins which
+    // bar belongs to which agent as well as how long it is. Sorting both sides
+    // first would pass on a component that drew the right three lengths against
+    // the wrong three names.
+    const bySlug: Record<string, AgentArtifact> = { warden, grid, sentinel };
+    const nets = index.agents.map((a) => Math.abs(bySlug[a.slug]!.replay.net_quote));
+    const worst = Math.max(...nets);
+
+    expect(Math.max(...bars)).toBe(100);
+
+    nets.forEach((net, i) => {
+      const share = (net / worst) * 100;
+      if (share >= 1) {
+        expect(bars[i]!).toBeCloseTo(share, 1);
+      } else {
+        // A rounding error against the worst still gets a visible mark rather
+        // than vanishing: Grid's 0.68 against Warden's 186.74 is 0.36% of the
+        // scale, which would read as "lost nothing" at its true width. Floored,
+        // and the floor is small enough that it cannot be mistaken for a real
+        // comparison — but it is never zero, which would be a different claim.
+        expect(bars[i]!).toBeGreaterThan(share);
+        expect(bars[i]!).toBeLessThan(1);
+      }
+    });
   });
 
   it("calls in-range against the floor the artifact publishes", async () => {
     const warden = readArtifact<AgentArtifact>("warden.json");
     render(<OverviewPage />);
-    const caption = await screen.findByText(/longest bar is the largest loss/);
+    const caption = await screen.findByText(/longest bar is the largest/);
 
     // Never typed: the floor is one of the five `/methods` publishes.
     expect(caption.textContent).toContain(`${Math.round(100 * warden.floors.in_range_floor)}%`);
@@ -130,7 +156,7 @@ describe("Overview leads with the comparison", () => {
     // A zero bar reads as an agent that lost nothing.
     serveArtifacts({ missing: ["grid.json"] });
     render(<OverviewPage />);
-    const caption = await screen.findByText(/longest bar is the largest loss/);
+    const caption = await screen.findByText(/longest bar is the largest/);
     const panel = caption.closest("div")!;
 
     expect(within(panel).queryByRole("link", { name: "Grid" })).not.toBeInTheDocument();

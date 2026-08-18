@@ -13,9 +13,11 @@ from misquote.chain.addresses import (
     BSC_MAINNET,
     BSC_TESTNET,
     DEPLOYMENTS,
+    EQUITY_POOL,
     POOLS,
     TARGET_POOL,
     TESTNET_MIRROR_POOL,
+    PoolRef,
     deployment_for,
     pool_for,
 )
@@ -60,6 +62,39 @@ def test_token_ordering_is_address_sorted(chain_id: int) -> None:
     token1-per-token0. A swapped pair inverts every quote silently."""
     pool = POOLS[chain_id]
     assert int(pool.token0, 16) < int(pool.token1, 16)
+
+
+ALL_POOLS = (TARGET_POOL, TESTNET_MIRROR_POOL, EQUITY_POOL)
+
+
+@pytest.mark.parametrize("pool", ALL_POOLS, ids=lambda p: p.label)
+def test_quote_symbol_names_token1_and_not_the_quote_asset(pool: PoolRef) -> None:
+    """`quote_symbol` is the unit of every `*_quote` figure, which is token1.
+
+    The trap: on all three pools the *quote asset* in the trading sense is the
+    stablecoin, and it is token0. Labels are written base-first, so the symbol
+    before the slash is token1 and the one after it is token0. A reader — human
+    or regex — who takes "the quote" from the label's second half gets USDT,
+    and every money figure on the front end would then be labelled in the one
+    token it is definitely not denominated in.
+
+    Asserting both halves, because asserting only the first would pass on a
+    `quote_symbol` that happened to be right for the wrong reason.
+    """
+    base, _, quote_asset = pool.label.split()[2].partition("/")
+    assert pool.quote_symbol == base
+    assert pool.quote_symbol != quote_asset
+
+
+def test_the_equity_pool_is_quoted_in_shares() -> None:
+    """Not a curiosity — the reason the unit has to be carried rather than assumed.
+
+    Swap the target pool for the equity one and every `net_quote` in the system
+    is denominated in tokenized Tesla. Nothing else in the engine changes, which
+    is the generality proof; it also means no default unit is safe.
+    """
+    assert EQUITY_POOL.quote_symbol == "TSLAx"
+    assert EQUITY_POOL.quote_symbol != TARGET_POOL.quote_symbol
 
 
 def test_w_min_is_four_tick_spacings() -> None:

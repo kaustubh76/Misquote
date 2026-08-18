@@ -198,6 +198,8 @@ export interface IndexArtifact {
   not_built: NotBuiltEntry[];
   pool: string;
   pool_address: string;
+  /** Unit of the `*_quote` figures on every agent artifact. See `money()`. */
+  quote_symbol?: string;
   counterfactual: boolean;
   badge: string;
   source: "chain" | "synthetic";
@@ -213,6 +215,7 @@ export interface BuildArtifact {
   events: number;
   capital_quote: number;
   span_hours: number;
+  quote_symbol?: string;
 }
 
 export interface QuoteDetail {
@@ -335,6 +338,14 @@ export interface AgentArtifact {
   source: string;
   replay: ReplayBlock;
   advantage?: AdvantageBlock;
+  /**
+   * The unit of every `*_quote` figure in this artifact.
+   *
+   * Optional because artifacts written before the emitter carried it exist and
+   * are still readable. Absent means the unit is unknown, and a figure with an
+   * unknown unit is rendered bare — never with a guessed one. See `money()`.
+   */
+  quote_symbol?: string;
 }
 
 export interface AdvantageTask {
@@ -380,6 +391,8 @@ export interface AdvantageArtifact {
   badge: string;
   source: string;
   capital_quote: number;
+  /** Unit of `capital_quote` and of every fee/cost figure on each task. */
+  quote_symbol?: string;
   summary: {
     tasks: number;
     quotable: number;

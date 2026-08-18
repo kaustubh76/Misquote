@@ -114,3 +114,47 @@ describe("a withheld quote", () => {
     expect(within(median).getAllByRole("cell")[1]).toHaveTextContent("9.99");
   });
 });
+
+describe("the unit the money rows are in", () => {
+  const rowHeadersWith = (unit?: string) => {
+    render(
+      <ComparisonTable
+        caption="Agent against baseline"
+        agentLabel="Warden"
+        baselineLabel="Doing it yourself"
+        agent={agent}
+        baseline={baseline}
+        unit={unit}
+      />,
+    );
+    return [...screen.getAllByRole("rowheader")].map((el) => el.textContent);
+  };
+
+  it("puts it on the label, not in six cells", () => {
+    // `fees`, `adverse selection` and `costs` are amounts; the label is where a
+    // reader looks to find out what a column of numbers means, and repeating
+    // `WBNB` in every cell of a two-column table reads worse than stating it.
+    expect(rowHeadersWith("WBNB")).toEqual([
+      "median return",
+      "P25 – P75",
+      "in range",
+      "fees (WBNB)",
+      "adverse selection (upper bound) (WBNB)",
+      "costs (WBNB)",
+      "moves",
+    ]);
+  });
+
+  it("leaves the rows that are not money alone", () => {
+    // A percentage in WBNB is a unit error printed as a label. `median return`
+    // and `in range` are percentages and `moves` is a count.
+    const headers = rowHeadersWith("WBNB");
+    for (const row of ["median return", "P25 – P75", "in range", "moves"]) {
+      expect(headers).toContain(row);
+    }
+  });
+
+  it("says nothing when the artifact does not say", () => {
+    expect(rowHeadersWith()).toEqual([...COMPARISON_ROWS]);
+  });
+});

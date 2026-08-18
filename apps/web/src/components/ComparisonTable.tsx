@@ -56,6 +56,7 @@ export function ComparisonTable({
   baselineLabel,
   agent,
   baseline,
+  unit,
 }: {
   caption: string;
   /** Column headers. Shown, not visually-hidden: a bare second figure is unattributed. */
@@ -63,7 +64,15 @@ export function ComparisonTable({
   baselineLabel: string;
   agent: Side;
   baseline: Side;
+  /** Unit of the three money rows. Omitted when the artifact does not say. */
+  unit?: string;
 }) {
+  // On the row label rather than on six figures: a two-column table of amounts
+  // reads worse with the unit repeated in every cell, and the label is where a
+  // reader looks to find out what a column of numbers means. `median return`,
+  // `in range` and `moves` are not money and are left alone.
+  const inUnit = unit ? ` (${unit})` : "";
+
   return (
     <DataTable
       caption={caption}
@@ -77,13 +86,13 @@ export function ComparisonTable({
           note: `${pct(baseline.p25)} – ${pct(baseline.p75)}`,
         },
         { label: "in range", value: fraction(agent.inRange), note: fraction(baseline.inRange) },
-        { label: "fees", value: amount(agent.fees), note: amount(baseline.fees) },
+        { label: `fees${inUnit}`, value: amount(agent.fees), note: amount(baseline.fees) },
         {
-          label: "adverse selection (upper bound)",
+          label: `adverse selection (upper bound)${inUnit}`,
           value: amount(agent.lvrUpperBound),
           note: amount(baseline.lvrUpperBound),
         },
-        { label: "costs", value: amount(agent.costs), note: amount(baseline.costs) },
+        { label: `costs${inUnit}`, value: amount(agent.costs), note: amount(baseline.costs) },
         { label: "moves", value: count(agent.moves), note: count(baseline.moves) },
       ]}
     />
@@ -99,6 +108,10 @@ export function ComparisonTable({
  * agree is what makes it worth having: `ComparisonTable.test.tsx` renders the
  * component and checks the row headers against this list, so deleting a row
  * without deciding to fails rather than silently narrowing the comparison.
+ *
+ * These are the labels with no unit supplied. When one is, the three money rows
+ * gain a ` (WBNB)` suffix — asserted separately, so this list stays a statement
+ * about which rows exist rather than about how they are spelled.
  */
 export const COMPARISON_ROWS = [
   "median return",
