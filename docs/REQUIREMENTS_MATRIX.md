@@ -448,6 +448,46 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-14 · The position was never the size we divided by, and A1 was a clamp — **fixed 18 Aug 2026**
+
+Grid earned **0.164 of token1 on "1,000 of capital" over thirty days**. Chasing that number rather
+than accepting it found P-13's cost model, and underneath it two more.
+
+**`_size` never split the capital.** It passed `capital_quote` as *both* token amounts and let
+`get_liquidity_for_amounts` take whichever bound. On USDT/WBNB that is 1,000 USDT beside 1,000 WBNB —
+**$1,000 beside $613,000** — so the cheap leg bound, the curve pulled 1.63 WBNB alongside it, and the
+position deployed **~2,000 USDT of value while every return was divided by 1,000**. The docstring
+said *"split the capital the way the curve will hold it at this price."* Nothing split anything.
+
+**A1 was a clamp, not a refusal.** Its published text is unambiguous — *"quotes that would breach ε
+are **refused rather than rendered**"* — and the driver clamped liquidity to 1% of the pool and
+published the quote anyway. Measured against the target pool's real liquidity, A1's ceiling is:
+
+| range | largest position A1 permits |
+|---|---|
+| ±20 ticks | **1.03 WBNB** (~$631) |
+| ±60 ticks | **3.09 WBNB** (~$1,892) |
+| ±1000 ticks | **50.26 WBNB** (~$30,810) |
+
+So the default of 1,000 breached A1 in **every range this pool supports**, and nothing said so —
+not the number, not the note beside it. `DEFAULT_CAPITAL_QUOTE` is now **1.0**, which fits the
+narrowest range with margin, and a breach refuses with its count rather than clamping.
+
+**The two bugs concealed each other.** Passing the amounts wrongly happened to size a ~$1,000
+position, which sat under the cap; so the sizing defect kept the A1 defect invisible, and fixing the
+first exposed the second. Neither could have been found by reading either one alone.
+
+**Fifth instance of the rule, and L1 has caught three of them.** `_size` existed identically in
+`ReplayDriver` **and** `WardenLive`; correcting one diverged the drivers and L1 failed on the next
+run. It is `core.liquidity.liquidity_for_capital` now — after the position bookkeeping (V-?), the
+trailing fee window, the action cap (P-12) and the gas constant (P-13).
+
+**What this changes about the published quote.** With sizing, costs and A1 all correct, the numbers
+stop being artefacts of a constant and start describing the strategy: on a synthetic 9,000-swap tape
+Warden reports fees 0.0028 against **LVR 0.0209** — adverse selection exceeding fee income by roughly
+eight times, which is what the LVR literature predicts for passive liquidity and what the previous
+cost model had buried entirely.
+
 ### P-13 · The published quote was a statement about a constant — **fixed 17 Aug 2026**
 
 Chasing why Grid earned 0.164 of token1 while paying 26.0 in costs led somewhere worse than P-12's

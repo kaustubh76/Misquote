@@ -565,7 +565,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 923,
+      "line": 963,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -600,7 +600,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 924,
+      "line": 964,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -635,7 +635,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 925,
+      "line": 965,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -672,7 +672,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 926,
+      "line": 966,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -788,7 +788,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 874,
+      "line": 914,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -855,7 +855,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 829,
+      "line": 869,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -968,7 +968,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 763,
+      "line": 803,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1039,7 +1039,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 702,
+      "line": 742,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1081,7 +1081,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 661,
+      "line": 701,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1250,7 +1250,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 556,
+      "line": 596,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1341,7 +1341,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 502,
+      "line": 542,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1412,9 +1412,68 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 451,
+      "line": 491,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Grid earned **0.164 of token1 on \"1,000 of capital\" over thirty days**. Chasing that number rather than accepting it found P-13's cost model, and underneath it two more.",
+          "type": "p"
+        },
+        {
+          "text": "**`_size` never split the capital.** It passed `capital_quote` as *both* token amounts and let `get_liquidity_for_amounts` take whichever bound. On USDT/WBNB that is 1,000 USDT beside 1,000 WBNB \u2014 **$1,000 beside $613,000** \u2014 so the cheap leg bound, the curve pulled 1.63 WBNB alongside it, and the position deployed **~2,000 USDT of value while every return was divided by 1,000**. The docstring said *\"split the capital the way the curve will hold it at this price.\"* Nothing split anything.",
+          "type": "p"
+        },
+        {
+          "text": "**A1 was a clamp, not a refusal.** Its published text is unambiguous \u2014 *\"quotes that would breach \u03b5 are **refused rather than rendered**\"* \u2014 and the driver clamped liquidity to 1% of the pool and published the quote anyway. Measured against the target pool's real liquidity, A1's ceiling is:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "range",
+            "largest position A1 permits"
+          ],
+          "rows": [
+            [
+              "\u00b120 ticks",
+              "**1.03 WBNB** (~$631)"
+            ],
+            [
+              "\u00b160 ticks",
+              "**3.09 WBNB** (~$1,892)"
+            ],
+            [
+              "\u00b11000 ticks",
+              "**50.26 WBNB** (~$30,810)"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "So the default of 1,000 breached A1 in **every range this pool supports**, and nothing said so \u2014 not the number, not the note beside it. `DEFAULT_CAPITAL_QUOTE` is now **1.0**, which fits the narrowest range with margin, and a breach refuses with its count rather than clamping.",
+          "type": "p"
+        },
+        {
+          "text": "**The two bugs concealed each other.** Passing the amounts wrongly happened to size a ~$1,000 position, which sat under the cap; so the sizing defect kept the A1 defect invisible, and fixing the first exposed the second. Neither could have been found by reading either one alone.",
+          "type": "p"
+        },
+        {
+          "text": "**Fifth instance of the rule, and L1 has caught three of them.** `_size` existed identically in `ReplayDriver` **and** `WardenLive`; correcting one diverged the drivers and L1 failed on the next run. It is `core.liquidity.liquidity_for_capital` now \u2014 after the position bookkeeping (V-?), the trailing fee window, the action cap (P-12) and the gas constant (P-13).",
+          "type": "p"
+        },
+        {
+          "text": "**What this changes about the published quote.** With sizing, costs and A1 all correct, the numbers stop being artefacts of a constant and start describing the strategy: on a synthetic 9,000-swap tape Warden reports fees 0.0028 against **LVR 0.0209** \u2014 adverse selection exceeding fee income by roughly eight times, which is what the LVR literature predicts for passive liquidity and what the previous cost model had buried entirely.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-14",
+      "kind": "correction",
+      "line": 451,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
     {
       "blocks": [
