@@ -1,5 +1,12 @@
 {
-  "generated_at": "2026-08-16T10:07:35+00:00",
+  "generated_at": "2026-08-18T18:35:08+00:00",
+  "build": {
+    "command": "python scripts/go_no_go.py --fast --json",
+    "source": "local checks",
+    "generated_at": "2026-08-18T18:35:08+00:00",
+    "git_sha": "b4b9bc8",
+    "git_dirty": true
+  },
   "mainnet": false,
   "fast": true,
   "skipped": [
@@ -11,7 +18,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 105 deselected, 1 warning in 2.09s",
+      "detail": "7 passed, 118 deselected, 1 warning in 2.52s",
       "remedy": "",
       "blocking": false
     },
@@ -31,30 +38,37 @@
     },
     {
       "name": "published assumptions",
-      "status": "UNVERIFIED",
-      "detail": "kappa_default is still PROVISIONAL (G-4 pending the 30-day fit)",
-      "remedy": "run the backfill and publish the fitted value before quoting",
-      "blocking": true
+      "status": "PASS",
+      "detail": "G-1..G-3 and A7..A12 published",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "no provisional constants",
-      "status": "UNVERIFIED",
-      "detail": "kappa still falls back to a provisional default",
-      "remedy": "Step 8b: fit on 30 days of the target pool and publish as G-4",
-      "blocking": true
+      "status": "PASS",
+      "detail": "kappa 3,601/log-price, fitted (r^2 0.85), card agrees to 0.0%",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "30-day tape",
-      "status": "UNVERIFIED",
-      "detail": "2,599 swaps spanning 0.4 days",
-      "remedy": "assumption A5 wants 30 days; extend the backfill",
-      "blocking": true
+      "status": "PASS",
+      "detail": "252,923 swaps, 30.2 unbroken days read from chain",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "agent advantage report",
       "status": "UNVERIFIED",
-      "detail": "3 tasks, but the tape is 'synthetic'",
-      "remedy": "the track says \"three real tasks\" \u2014 run the backfill, then regenerate",
+      "detail": "0/3 tasks on chain data; not real: Earn, Protect, Choose",
+      "remedy": "the track says \"three real tasks\" \u2014 index every venue, then regenerate",
+      "blocking": true
+    },
+    {
+      "name": "artifacts match the engine",
+      "status": "UNVERIFIED",
+      "detail": "build.json is 2 engine commit(s) behind bb1c644; warden.json records no commit; grid.json records no commit; sentinel.json records no commit; advantage.json records no commit; advantage_short.json records no commit",
+      "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
       "blocking": true
     },
     {
@@ -80,10 +94,10 @@
     }
   ],
   "summary": {
-    "pass": 3,
+    "pass": 6,
     "fail": 0,
-    "unverified": 7,
-    "total": 10
+    "unverified": 5,
+    "total": 11
   },
   "outcome": "NOT YET",
   "exit_code": 2
