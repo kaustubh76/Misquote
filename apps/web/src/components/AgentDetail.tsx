@@ -189,11 +189,9 @@ export function AgentDetail({ slug }: { slug: string }) {
                     the moment the emitter windows differently. `hours()` on the
                     floor too: interpolated raw, a null rendered as
                     "h policy horizon". */}
-                A window covers {pct((100 * q.hours_per_window) / r.hours, 0)} of the tape,
-                so {count(q.windows)} of them overlap. Overlap trades independence for
-                length — {count(q.windows)} windows of {hours(q.hours_per_window)} each say
-                more about a {hours(d.floors.min_window_hours)} policy horizon than{" "}
-                {count(q.windows)} disjoint slivers would.{" "}
+                {/* The overlap argument is /methods', which this links to. */}
+                {count(q.windows)} windows of {hours(q.hours_per_window)}, each{" "}
+                {pct((100 * q.hours_per_window) / r.hours, 0)} of the tape and overlapping.{" "}
                 <Link href="/methods">Full method →</Link>
               </p>
             </div>
@@ -246,10 +244,11 @@ export function AgentDetail({ slug }: { slug: string }) {
         <Section title="Against doing it yourself">
           <Card>
             <p className="mt-0 mb-4 text-sm text-dim">
-              The baseline is not a different program. It runs through the same replay
-              driver, the same tape, the same cost model and the same adverse-selection
-              accountant; the only thing that differs is the function that returns a
-              decision — here, <em>{adv.without_agent}</em>.
+              {/* A verbatim duplicate of /advantage's lede. What is new here,
+                  and the reason the sentence stays at all, is that it names
+                  this agent's own baseline. */}
+              Same driver, same tape, same costs — only the decision function differs.
+              Here that is <em>{adv.without_agent}</em>.
             </p>
             {/* The row list lives in ComparisonTable, because this table and
                 the one on /advantage answer the same question from the same
@@ -306,7 +305,7 @@ export function AgentDetail({ slug }: { slug: string }) {
           and the heading no longer calls a counterfactual "what it did". */}
       <Section
         title="What it did, and what it would have done"
-        intro="Two different runs, kept apart. The replay never held a position; the journal is a loop that ran against a live chain and recorded rather than signed."
+        intro="Two different runs. The live loop recorded rather than signed."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>

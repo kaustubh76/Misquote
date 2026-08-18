@@ -66,10 +66,9 @@ export function StatusView() {
     <Loadable loading={status === null} what="the go/no-go status">
       <h1 className="text-2xl font-semibold">Readiness</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        A checklist in a markdown file gets read carefully once and skimmed thereafter.
-        This one runs. It exits non-zero when a gate fails, and anything it cannot verify
-        is reported as <strong className="text-ink">unverified</strong> rather than assumed
-        — an amber light, never a green one.
+        {/* The opening sentence justified the page rather than describing it. */}
+        A checklist that runs. It exits non-zero on a failure, and anything it cannot
+        verify is <strong className="text-ink">unverified</strong> — amber, never green.
       </p>
 
       {status === null && (
@@ -110,10 +109,11 @@ export function StatusView() {
           {d.fast && d.skipped.length > 0 && (
             <div className="mt-4 rounded-md border border-line bg-panel-2 p-4">
               <p className="m-0 text-sm text-dim">
-                <strong className="text-ink">Not run.</strong> This report was produced with{" "}
-                <code className="font-mono text-xs">--fast</code>, which skips{" "}
-                {d.skipped.join(", ")}. Those gates are absent from the counts above — they
-                did not pass, they were not asked.
+                {/* The claim that survives, and appears nowhere else: skipped
+                    gates are absent from the counts rather than passing. */}
+                <strong className="text-ink">Not run.</strong>{" "}
+                <code className="font-mono text-xs">--fast</code> skipped{" "}
+                {d.skipped.join(", ")} — absent from the counts above, not passing.
               </p>
             </div>
           )}
@@ -142,9 +142,9 @@ export function StatusView() {
           {index?.ok && index.value.not_built.length > 0 && (
             <Section title="What is not built" className="mt-12" headingClassName="text-lg font-semibold">
               <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
-                Separate from the gates above, which measure whether what exists is ready.
-                These are the capabilities the README advertises and the repository does
-                not contain. Each names the path you can check the claim against.
+                {/* Sentence 1 restated the two headings; sentence 3 restated
+                    the "Check it" field on every card below. */}
+                Capabilities the README advertises and this repository does not contain.
               </p>
               <LedgerTable entries={index.value.not_built} />
             </Section>

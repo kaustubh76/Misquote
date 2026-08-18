@@ -164,10 +164,8 @@ export function VettingView() {
           here while the factory constant used to find it points elsewhere. */}
       <h1 className="text-2xl font-semibold">Due diligence, read from chain</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Every pool a listed agent touches, and every contract address the signer is
-        pointed at, read from chain and checked against the defects this project actually
-        hit. Each check names the matrix item that paid for it, so a reader can go and see
-        the arithmetic rather than take the badge&rsquo;s word.
+        Every pool an agent touches and every address the signer is aimed at, read from
+        chain. Each check names the defect that paid for it.
       </p>
 
       {state === null && (
@@ -305,11 +303,10 @@ export function VettingView() {
                 }
               />
               <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                Any single reading can be made to look right by pointing at a plausible
-                contract. The interesting checks are the ones where two readings have to
-                agree — the factory naming the pool that the pool names itself, the
-                position manager naming the factory — because making those agree requires
-                actually being the deployment.
+                {/* The claim is that mutual agreement is the strong check —
+                    the rest was the reasoning behind it. */}
+                The strong checks are the mutual ones: the factory naming the pool that
+                names itself. Agreeing takes being the deployment.
               </p>
               <CheckList checks={addrs.value.checks ?? []} />
               <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">

@@ -7,7 +7,7 @@ import { MethodsView } from "./view";
 // layout dead code and left RouteAnnouncer announcing the wrong page name.
 export const metadata: Metadata = {
   title: "How a quote is made",
-  description: "The arithmetic between a replay and the range on a card, and the four floors that stop a number being printed at all.",
+  description: "The arithmetic between a replay and the range on a card, and the floors that stop a number being printed at all.",
 };
 
 export default function Page() {

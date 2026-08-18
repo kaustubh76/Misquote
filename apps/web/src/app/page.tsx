@@ -90,10 +90,9 @@ export default function OverviewPage() {
           and every figure links to its assumption. What only prose can say is
           what the alternative does — so that is what is left. */}
       <p className="mt-3 max-w-[64ch] text-dim">
-        Other marketplaces rank agents by star ratings and user counts. Every number here
-        traces to chain state or a <Link href="/assumptions">published assumption</Link>,
-        and where the evidence is thin it{" "}
-        <strong className="text-ink">says nothing instead</strong>.
+        Others rank agents by star ratings. Every number here traces to chain state or a{" "}
+        <Link href="/assumptions">published assumption</Link>, and where the evidence is
+        thin it <strong className="text-ink">says nothing instead</strong>.
       </p>
 
       <p className="mt-4">

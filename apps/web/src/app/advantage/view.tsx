@@ -308,10 +308,15 @@ function TaskCard({ task, capital }: { task: AdvantageTask; capital: number }) {
             The supporting numbers
           </summary>
           <div className="mt-4">
+            {/* The strategies, not "With agent" / "Without". The same table on
+                /agent/[slug] passes the two names, so one component labelled
+                its columns two ways depending on the page — and the names are
+                the more useful half anyway, since the baseline differs per
+                task. */}
             <ComparisonTable
               caption={`${task.task}: agent against baseline`}
-              agentLabel="With agent"
-              baselineLabel="Without"
+              agentLabel={task.with_agent}
+              baselineLabel={task.without_agent}
               agent={{
                 p25: task.agent.p25,
                 p50: task.agent.p50,

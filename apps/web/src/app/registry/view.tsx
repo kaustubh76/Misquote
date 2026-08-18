@@ -72,9 +72,8 @@ export function RegistryView() {
     <Loadable loading={state === null} what="the registry sample">
       <h1 className="text-2xl font-semibold">Standards, and what they actually cost</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Every marketplace has a Hire button. This page is what is behind one when the hire
-        is an on-chain job under ERC-8183, and what the ERC-8004 identity registry contains
-        when you go and read it rather than quoting its size.
+        What is behind a Hire button, and what the ERC-8004 registry holds when read
+        rather than quoted.
       </p>
       {/* The second half of that sentence promises a survey that this run may
           not have made — `identity.surveyed` is false without an RPC, and the
@@ -83,8 +82,8 @@ export function RegistryView() {
           down. */}
       {d && !d.identity.surveyed && (
         <p className="mt-2 max-w-[68ch] text-sm text-warn">
-          This run did not read the registry — the ERC-8183 half below needs no network and
-          is complete; the ERC-8004 half says why it is missing rather than estimating it.
+          This run read no registry. The ERC-8183 half below needs no network; the
+          ERC-8004 half says why it is missing.
         </p>
       )}
 
@@ -114,8 +113,7 @@ export function RegistryView() {
           {/* ------------------------------------------------- the hire flow -- */}
           <Section title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
-              The interesting number is not the total. It is how many of these the person
-              doing the hiring has to sign.
+              The number that matters is the second one.
             </p>
 
             <div className="mb-5 grid gap-4 sm:grid-cols-2">
@@ -223,9 +221,8 @@ export function RegistryView() {
                   </span>
                 </div>
                 <p className="mt-3 mb-0 text-sm text-dim">
-                  A table on a vendor&rsquo;s website is a claim, not a verification. What
-                  follows was read from the chain and written down — including the parts
-                  that are still unverified.
+                  Read from chain and written down — including the parts still
+                  unverified.
                 </p>
                 {d.hire_flow.escrow.evidence?.length ? (
                   <ul className="mt-4 mb-0 list-none space-y-3 p-0">
@@ -327,10 +324,8 @@ export function RegistryView() {
                 {d.aacp.shares_our_identity_registry && (
                   <div className="mb-4 rounded-md border border-good-line bg-good-bg/40 p-4">
                     <p className="m-0 text-sm text-good">
-                      <strong>The same contract, byte for byte.</strong> This marketplace
-                      was already reading TermiX&rsquo;s identity registry before either
-                      side knew about the other — both followed ERC-8004 to the address it
-                      deploys at on BNB Chain.
+                      <strong>The same contract, byte for byte.</strong> Both sides
+                      followed ERC-8004 to the same address, independently.
                     </p>
                   </div>
                 )}

@@ -183,7 +183,16 @@ web-check:  ## load the built site in a real browser: console errors + 390px ove
 	# This is the only check that runs real layout, and it earns its keep — the
 	# whole suite was green while every route but "/" fetched its artifacts from
 	# a page-relative path and rendered an error state.
-	cd apps/web && pnpm build
+	# Builds into `.next-check`, not `.next`, so this does not swap chunks out
+	# from under a `make web` that is serving from the latter.
+	#
+	# That is necessary and, measured, not sufficient: a dev server still ends
+	# up 500ing on `/` after a check, with a React Client Manifest error naming
+	# Next's own devtools. Something beyond `distDir` is shared. Until that is
+	# found, treat the two as mutually exclusive — run this, then restart
+	# `make web`. Recorded rather than left for the next person to rediscover as
+	# "the app is broken".
+	cd apps/web && NEXT_DIST_DIR=.next-check pnpm build
 	cd apps/web/out && (python3 -m http.server 8099 & echo $$! > /tmp/misquote-web.pid) && sleep 2
 	cd apps/web && node scripts/check-pages.mjs $(if $(SHOTS),--shots $(SHOTS),); \
 		status=$$?; kill `cat /tmp/misquote-web.pid` 2>/dev/null; exit $$status

@@ -7,7 +7,7 @@ import { AdvantageView } from "./view";
 // layout dead code and left RouteAnnouncer announcing the wrong page name.
 export const metadata: Metadata = {
   title: "Does hiring an agent beat doing it yourself?",
-  description: "Three tasks, each done both ways, through the same replay engine — with the aggregate verdict refused for want of observations.",
+  description: "Each task done both ways, through the same replay engine — with the aggregate verdict refused for want of observations.",
 };
 
 export default function Page() {

@@ -18,6 +18,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "export",
 
+  // Overridable so `make web-check` builds somewhere other than the `.next` a
+  // running `make web` is serving from. Sharing it broke the dev server on
+  // every check with `Cannot find module './393.js'`. Necessary but not
+  // sufficient — see the note on the `web-check` target.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   // Pinned explicitly. Next walks up looking for a lockfile and finds a stray
   // one in the home directory, which sits above this repo — it would silently
   // trace from the wrong root.
