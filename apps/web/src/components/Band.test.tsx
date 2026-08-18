@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Band, overlaps, type BandSeries } from "./Band";
+import { Band, cluster, overlaps, type BandSeries } from "./Band";
 import { textFrom } from "@/test/harness";
 
 const agent: BandSeries = { label: "Warden", p25: 36.88, p50: 37.74, p75: 38.72, tone: "agent" };
@@ -120,5 +120,105 @@ describe("the axis stays legible when zero crowds an endpoint", () => {
       (s) => s.textContent === "0",
     );
     expect(zero).toBeDefined();
+  });
+});
+
+describe("a degenerate range is drawn as the line it is", () => {
+  // The committed Warden shape: 20 windows × 3 identical perturbations, an
+  // interquartile range of 0.0062pp inside an observed span of 7.25.
+  const wardenish = {
+    p25: -233.5647,
+    p50: -233.5625,
+    p75: -233.5585,
+    label: "Warden",
+    tone: "agent" as const,
+  };
+  const wardenReturns = [
+    ...Array<number>(51).fill(-233.5625),
+    ...Array<number>(3).fill(-229.9438),
+    ...Array<number>(3).fill(-229.9451),
+    ...Array<number>(3).fill(-237.1934),
+  ];
+
+  const bandWidth = (container: HTMLElement) => {
+    const box = container.querySelector<HTMLElement>("[class*='rounded-sm'][class*='border']");
+    return parseFloat(box?.style.width ?? "0");
+  };
+
+  it("does not clamp a sub-pixel band to a visible width", () => {
+    // `Math.max(right - left, 0.4)` rendered 0.0023% as 0.4% — about 1.3px on a
+    // 330px axis. A range where the data has none is the one thing this
+    // component must never draw.
+    const { container } = render(
+      <Band series={[wardenish]} returns={wardenReturns} sufficient />,
+    );
+    expect(bandWidth(container)).toBeLessThan(0.4);
+  });
+
+  it("states the concentration the box cannot show", () => {
+    render(<Band series={[wardenish]} returns={wardenReturns} sufficient />);
+    // 51 of 60 sit within a hundredth of the observed span of the median.
+    expect(screen.getByText(/51 of 60 observations fall within/)).toBeInTheDocument();
+  });
+
+  it("says so when every observation is identical", () => {
+    const flat = Array<number>(60).fill(-1.7083);
+    render(
+      <Band
+        series={[{ ...wardenish, p25: -1.7083, p50: -1.7083, p75: -1.7083 }]}
+        returns={flat}
+        sufficient
+      />,
+    );
+    expect(screen.getByText(/All 60 observations fall within/)).toBeInTheDocument();
+    expect(screen.getByText(/no spread to draw/)).toBeInTheDocument();
+  });
+});
+
+describe("the axis fits the data rather than zero", () => {
+  const far = { label: "Warden", p25: -237, p50: -233, p75: -229, tone: "agent" as const };
+
+  it("does not anchor to zero when no observation is near it", () => {
+    // Anchoring made the domain 275pp wide to hold data spanning 7, and every
+    // band collapsed. The axis end labels are the observable proof.
+    const { container } = render(<Band series={[far]} returns={[-237, -229]} sufficient />);
+    const axis = container.querySelector("[aria-hidden='true'].relative.mb-2");
+    expect(axis?.textContent).not.toContain("0.0%");
+    expect(axis?.textContent).toMatch(/-2\d\d/);
+  });
+
+  it("says which side of zero everything falls, since zero is off the axis", () => {
+    render(<Band series={[far]} returns={[-237, -229]} sufficient />);
+    expect(screen.getByText(/below zero, which is off this axis/)).toBeInTheDocument();
+  });
+
+  it("still draws zero when the data straddles it", () => {
+    const straddling = { label: "A", p25: -10, p50: 2, p75: 14, tone: "agent" as const };
+    const { container } = render(
+      <Band series={[straddling]} returns={[-10, 14]} sufficient />,
+    );
+    const axis = container.querySelector("[aria-hidden='true'].relative.mb-2");
+    expect([...(axis?.querySelectorAll("span") ?? [])].some((s) => s.textContent === "0")).toBe(
+      true,
+    );
+    expect(screen.queryByText(/off this axis/)).not.toBeInTheDocument();
+  });
+});
+
+describe("cluster()", () => {
+  it("collapses the identical perturbations into one stack", () => {
+    // 20 windows × 3 perturbations, all three identical — which is 0 of 60
+    // differing on grid and sentinel, and 3 of 60 on warden.
+    const triples = [1.5, 1.5, 1.5, 2.5, 2.5, 2.5];
+    expect(cluster(triples)).toEqual([
+      { value: 1.5, count: 3 },
+      { value: 2.5, count: 3 },
+    ]);
+  });
+
+  it("keeps windows that differ in the fourth decimal apart", () => {
+    // At 2dp warden's 20 windows collapse to 5 values, which would hide real
+    // structure; 4dp is what separates a window from float noise.
+    expect(cluster([-233.5625, -233.5647])).toHaveLength(2);
   });
 });

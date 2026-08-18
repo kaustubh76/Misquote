@@ -51,15 +51,84 @@ const TONE = {
   },
 } as const;
 
-/** Domain covering every band, always including zero, with 8% breathing room. */
+/**
+ * Domain covering the data, with 8% breathing room. Zero is *not* an anchor.
+ *
+ * It used to be: `[0, ...returns, ...percentiles]`. On a tape where the agents
+ * quote around -233% against a baseline of -1.77%, that made the domain 275
+ * percentage points wide to hold data spanning 7 — and every band collapsed to
+ * a hairline. Warden's rendered at **0.0023%** of the axis.
+ *
+ * Zero earns a line when it falls inside the data (a range that straddles zero
+ * means something different from one that clears it), and when it does not, the
+ * caption says which side of it everything sits. Anchoring the axis to a value
+ * no observation is near buys nothing and costs the whole chart.
+ */
 function domain(series: BandSeries[], returns: number[]): [number, number] {
-  const values = [0, ...returns.filter(isNum)];
+  const values = [...returns.filter(isNum)];
   for (const s of series) values.push(s.p25, s.p50, s.p75);
+  if (values.length === 0) return [-1, 1];
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   if (lo === hi) return [lo - 1, hi + 1];
   const pad = (hi - lo) * 0.08;
   return [lo - pad, hi + pad];
+}
+
+/**
+ * The observations, grouped by value, so a stack reads as a stack.
+ *
+ * `returns` is `windows × perturbations` — 20 × 3 on every current artifact —
+ * and the three perturbations produce **identical** results for almost every
+ * window: 0 of 60 differ on grid and sentinel, 3 of 60 on warden. Drawing 60
+ * ticks therefore drew 20, three times over, at the same pixel.
+ *
+ * Rounding to 4 decimal places is what separates a genuinely distinct window
+ * from float noise; at 2dp warden's 20 windows collapse to 5 values, which
+ * would hide real structure.
+ */
+export interface Cluster {
+  value: number;
+  count: number;
+}
+
+export function cluster(returns: number[]): Cluster[] {
+  const byValue = new Map<number, number>();
+  for (const r of returns.filter(isNum)) {
+    const key = Math.round(r * 1e4) / 1e4;
+    byValue.set(key, (byValue.get(key) ?? 0) + 1);
+  }
+  return [...byValue.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => a.value - b.value);
+}
+
+/**
+ * How concentrated the observations are, as a sentence the chart can print.
+ *
+ * The interquartile range is the thing this component was built to draw, and on
+ * the current tape it is 0.0062 percentage points inside an observed span of
+ * 7.25 — 0.086%. Below the width of one pixel there is nothing to draw and a
+ * box would be a lie, so the concentration is stated instead: how many of the
+ * observations sit within a hair of the median, and how wide that hair is.
+ *
+ * Not exported: only this component uses it. It briefly was, and
+ * `test_no_dead_exports` passed — because the word "concentration" appears in a
+ * test's *title*. That guard matches a bare word anywhere in another file, so
+ * prose satisfies it; worth knowing before trusting it to catch the next one.
+ */
+function concentration(
+  returns: number[],
+  median: number,
+): { within: number; total: number; tolerance: number } | null {
+  const values = returns.filter(isNum);
+  if (values.length === 0) return null;
+  const span = Math.max(...values) - Math.min(...values);
+  // A hundredth of the observed span, floored so a perfectly flat set still
+  // reports something rather than dividing by zero.
+  const tolerance = Math.max(span / 100, 1e-4);
+  const within = values.filter((v) => Math.abs(v - median) <= tolerance).length;
+  return { within, total: values.length, tolerance };
 }
 
 function position(value: number, [lo, hi]: [number, number]): number {
@@ -118,6 +187,12 @@ export function Band({
 
   const scale = domain(series, returns);
   const zero = position(0, scale);
+  const zeroInside = scale[0] < 0 && scale[1] > 0;
+
+  const clusters = cluster(returns);
+  const maxCount = Math.max(1, ...clusters.map((c) => c.count));
+  const agent = series.find((s) => s.tone === "agent");
+  const spread = agent ? concentration(returns, agent.p50) : null;
 
   // Percent is hardcoded, and a `unit` prop that would have changed it was
   // deleted rather than kept for a future caller. It reached only this string —
@@ -143,7 +218,7 @@ export function Band({
         {/* Zero. Every metric here can legitimately be negative, and a range
             that straddles zero means something different from one that clears
             it — so the line is drawn rather than implied. */}
-        {scale[0] < 0 && scale[1] > 0 && (
+        {zeroInside && (
           <div
             className="pointer-events-none absolute inset-y-2 w-px bg-line-strong"
             style={{ left: `${zero}%` }}
@@ -167,7 +242,7 @@ export function Band({
               legible. A label that close to an endpoint also adds nothing: the
               endpoint already says the scale starts just below zero. The line
               keeps carrying the meaning, which is where the meaning was. */}
-          {scale[0] < 0 && scale[1] > 0 && zero > 14 && zero < 86 && (
+          {zeroInside && zero > 14 && zero < 86 && (
             <span className="absolute -translate-x-1/2" style={{ left: `${zero}%` }}>
               0
             </span>
@@ -198,25 +273,38 @@ export function Band({
                 </div>
 
                 <div className="relative h-6">
-                  {/* The rug: every individual window return behind the band,
-                      so the reader sees a distribution rather than three of its
-                      order statistics. */}
+                  {/* The observations, stacked by value.
+                      This was one `w-px` tick per element of `returns` — 60 of
+                      them, landing on 20 positions, because the three
+                      perturbations are identical for almost every window. The
+                      result was a smear that read as one line. Height now
+                      encodes how many observations share a value, so warden's
+                      51-on-one-value is visibly a stack and its three outlying
+                      windows are visibly three. */}
                   {s.tone === "agent" &&
-                    returns.map((r, i) => (
+                    clusters.map((c) => (
                       <div
-                        key={i}
-                        className="absolute top-1/2 h-3 w-px -translate-y-1/2 bg-faint/35"
-                        style={{ left: `${position(r, scale)}%` }}
+                        key={c.value}
+                        className="absolute bottom-0 w-px bg-faint/60"
+                        style={{
+                          left: `${position(c.value, scale)}%`,
+                          height: `${Math.max(12, (c.count / maxCount) * 100)}%`,
+                        }}
                         aria-hidden="true"
                       />
                     ))}
 
+                  {/* No `Math.max(..., 0.4)`.
+                      The clamp made a sub-pixel interquartile range render as a
+                      1.3px box, which is the one thing this component must not
+                      do: it drew a range where the data has none. Warden's IQR
+                      is 0.0062pp against an observed span of 7.25 — 0.086% —
+                      and it now renders at 0.086%, which is to say as the line
+                      it is. The concentration sentence below carries what the
+                      box used to imply. */}
                   <div
                     className={`absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border ${tone.fill} ${tone.edge}`}
-                    style={{
-                      left: `${left}%`,
-                      width: `${Math.max(right - left, 0.4)}%`,
-                    }}
+                    style={{ left: `${left}%`, width: `${right - left}%` }}
                   />
                   {/* No `title`: the median is already in the container's
                       aria-label and in the "median return" row of every table
@@ -232,6 +320,43 @@ export function Band({
           })}
         </div>
       </div>
+
+      {/* What the box used to imply, said instead.
+          The interquartile range is what this component draws, and on the
+          current tape it is 0.0062pp inside an observed span of 7.25 — too
+          narrow for a box to be anything but a lie about precision. So the
+          concentration is stated: how many observations sit within a hundredth
+          of the span of the median. That is the fact a reader wanted from the
+          width, and it survives at any resolution. */}
+      {/* Rendered whenever there is a distribution to describe — not only when
+          it is concentrated. Gating on `within > 0` meant a well-spread quote,
+          which is the case this component was built for, silently lost its
+          caption and took the zero-side note with it. */}
+      {spread && (
+        <figcaption className="mt-2 text-xs text-dim">
+          {spread.within === spread.total ? (
+            <>
+              All {spread.total} observations fall within {pct(spread.tolerance, 2)} of the
+              median — the quote has no spread to draw.
+            </>
+          ) : spread.within > 0 ? (
+            <>
+              {spread.within} of {spread.total} observations fall within{" "}
+              {pct(spread.tolerance, 2)} of the median.
+            </>
+          ) : (
+            <>
+              {spread.total} observations, spread wider than {pct(spread.tolerance, 2)}{" "}
+              either side of the median.
+            </>
+          )}
+          {/* One text node, not three. Interpolating the direction word mid
+              sentence splits the DOM into "Every observation is " / "below" /
+              " zero…", which reads identically and is unfindable by any test
+              matching the sentence. */}
+          {!zeroInside && ` Every observation is ${scale[1] < 0 ? "below" : "above"} zero, which is off this axis.`}
+        </figcaption>
+      )}
 
       {series.length === 2 &&
         (() => {
