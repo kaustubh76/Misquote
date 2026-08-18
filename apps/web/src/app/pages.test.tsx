@@ -259,8 +259,13 @@ describe("Advantage", () => {
   it("presents the overall refusal as the headline, not an error", async () => {
     const d = readArtifact<AdvantageArtifact>("advantage.json");
     render(<AdvantagePage />);
+    // The engine's own refusal sentence, verbatim and prominent. The second
+    // assertion used to match a phrase in the surrounding prose, which pinned
+    // my wording rather than the claim — so shortening the paragraph failed a
+    // test about the refusal. What must hold is that a refusal is presented as
+    // a result: rendered, and not as an error.
     expect(await screen.findByText(d.overall.label)).toBeInTheDocument();
-    expect(screen.getByText(/refuses to call it/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("shows the short-tape panel withholding every task", async () => {

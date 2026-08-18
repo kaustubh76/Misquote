@@ -1,6 +1,7 @@
 "use client";
 
 import { BuildStamp } from "@/components/BuildStamp";
+import { count } from "@/lib/format";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
@@ -84,12 +85,15 @@ export default function OverviewPage() {
   return (
     <Loadable loading={loading} what="agent cards">
       <h1 className="text-2xl font-semibold">Every marketplace misquotes you.</h1>
+      {/* 48 words carrying four claims, three of which the page demonstrates
+          below: the ranges are drawn, the withheld quotes say so themselves,
+          and every figure links to its assumption. What only prose can say is
+          what the alternative does — so that is what is left. */}
       <p className="mt-3 max-w-[64ch] text-dim">
-        Agent marketplaces run on star ratings, user counts and unverifiable claims. Every
-        number here traces to chain state or to a{" "}
-        <Link href="/assumptions">published assumption</Link>, every quote is a P25–P75
-        range rather than a point estimate, and where the evidence is too thin to say
-        something, <strong className="text-ink">it says nothing instead</strong>.
+        Other marketplaces rank agents by star ratings and user counts. Every number here
+        traces to chain state or a <Link href="/assumptions">published assumption</Link>,
+        and where the evidence is thin it{" "}
+        <strong className="text-ink">says nothing instead</strong>.
       </p>
 
       <p className="mt-4">
@@ -175,11 +179,13 @@ export default function OverviewPage() {
 
         {index?.ok && index.value.not_built.length > 0 && (
           <Section title="Advertised, and not built" className="mt-12" headingClassName="text-lg font-semibold">
+            {/* Sentences 2-3 restated the heading directly above and the
+                "Not built" badge on every card below. And "four" was typed
+                against a `not_built` list of five — a hardcoded count of the
+                artifact it introduces. The count is read now, or omitted. */}
             <p className="mt-2 mb-5 max-w-[64ch] text-sm text-dim">
-              The README describes four agent categories and an activation path. These are
-              the parts that do not exist. They are listed here rather than omitted,
-              because a marketplace that quietly shows only what it finished is doing the
-              thing this one is named after.
+              {count(index.value.not_built.length)} capabilities the README advertises and
+              this repository does not contain.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {index.value.not_built.map((entry) => (
@@ -191,11 +197,10 @@ export default function OverviewPage() {
       </div>
 
       <footer className="mt-16 border-t border-line pt-6 text-sm text-faint">
+        {/* The unique claim here is the static export, which appears nowhere
+            else on the site. The path is already in the build stamp below. */}
         <p className="m-0">
-          Cards render precomputed JSON from{" "}
-          <code className="font-mono text-xs">public/artifacts/</code>. This site is a
-          static export and calls no backend, so it renders identically when every server
-          behind it is down.
+          A static export reading precomputed JSON — no backend to be down.
         </p>
         {build?.ok && (
           <BuildStamp

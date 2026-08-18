@@ -39,19 +39,18 @@ export function SourceBanner({
         {badge && <Badge tone="warn">{badge}</Badge>}
       </div>
       <p className="mt-3 mb-0 text-sm text-dim">
+        {/* 41 words carrying one claim worth keeping: the shape is real, the
+            history is not. The remedy belongs with the empty state that needs
+            it, not on a banner every page shows. */}
         {synthetic ? (
           <>
-            Every figure below was produced by replaying the policies over a{" "}
-            <strong className="text-ink">generated</strong> tape, not over this pool&rsquo;s
-            real trade history. The shape of the results is real; the history is not.
-            Run <code className="font-mono text-xs">make showcase</code> against an indexed
-            tape to replace them.
+            A <strong className="text-ink">generated</strong> tape — the shape of these
+            results is real, the history is not.
           </>
         ) : (
           <>
             Replayed over indexed history for{" "}
-            <span className="font-mono text-xs">{pool}</span>. No position was held — see
-            the counterfactual badge.
+            <span className="font-mono text-xs">{pool}</span>. No position was held.
           </>
         )}
       </p>

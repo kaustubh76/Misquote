@@ -42,15 +42,13 @@ export function AdvantageView() {
         Does hiring an agent beat doing the job yourself?
       </h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        {/* The task count comes from the report, here and in every heading
-            below it. It was typed in five places against one artifact field. */}
-        {d ? `${d.summary.tasks} tasks` : "Each task"}, each done both ways. The baseline
-        is{" "}
-        <strong className="text-ink">not a different program</strong>: it runs through the
-        same replay driver, the same tape, the same cost model and the same
-        adverse-selection accountant. The only thing that differs between the two columns
-        is the function that returns a decision. Swap <code className="font-mono text-xs">policy=</code>{" "}
-        and everything else is held fixed by construction.
+        {/* 58 words making one claim twice — "same driver, tape, cost model,
+            accountant" and "only `policy=` differs" are the same sentence. The
+            task count is read; it was typed in five places against one field. */}
+        {d ? `${d.summary.tasks} tasks` : "Each task"}, each done both ways. Only{" "}
+        <code className="font-mono text-xs">policy=</code> differs between the columns —
+        same driver, same tape, same cost model,{" "}
+        <strong className="text-ink">held fixed by construction</strong>.
       </p>
 
       {main === null && (
@@ -102,14 +100,13 @@ export function AdvantageView() {
                       And the sample clause was a fake derivation: a ternary on
                       `d.tasks[0]` emitting a fixed string containing two numbers
                       `advantage.json` does not carry at any level. */}
-                  The overall verdict uses the same floor the cards use, so with{" "}
-                  {count(d.summary.tasks)} tasks it{" "}
-                  <strong className="text-ink">refuses to call it</strong>. A handful of
-                  tapes is not evidence about a strategy, and a report announcing that the
-                  agent led on {count(d.summary.agent_ahead)} of {count(d.summary.tasks)}{" "}
-                  would be doing the thing this project argues against. What carries the
-                  argument is each task&rsquo;s own quote, drawn from many windows rather
-                  than one run.
+                  {/* The refusal is the headline and stays. What went: a
+                      restatement of `d.overall.label` one line above, and a
+                      strawman ("led on 2 of 3") that the `dl` beside it already
+                      reports — inventing a flattering claim to refuse is its
+                      own small misquote. */}
+                  {count(d.summary.tasks)} tapes are not evidence about a strategy. Each
+                  task&rsquo;s own quote is, and it is drawn from many windows.
                 </p>
               </div>
 
@@ -134,7 +131,7 @@ export function AdvantageView() {
           <Section
             title={<>The {count(d.summary.tasks)} tasks</>}
             className="mt-8"
-            intro="Each done both ways, through the same engine. The baseline differs per task, because several tasks with one baseline is one task relabelled."
+            intro="The baseline differs per task — several tasks with one baseline is one task relabelled."
           >
             <div className="grid gap-6">
               {d.tasks.map((task) => (
@@ -145,12 +142,12 @@ export function AdvantageView() {
 
           {/* ------------------------------------------- the refusal, live -- */}
           <Section title="The same report, on too little history" className="mt-12" headingClassName="text-lg font-semibold">
+            {/* The opening sentence justified the panel's existence rather
+                than saying anything about it — and the panel's own badge and
+                its all-withheld output are the demonstration. */}
             <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
-              A floor nobody has seen bite is indistinguishable from a floor that is not
-              wired up. Below is the identical report — same tasks, same machinery,
-              same code path — run against a tape too short for a single sub-window to
-              reach the policy horizon. It produces no numbers at all, which is
-              the correct answer and the point.
+              The same code path on a tape too short to reach the policy horizon. It
+              produces no numbers at all, which is the correct answer.
             </p>
 
             {short?.ok ? (
