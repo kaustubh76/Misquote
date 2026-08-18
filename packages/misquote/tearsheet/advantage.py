@@ -4,10 +4,15 @@ This is the one question the TermiX track judges — *"does hiring an agent on y
 marketplace beat doing the job yourself, and can you prove it?"* — and until now
 we answered it in a unit test and threw the answer away.
 
-`core/policy.py:passive_policy` and `replay/driver.py:passive_result` have both
-existed since Step 7. Both were used **only** by `tests/`. `Tearsheet` had no
-comparison field, and `scripts/showcase.py` never ran the baseline. The machinery
-to answer the judged question was built, tested, and never once shown to a user.
+`core/policy.py:passive_policy` has existed since Step 7 and was used **only** by
+`tests/`. `Tearsheet` had no comparison field, and `scripts/showcase.py` never ran
+the baseline. The machinery to answer the judged question was built, tested, and
+never once shown to a user.
+
+This used to cite `replay/driver.py:passive_result` alongside it. That function was
+called by nothing at all — not here, not the showcase, not a test — and counted
+`in_range_samples` per swap event where the live driver counts per decision sample.
+Being named here is most of why it survived. It is deleted.
 
 ## The claim this module is allowed to make, and why it is credible
 

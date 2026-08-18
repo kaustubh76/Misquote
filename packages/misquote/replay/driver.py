@@ -309,32 +309,19 @@ class ReplayDriver:
             self._result.total_lvr += accountant.total_lvr
 
 
-def passive_result(meta: PoolMeta, tape, lower: int, upper: int, liquidity: int) -> ReplayResult:
-    """A position that is minted once and never touched.
-
-    The comparator equation (4) is defined against, and the subject of test T4:
-    with the policy replaced by "always HOLD", the replay must agree with a
-    direct computation from chain state.
-    """
-    result = ReplayResult()
-    from misquote.lvr.accountant import LvrAccountant
-
-    accountant: LvrAccountant | None = None
-    for event in tape.advance_to(tape.last_ts or 0):
-        if accountant is None:
-            accountant = LvrAccountant(
-                lower, upper, liquidity, meta, sqrt_price_x96=event.sqrt_price_x96
-            )
-            result.first_ts = event.ts
-            continue
-        accountant.absorb(event)
-        result.last_ts = event.ts
-        result.samples += 1
-        if lower <= event.tick < upper:
-            result.in_range_samples += 1
-
-    if accountant is not None:
-        result.total_fees = accountant.total_fees
-        result.total_lvr = accountant.total_lvr
-    result.mints = 1
-    return result
+# `passive_result` lived here and is gone. It built a `ReplayResult` for a
+# never-touched position, and nothing called it — not the showcase, not the
+# advantage report, not a single test. `tearsheet/advantage.py` cited it as
+# built machinery, which is how it survived.
+#
+# It is deleted rather than kept because it counted a *published* metric by a
+# different rule than the live path: `in_range_samples` per **swap event**,
+# where `ReplayDriver._apply` counts per **decision sample** on the fixed dS
+# grid. One is trade-weighted, the other time-weighted, and on a pool whose
+# trading is bursty they are not close. Dead code is tolerable; dead code that
+# answers a live question differently is a trap with a fuse in it.
+#
+# The passive baseline that *is* used runs through `ReplayDriver` with
+# `policy=passive_policy`, which is the whole point — same engine, same costs,
+# same accountant, so "the baseline is not a different program" is structural
+# rather than promised.
