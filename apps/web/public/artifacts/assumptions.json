@@ -565,7 +565,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 963,
+      "line": 1007,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -600,7 +600,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 964,
+      "line": 1008,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -635,7 +635,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 965,
+      "line": 1009,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -672,7 +672,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 966,
+      "line": 1010,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -788,7 +788,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 914,
+      "line": 958,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -855,7 +855,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 869,
+      "line": 913,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -968,7 +968,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 803,
+      "line": 847,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1039,7 +1039,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 742,
+      "line": 786,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1081,7 +1081,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 701,
+      "line": 745,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1250,7 +1250,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 596,
+      "line": 640,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1341,7 +1341,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 542,
+      "line": 586,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1412,7 +1412,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 491,
+      "line": 535,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -1471,9 +1471,84 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 451,
+      "line": 495,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Once P-13 and P-14 stopped costs from dominating, **LVR became the largest term in the quote** \u2014 about eight times fee income \u2014 which made it worth asking whether its inputs were right. The card reported `sigma_per_sqrt_hour = 0.00045`, which annualises to **4.2%**. BNB does not have 4.2% volatility.",
+          "type": "p"
+        },
+        {
+          "text": "Computed directly from the same 30-day tape, using the estimator's own one-minute bucketing:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "",
+            "\u03c3 per \u221ahour",
+            "annualised",
+            "share of returns clipped"
+          ],
+          "rows": [
+            [
+              "raw",
+              "0.00218",
+              "**20.4%**",
+              "\u2014"
+            ],
+            [
+              "**as shipped** (`5 \u00d7 median",
+              "r",
+              "`)",
+              "0.00060",
+              "**5.6%**",
+              "**27.8%**"
+            ],
+            [
+              "clip at p99",
+              "0.00181",
+              "17.0%",
+              "1.0%"
+            ],
+            [
+              "clip at p99.9",
+              "0.00205",
+              "19.2%",
+              "0.1%"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**An outlier filter that discards 27.8% of the sample is not containing outliers.** It is reshaping the distribution, and \u03c3 sets the range half-width in equations (1) and (2) \u2014 so ranges were built on a volatility roughly **3.6\u00d7 too low**, which is the most likely explanation for Warden sitting in range only 6.1% of the time on real flow.",
+          "type": "p"
+        },
+        {
+          "text": "**Why the threshold was wrong, and it is the \u03ba-units mistake in a new place.** The rule was `5 \u00d7 median absolute return`, ported unchanged from PolyLambda, where it clips **logit returns of probabilities** in prediction markets. `estimators/sigma.py` says so in its own header: *\"the EWMA recursion, the winsorising, and the shrinkage toward a prior are unchanged, because they were doing the right thing already.\"* Nobody measured whether they were. On a busy AMM pool most one-minute bars barely move while a few move a lot, so the **median absolute return is 128\u00d7 below the RMS** and `5 \u00d7 median` lands near the middle of the sample rather than out in its tail. A statistic calibrated on one distribution, applied unchanged to another \u2014 exactly V-1's shape, where \u03ba was fitted per tick and consumed per log-price.",
+          "type": "p"
+        },
+        {
+          "text": "**This one is ours, not the spec's.** \u00a75.1 specifies \"EWMA of 1-minute log-returns of pool price, half-life 6h, scaled to per-\u221ahour\" and says **nothing about winsorising**. The rule is an addition beyond the spec, so both its existence and its threshold are ours to justify.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** Clip at a **quantile** rather than at a multiple of a scale statistic. A quantile clips the fraction it names on any distribution, which is what an outlier filter is supposed to promise; a multiple of the median only does so on distributions shaped like the one it was tuned on. `WINSOR_QUANTILE = 0.99` removes 1.0% of observations and reads 17.0% annualised on this tape. The original concern the comment names \u2014 one thin-pool print that reverts and then dominates a six-hour EWMA \u2014 is still met, because that print is in the top 1%.",
+          "type": "p"
+        },
+        {
+          "text": "A test caught a flaw in the first version: `int(n \u00d7 q)` lands on the largest element itself for small samples, so a 21-return sample clipped nothing. The usual quantile index is `(n \u2212 1) \u00d7 q`.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-15",
+      "kind": "correction",
+      "line": 451,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
     {
       "blocks": [

@@ -156,12 +156,34 @@ def test_winsorising_clips_a_spike_without_moving_the_body() -> None:
     assert clipped[: len(normal)] == pytest.approx(normal)
 
 
-def test_winsorising_uses_the_median_not_the_deviation() -> None:
-    """A standard-deviation threshold would be inflated by the very outlier it
-    is supposed to clip, so the outlier would survive."""
+def test_the_threshold_is_not_inflated_by_the_outlier_it_should_clip() -> None:
+    """A standard-deviation threshold would be moved by the very bar it is
+    supposed to contain, so the outlier would survive its own filter.
+
+    A quantile is immune to that for the same reason a median is, and unlike a
+    multiple of the median it does not assume a distribution shape. On the
+    30-day tape `5 x median` clipped **27.8%** of returns and cut sigma by 3.6x,
+    because a busy pool's median one-minute return is 128x below its RMS. See
+    P-15.
+    """
     returns = [0.001] * 20 + [1.0]
-    clipped = winsorise(returns, k=5.0)
-    assert clipped[-1] == pytest.approx(0.005)
+    clipped = winsorise(returns, q=0.99)
+
+    assert clipped[-1] == pytest.approx(0.001), "the outlier set its own threshold"
+    assert clipped[:-1] == pytest.approx(returns[:-1]), "the body moved"
+
+
+def test_winsorising_clips_the_fraction_it_names() -> None:
+    """The property a quantile has and a multiple of a scale statistic does not:
+    it clips what it says it clips, whatever shape the distribution is."""
+    import random
+
+    rng = random.Random(11)
+    heavy = [rng.gauss(0, 0.001) for _ in range(990)] + [rng.gauss(0, 0.5) for _ in range(10)]
+    clipped = winsorise(heavy, q=0.99)
+
+    moved = sum(1 for a, b in zip(heavy, clipped) if a != b)
+    assert 5 <= moved <= 15, f"clipped {moved}/1000, expected about 1%"
 
 
 def test_shrinkage_defers_to_the_prior_on_thin_data() -> None:

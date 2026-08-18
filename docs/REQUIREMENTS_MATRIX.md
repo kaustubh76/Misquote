@@ -448,6 +448,50 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-15 · The volatility estimator threw away three quarters of the variance — **fixed 18 Aug 2026**
+
+Once P-13 and P-14 stopped costs from dominating, **LVR became the largest term in the quote** — about
+eight times fee income — which made it worth asking whether its inputs were right. The card reported
+`sigma_per_sqrt_hour = 0.00045`, which annualises to **4.2%**. BNB does not have 4.2% volatility.
+
+Computed directly from the same 30-day tape, using the estimator's own one-minute bucketing:
+
+| | σ per √hour | annualised | share of returns clipped |
+|---|---|---|---|
+| raw | 0.00218 | **20.4%** | — |
+| **as shipped** (`5 × median |r|`) | 0.00060 | **5.6%** | **27.8%** |
+| clip at p99 | 0.00181 | 17.0% | 1.0% |
+| clip at p99.9 | 0.00205 | 19.2% | 0.1% |
+
+**An outlier filter that discards 27.8% of the sample is not containing outliers.** It is reshaping
+the distribution, and σ sets the range half-width in equations (1) and (2) — so ranges were built on
+a volatility roughly **3.6× too low**, which is the most likely explanation for Warden sitting in
+range only 6.1% of the time on real flow.
+
+**Why the threshold was wrong, and it is the κ-units mistake in a new place.** The rule was
+`5 × median absolute return`, ported unchanged from PolyLambda, where it clips **logit returns of
+probabilities** in prediction markets. `estimators/sigma.py` says so in its own header: *"the EWMA
+recursion, the winsorising, and the shrinkage toward a prior are unchanged, because they were doing
+the right thing already."* Nobody measured whether they were. On a busy AMM pool most one-minute bars
+barely move while a few move a lot, so the **median absolute return is 128× below the RMS** and
+`5 × median` lands near the middle of the sample rather than out in its tail. A statistic calibrated
+on one distribution, applied unchanged to another — exactly V-1's shape, where κ was fitted per tick
+and consumed per log-price.
+
+**This one is ours, not the spec's.** §5.1 specifies "EWMA of 1-minute log-returns of pool price,
+half-life 6h, scaled to per-√hour" and says **nothing about winsorising**. The rule is an addition
+beyond the spec, so both its existence and its threshold are ours to justify.
+
+**Resolution.** Clip at a **quantile** rather than at a multiple of a scale statistic. A quantile
+clips the fraction it names on any distribution, which is what an outlier filter is supposed to
+promise; a multiple of the median only does so on distributions shaped like the one it was tuned on.
+`WINSOR_QUANTILE = 0.99` removes 1.0% of observations and reads 17.0% annualised on this tape. The
+original concern the comment names — one thin-pool print that reverts and then dominates a six-hour
+EWMA — is still met, because that print is in the top 1%.
+
+A test caught a flaw in the first version: `int(n × q)` lands on the largest element itself for small
+samples, so a 21-return sample clipped nothing. The usual quantile index is `(n − 1) × q`.
+
 ### P-14 · The position was never the size we divided by, and A1 was a clamp — **fixed 18 Aug 2026**
 
 Grid earned **0.164 of token1 on "1,000 of capital" over thirty days**. Chasing that number rather

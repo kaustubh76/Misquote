@@ -34,7 +34,26 @@ MIN_BARS = 30
 # A thin pool can print a single swap that moves price several percent and then
 # immediately reverts. Left alone that one bar dominates a six-hour EWMA and the
 # policy widens its range for the rest of the day on the strength of one trade.
-WINSOR_K = 5.0
+#
+# **Clip a stated fraction, not a multiple of the median.** This was `5 x median
+# |return|`, ported unchanged from PolyLambda, where it clipped logit returns of
+# *probabilities*. On a busy AMM pool the distribution is not that shape at all:
+# most one-minute bars barely move while a few move a lot, so on the 30-day
+# WBNB/USDT tape the median absolute return is **128x below the RMS** and
+# `5 x median` lands near the middle of the sample rather than in its tail.
+#
+# Measured on that tape: the old rule clipped **27.8% of all returns** and cut
+# sigma from 0.00218 to 0.00060 per sqrt-hour — 20.4% annualised down to 5.6%,
+# a factor of 3.6. An outlier filter that discards a quarter of the sample is
+# not containing outliers, it is reshaping the distribution, and sigma drives
+# the range half-width in equations (1) and (2).
+#
+# A quantile clips exactly what it says it clips, whatever the shape: at p99 it
+# removes 1.0% of observations and sigma reads 0.00181 (17.0% annualised),
+# keeping the signal and dropping the spikes the comment above is about.
+# Spec section 5.1 specifies the EWMA and says nothing about winsorising, so
+# this rule is ours and the choice of threshold is ours to justify. See P-15.
+WINSOR_QUANTILE = 0.99
 
 
 def log_returns(prices: list[float]) -> list[float]:
@@ -112,20 +131,30 @@ def ewma_variance_over_gaps(per_bar_returns: list[tuple[float, int]], decay: flo
     return variance
 
 
-def winsorise(returns: list[float], k: float = WINSOR_K) -> list[float]:
-    """Clamp returns at k times the median absolute return.
+def winsorise(returns: list[float], q: float = WINSOR_QUANTILE) -> list[float]:
+    """Clamp the most extreme `1 - q` of returns to that quantile of |return|.
 
-    Median-based rather than standard-deviation-based on purpose: the outlier we
-    are trying to contain would itself inflate a standard deviation, so the
+    Quantile-based rather than a multiple of a scale statistic, because a
+    multiple of *any* scale statistic assumes a distribution shape and this one
+    does not have it — see `WINSOR_QUANTILE` for the measurement. A quantile
+    clips the fraction it names on any distribution, which is what an outlier
+    filter is supposed to promise.
+
+    Still not standard-deviation-based, for the original and correct reason: the
+    outlier being contained would itself inflate a standard deviation, so the
     threshold would move to accommodate the very bar it should be clipping.
     """
     if not returns:
         return []
     magnitudes = sorted(abs(r) for r in returns)
-    median = magnitudes[len(magnitudes) // 2]
-    if median <= 0.0:
+    # `(n - 1) * q`, the usual quantile index, not `n * q`. With 21 returns the
+    # latter lands on the largest element itself, so the threshold is the outlier
+    # and nothing is clipped — a winsoriser that cannot clip a sample of 21 is
+    # not one. A test caught it.
+    index = min(len(magnitudes) - 1, int((len(magnitudes) - 1) * q))
+    limit = magnitudes[index]
+    if limit <= 0.0:
         return list(returns)
-    limit = k * median
     return [max(-limit, min(limit, r)) for r in returns]
 
 
