@@ -251,18 +251,33 @@ export interface Floors {
   in_range_floor: number;
 }
 
+/**
+ * Every field optional, because the emitter can write this block empty.
+ *
+ * It was declared entirely non-optional, and the declaration was wrong:
+ * `tearsheet/generate.py` takes `estimators: dict | None = None` and serialises
+ * `dict(estimators or {})`, so any caller that omits the argument produces an
+ * artifact whose `estimators` is `{}`. One such caller already exists —
+ * `tearsheet/__main__.py` builds without it.
+ *
+ * A type that promises what the producer does not is worse than a loose one:
+ * it is why six call sites here wrote `e.sigma_per_sqrt_hour.toFixed(6)` with a
+ * clear conscience, and why a `{}` block would have thrown during render rather
+ * than rendering an em dash. `fixed()` handles the absence; this makes the
+ * compiler agree that there is an absence to handle.
+ */
 export interface Estimators {
-  sigma_per_sqrt_hour: number;
-  sigma_ready: boolean;
-  kappa_per_tick: number;
-  kappa_per_logprice: number;
-  kappa_r_squared: number;
-  kappa_is_fallback: boolean;
-  kappa_buckets_used: number;
-  kappa_swaps_used: number;
-  kappa_label: string;
-  imbalance_z: number;
-  imbalance_ready: boolean;
+  sigma_per_sqrt_hour?: number;
+  sigma_ready?: boolean;
+  kappa_per_tick?: number;
+  kappa_per_logprice?: number;
+  kappa_r_squared?: number;
+  kappa_is_fallback?: boolean;
+  kappa_buckets_used?: number;
+  kappa_swaps_used?: number;
+  kappa_label?: string;
+  imbalance_z?: number;
+  imbalance_ready?: boolean;
 }
 
 export interface ReplayBlock {

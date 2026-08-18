@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY, amount, fraction, money, pct, signOf, signed } from "./format";
+import { EMPTY, amount, fixed, fraction, money, pct, signOf, signed } from "./format";
 
 describe("missing values never acquire a judgement", () => {
   // The bug: `net > 0 ? "pos" : "neg"`. `undefined > 0` is false, so the else
@@ -81,5 +81,29 @@ describe("a figure carries the unit it is denominated in", () => {
     // end of one — which is the defect this function exists to remove.
     expect(money(186.74, "WBNB")).not.toContain(" WBNB");
     expect(money(186.74, "WBNB")).toContain(" WBNB");
+  });
+});
+
+describe("a bare parameter, to a fixed number of decimals", () => {
+  it("does not group thousands", () => {
+    // κ per log-price is 3600.907. `amount()` renders it "3,600.91" — a comma
+    // the artifact does not have, in a field a reader compares against the JSON.
+    expect(fixed(3600.9070575659784, 2)).toBe("3600.91");
+    expect(fixed(3600.9070575659784, 2)).not.toContain(",");
+  });
+
+  it("renders an absent parameter as the em dash rather than throwing", () => {
+    // The defect: six call sites wrote `e.sigma_per_sqrt_hour.toFixed(6)` on a
+    // block the emitter can write as `{}`. There is no error boundary deep
+    // enough to make that a subtree failure — it took the whole route.
+    expect(fixed(undefined, 6)).toBe(EMPTY);
+    expect(fixed(null, 6)).toBe(EMPTY);
+    expect(fixed(NaN, 4)).toBe(EMPTY);
+  });
+
+  it("keeps the decimals a small parameter needs", () => {
+    // σ per √hour is 4.5e-4. At two decimals it reads 0.00 — which is not the
+    // value and not an absence either.
+    expect(fixed(0.00045053116084847397, 6)).toBe("0.000451");
   });
 });

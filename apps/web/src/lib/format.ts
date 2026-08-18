@@ -70,6 +70,27 @@ export function money(v: unknown, unit?: string, decimals = 2): string {
   return unit ? `${figure}\u00a0${unit}` : figure;
 }
 
+/**
+ * A bare dimensionless number, to a fixed number of decimals.
+ *
+ * The gap this fills is why it exists. Every formatter here covers a *kind* of
+ * quantity — money, a percentage, a fraction, a count, a duration — and the
+ * estimator block is none of them: σ per √hour, κ per tick, an r², a z-score.
+ * So six call sites in `AgentDetail` wrote `e.sigma_per_sqrt_hour.toFixed(6)`
+ * and went around the null-safety this file exists to provide.
+ *
+ * `amount()` was not usable for them: it goes through `toLocaleString`, which
+ * groups thousands, and a κ of 3600.907 rendered `3,600.91` is a number with a
+ * comma in it where the artifact has none.
+ *
+ * Not grouped, for the same reason. These are parameters, not amounts, and the
+ * value on screen should be the value in the JSON.
+ */
+export function fixed(v: unknown, decimals = 2): string {
+  if (!isNum(v)) return EMPTY;
+  return v.toFixed(decimals);
+}
+
 /** A percentage already expressed in percentage points (37.74 -> "37.74%"). */
 export function pct(v: unknown, decimals = 2): string {
   if (!isNum(v)) return EMPTY;

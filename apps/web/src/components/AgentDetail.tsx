@@ -16,14 +16,15 @@ import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
 import {
+  SIGN_CLASS,
   count,
+  fixed,
   fraction,
   hours,
   pct,
   shortAddress,
-  signed,
-  SIGN_CLASS,
   signOf,
+  signed,
 } from "@/lib/format";
 
 /**
@@ -388,8 +389,11 @@ export function AgentDetail({ slug }: { slug: string }) {
           {e.kappa_is_fallback ? (
             <Refusal
               title="κ was not fitted on this run"
-              reason={e.kappa_label}
-              floor={`r² = ${e.kappa_r_squared.toFixed(2)} over ${count(e.kappa_buckets_used)} depth buckets from ${count(e.kappa_swaps_used)} swaps`}
+              // The label is the whole content of this refusal, so its absence
+              // has to be a sentence rather than an empty panel. The emitter can
+              // write `estimators` as `{}` — see the note on `Estimators`.
+              reason={e.kappa_label ?? "this run recorded no κ label"}
+              floor={`r² = ${fixed(e.kappa_r_squared, 2)} over ${count(e.kappa_buckets_used)} depth buckets from ${count(e.kappa_swaps_used)} swaps`}
               cite="A8"
             >
               <p className="mt-2 mb-0 text-sm text-dim">
@@ -408,24 +412,24 @@ export function AgentDetail({ slug }: { slug: string }) {
               rows={[
                 {
                   label: "σ (per √hour)",
-                  value: e.sigma_per_sqrt_hour.toFixed(6),
+                  value: fixed(e.sigma_per_sqrt_hour, 6),
                   note: e.sigma_ready ? "ready" : "below the bar threshold",
                 },
-                { label: "κ per tick", value: e.kappa_per_tick.toFixed(6) },
+                { label: "κ per tick", value: fixed(e.kappa_per_tick, 6) },
                 {
                   label: "κ per log-price",
-                  value: e.kappa_per_logprice.toFixed(2),
+                  value: fixed(e.kappa_per_logprice, 2),
                   note: "what equation (2) consumes",
                 },
                 {
                   label: "κ fit r²",
-                  value: e.kappa_r_squared.toFixed(4),
+                  value: fixed(e.kappa_r_squared, 4),
                   tone: e.kappa_is_fallback ? "text-warn" : undefined,
                 },
                 { label: "κ swaps used", value: count(e.kappa_swaps_used) },
                 {
                   label: "swap-imbalance z",
-                  value: e.imbalance_z.toFixed(4),
+                  value: fixed(e.imbalance_z, 4),
                   note: e.imbalance_ready ? "window full" : "no verdict yet",
                 },
               ]}

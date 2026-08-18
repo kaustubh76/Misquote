@@ -9,6 +9,7 @@ import { Pill, statusTone } from "@/components/Pill";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
+import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { timestamp } from "@/lib/format";
 
 interface StatusCheck {
@@ -28,6 +29,14 @@ interface StatusArtifact {
   summary: { pass: number; fail: number; unverified: number; total: number };
   outcome: "GO" | "NO GO" | "NOT YET";
   exit_code: number;
+  /**
+   * Which tree the verdict was a verdict about.
+   *
+   * Optional because a `status.json` written before the emitter carried one is
+   * still readable — and an absent stamp is itself the reading: this file could
+   * not say what it checked. See `go_no_go.to_payload`.
+   */
+  build?: Build;
 }
 
 const OUTCOME_STYLE: Record<string, string> = {
@@ -144,9 +153,19 @@ export function StatusView() {
             </Section>
           )}
 
-          <p className="mt-10 font-mono text-xs text-faint">
-            Generated {timestamp(d.generated_at)} · <code>make status</code>
-          </p>
+          {/* `BuildStamp`, not a hand-written line. This footer showed a
+              timestamp and the command and nothing else, so a two-day-old NOT
+              YET was indistinguishable from a fresh one — on the page whose
+              whole job is to say what has been verified. The shared component
+              carries the sha and the dirty-tree sentence with it. */}
+          {d.build ? (
+            <BuildStamp className="mt-10" build={d.build} />
+          ) : (
+            <p className="mt-10 font-mono text-xs text-faint">
+              Generated {timestamp(d.generated_at)} · <code>make status</code> · this run
+              recorded no commit, so what it checked cannot be established
+            </p>
+          )}
         </>
       )}
     </Loadable>

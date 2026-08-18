@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from misquote.tearsheet import provenance
+
 REPO = Path(__file__).resolve().parents[1]
 
 # Only used to turn a span of blocks into a span of days for the tape gate. The
@@ -32,6 +34,10 @@ REPO = Path(__file__).resolve().parents[1]
 # time by 20% for the rounding to matter. If it does, the indexer's measured
 # value is the one to trust.
 BSC_BLOCK_SECONDS = 0.45
+
+# Where the site reads from. Spelled out in three places before this line
+# existed, which is one more than a path needs to be.
+ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
 
 PASS, FAIL, UNVERIFIED = "PASS", "FAIL", "UNVERIFIED"
 
@@ -286,6 +292,11 @@ def check_tape() -> Check:
     return Check("30-day tape", PASS, f"{count:,} swaps, {days:.1f} unbroken days read from chain")
 
 
+def short(task: str) -> str:
+    """"Choose — which pool to provide liquidity to" -> "Choose"."""
+    return task.split("—")[0].strip() or task
+
+
 def check_agent_advantage_report() -> Check:
     """The TermiX track's actual requirement, as a check that runs.
 
@@ -333,12 +344,25 @@ def check_agent_advantage_report() -> Check:
             "three tasks with one DIY column is one task relabelled",
         )
 
-    if payload.get("source") != "chain":
+    # Per task, not per report.
+    #
+    # This gate used to read one top-level `source`, which is the same shape of
+    # hole `check_tape` was already fixed for: a report could carry two tasks on
+    # real swaps and a third on two constructed venues, and the header still
+    # said "chain". Task 3 was exactly that report for weeks — its two venues
+    # were `synthetic_events()` on both sides, so "which pool would you choose?"
+    # had an answer decided by a random seed, under a chain-sourced badge.
+    #
+    # A task with no `source` at all is a report written before the field
+    # existed, and unknown does not become pass.
+    synthetic = [t.get("task", "?") for t in tasks if t.get("source") != "chain"]
+    if synthetic:
         return Check(
             "agent advantage report",
             UNVERIFIED,
-            f"{len(tasks)} tasks, but the tape is {payload.get('source')!r}",
-            'the track says "three real tasks" — run the backfill, then regenerate',
+            f"{len(tasks) - len(synthetic)}/{len(tasks)} tasks on chain data; "
+            f"not real: {', '.join(short(t) for t in synthetic)}",
+            'the track says "three real tasks" — index every venue, then regenerate',
         )
 
     quotable = payload.get("summary", {}).get("quotable", 0)
@@ -468,11 +492,122 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
         check_provisional_constants(),
         check_tape(),
         check_agent_advantage_report(),
+        check_artifact_freshness(),
         check_burn_in(),
         check_signer_configured(mainnet),
         check_position_cap(mainnet),
     ]
     return checks
+
+
+# The paths whose contents change a replayed number. An artifact generated
+# before a commit touching any of these is describing an engine that no longer
+# exists — which is the whole of `check_artifact_freshness` below.
+#
+# Deliberately not "everything under packages": the indexer, the vetting layer
+# and the registry readers can all change without moving a single figure on a
+# card, and a gate that goes amber on an unrelated commit is a gate people learn
+# to wave through.
+ENGINE_PATHS = (
+    "packages/misquote/replay",
+    "packages/misquote/lvr",
+    "packages/misquote/estimators",
+    "packages/misquote/agents",
+    "packages/misquote/core/policy.py",
+    "packages/misquote/core/fees.py",
+    "packages/misquote/core/types.py",
+    "packages/misquote/core/liquidity.py",
+)
+
+# The artifacts whose numbers the replay engine produces. The others —
+# `vetting`, `registry`, `venue`, `vectors`, `addresses` — are reads and
+# projections, and their staleness is a different question with different
+# answers already implemented.
+REPLAY_ARTIFACTS = (
+    "build.json",
+    "warden.json",
+    "grid.json",
+    "sentinel.json",
+    "advantage.json",
+    "advantage_short.json",
+)
+
+
+def _recorded_sha(payload: dict) -> str | None:
+    """The commit an artifact says it was generated at, wherever it keeps it."""
+    for block in ("build", "provenance"):
+        section = payload.get(block)
+        if isinstance(section, dict) and section.get("git_sha"):
+            return str(section["git_sha"])
+    return str(payload["git_sha"]) if payload.get("git_sha") else None
+
+
+def check_artifact_freshness() -> Check:
+    """Does the published card still describe the engine that exists?
+
+    Nothing in this repository asked that question, and it is the question every
+    stale-artifact defect here has been an instance of. `vectors_report.py` says
+    so in as many words — *"a receipt written before that ran is a statement
+    about files that no longer exist, the exact shape of every stale-artifact
+    defect this repo has had"* — and then implements the answer for the vector
+    corpus alone, because a corpus can be re-digested in milliseconds.
+
+    A card cannot. Re-deriving `warden.json` is a 4.6-hour replay, which is
+    exactly the case `tests/web/test_artifact_projections.py` excludes by design.
+    So this does not re-derive anything. It asks git: has anything that changes a
+    replayed number landed since the commit this artifact records?
+
+    **An artifact with no recorded commit is UNVERIFIED, never PASS.**
+    `vetting/badge.py` sets that rule for chain readings and it holds here for
+    the same reason — "we cannot tell" and "it is current" are different claims,
+    and the second one is what a green tick means. Today four of the six cards
+    record no commit at all: they are stamped by proxy through `build.json`,
+    which the landing page renders once for all of them.
+    """
+    stale: list[str] = []
+    unstamped: list[str] = []
+
+    for name in REPLAY_ARTIFACTS:
+        path = ARTIFACTS / name
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            unstamped.append(f"{name} (unreadable)")
+            continue
+
+        sha = _recorded_sha(payload)
+        if not sha:
+            unstamped.append(name)
+            continue
+
+        code, out = _run(["git", "log", "--oneline", f"{sha}..HEAD", "--", *ENGINE_PATHS])
+        if code != 0:
+            # A sha git does not know is not a pass. Rebased, squashed, or
+            # generated on a branch nobody has — all of them mean the artifact
+            # cannot be placed against this history.
+            unstamped.append(f"{name} (records {sha}, which this repository does not have)")
+            continue
+        commits = [line for line in out.splitlines() if line.strip()]
+        if commits:
+            stale.append(f"{name} is {len(commits)} engine commit(s) behind {sha}")
+
+    if not stale and not unstamped:
+        return Check(
+            "artifacts match the engine",
+            PASS,
+            f"{len(REPLAY_ARTIFACTS)} replay artifacts, none generated before an engine change",
+        )
+
+    detail = "; ".join(stale + [f"{n} records no commit" for n in unstamped])
+    return Check(
+        "artifacts match the engine",
+        UNVERIFIED,
+        detail,
+        "regenerate them (`make showcase`, `make advantage`) — or accept that "
+        "the published numbers describe an engine that has since changed",
+    )
 
 
 def outcome(checks: list[Check]) -> tuple[str, int]:
@@ -485,9 +620,37 @@ def outcome(checks: list[Check]) -> tuple[str, int]:
 
 
 def to_payload(checks: list[Check], *, mainnet: bool, fast: bool) -> dict:
+    """The verdict, and which tree it was a verdict about.
+
+    ## Why this carries a build stamp now
+
+    Every other emitter in this repository records command, sha and dirty flag
+    through `provenance.build_stamp`. This one hand-rolled a bare timestamp, and
+    it is the *checklist* — the file whose entire job is to say what has and has
+    not been verified.
+
+    So it was the one artifact that could not say what it had verified it
+    *against*. A published `status.json` sat on the site for two days reading
+    NOT YET with three blocking gates — "2,599 swaps spanning 0.4 days" — while
+    the database held 252,923 swaps over an unbroken fifty-day span and the
+    gate's own wording had since changed. Nothing about the file distinguished
+    that from a reading taken minutes ago.
+
+    `generated_at` stays at the top level as well as inside `build`, because
+    `/status` has rendered it from there since the page existed and moving it
+    would be a schema break for a field that is not the problem. The problem was
+    the absence of a sha beside it.
+    """
     verdict, code = outcome(checks)
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "build": provenance.build_stamp(
+            f"python scripts/go_no_go.py{' --mainnet' if mainnet else ''}"
+            f"{' --fast' if fast else ''} --json",
+            # Not "offline": this gate reads the tape database, and on a
+            # `--mainnet` run it reads chain. What it reads is the point of it.
+            source="mainnet" if mainnet else "local checks",
+        ),
         "mainnet": mainnet,
         "fast": fast,
         "skipped": list(SKIPPED_BY_FAST) if fast else [],

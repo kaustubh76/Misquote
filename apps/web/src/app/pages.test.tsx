@@ -199,9 +199,10 @@ describe("Agent detail", () => {
     render(<AgentDetail slug="warden" />);
     await screen.findByRole("heading", { name: "Warden" });
 
-    if (warden.estimators.kappa_is_fallback) {
+    const label = warden.estimators.kappa_label;
+    if (warden.estimators.kappa_is_fallback && label) {
       expect(screen.getByText(/κ was not fitted on this run/)).toBeInTheDocument();
-      expect(screen.getByText(textFrom(warden.estimators.kappa_label))).toBeInTheDocument();
+      expect(screen.getByText(textFrom(label))).toBeInTheDocument();
     }
   });
 
@@ -973,5 +974,31 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
 
     const erc20 = reg.hire_flow.steps.find((s) => s.contract !== "escrow")!;
     expect(screen.getByText(new RegExp(erc20.contract, "i"))).toBeInTheDocument();
+  });
+});
+
+describe("an artifact missing its estimator block renders rather than throwing", () => {
+  it("shows an em dash per parameter, not a blank page", async () => {
+    // `tearsheet/generate.py` takes `estimators: dict | None = None` and
+    // serialises `dict(estimators or {})`, so an omitted argument writes `{}` —
+    // and `tearsheet/__main__.py` already builds without it. Six call sites here
+    // read the block straight off the JSON, against a type declaring eleven
+    // non-optional fields.
+    //
+    // There is no boundary deep enough to make that a subtree failure: a throw
+    // in render escapes to Next's root handler and replaces the document, nav
+    // and all. So the fix is not to catch it, it is not to throw.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    serveArtifacts({ overrides: { "warden.json": { ...warden, estimators: {} } } });
+    render(<AgentDetail slug="warden" />);
+
+    const heading = await screen.findByRole("heading", {
+      name: "The parameters behind the range",
+    });
+    const section = heading.closest("section")!;
+
+    // Every parameter row present, and every one of them an em dash.
+    expect(within(section).getAllByText("—").length).toBeGreaterThanOrEqual(5);
+    expect(within(section).getByText(/κ swaps used/)).toBeInTheDocument();
   });
 });
