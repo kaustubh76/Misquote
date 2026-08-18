@@ -110,12 +110,16 @@ describe("missing data never renders as a loss", () => {
     };
     render(<AgentCard ref_={ref} data={broken} />);
 
-    const table = screen.getByRole("region", { name: /replay metrics/i });
-    const netRow = within(table).getByRole("rowheader", { name: "net" }).closest("tr")!;
-    const cell = within(netRow).getAllByRole("cell")[0]!;
+    // `net` moved from a table row into the CostBars caption. The claim is
+    // unchanged and is the one that matters: a value nobody measured must not
+    // render as a result. `net < 0` would have made an absent net *green* —
+    // a missing measurement shown as a profit — which is why this goes through
+    // `signOf`.
+    const chart = screen.getByRole("group", { name: /where the money went/i });
+    const net = within(chart).getByText("—");
 
-    expect(cell).toHaveTextContent("—");
-    expect(cell.className).not.toContain("text-bad");
+    expect(net.className).not.toContain("text-bad");
+    expect(net.className).not.toContain("text-good");
   });
 });
 

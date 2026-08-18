@@ -9,13 +9,13 @@ import { Card, CardHeader } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
 import { ComparisonTable } from "@/components/ComparisonTable";
+import { CostBars } from "@/components/CostBars";
 import { GateHistogram } from "@/components/GateHistogram";
 import { Pill, verdictTone } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
 import {
-  amount,
   count,
   fraction,
   hours,
@@ -324,19 +324,28 @@ export function AgentDetail({ slug }: { slug: string }) {
                 { label: "recentres", value: count(r.rebalances) },
                 { label: "pulls", value: count(r.pulls) },
                 { label: "in range", value: fraction(r.in_range_fraction) },
-                { label: "fees earned", value: amount(r.fees_quote) },
-                {
-                  label: "adverse selection (upper bound)",
-                  value: amount(r.lvr_quote_upper_bound),
-                },
-                { label: "costs", value: amount(r.costs_quote) },
-                {
-                  label: "net",
-                  value: amount(r.net_quote),
-                  tone: SIGN_CLASS[signOf(r.net_quote)],
-                },
               ]}
             />
+
+            {/* The four money rows, drawn. `net = fees − LVR − costs` is an
+                identity the engine enforces, so the bars account for the whole
+                result — and the ratio between the first and the last is the
+                agent's entire story. */}
+            <div className="mt-5">
+              <CostBars
+                caption={`${d.agent}: where the money went`}
+                net={r.net_quote}
+                rows={[
+                  { label: "fees earned", value: r.fees_quote, direction: "earned" },
+                  {
+                    label: "adverse selection (upper bound)",
+                    value: r.lvr_quote_upper_bound,
+                    direction: "spent",
+                  },
+                  { label: "costs", value: r.costs_quote, direction: "spent" },
+                ]}
+              />
+            </div>
           </Card>
 
           <Card>

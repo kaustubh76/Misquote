@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
+import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Pill, verdictTone } from "@/components/Pill";
-import { amount, count, fraction, hours, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { count, fraction, hours, signed, SIGN_CLASS, signOf } from "@/lib/format";
 import type { AgentArtifact, AgentRef, IndexArtifact } from "@/lib/artifacts";
 
 export function AgentCard({
@@ -139,6 +140,25 @@ export function AgentCard({
         </p>
       )}
 
+      {/* The money, drawn. These were four of the seven rows below, which left
+          the reader to subtract and to notice that costs are three orders of
+          magnitude above fees. */}
+      <div className="mt-5">
+        <CostBars
+          caption={`${data.agent}: where the money went`}
+          net={r.net_quote}
+          rows={[
+            { label: "fees earned", value: r.fees_quote, direction: "earned" },
+            {
+              label: "adverse selection (upper bound)",
+              value: r.lvr_quote_upper_bound,
+              direction: "spent",
+            },
+            { label: "costs", value: r.costs_quote, direction: "spent" },
+          ]}
+        />
+      </div>
+
       <div className="mt-5">
         <DataTable
           caption={`${data.agent} replay metrics`}
@@ -150,18 +170,7 @@ export function AgentCard({
             },
             {
               label: "moves",
-              value: `${r.mints} mint · ${r.rebalances} recentre · ${r.pulls} pull`,
-            },
-            { label: "fees earned", value: amount(r.fees_quote) },
-            {
-              label: "adverse selection (upper bound)",
-              value: amount(r.lvr_quote_upper_bound),
-            },
-            { label: "costs", value: amount(r.costs_quote) },
-            {
-              label: "net",
-              value: amount(r.net_quote),
-              tone: SIGN_CLASS[signOf(r.net_quote)],
+              value: `${count(r.mints)} mint · ${count(r.rebalances)} recentre · ${count(r.pulls)} pull`,
             },
           ]}
         />
