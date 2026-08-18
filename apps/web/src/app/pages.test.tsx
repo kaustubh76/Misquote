@@ -72,6 +72,72 @@ describe("Overview", () => {
   });
 });
 
+describe("Overview leads with the comparison", () => {
+  it("puts every loaded agent on one scale, above the cards", async () => {
+    // The page was a heading, a paragraph, a link and three stacked cards, so
+    // "which of these works" took three screens and a memory for numbers.
+    const index = readArtifact<IndexArtifact>("index.json");
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: index.agents[0]!.name });
+
+    const caption = screen.getByText(/longest bar is the largest loss/);
+    const panel = caption.closest("div")!;
+    for (const agent of index.agents) {
+      expect(within(panel).getByRole("link", { name: agent.name })).toHaveAttribute(
+        "href",
+        `/agent/${agent.slug}`,
+      );
+    }
+  });
+
+  it("scales every agent against the same worst loss, not against itself", async () => {
+    // Per-row scaling would draw a $0.68 loss and a $186.74 loss the same
+    // length — the mistake `GateHistogram` documents at length.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    const grid = readArtifact<AgentArtifact>("grid.json");
+    render(<OverviewPage />);
+    await screen.findByText(/longest bar is the largest loss/);
+
+    // Scoped to the comparison panel. An unscoped `li div > div` also matches
+    // every CostBars bar inside the three cards below, whose widths differ
+    // anyway — so the assertion passed with all three comparison bars pinned to
+    // 100%, which a mutation run caught.
+    const panel = (await screen.findByText(/longest bar is the largest loss/)).closest(
+      "div",
+    )!;
+    const bars = [...panel.querySelectorAll<HTMLElement>("li div > div")].map((el) =>
+      parseFloat(el.style.width),
+    );
+    expect(bars).toHaveLength(3);
+
+    // The larger absolute loss must draw the longer bar, and by the right ratio.
+    const ratio = Math.abs(grid.replay.net_quote) / Math.abs(warden.replay.net_quote);
+    const [longest, shortest] = [Math.max(...bars), Math.min(...bars)];
+    expect(longest).toBe(100);
+    expect(shortest / longest).toBeCloseTo(ratio, 1);
+  });
+
+  it("calls in-range against the floor the artifact publishes", async () => {
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    render(<OverviewPage />);
+    const caption = await screen.findByText(/longest bar is the largest loss/);
+
+    // Never typed: the floor is one of the five `/methods` publishes.
+    expect(caption.textContent).toContain(`${Math.round(100 * warden.floors.in_range_floor)}%`);
+  });
+
+  it("omits an agent whose artifact failed rather than drawing it as zero", async () => {
+    // A zero bar reads as an agent that lost nothing.
+    serveArtifacts({ missing: ["grid.json"] });
+    render(<OverviewPage />);
+    const caption = await screen.findByText(/longest bar is the largest loss/);
+    const panel = caption.closest("div")!;
+
+    expect(within(panel).queryByRole("link", { name: "Grid" })).not.toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Warden" })).toBeInTheDocument();
+  });
+});
+
 describe("Overview, when one agent artifact is missing", () => {
   it("loses one card, not all of them", async () => {
     // The old page used Promise.all, so a single 404 erased every card and

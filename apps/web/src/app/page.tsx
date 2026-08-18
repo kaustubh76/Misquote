@@ -6,6 +6,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
+import { AgentComparison } from "@/components/AgentComparison";
 import { NotBuiltCard } from "@/components/Ledger";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -65,6 +66,21 @@ export default function OverviewPage() {
   // the landing page.
   const loading = index === null || agents === null;
 
+  // Only the agents that both loaded and are listed. A card that 404'd is
+  // absent from the comparison rather than drawn as a zero, which would read
+  // as an agent that lost nothing.
+  const compared =
+    agents && index?.ok
+      ? agents.flatMap((slot) => {
+          const ref = index.value.agents.find((a) => a.slug === slot.slug);
+          return ref && slot.result.ok ? [{ ref, data: slot.result.value }] : [];
+        })
+      : [];
+
+  // Read from the artifact, never typed — it is the threshold the in-range
+  // verdict is called against, and `/methods` publishes it as one of the floors.
+  const inRangeFloor = compared[0]?.data.floors?.in_range_floor;
+
   return (
     <Loadable loading={loading} what="agent cards">
       <h1 className="text-2xl font-semibold">Every marketplace misquotes you.</h1>
@@ -116,6 +132,16 @@ export default function OverviewPage() {
           <div className="grid gap-5">
             <CardSkeleton />
             <CardSkeleton />
+          </div>
+        )}
+
+        {/* The answer before the detail.
+            This page was a heading, a paragraph, a link and three stacked
+            cards, so "which of these works" took three screens and a memory for
+            numbers. The cards are still the detail; this is the answer. */}
+        {compared.length > 0 && (
+          <div className="mb-8">
+            <AgentComparison agents={compared} inRangeFloor={inRangeFloor} />
           </div>
         )}
 
