@@ -11,6 +11,9 @@ htmlcov/
 # node
 node_modules/
 .next/
+# `make web-check` builds here instead of `.next` so it does not swap
+# chunks out from under a running `make web`.
+.next-check/
 out/
 
 # foundry
@@ -35,106 +38,3 @@ data/cache/
 ops/KILL
 
 .DS_Store
-
-# # Needs a browser: `cd apps/web && pnpm exec playwright install chromium`.
-# This is the only check that runs real layout, and it earns its keep — the
-# whole suite was green while every route but "/" fetched its artifacts from
-# a page-relative path and rendered an error state.
-# `NEXT_DIST_DIR` keeps this build out of `.next`, which `make web` is
-# serving from. Sharing it meant every web-check killed the running dev
-# server with `Cannot find module './393.js'` — the build swaps the chunks
-# out from under it — and the fix looked like a broken app rather than two
-# commands writing to one directory.
-cd apps/web && NEXT_DIST_DIR=.next-check pnpm build
-
-> @misquote/web@0.1.0 build /Users/apple/Desktop/Misquote/apps/web
-> next build
-
-   ▲ Next.js 15.5.23
-
-   Creating an optimized production build ...
- ✓ Compiled successfully in 2.2s
-   Skipping linting
-   Checking validity of types ...
-   Collecting page data ...
-   Generating static pages (0/15) ...
-   Generating static pages (3/15) 
-   Generating static pages (7/15) 
-   Generating static pages (11/15) 
- ✓ Generating static pages (15/15)
-   Finalizing page optimization ...
-   Collecting build traces ...
-   Exporting (0/2) ...
- ✓ Exporting (2/2)
-
-Route (app)                                 Size  First Load JS
-┌ ○ /                                    4.28 kB         115 kB
-├ ○ /_not-found                            123 B         103 kB
-├ ○ /advantage                           3.22 kB         114 kB
-├ ● /agent/[slug]                        4.98 kB         116 kB
-├   ├ /agent/warden
-├   ├ /agent/grid
-├   └ /agent/sentinel
-├ ○ /assumptions                          5.8 kB         112 kB
-├ ○ /icon.svg                                0 B            0 B
-├ ○ /methods                             3.53 kB         112 kB
-├ ○ /registry                            3.63 kB         112 kB
-├ ○ /status                              2.59 kB         111 kB
-├ ○ /vectors                             3.45 kB         112 kB
-└ ○ /vetting                              3.9 kB         112 kB
-+ First Load JS shared by all             103 kB
-  ├ chunks/0fef27c7-931f614f21060151.js  54.2 kB
-  ├ chunks/737-3d32b6df71a37c8c.js       46.4 kB
-  └ other shared chunks (total)          1.92 kB
-
-
-○  (Static)  prerendered as static content
-●  (SSG)     prerendered as static HTML (uses generateStaticParams)
-
-cd apps/web/out && (python3 -m http.server 8099 & echo $! > /tmp/misquote-web.pid) && sleep 2
-cd apps/web && node scripts/check-pages.mjs ; \
-		status=$?; kill `cat /tmp/misquote-web.pid` 2>/dev/null; exit $status
-  ok    overview-dark-1280              overflow=0px  problems=0
-  ok    advantage-dark-1280             overflow=0px  problems=0
-  ok    agent-warden-dark-1280          overflow=0px  problems=0
-  ok    methods-dark-1280               overflow=0px  problems=0
-  ok    vectors-dark-1280               overflow=0px  problems=0
-  ok    assumptions-dark-1280           overflow=0px  problems=0
-  ok    registry-dark-1280              overflow=0px  problems=0
-  ok    vetting-dark-1280               overflow=0px  problems=0
-  ok    status-dark-1280                overflow=0px  problems=0
-  ok    overview-light-1280             overflow=0px  problems=0
-  ok    advantage-light-1280            overflow=0px  problems=0
-  ok    agent-warden-light-1280         overflow=0px  problems=0
-  ok    methods-light-1280              overflow=0px  problems=0
-  ok    vectors-light-1280              overflow=0px  problems=0
-  ok    assumptions-light-1280          overflow=0px  problems=0
-  ok    registry-light-1280             overflow=0px  problems=0
-  ok    vetting-light-1280              overflow=0px  problems=0
-  ok    status-light-1280               overflow=0px  problems=0
-  ok    overview-dark-390               overflow=0px  problems=0
-  ok    advantage-dark-390              overflow=0px  problems=0
-  ok    agent-warden-dark-390           overflow=0px  problems=0
-  ok    methods-dark-390                overflow=0px  problems=0
-  ok    vectors-dark-390                overflow=0px  problems=0
-  ok    assumptions-dark-390            overflow=0px  problems=0
-  ok    registry-dark-390               overflow=0px  problems=0
-  ok    vetting-dark-390                overflow=0px  problems=0
-  ok    status-dark-390                 overflow=0px  problems=0
-
-  every route clean in both themes and at 390px, with 9 distinct titles. builds here so it does not demolish the .next that cd apps/web && pnpm dev
-
-> @misquote/web@0.1.0 dev /Users/apple/Desktop/Misquote/apps/web
-> next dev
-
-   ▲ Next.js 15.5.23
-   - Local:        http://localhost:3001
-   - Network:      http://192.168.29.238:3001
-
- ✓ Starting...
- ✓ Ready in 1641ms
-[?25h serves.
-.next-check/
-
-# `make web-check` builds here so it does not demolish the .next that `make web` serves.
-.next-check/
