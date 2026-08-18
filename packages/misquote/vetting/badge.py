@@ -13,7 +13,7 @@ the arithmetic.
 | Check | Paid for by |
 |---|---|
 | The factory resolves this address | **P-6** — Pancake deploys pools from a separate `PancakeV3PoolDeployer` with a different init-code hash, so Uniswap's `computeAddress` constants return **wrong addresses** that look perfectly well-formed. |
-| `feeProtocol` was read, not assumed | **P-1, P-8** — 3400 on WBNB/USDT, **0** on TSLAx/USDT. Same DEX. Hardcoding Pancake's understates LP earnings by a third on one; hardcoding Uniswap's overstates by 1.52× on the other. |
+| `feeProtocol` was read, not assumed | **P-1, P-8** — 3400 on WBNB/USDT, **3200** on TSLAx/USDT. Same DEX, and no constant right for both. Hardcoding Uniswap's zero overstates LP earnings by 1.52× on one and 1.47× on the other. (This table said **0** for the equity pool for a long time. That was P-8's original reading, taken from `slot0[2]` — `observationIndex` — instead of `slot0[5]`. Index 2 happened to hold 0 there and 101 on the flagship: small plausible integers that neither reverted nor looked absurd, and 0 was the value that made the better story. `tests/chain/test_equity_pool.py` asserts 3200.) |
 | Decimals were read, not assumed | BSC's USDT and USDC are **18** decimals, not the 6 they use on Ethereum. Assuming 6 misprices every position by twelve orders of magnitude. |
 | Tick spacing matches the fee tier | **P-6** — 100→1, 500→10, 2500→50, 10000→200, and **no** 3000→60. A mismatch means the address is not the pool you think it is. |
 | The pool is initialised and not pinned at an extreme | Chapel's own WBNB/USDT pool exists, was initialised at `MAX_TICK`, and never seeded: a real address, a real contract, zero liquidity, and a price at the top of the range. |
@@ -296,7 +296,7 @@ def _check_fee_tier(badge: Badge, r: PoolReadings) -> None:
 
 
 def _check_fee_protocol(badge: Badge, r: PoolReadings) -> None:
-    provenance = "P-1, P-8: 3400 on WBNB/USDT, 0 on TSLAx/USDT — no constant is right"
+    provenance = "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT — no constant is right"
     if r.fee_protocol is None:
         badge.add("protocol fee read", UNKNOWN, "could not read slot0.feeProtocol", provenance)
         return

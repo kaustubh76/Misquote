@@ -59,3 +59,39 @@ describe("the stamp names the command that produced the numbers", () => {
     expect(text).toContain("344fda7");
   });
 });
+
+describe("the source it was built from", () => {
+  it("renders it, and first", () => {
+    // Declared on the interface since the component existed and dropped by the
+    // JSX. `/registry` removed a green "Verified" pill *citing* this field —
+    // `"source": "offline"` — and never showed it, so the page's most careful
+    // decision rested on a fact the reader had to take on trust.
+    render(
+      <BuildStamp
+        build={{
+          command: "python scripts/registry_report.py",
+          generated_at: "2026-08-17T16:50:50+00:00",
+          git_sha: "92038cf",
+          source: "offline",
+        }}
+      />,
+    );
+
+    const line = screen.getByText(/offline/).textContent ?? "";
+    expect(line.indexOf("offline")).toBeLessThan(line.indexOf("scripts/registry_report.py"));
+  });
+
+  it("says nothing when the artifact does not carry one", () => {
+    render(
+      <BuildStamp
+        build={{
+          command: "python scripts/showcase.py",
+          generated_at: "2026-08-17T16:50:50+00:00",
+          git_sha: "92038cf",
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/scripts\/showcase\.py/).textContent).not.toContain("undefined");
+  });
+});

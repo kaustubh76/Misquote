@@ -60,7 +60,7 @@ def hire_flow() -> dict[str, Any]:
             # comment says why it is a list rather than a flag: the gap between
             # "a live escrow that settles in the token we already use" and "we
             # have exercised ERC-8183's job interface here" is the slippage this
-            # project exists to catch. Two of the six entries are a NOT VERIFIED
+            # project exists to catch. Two of the seven entries are a NOT VERIFIED
             # clause and a SECURITY note about the escrow being upgradeable —
             # the strongest caveats in the codebase, and neither had a surface.
             "evidence": list(erc8183.JOB_ESCROW_EVIDENCE.get(BSC_MAINNET, ())),

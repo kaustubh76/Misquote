@@ -30,6 +30,23 @@ import { timestamp } from "@/lib/format";
  * The requirement is that it be *said*, not that it be prevented. So it renders
  * in the same muted footer as everything else, in words, and the page does not
  * pretend a clean rebuild happened.
+ *
+ * ## `source`, which this declared and dropped
+ *
+ * The interface has always carried `source?: string` and the JSX has never
+ * rendered it. Five artifacts publish one — `offline`, `chain reads recorded on
+ * disk`, `vector files on disk` — and every page showed a command, a timestamp
+ * and a sha instead.
+ *
+ * `/registry` is where that cost something. Its view removed a green "Verified"
+ * pill and the comment explaining why cites this exact field: the artifact says
+ * `"source": "offline"`, so `available` is a dict lookup rather than a reading.
+ * The page made its most careful decision on the strength of a fact it never
+ * showed the reader, who was left to take the removal on trust.
+ *
+ * Rendered first now, before the command, because it is the qualification that
+ * changes what everything after it means — the same argument the dirty-tree
+ * clause is here for.
  */
 export interface Build {
   command: string;
@@ -51,6 +68,7 @@ export function BuildStamp({
 }) {
   return (
     <p className={`m-0 font-mono text-xs text-faint ${className}`}>
+      {build.source ? <>{build.source} · </> : null}
       {build.command} · {timestamp(build.generated_at)} ·{" "}
       {build.git_sha ?? "no commit"}
       {/* Never abbreviated to a symbol. A dirty tree means the sha beside it

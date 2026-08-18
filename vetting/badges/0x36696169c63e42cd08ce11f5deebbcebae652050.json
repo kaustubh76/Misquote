@@ -16,7 +16,7 @@
     {
       "detail": "feeProtocol 3400 \u2014 LPs keep 66%, effective 3.300bps",
       "name": "protocol fee read",
-      "provenance": "P-1, P-8: 3400 on WBNB/USDT, 0 on TSLAx/USDT \u2014 no constant is right",
+      "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
       "status": "PASS"
     },
     {

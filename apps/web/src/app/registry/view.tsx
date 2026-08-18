@@ -9,6 +9,8 @@ import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
+import Link from "next/link";
+import { Pill, statusTone } from "@/components/Pill";
 import { load, type Loaded } from "@/lib/artifacts";
 import { count, shortAddress } from "@/lib/format";
 
@@ -53,13 +55,30 @@ interface RegistryArtifact {
   build?: Build;
 }
 
+/** Only what the deliverable's gate needs. `/status` owns the rest of the shape. */
+interface StatusSummary {
+  checks: { name: string; status: string; detail: string; remedy?: string }[];
+}
+
+/** The gate the track turns on, by the name `scripts/go_no_go.py` gives it. */
+const DELIVERABLE_GATE = "agent advantage report";
+
 export function RegistryView() {
   const [state, setState] = useState<Loaded<RegistryArtifact> | null>(null);
+  const [status, setStatus] = useState<Loaded<StatusSummary> | null>(null);
 
   useEffect(() => {
     let live = true;
-    load<RegistryArtifact>("registry.json").then((r) => {
-      if (live) setState(r);
+    // The gate lives in `status.json`, not here — the deliverable is judged by
+    // the readiness checklist, and this page reads that verdict rather than
+    // forming its own.
+    Promise.all([
+      load<RegistryArtifact>("registry.json"),
+      load<StatusSummary>("status.json"),
+    ]).then(([r, s]) => {
+      if (!live) return;
+      setState(r);
+      setStatus(s);
     });
     return () => {
       live = false;
@@ -68,12 +87,23 @@ export function RegistryView() {
 
   const d = state?.ok ? state.value : null;
 
+  // Found by name. `go_no_go.py` orders its checks and that order is not a
+  // contract, so a positional read would quietly start reporting a different
+  // gate the day one is inserted above it.
+  const gate = status?.ok
+    ? status.value.checks.find((c) => c.name === DELIVERABLE_GATE)
+    : undefined;
+
   return (
     <Loadable loading={state === null} what="the registry sample">
-      <h1 className="text-2xl font-semibold">Standards, and what they actually cost</h1>
+      <h1 className="text-2xl font-semibold">TermiX, and what its standards cost</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        What is behind a Hire button, and what the ERC-8004 registry holds when read
-        rather than quoted.
+        {/* The track asks for one thing and this page is organised around it.
+            Reordered from "standards, generally" because a judge arriving here
+            was met with a six-transaction hire flow and had to infer that the
+            deliverable they came to assess was on a different page. */}
+        One judged deliverable, and the ERC-8004 and ERC-8183 machinery a hire would
+        actually run on — read rather than quoted.
       </p>
       {/* The second half of that sentence promises a survey that this run may
           not have made — `identity.surveyed` is false without an RPC, and the
@@ -110,6 +140,39 @@ export function RegistryView() {
 
       {d && (
         <>
+          {/* --------------------------------------------- the deliverable -- */}
+          {gate && (
+            <Section
+              title="The judged deliverable"
+              className="mt-10"
+              headingClassName="mb-2 text-lg font-semibold"
+            >
+              <Card>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="m-0 text-sm text-ink">
+                      Three real tasks, run with and without an agent.
+                    </p>
+                    {/* Verbatim from the gate. The track's criterion is
+                        encoded in `go_no_go.py` as a check that executes —
+                        three tasks, distinct baselines, and amber until the
+                        tape is chain-sourced — so this reads that verdict
+                        instead of restating the criterion beside it. */}
+                    <p className="mt-2 mb-0 font-mono text-xs text-dim">{gate.detail}</p>
+                    {gate.remedy && (
+                      <p className="mt-2 mb-0 text-xs text-faint">→ {gate.remedy}</p>
+                    )}
+                  </div>
+                  <Pill tone={statusTone(gate.status)}>{gate.status}</Pill>
+                </div>
+
+                <p className="mt-4 mb-0 border-t border-line pt-3 text-xs text-faint">
+                  <Link href="/advantage">The report itself, task by task →</Link>
+                </p>
+              </Card>
+            </Section>
+          )}
+
           {/* ------------------------------------------------- the hire flow -- */}
           <Section title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
@@ -149,11 +212,16 @@ export function RegistryView() {
                   label: (
                     <span className="font-mono">
                       {step.call}
-                      {step.is_erc8183 && (
-                        <span className="ml-2 text-[10px] tracking-wide text-faint uppercase">
-                          8183
-                        </span>
-                      )}
+                      {/* Which contract, and whether it is the standard's.
+                          `contract` was emitted and declared and never read,
+                          while a bare "8183" badge marked five rows and left
+                          the sixth explaining itself — it is an ERC-20
+                          `approve`, which is exactly what `contract` says and
+                          the badge could only imply by its absence. */}
+                      <span className="ml-2 text-[10px] tracking-wide text-faint uppercase">
+                        {step.contract}
+                        {step.is_erc8183 && " · 8183"}
+                      </span>
                     </span>
                   ),
                   value: step.sender,
@@ -318,8 +386,18 @@ export function RegistryView() {
           </Section>
 
           {/* ------------------------------------------------------- the AACP -- */}
-          {d.aacp.available && (
-            <Section title="TermiX AACP">
+          {/* Ungated. The whole section used to be conditional on
+              `aacp.available`, so a failed lookup made it vanish and dropped
+              the recorded `reason` with it — while the escrow section three
+              above renders its reason as a refusal. Same grammar for both. */}
+          <Section title="TermiX AACP">
+            {!d.aacp.available ? (
+              <Refusal
+                title="No AACP contract table was read"
+                reason={d.aacp.reason ?? "the report recorded no reason"}
+                floor="registry/aacp.py raises NoDeployment rather than defaulting — TermiX documents chains 56 and 8453 only."
+              />
+            ) : (
               <Card>
                 {d.aacp.shares_our_identity_registry && (
                   <div className="mb-4 rounded-md border border-good-line bg-good-bg/40 p-4">
@@ -339,11 +417,16 @@ export function RegistryView() {
                   />
                 )}
                 {d.aacp.note && (
-                  <p className="mt-4 mb-0 text-xs text-faint">{d.aacp.note}</p>
+                  <p className="mt-4 mb-0 text-xs text-faint">
+                    {/* The chain is part of the claim. The table is chain 56's
+                        and the page never said so, which on a project with a
+                        testnet mirror is a reading somebody could mis-attribute. */}
+                    chain {d.aacp.chain_id} · {d.aacp.note}
+                  </p>
                 )}
               </Card>
-            </Section>
-          )}
+            )}
+          </Section>
 
           {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>

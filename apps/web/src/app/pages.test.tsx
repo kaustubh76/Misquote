@@ -819,3 +819,159 @@ describe("Venue: the divergences, not the pool label", () => {
     expect(screen.getByText(`${venue.uniswap_only_tier}\u219260`)).toBeInTheDocument();
   });
 });
+
+describe("Overview routes the two integrations", () => {
+  interface Status {
+    checks: { name: string; status: string; detail: string }[];
+  }
+  interface Venue {
+    venue: { name: string };
+    divergences: unknown[];
+  }
+
+  it("counts the divergences from the artifact, not from a numeral", async () => {
+    const venue = readArtifact<Venue>("venue.json");
+    render(<OverviewPage />);
+    const card = await screen.findByRole("link", { name: /The venue/ });
+
+    expect(card).toHaveAttribute("href", "/venue");
+    expect(card.textContent).toContain(venue.venue.name);
+    expect(card.textContent).toContain(`${venue.divergences.length} places`);
+  });
+
+  it("shows the deliverable's real verdict rather than advertising it", async () => {
+    // The gate is amber and the first screen says so. A track card that only
+    // advertised would be the thing this project exists to argue against, and
+    // the status string is `status.json`'s own — so this cannot read green
+    // while the checklist reads amber.
+    const status = readArtifact<Status>("status.json");
+    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    render(<OverviewPage />);
+    const card = await screen.findByRole("link", { name: /The track/ });
+
+    expect(card).toHaveAttribute("href", "/registry");
+    expect(within(card).getByText(gate.status)).toBeInTheDocument();
+    expect(card.textContent).toContain(gate.detail);
+  });
+
+  it("finds the gate by name, so inserting a check above it changes nothing", async () => {
+    // `go_no_go.py` orders its checks and that order is not a contract. A
+    // positional read would start reporting a different gate's verdict the day
+    // one is inserted, and it would look right.
+    const status = readArtifact<Status>("status.json");
+    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    serveArtifacts({
+      overrides: {
+        "status.json": {
+          ...status,
+          checks: [{ name: "a new gate", status: "PASS", detail: "inserted first" }, ...status.checks],
+        },
+      },
+    });
+    render(<OverviewPage />);
+    const card = await screen.findByRole("link", { name: /The track/ });
+
+    // On `detail`, not on `status`. Several gates read UNVERIFIED, so asserting
+    // the status alone passed against a positional read that had shifted onto a
+    // different check — the mutation ran green and the weakness was the test's.
+    expect(card.textContent).toContain(gate.detail);
+    expect(card.textContent).not.toContain("inserted first");
+  });
+
+  it("draws no cards at all when neither artifact is there", async () => {
+    // Two empty cards would claim two integrations exist and say nothing about
+    // either — worse than the silence it replaces.
+    serveArtifacts({ missing: ["venue.json", "status.json"] });
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: /Advertised, and not built/ });
+
+    expect(screen.queryByRole("link", { name: /The venue/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /The track/ })).toBeNull();
+  });
+});
+
+describe("Registry leads with the deliverable, and stops hiding four fields", () => {
+  interface Status {
+    checks: { name: string; status: string; detail: string }[];
+  }
+  interface Reg {
+    aacp: { available: boolean; chain_id: number; reason?: string };
+    hire_flow: { steps: { call: string; contract: string }[] };
+    build: { source?: string };
+  }
+
+  it("puts the judged deliverable above the hire flow", async () => {
+    // A judge arriving here was met with a six-transaction lifecycle and had to
+    // infer that the thing they came to assess lived on a different page.
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The judged deliverable" });
+
+    const titles = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(titles.indexOf("The judged deliverable")).toBeLessThan(
+      titles.indexOf("Hiring an agent, end to end"),
+    );
+  });
+
+  it("reads the gate's verdict rather than forming its own", async () => {
+    const status = readArtifact<Status>("status.json");
+    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The judged deliverable" });
+
+    expect(screen.getByText(gate.status)).toBeInTheDocument();
+    expect(screen.getByText(gate.detail)).toBeInTheDocument();
+  });
+
+  it("shows what the artifact was built from", async () => {
+    // The page removed a green "Verified" pill *citing* `source: offline` and
+    // then never showed it, so the reader had to take the removal on trust.
+    const reg = readArtifact<Reg>("registry.json");
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The judged deliverable" });
+
+    expect(screen.getByText(new RegExp(reg.build.source!))).toBeInTheDocument();
+  });
+
+  it("names the chain the TermiX table belongs to", async () => {
+    const reg = readArtifact<Reg>("registry.json");
+    render(<RegistryPage />);
+    const heading = await screen.findByRole("heading", { name: "TermiX AACP" });
+
+    // Scoped to the section. "chain 56" also appears under the escrow, so an
+    // unscoped match found two and would have passed on the wrong one.
+    const section = heading.closest("section")!;
+    expect(
+      within(section).getByText(new RegExp(`chain ${reg.aacp.chain_id}`)),
+    ).toBeInTheDocument();
+  });
+
+  it("says so when no AACP table was read, instead of vanishing", async () => {
+    // The section was gated on `available`, so a failed lookup took the
+    // recorded reason with it — while the escrow section three above renders
+    // its reason as a refusal.
+    const reg = readArtifact<Reg>("registry.json");
+    serveArtifacts({
+      overrides: {
+        "registry.json": {
+          ...reg,
+          aacp: { available: false, reason: "no deployment for chain 97" },
+        },
+      },
+    });
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "TermiX AACP" });
+
+    expect(screen.getByText(/no deployment for chain 97/)).toBeInTheDocument();
+  });
+
+  it("names the contract each call goes to", async () => {
+    // `contract` was emitted, declared on the interface, and never read — while
+    // a bare "8183" badge marked five rows and left the sixth explaining itself.
+    const reg = readArtifact<Reg>("registry.json");
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "Hiring an agent, end to end" });
+
+    const erc20 = reg.hire_flow.steps.find((s) => s.contract !== "escrow")!;
+    expect(screen.getByText(new RegExp(erc20.contract, "i"))).toBeInTheDocument();
+  });
+});
