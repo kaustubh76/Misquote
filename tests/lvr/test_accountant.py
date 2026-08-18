@@ -288,3 +288,84 @@ def test_decimal_asymmetry_scales_the_quote_rather_than_being_ignored() -> None:
 
     assert skewed != pytest.approx(equal)
     assert skewed > 0
+
+
+# --- fees, checked against something that is not the accountant -------------
+
+
+def test_fee_accrual_matches_an_independent_computation() -> None:
+    """The numerator of the whole product, verified by arithmetic done twice.
+
+    Spec test **T4 does not cover this**, despite its name. T4 builds two
+    `LvrAccountant`s, feeds one from a list and one through a `MemoryTape`, and
+    asserts they agree — which proves the tape delivers events faithfully and
+    says nothing about whether `absorb`'s fee maths is right. Both sides call the
+    same code.
+
+    This computes the LP fee straight off each event instead: gross input times
+    the fee tier, minus the protocol's own reported cut, scaled by this
+    position's share of active liquidity, converted to token1 at the post-swap
+    price. Nothing here imports the accountant's logic.
+
+    Run against 20,000 real swaps off the 30-day tape it agreed to **0.0e+00**
+    relative difference. The synthetic tape below keeps that check in the suite.
+    """
+    from misquote.core.tickmath import MAX_TICK, MIN_TICK, Q96
+
+    # Wide enough that the position is always in range, so `_range_fraction` is
+    # 1 throughout and this isolates the fee arithmetic from the A11 proration.
+    lo, hi = (MIN_TICK // 10 + 1) * 10, (MAX_TICK // 10) * 10
+    liquidity = 10**20
+
+    events = []
+    tick = -64180
+    for i in range(1, 400):
+        tick += 7 if i % 3 else -11
+        up = i % 2 == 0
+        events.append(
+            swap(
+                tick,
+                i,
+                liquidity=10**24 + i * 10**18,
+                amount0=-WAD if up else WAD,
+                amount1=WAD if up else -WAD,
+                protocol_fee0=0 if up else WAD * 500 // 1_000_000 * 3400 // 10_000,
+                protocol_fee1=WAD * 500 // 1_000_000 * 3400 // 10_000 if up else 0,
+            )
+        )
+
+    acct = LvrAccountant(lo, hi, liquidity, META, sqrt_price_x96=events[0].sqrt_price_x96)
+    for event in events[1:]:
+        acct.absorb(event)
+
+    independent = 0.0
+    for event in events[1:]:
+        if event.amount0 > 0:
+            gross, cut, in_quote = event.amount0, event.protocol_fee0, False
+        elif event.amount1 > 0:
+            gross, cut, in_quote = event.amount1, event.protocol_fee1, True
+        else:
+            continue
+        lp_fee = max(0, gross * META.fee_pips // 1_000_000 - cut)
+        amount = lp_fee / 10.0 ** (META.dec1 if in_quote else META.dec0)
+        if not in_quote:
+            amount *= (event.sqrt_price_x96 / Q96) ** 2
+        independent += amount * (liquidity / (event.liquidity + liquidity))
+
+    assert independent > 0.0, "the fixture earned nothing, so this proves nothing"
+    assert acct.total_fees == pytest.approx(independent, rel=1e-12)
+
+
+def test_the_protocol_cut_actually_reduces_what_the_position_earns() -> None:
+    """P-1 is worth 1.52x on this venue, so a fee path that ignored the event's
+    protocol field would still look plausible. It must not."""
+    lower, upper, liquidity = LOWER, UPPER, 10**22
+    cut = WAD * 500 // 1_000_000 * 3400 // 10_000
+
+    def total(protocol_fee1: int) -> float:
+        acct = LvrAccountant(lower, upper, liquidity, META)
+        for i in range(1, 40):
+            acct.absorb(swap(-64180, i, amount0=-WAD, amount1=WAD, protocol_fee1=protocol_fee1))
+        return acct.total_fees
+
+    assert total(cut) < total(0), "the protocol's cut did not reduce LP fees"

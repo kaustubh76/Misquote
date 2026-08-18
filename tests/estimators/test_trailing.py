@@ -182,7 +182,7 @@ def test_winsorising_clips_the_fraction_it_names() -> None:
     heavy = [rng.gauss(0, 0.001) for _ in range(990)] + [rng.gauss(0, 0.5) for _ in range(10)]
     clipped = winsorise(heavy, q=0.99)
 
-    moved = sum(1 for a, b in zip(heavy, clipped) if a != b)
+    moved = sum(1 for a, b in zip(heavy, clipped, strict=True) if a != b)
     assert 5 <= moved <= 15, f"clipped {moved}/1000, expected about 1%"
 
 
