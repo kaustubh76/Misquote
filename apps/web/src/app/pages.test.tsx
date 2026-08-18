@@ -9,6 +9,7 @@ import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
+import VenuePage from "./venue/page";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
@@ -745,5 +746,76 @@ describe("Vetting", () => {
     serveArtifacts({ missing: ["vetting.json"] });
     render(<VettingPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/vetting\.json/);
+  });
+});
+
+describe("Venue: the divergences, not the pool label", () => {
+  interface Venue {
+    divergences: { what: string; costs: string; provenance: string }[];
+    shared_math: { cases: number; pins: { name: string; commit: string }[] };
+    pools: { label: string; fee_protocol: number }[];
+    uniswap_only_tier: number;
+  }
+
+  it("renders every divergence the artifact carries", async () => {
+    // The page exists because these lived only in Python docstrings. If the
+    // emitter grows a seventh, the page must show it — a fixed count here
+    // would let one go missing silently, which is the failure the artifact
+    // contract is built around.
+    const venue = readArtifact<Venue>("venue.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Where it is not" });
+
+    for (const row of venue.divergences) {
+      expect(screen.getByText(row.what)).toBeInTheDocument();
+    }
+  });
+
+  it("states what each one costs, in full", async () => {
+    // The amount is the point. A divergence rendered without its cost is a
+    // trivia list about a fork.
+    const venue = readArtifact<Venue>("venue.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Where it is not" });
+
+    for (const row of venue.divergences) {
+      expect(screen.getByText(row.costs)).toBeInTheDocument();
+    }
+  });
+
+  it("turns the P- and V- provenance into links to the assumption sheet", async () => {
+    // `WithCitations` reads the ids out of the artifact string, so the same
+    // text stays byte-identical in the JSON and on the page.
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Where it is not" });
+
+    const cited = screen.getAllByRole("link", { name: /^P-1$/ });
+    expect(cited.length).toBeGreaterThan(0);
+    expect(cited[0]).toHaveAttribute("href", "/assumptions#P-1");
+  });
+
+  it("leads with the half that is shared, not the half that differs", async () => {
+    // Order is the argument: the cores are the same source, which is what makes
+    // a differential corpus meaningful rather than circular. Divergences first
+    // would read as grievances against a fork.
+    render(<VenuePage />);
+    // Await a *section* heading, not any heading: the h1 renders before the
+    // artifact loads, so `findAllByRole` resolves on it alone and the outline
+    // this asserts on does not exist yet.
+    await screen.findByRole("heading", { name: "Where it is not" });
+    const titles = screen.getAllByRole("heading").map((h) => h.textContent);
+    const shared = titles.findIndex((x) => x === "The math is Uniswap's");
+    const differs = titles.findIndex((x) => x === "Where it is not");
+
+    expect(shared).toBeGreaterThanOrEqual(0);
+    expect(shared).toBeLessThan(differs);
+  });
+
+  it("names the missing fee tier as an absence beside the ones that exist", async () => {
+    const venue = readArtifact<Venue>("venue.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "The pools we actually read" });
+
+    expect(screen.getByText(`${venue.uniswap_only_tier}\u219260`)).toBeInTheDocument();
   });
 });

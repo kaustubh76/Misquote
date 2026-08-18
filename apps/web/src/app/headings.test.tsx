@@ -9,6 +9,7 @@ import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
 import VectorsPage from "./vectors/page";
+import VenuePage from "./venue/page";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
@@ -34,6 +35,7 @@ const VIEWS = [
   // one page whose heading outline nothing checked.
   ["Vetting", <VettingPage key="v" />],
   ["Vectors", <VectorsPage key="vec" />],
+  ["Venue", <VenuePage key="ven" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
 ] as const;
 

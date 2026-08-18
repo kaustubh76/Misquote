@@ -17,6 +17,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
  */
 const ROUTES = [
   ["Overview", "/"],
+  ["Venue", "/venue"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],
   ["Vectors", "/vectors"],

@@ -35,6 +35,7 @@ const shotsAt = process.argv.includes("--shots")
 
 const ROUTES = [
   ["overview", "/"],
+  ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
   ["methods", "/methods/"],
