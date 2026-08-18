@@ -6,7 +6,7 @@
 > record. No capital was deployed. Published as assumption A6.
 
 - **Tape:** `synthetic`
-- **Capital per task:** 1,000 (quote token)
+- **Capital per task:** 1 (quote token)
 - **Tasks:** 3 · quotable 0 · withheld 3
 - **Categories:** security, trading
 

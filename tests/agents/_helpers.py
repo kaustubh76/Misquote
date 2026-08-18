@@ -11,7 +11,7 @@ import dataclasses
 import random
 import struct
 
-from misquote.core.tickmath import get_sqrt_ratio_at_tick
+from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import Event, PoolMeta
 
 META = PoolMeta(
@@ -49,16 +49,38 @@ def make_events(count: int = 1500, *, seed: int = 7, swap_size: int = 10**21) ->
     So direction is now derived from the price move rather than asserted
     independently of it, and the fee is taken in whichever token the pool
     received, as the contract does it.
+
+    ## The half that fix missed
+
+    The sentence above this one — "at least a *possible* history" — was not true
+    when it was written. Correcting the signs left `amount1` equal to `amount0`
+    in magnitude, which asserts a price of exactly 1.0 while the `tick` on the
+    same event says 0.001632 token1 per token0. Every swap here paid 612.6x too
+    much token1, on the leg the fee accrues to and the accountant reads.
+
+    Same defect, same fixture, one field over. `amount1` is derived from the
+    price now, and `tests/replay/test_synthetic_tape.py` asserts the invariant on
+    every generator in the repository rather than on the one that was looked at.
+
+    `swap_size` is deliberately **not** recalibrated here, unlike the two in
+    `scripts/`. Those publish artifacts and should look like the indexed tape;
+    this one exists to give the engine tests flow to bite on, and at a realistic
+    notional `test_engine.py`'s "fees dominate when flow is real" would invert —
+    for reasons about the tape rather than about the engine it is testing.
     """
     rng = random.Random(seed)
     events: list[Event] = []
     tick, ts = -64180, START_TS
-    fee = swap_size * 500 // 10**6
-    cut = fee * 3400 // 10_000
     for i in range(count):
         move = rng.choice((-9, -4, 0, 4, 9))
         tick += move
         ts += rng.randint(5, 45)
+
+        sqrt_price = get_sqrt_ratio_at_tick(tick)
+        price = (sqrt_price / Q96) ** 2  # token1 per token0, raw units
+        quote_amount = int(swap_size * price)
+        fee = quote_amount * 500 // 10**6
+        cut = fee * 3400 // 10_000
         # Price up means the pool took token1 in and paid token0 out. A move of
         # zero is a real swap too small to cross a tick; its direction alternates
         # rather than being drawn, so that fixing the signs left the price path
@@ -72,8 +94,8 @@ def make_events(count: int = 1500, *, seed: int = 7, swap_size: int = 10**21) ->
                 kind="swap",
                 tx=f"0x{i:064x}",
                 amount0=-swap_size if up else swap_size,
-                amount1=swap_size if up else -swap_size,
-                sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
+                amount1=quote_amount if up else -quote_amount,
+                sqrt_price_x96=sqrt_price,
                 liquidity=POOL_LIQUIDITY,
                 tick=tick,
                 # The protocol takes its cut from the token coming in.

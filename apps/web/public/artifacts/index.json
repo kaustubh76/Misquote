@@ -64,6 +64,7 @@
   ],
   "pool": "PancakeSwap v3 WBNB/USDT 0.05%",
   "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+  "quote_symbol": "WBNB",
   "schema_version": 2,
-  "source": "synthetic"
+  "source": "chain"
 }

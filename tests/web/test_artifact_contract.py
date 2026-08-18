@@ -64,6 +64,13 @@ AGENT_FIELDS: dict[str, str] = {
     "pool": "AgentDetail.tsx",
     "badge": "AgentCard.tsx",
     "source": "AgentDetail.tsx",
+    # The unit of every `*_quote` figure below. Added to the emitter without
+    # being added here, which this test's own docstring is about: the omission
+    # was invisible because the artifacts on disk predated the field, so the
+    # `undeclared` direction had nothing to catch and the `undelivered`
+    # direction was satisfied by both sides being silent. The first
+    # regeneration would have failed for a reason unrelated to whoever ran it.
+    "quote_symbol": "AgentCard.tsx",
     "counterfactual": "",  # carried for machine readers; no view renders it
     "caveats": "AgentDetail.tsx",
     "quote": "",  # the rendered string; views use quote_detail instead

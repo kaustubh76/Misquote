@@ -257,7 +257,30 @@ def test_the_baseline_is_charged_the_same_cost_model_as_the_agent() -> None:
 
     # The symmetry is the actual claim, and it holds without knowing the formula:
     # whatever a move costs, both columns pay the same for it.
-    assert protect.agent_costs == pytest.approx(expected_open * protect.agent_moves)
+    #
+    # Counted over the moves that *open* a position, not over `agent_moves`.
+    # The two agree only while the agent never withdraws, which is what the
+    # baseline column is defined by and what the agent column happened to do on
+    # the old tape — its fees were overstated 612x, so the fee-versus-realised-
+    # LVR arm of Sentinel's pull rule never fired. At a realistic notional it
+    # fires, and this assertion started claiming 12 moves cost twelve entries
+    # when six of them were withdrawals.
+    #
+    # **A withdrawal is charged nothing at all — not even gas.**
+    # `replay/driver.py:219-223` handles `Action.PULL` and returns before the
+    # line that adds `_move_cost`, so `decreaseLiquidity` + `collect` are free.
+    # That understates the agent and only the agent, in a replay whose own
+    # docstring says undercharging its strategy "produces exactly the kind of
+    # number this product exists to argue against". Immaterial to the published
+    # deltas — six pulls at 3.0e-5 is 0.7% of this task's agent costs — and left
+    # standing here rather than fixed silently in a commit about the tape.
+    opening = ReplayDriver(
+        META, costs=per_move, capital_quote=1000.0, policy=sentinel_policy(SentinelParams())
+    ).run(MemoryTape(events))
+    assert opening.pulls > 0, "this assertion is only interesting while the agent withdraws"
+    assert protect.agent_costs == pytest.approx(
+        expected_open * (opening.mints + opening.rebalances)
+    )
 
 
 # --- the artifact -----------------------------------------------------------

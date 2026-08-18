@@ -6,7 +6,7 @@
 > record. No capital was deployed. Published as assumption A6.
 
 - **Tape:** `synthetic`
-- **Capital per task:** 1,000 (quote token)
+- **Capital per task:** 1 (quote token)
 - **Tasks:** 3 · quotable 3 · withheld 0
 - **Categories:** security, trading
 
@@ -23,9 +23,9 @@ agent, by charging its baseline differently, is not available here.
 
 | Task | Category | DIY (P25–P75) | Agent (P25–P75) | Δ median | Verdict |
 |---|---|---|---|---|---|
-| Earn — fees on a liquidity position | trading | 5.63 – 26.05% | 36.88 – 38.72% | **+27.75pp** | agent beats DIY by 27.75pp, bands do not overlap |
-| Protect — avoid being picked off by one-way flow | security | 8.91 – 9.05% | 7.13 – 7.31% | **-1.77pp** | agent loses to DIY by 1.77pp, bands do not overlap |
-| Choose — which pool to provide liquidity to | security | -1.87 – -1.36% | 35.76 – 38.31% | **+38.22pp** | agent beats DIY by 38.22pp, bands do not overlap |
+| Earn — fees on a liquidity position | trading | -2.50 – -0.63% | -2.48 – -2.24% | **-1.28pp** | agent loses to DIY by 1.28pp at the median, but the P25-P75 bands overlap — not separated at this sample size |
+| Protect — avoid being picked off by one-way flow | security | -0.85 – -0.82% | -1.52 – -1.41% | **-0.57pp** | agent loses to DIY by 0.57pp, bands do not overlap |
+| Choose — which pool to provide liquidity to | security | -1.50 – -1.23% | -2.48 – -2.20% | **-0.91pp** | agent loses to DIY by 0.91pp, bands do not overlap |
 
 **Across all tasks:** no verdict (3 observations, need 30)
 
@@ -45,17 +45,17 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 
 | | DIY | Agent |
 |---|---|---|
-| Net return P25–P75 | 5.63 – 26.05% | 36.88 – 38.72% |
-| Median | 9.99% | 37.74% |
-| In range | 2.4% | 59.6% |
-| Fees | 32.1231 | 865.4302 |
-| Realized convexity cost (upper bound on LVR) | 0.0107 | 0.2497 |
-| Costs charged | 2.00 | 80.00 |
-| Moves | 1 | 56 |
+| Net return P25–P75 | -2.50 – -0.63% | -2.48 – -2.24% |
+| Median | -1.02% | -2.30% |
+| In range | 1.9% | 10.4% |
+| Fees | 0.0005 | 0.0028 |
+| Realized convexity cost (upper bound on LVR) | 0.0040 | 0.0209 |
+| Costs charged | 0.00 | 0.02 |
+| Moves | 1 | 64 |
 
-**agent beats DIY by 27.75pp, bands do not overlap**
+**agent loses to DIY by 1.28pp at the median, but the P25-P75 bands overlap — not separated at this sample size**
 
-Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
+Bands overlap: **yes**. Overlapping bands mean the two are not distinguishable at this sample size, however far apart the medians sit — which is precisely why this product publishes ranges rather than a single number.
 
 ### Protect — avoid being picked off by one-way flow
 
@@ -66,15 +66,15 @@ Bands overlap: **no**. Non-overlapping bands are what lets the difference be sta
 
 | | DIY | Agent |
 |---|---|---|
-| Net return P25–P75 | 8.91 – 9.05% | 7.13 – 7.31% |
-| Median | 9.00% | 7.22% |
-| In range | 100.0% | 98.4% |
-| Fees | 186.1808 | 181.4964 |
-| Realized convexity cost (upper bound on LVR) | 0.0547 | 0.0533 |
-| Costs charged | 4.00 | 32.00 |
-| Moves | 2 | 30 |
+| Net return P25–P75 | -0.85 – -0.82% | -1.52 – -1.41% |
+| Median | -0.84% | -1.41% |
+| In range | 24.3% | 11.1% |
+| Fees | 0.0005 | 0.0002 |
+| Realized convexity cost (upper bound on LVR) | 0.0043 | 0.0018 |
+| Costs charged | 0.00 | 0.02 |
+| Moves | 1 | 64 |
 
-**agent loses to DIY by 1.77pp, bands do not overlap**
+**agent loses to DIY by 0.57pp, bands do not overlap**
 
 Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
 
@@ -87,15 +87,15 @@ Bands overlap: **no**. Non-overlapping bands are what lets the difference be sta
 
 | | DIY | Agent |
 |---|---|---|
-| Net return P25–P75 | -1.87 – -1.36% | 35.76 – 38.31% |
-| Median | -1.52% | 36.71% |
-| In range | 2.5% | 53.3% |
-| Fees | 40.5360 | 786.8051 |
-| Realized convexity cost (upper bound on LVR) | 0.0738 | 0.2381 |
-| Costs charged | 68.00 | 76.00 |
-| Moves | 68 | 51 |
+| Net return P25–P75 | -1.50 – -1.23% | -2.48 – -2.20% |
+| Median | -1.34% | -2.26% |
+| In range | 2.1% | 10.0% |
+| Fees | 0.0002 | 0.0027 |
+| Realized convexity cost (upper bound on LVR) | 0.0042 | 0.0202 |
+| Costs charged | 0.02 | 0.02 |
+| Moves | 48 | 64 |
 
-**agent beats DIY by 38.22pp, bands do not overlap**
+**agent loses to DIY by 0.91pp, bands do not overlap**
 
 Bands overlap: **no**. Non-overlapping bands are what lets the difference be stated at all.
 

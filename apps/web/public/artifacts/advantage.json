@@ -4,16 +4,17 @@
   "counterfactual": true,
   "badge": "COUNTERFACTUAL \u2014 neither position was held",
   "source": "synthetic",
-  "capital_quote": 1000.0,
+  "capital_quote": 1.0,
+  "quote_symbol": "WBNB",
   "summary": {
     "tasks": 3,
     "quotable": 3,
     "withheld": 0,
-    "agent_ahead": 2,
-    "diy_ahead": 1,
+    "agent_ahead": 0,
+    "diy_ahead": 3,
     "indistinguishable": 0,
-    "bands_overlap": 0,
-    "separated": 3,
+    "bands_overlap": 1,
+    "separated": 2,
     "categories": [
       "security",
       "trading"
@@ -38,30 +39,30 @@
       "quotable": true,
       "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": 5.627897,
-        "p50": 9.989785,
-        "p75": 26.051098,
-        "in_range": 0.0242,
-        "fees": 32.12313376,
-        "lvr_upper_bound": 0.01071551,
-        "costs": 2.0,
+        "p25": -2.504271,
+        "p50": -1.020892,
+        "p75": -0.634331,
+        "in_range": 0.0195,
+        "fees": 0.00050812,
+        "lvr_upper_bound": 0.00400965,
+        "costs": 0.00078,
         "moves": 1
       },
       "agent": {
-        "p25": 36.87664,
-        "p50": 37.742212,
-        "p75": 38.715155,
-        "in_range": 0.5956,
-        "fees": 865.43018362,
-        "lvr_upper_bound": 0.24968491,
-        "costs": 80.0,
-        "moves": 56
+        "p25": -2.484106,
+        "p50": -2.302809,
+        "p75": -2.24006,
+        "in_range": 0.1044,
+        "fees": 0.00277664,
+        "lvr_upper_bound": 0.02091195,
+        "costs": 0.02496,
+        "moves": 64
       },
-      "delta_pp": 27.752428,
-      "ranges_overlap": false,
+      "delta_pp": -1.281917,
+      "ranges_overlap": true,
       "material": true,
-      "separated": true,
-      "verdict": "agent beats DIY by 27.75pp, bands do not overlap"
+      "separated": false,
+      "verdict": "agent loses to DIY by 1.28pp at the median, but the P25-P75 bands overlap \u2014 not separated at this sample size"
     },
     {
       "task": "Protect \u2014 avoid being picked off by one-way flow",
@@ -73,30 +74,30 @@
       "quotable": true,
       "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": 8.912059,
-        "p50": 8.998063,
-        "p75": 9.050168,
-        "in_range": 0.9997,
-        "fees": 186.18079135,
-        "lvr_upper_bound": 0.05469085,
-        "costs": 4.0,
-        "moves": 2
+        "p25": -0.845109,
+        "p50": -0.838754,
+        "p75": -0.820812,
+        "in_range": 0.243,
+        "fees": 0.00054425,
+        "lvr_upper_bound": 0.00428003,
+        "costs": 0.00078,
+        "moves": 1
       },
       "agent": {
-        "p25": 7.126197,
-        "p50": 7.223623,
-        "p75": 7.306338,
-        "in_range": 0.9844,
-        "fees": 181.49644852,
-        "lvr_upper_bound": 0.05328668,
-        "costs": 32.0,
-        "moves": 30
+        "p25": -1.517427,
+        "p50": -1.412089,
+        "p75": -1.408787,
+        "in_range": 0.1112,
+        "fees": 0.00024111,
+        "lvr_upper_bound": 0.00181907,
+        "costs": 0.02496,
+        "moves": 64
       },
-      "delta_pp": -1.774439,
+      "delta_pp": -0.573336,
       "ranges_overlap": false,
       "material": true,
       "separated": true,
-      "verdict": "agent loses to DIY by 1.77pp, bands do not overlap"
+      "verdict": "agent loses to DIY by 0.57pp, bands do not overlap"
     },
     {
       "task": "Choose \u2014 which pool to provide liquidity to",
@@ -108,30 +109,30 @@
       "quotable": true,
       "note": "over 31h \u2014 too short to annualise honestly",
       "baseline": {
-        "p25": -1.867177,
-        "p50": -1.515764,
-        "p75": -1.35739,
-        "in_range": 0.0255,
-        "fees": 40.53599651,
-        "lvr_upper_bound": 0.07378198,
-        "costs": 68.0,
-        "moves": 68
+        "p25": -1.496078,
+        "p50": -1.343254,
+        "p75": -1.234233,
+        "in_range": 0.0212,
+        "fees": 0.00023145,
+        "lvr_upper_bound": 0.00424785,
+        "costs": 0.01872,
+        "moves": 48
       },
       "agent": {
-        "p25": 35.760136,
-        "p50": 36.707312,
-        "p75": 38.308127,
-        "in_range": 0.5331,
-        "fees": 786.80505901,
-        "lvr_upper_bound": 0.23812974,
-        "costs": 76.0,
-        "moves": 51
+        "p25": -2.477725,
+        "p50": -2.255744,
+        "p75": -2.19788,
+        "in_range": 0.1002,
+        "fees": 0.00269394,
+        "lvr_upper_bound": 0.02024346,
+        "costs": 0.02496,
+        "moves": 64
       },
-      "delta_pp": 38.223075,
+      "delta_pp": -0.91249,
       "ranges_overlap": false,
       "material": true,
       "separated": true,
-      "verdict": "agent beats DIY by 38.22pp, bands do not overlap"
+      "verdict": "agent loses to DIY by 0.91pp, bands do not overlap"
     }
   ]
 }

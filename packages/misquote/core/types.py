@@ -345,6 +345,27 @@ DEFAULT_GAS_QUOTE = 3.0e-5
 DEFAULT_CAPITAL_QUOTE = 1.0
 
 
+# The notional of one swap on a synthetic tape, in **token0** — not token1, so
+# it does not carry the `_quote` suffix the rest of this file uses.
+#
+# It lives in core for the reason `DEFAULT_GAS_QUOTE` above does: it existed in
+# four places. `scripts/showcase.py`, `scripts/advantage.py`,
+# `tests/replay/_helpers.py` and `tests/agents/_helpers.py` each carried their
+# own literal, and two of the four had already drifted to a different value.
+#
+# Measured 18 Aug 2026 from the 252,923-swap indexed tape in `data/misquote.db`:
+# a mean of 377 USDT per swap at 348.5 swaps/hour, so 131,400 USDT/hour of flow
+# against a pool of ~1.29e24 liquidity. The generators emit 144.6 swaps/hour, so
+# 950 per swap reproduces the same hourly notional — measured back at
+# 210.7 WBNB/hour against the tape's 224.7, within 7%.
+#
+# It was 10**23, a hundred thousand USDT a swap: 265x the real mean, and on top
+# of the token1 defect the generators also carried, 64,362x the indexed tape's
+# hourly volume. `make showcase-demo` — line 17 of `docs/FOR_JUDGES.md`'s
+# quickstart — quoted **+30,020% over 62h** on it.
+SYNTHETIC_SWAP_SIZE_TOKEN0 = 950 * 10**18
+
+
 # What an agent *is*, to this system: a pure function from everything it may
 # observe to what it intends to do. Nothing else — no pool handle, no clock, no
 # I/O. An agent wanting any of those would have to ask through `Observation`,

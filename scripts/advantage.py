@@ -56,8 +56,13 @@ from pathlib import Path
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL
 from misquote.core.policy import passive_policy
-from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Event, PoolMeta
+from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
+from misquote.core.types import (
+    DEFAULT_CAPITAL_QUOTE,
+    SYNTHETIC_SWAP_SIZE_TOKEN0,
+    Event,
+    PoolMeta,
+)
 from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
@@ -91,7 +96,7 @@ def synthetic_events(
     count: int,
     *,
     seed: int = 7,
-    swap_size: int = 10**23,
+    swap_size: int = SYNTHETIC_SWAP_SIZE_TOKEN0,
     drift: float = 0.0,
     liquidity: int = 1_275_390_104_039_763_402_054_142,
 ) -> list[Event]:
@@ -106,12 +111,20 @@ def synthetic_events(
     Direction is derived from the price move rather than asserted beside it. See
     matrix V-13: the previous generator emitted swaps no AMM could produce, and
     nothing noticed until the imbalance z-score was wired up.
+
+    **And so is the amount.** V-13 fixed the direction and left the magnitude:
+    `amount1` was set equal to `amount0`, which asserts a price of 1.0 on a pool
+    whose own tick says 0.001632 — 612.6x too much token1 on every swap, on the
+    leg the fee accrues to. `scripts/showcase.py` carries the same note at
+    length. Both amounts now come from the price, so the tape is a possible
+    history by construction.
+
+    `liquidity` stays a parameter because task 3 needs two venues of different
+    depth; the 4x contrast at its call site is relative and survives this.
     """
     rng = random.Random(seed)
     events: list[Event] = []
     tick, ts = -64180, 1_700_000_000
-    fee = swap_size * META.fee_pips // 10**6
-    cut = fee * META.fee_protocol // 10_000
     moves = (-9, -4, 0, 4, 9)
     for i in range(count):
         move = rng.choice(moves)
@@ -119,6 +132,16 @@ def synthetic_events(
             move = abs(move) or 4  # push it one way
         tick += move
         ts += rng.randint(5, 45)
+
+        sqrt_price = get_sqrt_ratio_at_tick(tick)
+        price = (sqrt_price / Q96) ** 2  # token1 per token0, raw units
+        quote_amount = int(swap_size * price)
+
+        # On the token1 leg, which is where `fee_protocol` is skimmed and what
+        # the LVR accountant reads.
+        fee = quote_amount * META.fee_pips // 10**6
+        cut = fee * META.fee_protocol // 10_000
+
         up = move > 0 if move != 0 else i % 2 == 0
         events.append(
             Event(
@@ -128,8 +151,8 @@ def synthetic_events(
                 kind="swap",
                 tx=f"0x{i:064x}",
                 amount0=-swap_size if up else swap_size,
-                amount1=swap_size if up else -swap_size,
-                sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
+                amount1=quote_amount if up else -quote_amount,
+                sqrt_price_x96=sqrt_price,
                 liquidity=liquidity,
                 tick=tick,
                 protocol_fee0=0 if up else cut,

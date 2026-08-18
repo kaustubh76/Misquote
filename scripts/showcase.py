@@ -34,8 +34,13 @@ from misquote.agents.grid.policy import GridParams, decide_grid
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL
 from misquote.core.policy import passive_policy
-from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Event, PoolMeta
+from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
+from misquote.core.types import (
+    DEFAULT_CAPITAL_QUOTE,
+    SYNTHETIC_SWAP_SIZE_TOKEN0,
+    Event,
+    PoolMeta,
+)
 from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
@@ -75,28 +80,60 @@ META = PoolMeta(
 )
 
 
-def synthetic_events(count: int, *, seed: int = 7, swap_size: int = 10**23) -> list[Event]:
-    """A stand-in tape, clearly labelled as one.
+def synthetic_events(
+    count: int, *, seed: int = 7, swap_size: int = SYNTHETIC_SWAP_SIZE_TOKEN0
+) -> list[Event]:
+    """A stand-in tape, clearly labelled as one — and a *possible* one.
 
     Used only when no real tape exists yet. Every artifact built from it carries
     `source: "synthetic"`, so a card produced this way can never be mistaken for
     one produced from chain data — which is the failure this whole project is
     named after.
+
+    ## The two amounts have to agree with the tick
+
+    A v3 swap pays one token and receives the other at the pool's price. This
+    generator emitted `amount0 = -swap_size` and `amount1 = +swap_size` — equal
+    magnitudes — while the `tick` on the same event asserted a price of 0.001632
+    token1 per token0. Every swap therefore claimed to pay 100,000 WBNB for
+    100,000 USDT on a pool priced at 612 USDT per WBNB: **612.6x too much
+    token1**, on the side the LVR accountant reads.
+
+    This is V-13 a second time. That finding — recorded in
+    `docs/REQUIREMENTS_MATRIX.md` — was that the tape "was not a possible
+    history": every swap had the pool receiving token0 and paying token1 while
+    the tick walked both ways. The fix corrected the *direction* of each swap and
+    left the *magnitude* alone, and nothing was watching the magnitude. It went
+    unnoticed until the demo's own quote was read against the chain tape's.
+
+    `amount1` is derived from the price here rather than mirrored, so the tape is
+    a possible history by construction and cannot drift back.
+    `tests/replay/test_synthetic_tape.py` asserts it on every generator in the
+    repository, so a fifth copy fails on arrival.
     """
     rng = random.Random(seed)
     events: list[Event] = []
     tick, ts = -64180, 1_700_000_000
-    fee = swap_size * META.fee_pips // 10**6
-    cut = fee * META.fee_protocol // 10_000
     for i in range(count):
         move = rng.choice((-9, -4, 0, 4, 9))
         tick += move
         ts += rng.randint(5, 45)
-        # Direction is derived from the price move, not asserted beside it. Every
-        # swap here used to have the pool receiving token0 and paying token1 while
-        # the tick walked both ways — a history no AMM could produce. It went
-        # unnoticed until the swap-imbalance z-score was wired up and read the
-        # tape as one endless sell.
+
+        sqrt_price = get_sqrt_ratio_at_tick(tick)
+        # token1 per token0, in raw units. Both tokens are 18 decimals on this
+        # pool, so no decimal adjustment applies; `PoolRef.dec0`/`dec1` are equal
+        # and `lvr/accountant.py` scales by their difference, which is zero.
+        price = (sqrt_price / Q96) ** 2
+        quote_amount = int(swap_size * price)
+
+        # The fee is taken on the token1 leg, which is what the accountant reads
+        # and what `fee_protocol` is skimmed from. It was computed from
+        # `swap_size` — the token0 leg — so it inherited the same overstatement.
+        fee = quote_amount * META.fee_pips // 10**6
+        cut = fee * META.fee_protocol // 10_000
+
+        # Direction is derived from the price move, not asserted beside it. See
+        # the docstring: this half was already correct.
         up = move > 0 if move != 0 else i % 2 == 0
         events.append(
             Event(
@@ -106,8 +143,8 @@ def synthetic_events(count: int, *, seed: int = 7, swap_size: int = 10**23) -> l
                 kind="swap",
                 tx=f"0x{i:064x}",
                 amount0=-swap_size if up else swap_size,
-                amount1=swap_size if up else -swap_size,
-                sqrt_price_x96=get_sqrt_ratio_at_tick(tick),
+                amount1=quote_amount if up else -quote_amount,
+                sqrt_price_x96=sqrt_price,
                 liquidity=1_275_390_104_039_763_402_054_142,
                 tick=tick,
                 protocol_fee0=0 if up else cut,
