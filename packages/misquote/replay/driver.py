@@ -16,9 +16,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from misquote.core.liquidity import liquidity_for_capital
+from misquote.core.liquidity import get_amounts_for_liquidity, liquidity_for_capital
 from misquote.core.position import apply_decision
-from misquote.core.tickmath import get_sqrt_ratio_at_tick
+from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import (
     DEFAULT_CAPITAL_QUOTE,
     DEFAULT_GAS_QUOTE,
@@ -113,6 +113,7 @@ class ReplayDriver:
         "capital_quote",
         "eps",
         "_result",
+        "_held",
     )
 
     def __init__(
@@ -136,6 +137,8 @@ class ReplayDriver:
         self.capital_quote = capital_quote
         self.eps = self.params.eps_liquidity_share
         self._result = ReplayResult()
+        # What a pull left in hand, so a re-entry is priced as the swap it is.
+        self._held: tuple[int, int] | None = None
 
     def run(self, tape, *, sample_seconds: int | None = None) -> ReplayResult:
         """Walk the tape at the policy's sampling cadence.
@@ -218,8 +221,28 @@ class ReplayDriver:
 
         if decision.action is Action.PULL:
             self._settle(market)
+            # What the burn returned. A v3 position pays out **both** tokens, so
+            # the agent stands there holding a mixture — not a single asset. The
+            # next entry therefore has to swap only the difference between what
+            # it holds and what the new range wants, and pricing it as a fresh
+            # entry charges for a swap that does not happen. See P-18.
+            self._held = get_amounts_for_liquidity(
+                market.sqrt_price_x96,
+                get_sqrt_ratio_at_tick(position.lower),
+                get_sqrt_ratio_at_tick(position.upper),
+                position.liquidity,
+            )
             self.engine.set_position(apply_decision(position, Action.PULL, market.t))
             result.pulls += 1
+            # A withdrawal costs gas: `decreaseLiquidity` plus `collect`. This
+            # branch used to return before anything was charged, so leaving was
+            # free — an undercharge that fell on the agent and never on the
+            # never-withdraw baseline. It was immaterial while a *return* cost
+            # half the capital and swamped it; now that a return is priced as the
+            # small swap it is (P-18), gas is most of what a pull-and-return
+            # cycle costs, and free withdrawals would be the largest remaining
+            # thumb on the scale. No slippage or MEV: a burn swaps nothing.
+            result.total_costs += self.costs.gas_quote
             return
 
         # MINT or REBALANCE: settle what the old position earned, then open the
@@ -242,7 +265,10 @@ class ReplayDriver:
                 liquidity=liquidity,
             )
         )
-        result.total_costs += self._move_cost(recentring=recentring)
+        result.total_costs += self._move_cost(
+            recentring=recentring, market=market, decision=decision, liquidity=liquidity
+        )
+        self._held = None
 
     def _size(self, decision: Decision, market: MarketState) -> int:
         """Liquidity worth `capital_quote`, via the one implementation.
@@ -271,22 +297,39 @@ class ReplayDriver:
         self._result.total_fees += accountant.total_fees
         self._result.total_lvr += accountant.total_lvr
 
-    def _move_cost(self, *, recentring: bool) -> float:
+    def _move_cost(
+        self,
+        *,
+        recentring: bool,
+        market: MarketState,
+        decision: Decision,
+        liquidity: int,
+    ) -> float:
         """A4's cost of one move: gas, plus slippage and MEV on what is *swapped*.
 
         This charged both bps figures against `self.capital_quote` — the entire
         position, on every move — while `Engine._inventory` computed A4's actual
-        base, `abs(value0 - value1) / 2`, and handed it to the policy as
-        `rebalance_notional_quote`. So R2 decided whether a move paid for itself
-        using one number and this ledger charged for it using another. See P-13.
+        base and handed it to the policy as `rebalance_notional_quote`. So R2
+        decided whether a move paid for itself using one number and this ledger
+        charged for it using another (P-13).
 
-        **The two cases are genuinely different and the first fix conflated
-        them.** Recentring swaps only enough to restore the target composition,
-        which is A4's imbalance base and is near zero on a well-centred position.
-        *Opening* one swaps about half the capital into the other token — a flat
-        position has `value0 == value1 == 0`, so A4's formula reads zero there and
-        would have made every mint slippage-free. A test caught it, correctly:
-        the cost of entering is not the cost of adjusting.
+        Three cases, and conflating any two of them is wrong in a different
+        direction:
+
+        **Recentring.** Swap only enough to restore the target composition —
+        A4's imbalance base, near zero on a well-centred position.
+
+        **Opening from nothing.** Convert about half the capital into the other
+        token. A flat position has `value0 == value1 == 0`, so A4's formula reads
+        zero here and would make every mint slippage-free.
+
+        **Returning after a pull.** The one this used to get worst. Burning a v3
+        position pays out *both* tokens, so the agent already holds a mixture:
+        the swap is the difference between what it holds and what the new range
+        wants, which is small when price has not moved far. Charging it as an
+        opening — half the capital — made 249 round trips cost 19.4% of capital
+        over thirty days and was the whole of Warden's and Sentinel's reported
+        loss. See P-18.
         """
         if recentring:
             observation = self.engine.last_observation
@@ -295,6 +338,21 @@ class ReplayDriver:
                 if observation is not None
                 else self.capital_quote
             )
+        elif self._held is not None:
+            # Returning: what we hold, against what the target range needs.
+            sqrt_price = market.sqrt_price_x96
+            want0, want1 = get_amounts_for_liquidity(
+                sqrt_price,
+                get_sqrt_ratio_at_tick(decision.target_lower),
+                get_sqrt_ratio_at_tick(decision.target_upper),
+                liquidity,
+            )
+            have0, have1 = self._held
+            price_raw = (sqrt_price / Q96) ** 2
+            # Half the mismatch, in token1, matching A4's "restore the target
+            # composition" base — one side is bought and the other sold.
+            gap = abs((want0 - have0) * price_raw - (want1 - have1)) / 2.0
+            notional = gap / 10.0**self.meta.dec1
         else:
             # Entering from a single asset: half of it has to become the other.
             notional = self.capital_quote / 2.0

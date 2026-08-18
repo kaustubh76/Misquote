@@ -253,33 +253,43 @@ def test_the_baseline_is_charged_the_same_cost_model_as_the_agent() -> None:
         per_move.gas_quote
         + entry_notional * (per_move.slippage_bps + per_move.mev_haircut_bps) / 10_000.0
     )
-    assert protect.baseline_costs == pytest.approx(expected_open * protect.baseline_moves)
+    # The baseline mints once and never touches it, so its whole cost is one
+    # opening and the formula is checkable exactly.
+    assert protect.baseline_moves == 1
+    assert protect.baseline_costs == pytest.approx(expected_open)
 
-    # The symmetry is the actual claim, and it holds without knowing the formula:
-    # whatever a move costs, both columns pay the same for it.
-    #
-    # Counted over the moves that *open* a position, not over `agent_moves`.
-    # The two agree only while the agent never withdraws, which is what the
-    # baseline column is defined by and what the agent column happened to do on
-    # the old tape — its fees were overstated 612x, so the fee-versus-realised-
-    # LVR arm of Sentinel's pull rule never fired. At a realistic notional it
-    # fires, and this assertion started claiming 12 moves cost twelve entries
-    # when six of them were withdrawals.
-    #
-    # **A withdrawal is charged nothing at all — not even gas.**
-    # `replay/driver.py:219-223` handles `Action.PULL` and returns before the
-    # line that adds `_move_cost`, so `decreaseLiquidity` + `collect` are free.
-    # That understates the agent and only the agent, in a replay whose own
-    # docstring says undercharging its strategy "produces exactly the kind of
-    # number this product exists to argue against". Immaterial to the published
-    # deltas — six pulls at 3.0e-5 is 0.7% of this task's agent costs — and left
-    # standing here rather than fixed silently in a commit about the tape.
+    # The agent's cost is *not* `expected_open * moves`, and an earlier version of
+    # this test asserted exactly that. Opening, recentring and returning after a
+    # pull swap different amounts, so they cost different amounts (P-13, P-18).
+    # What must hold is that the agent pays the same opening as the baseline and
+    # its returns cost less — burning a v3 position pays out both tokens, so
+    # coming back swaps only the mismatch against the new range, not half the
+    # capital again.
+    assert protect.agent_moves > protect.baseline_moves
+    assert protect.agent_costs > expected_open, "the agent skipped the opening charge"
+    assert protect.agent_costs < expected_open * protect.agent_moves, (
+        "every agent move was charged as a fresh entry from a single asset"
+    )
+
+    # The symmetry is the actual claim: both columns run through one `_run` with
+    # one `CostModel`, so they can only be charged differently if their *moves*
+    # differ. With per-move-type pricing that can no longer be asserted as one
+    # multiplication, so it is asserted as the two things that must hold.
     opening = ReplayDriver(
         META, costs=per_move, capital_quote=1000.0, policy=sentinel_policy(SentinelParams())
     ).run(MemoryTape(events))
     assert opening.pulls > 0, "this assertion is only interesting while the agent withdraws"
-    assert protect.agent_costs == pytest.approx(
-        expected_open * (opening.mints + opening.rebalances)
+
+    # Every withdrawal is charged gas and nothing else — a burn swaps nothing.
+    # This branch used to charge *nothing at all*, an undercharge that fell on
+    # the agent and never on the never-withdraw baseline. Immaterial while a
+    # return cost half the capital; now that a return is priced as the swap it
+    # is, gas is most of a cycle's cost.
+    entries = opening.mints + opening.rebalances
+    floor = expected_open + per_move.gas_quote * opening.pulls
+    assert protect.agent_costs > floor, "withdrawals are being charged nothing"
+    assert protect.agent_costs < expected_open * entries, (
+        "every entry was charged as a fresh one from a single asset"
     )
 
 
