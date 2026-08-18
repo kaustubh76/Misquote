@@ -690,6 +690,7 @@
       "cited_by": [
         "grid.json",
         "sentinel.json",
+        "venue.json",
         "vetting.json",
         "warden.json"
       ],
@@ -784,6 +785,7 @@
       ],
       "cited_by": [
         "addresses.json",
+        "venue.json",
         "vetting.json"
       ],
       "id": "P-6",
@@ -964,6 +966,7 @@
       ],
       "cited_by": [
         "addresses.json",
+        "venue.json",
         "vetting.json"
       ],
       "id": "P-8",
@@ -1803,6 +1806,7 @@
       ],
       "cited_by": [
         "addresses.json",
+        "venue.json",
         "vetting.json"
       ],
       "id": "V-10",

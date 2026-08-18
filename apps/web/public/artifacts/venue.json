@@ -1,0 +1,150 @@
+{
+  "build": {
+    "command": "python scripts/venue_report.py",
+    "generated_at": "2026-08-18T15:19:11+00:00",
+    "git_dirty": true,
+    "git_sha": "e0a839a",
+    "source": "offline"
+  },
+  "divergences": [
+    {
+      "caught_by": "tests/core/test_fees.py",
+      "costs": "Reconstructing fees from swap volume \u2014 the natural way to write a replay engine \u2014 overstates LP earnings by 1.515x, and that error lands on the headline APR.",
+      "pancake": "slot0.feeProtocol packs (fee0, fee1); this pool reads 3400, so LPs keep 66%",
+      "provenance": "P-1, P-8: no constant is right for both of our pools",
+      "uniswap": "protocol fee off unless governance turns it on",
+      "what": "The protocol takes 34% of every fee, by default",
+      "where": "packages/misquote/core/fees.py"
+    },
+    {
+      "caught_by": "packages/misquote/vetting/badge.py \u2014 check 'factory resolves it'",
+      "costs": "Deriving a pool address offline produces a plausible address that is not the pool. Resolve through factory.getPool(), always.",
+      "pancake": "a different init-code hash, so Uniswap's computeAddress constants are wrong",
+      "provenance": "P-6",
+      "uniswap": "CREATE2 from the factory, address derivable offline",
+      "what": "Pools are deployed by a separate PancakeV3PoolDeployer",
+      "where": "packages/misquote/chain/nfpm.py"
+    },
+    {
+      "caught_by": "tests/chain/test_write_path.py",
+      "costs": "A direct pool call built against the Uniswap ABI reverts. Everything here goes through the position manager instead, never the pool.",
+      "pancake": "pancakeV3MintCallback",
+      "provenance": "P-6",
+      "uniswap": "uniswapV3MintCallback",
+      "what": "The callbacks are renamed",
+      "where": "packages/misquote/chain/nfpm.py"
+    },
+    {
+      "caught_by": "tests/chain/test_position_differential.py",
+      "costs": "The wrong shape costs 23,000 gas and reverts with empty data, which looks like nothing at all. Check the selector, not the documentation.",
+      "pancake": "it is still a member, so the calldata shape differs",
+      "provenance": "P-6",
+      "uniswap": "SwapRouter02 dropped it from the struct",
+      "what": "The router keeps `deadline` inside the params struct",
+      "where": "packages/misquote/chain/nfpm.py"
+    },
+    {
+      "caught_by": "packages/misquote/vetting/badge.py \u2014 check 'a mintable range exists'",
+      "costs": "A width copied from a Uniswap example assumes a spacing that does not exist. And MIN_TICK is not a multiple of any of these \u2014 887272 % 10 = 2 \u2014 so clamping a bound to the extreme yields a tick the pool refuses and the mint reverts.",
+      "pancake": "100 -> 1 \u00b7 500 -> 10 \u00b7 2500 -> 50 \u00b7 10000 -> 200",
+      "provenance": "P-6, V-10",
+      "uniswap": "3000 -> 60 is the most-used tier",
+      "what": "There is no 3000 fee tier, and so no spacing of 60",
+      "where": "packages/misquote/core/policy.py"
+    },
+    {
+      "caught_by": "packages/misquote/lvr/accountant.py",
+      "costs": "Filtering on the Uniswap signature returns zero logs from a pool doing millions in volume. The two extra fields are also why the accountant reads the protocol's actual take per swap rather than modelling it.",
+      "pancake": "nine \u2014 it carries protocolFeesToken0 and protocolFeesToken1; topic0 0x19b47279\u2026",
+      "provenance": "P-1",
+      "uniswap": "seven parameters; topic0 0xc42079f9\u2026",
+      "what": "The Swap event is not Uniswap's",
+      "where": "packages/misquote/indexer/reader.py"
+    }
+  ],
+  "fee_overstatement": 1.5151515151515151,
+  "fee_tiers": [
+    {
+      "fee_pips": 100,
+      "tick_spacing": 1
+    },
+    {
+      "fee_pips": 500,
+      "tick_spacing": 10
+    },
+    {
+      "fee_pips": 2500,
+      "tick_spacing": 50
+    },
+    {
+      "fee_pips": 10000,
+      "tick_spacing": 200
+    }
+  ],
+  "pools": [
+    {
+      "address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+      "chain_id": 56,
+      "fee_pips": 500,
+      "fee_protocol": 3400,
+      "label": "PancakeSwap v3 WBNB/USDT 0.05%",
+      "lp_fee_share": 0.6599999999999999,
+      "quote_symbol": "WBNB",
+      "role": "flagship",
+      "tick_spacing": 10,
+      "w_min_ticks": 40
+    },
+    {
+      "address": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+      "chain_id": 56,
+      "fee_pips": 2500,
+      "fee_protocol": 3200,
+      "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
+      "lp_fee_share": 0.6799999999999999,
+      "quote_symbol": "TSLAx",
+      "role": "tokenized equity",
+      "tick_spacing": 50,
+      "w_min_ticks": 200
+    },
+    {
+      "address": "0xEF1509b7feF4a7dFc94c45Fe9AF2028CA083d11d",
+      "chain_id": 97,
+      "fee_pips": 500,
+      "fee_protocol": 3400,
+      "label": "PancakeSwap v3 WBNB/BUSD 0.05% (chapel mirror)",
+      "lp_fee_share": 0.6599999999999999,
+      "quote_symbol": "WBNB",
+      "role": "testnet mirror",
+      "tick_spacing": 10,
+      "w_min_ticks": 40
+    }
+  ],
+  "shared_math": {
+    "cases": 19546,
+    "groups": 9,
+    "pins": [
+      {
+        "commit": "467ffd422ca01fed5797a4c766a1e4e3a5327902",
+        "name": "forge-std",
+        "pinned": "2026-08-10"
+      },
+      {
+        "commit": "d0831dc6b8a318df3872b6d68f6de135c9f3ec29",
+        "name": "v3-core",
+        "pinned": "2026-04-30"
+      },
+      {
+        "commit": "0682387198a24c7cd63566a2c58398533860a5d1",
+        "name": "v3-periphery",
+        "pinned": "2024-07-25"
+      }
+    ]
+  },
+  "uniswap_only_tier": 3000,
+  "unmintable_remainder": 2,
+  "venue": {
+    "chain_id": 56,
+    "fork_of": "Uniswap v3",
+    "name": "PancakeSwap v3"
+  }
+}

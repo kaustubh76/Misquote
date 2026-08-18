@@ -334,8 +334,15 @@ def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
             for text in (f"{value:.2f}", f"{value:g}"):
                 if text not in UNDISTINCTIVE and not _too_ambiguous(text):
                     literals.add(text)
-        elif isinstance(value, int) and not _too_ambiguous(str(value)):
-            literals.add(str(value))
+        elif isinstance(value, int):
+            text = str(value)
+            # `UNDISTINCTIVE` applies here too. It did not, and the asymmetry
+            # was unintentional: 100 was declared undistinctive for floats and
+            # distinctive for ints, so the moment an artifact carried a bare
+            # `100` — `venue.json`'s 0.01% fee tier — six components doing
+            # `* 100` to make a percentage were flagged as smuggling it.
+            if text not in UNDISTINCTIVE and not _too_ambiguous(text):
+                literals.add(text)
 
     def walk(o: object) -> None:
         if isinstance(o, dict):
@@ -360,6 +367,12 @@ def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
     offenders: list[str] = []
     for path in [*WEB_SRC.rglob("*.tsx"), *WEB_SRC.rglob("*.ts")]:
         if path.name.endswith(".test.ts") or path.name.endswith(".test.tsx"):
+            continue
+        # `src/test/` is the harness the component tests run against — stubbed
+        # fetches, fixture loaders. Nothing in it renders, so a number there is
+        # never a figure a reader sees; `harness.tsx` was flagged for the `200`
+        # in an HTTP status. The rule is about what reaches a page.
+        if "test" in path.relative_to(WEB_SRC).parts:
             continue
         # Comments are stripped first. The rule is about numbers that reach a
         # reader, and these files quote real figures when explaining which bug

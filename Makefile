@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -160,6 +160,9 @@ vectors-report:  ## publish the vector corpus, and whatever replay was recorded
 registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
 	$(UV) run python scripts/registry_report.py
 
+venue:  ## PancakeSwap as an integration: where the fork is not the original (offline)
+	$(UV) run python scripts/venue_report.py
+
 # `assumptions` runs late, and the order is load-bearing. The sheet's
 # `cited_by` is built by globbing every *other* artifact in the output
 # directory, so an emitter that runs after it is invisible to it. Listed
@@ -167,7 +170,7 @@ registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by de
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-demo advantage-demo advantage-short registry vetting addresses vectors-report assumptions status  ## every artifact the site reads
+artifacts: showcase-demo advantage-demo advantage-short registry venue vetting addresses vectors-report assumptions status  ## every artifact the site reads
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev

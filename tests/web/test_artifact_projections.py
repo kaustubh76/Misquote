@@ -60,6 +60,7 @@ def _script(name: str, module_name: str):
 
 showcase = _script("showcase.py", "misquote_showcase_emitter")
 assumptions = _script("assumptions.py", "misquote_assumptions_emitter")
+venue = _script("venue_report.py", "misquote_venue_emitter")
 
 
 def dotted(document: Any, path: str) -> Any:
@@ -97,6 +98,18 @@ PROJECTIONS: tuple[tuple[str, str, Callable[[], Any]], ...] = (
     # regenerate those files and leave the published counts describing a corpus
     # that no longer exists.
     ("vectors.json", "corpus", vectors.corpus),
+    # `venue.json` is a projection end to end — it reads no chain, no database
+    # and no recorded run, so every field is re-derivable in a test. The whole
+    # payload is compared below; these three are named separately because they
+    # are the figures a reader would quote, and a diff of the entire document
+    # says "something moved" where these say what.
+    ("venue.json", "fee_overstatement", lambda: venue.fee_overstatement(TARGET_POOL.fee_protocol)),
+    (
+        "venue.json",
+        "unmintable_remainder",
+        lambda: venue.unmintable_remainder(TARGET_POOL.tick_spacing),
+    ),
+    ("venue.json", "divergences", venue.divergences),
 )
 
 
@@ -226,4 +239,31 @@ def test_the_vector_verification_is_deliberately_not_projected() -> None:
     assert projected == ["corpus"], (
         f"vectors.json should project its corpus and nothing else, got {projected}. "
         "The verification block is the outcome of a test run."
+    )
+
+
+def test_the_whole_venue_artifact_is_re_derivable() -> None:
+    """Not a field at a time — the entire document, minus its build stamp.
+
+    `venue.json` earns this because it reads nothing external: no chain, no
+    database, no recorded run. Every value in it is a constant or a pure
+    function of one, so there is no reason to assert a subset and a good reason
+    not to — the page it feeds is an argument that the details were got right,
+    and a page like that cannot afford a figure that drifted from the code it
+    describes.
+
+    The build stamp is excluded because it carries a timestamp and a git sha,
+    which are the two things that are *supposed* to differ between runs.
+    """
+    path = ARTIFACTS / "venue.json"
+    if not path.exists():
+        pytest.skip("no venue.json; run `make venue`")
+
+    published = json.loads(path.read_text())
+    published.pop("build", None)
+
+    assert published == as_json(venue.build_payload()), (
+        "venue.json no longer matches `scripts/venue_report.py`. Every field in "
+        "it is derived from a Python constant or a pure function, so this means "
+        "the constant moved and the artifact did not — run `make venue`."
     )
