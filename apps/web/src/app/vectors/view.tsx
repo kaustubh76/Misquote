@@ -81,13 +81,9 @@ export function VectorsView() {
     <Loadable loading={state === null} what="the vector report">
       <h1 className="text-2xl font-semibold">The tick math, against the real Solidity</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Every range this site quotes is priced with tick math — the conversion between a
-        tick and a price, the token amounts a position holds, the fees it has accrued. An
-        off-by-one there is not a rounding difference; it is a mint that reverts or a
-        figure that is quietly wrong everywhere.{" "}
-        <strong className="text-ink">
-          So the arithmetic is not reviewed, it is compared.
-        </strong>
+        Every range here is priced with tick math, where an off-by-one is a revert or a
+        figure quietly wrong everywhere.{" "}
+        <strong className="text-ink">So it is not reviewed, it is compared.</strong>
       </p>
 
       {state === null && (
@@ -122,12 +118,12 @@ export function VectorsView() {
           <Section title="What was recorded" className="mt-10">
             <Card>
               <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                <code className="font-mono text-xs">scripts/gen_vectors.py</code> deploys a
-                thin wrapper over upstream v3-core and v3-periphery to a local chain, asks
-                it {count(d.corpus.cases)} questions, and writes down what it said. It
-                refuses to write anything at all if one answer disagreed with ours — so
-                these files existing means a differential run agreed, and nothing more than
-                that.
+                {/* The refusal is the claim: it is why the files existing is
+                    itself the pass, and it appears nowhere else. */}
+                <code className="font-mono text-xs">scripts/gen_vectors.py</code> asks
+                upstream v3-core and v3-periphery {count(d.corpus.cases)} questions and
+                records the answers — writing <strong className="text-ink">nothing</strong>{" "}
+                if one disagreed.
               </p>
 
               <DataTable
@@ -156,10 +152,9 @@ export function VectorsView() {
 
               {d.corpus.groups[0]?.seed != null && (
                 <p className="mt-3 mb-0 text-xs text-faint">
-                  Seed {d.corpus.groups[0].seed} throughout, so the same run reproduces the
-                  same cases. Comparison is exact integer equality — there is no tolerance
-                  anywhere in it, which is deliberate: a tolerance is how an off-by-one in
-                  tick math survives to production.
+                  Seed {d.corpus.groups[0].seed} throughout, so the cases reproduce.
+                  Comparison is exact integer equality — no tolerance anywhere, because a
+                  tolerance is how an off-by-one survives to production.
                 </p>
               )}
             </Card>
@@ -169,11 +164,10 @@ export function VectorsView() {
             <Section title="Compared against which code" className="mt-10">
               <Card>
                 <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                  &ldquo;Checked against Uniswap&rdquo; is the kind of claim that decays
-                  quietly — the sentence stays true-sounding while the code it referred to
-                  moves on. These are the commits, pinned in{" "}
-                  <code className="font-mono text-xs">ops/forge_deps.txt</code>, so a
-                  reader can go and look at exactly what answered.
+                  {/* The pin table is the demonstration; the paragraph
+                      explaining why pinning matters was rationale. */}
+                  The commits that answered, pinned in{" "}
+                  <code className="font-mono text-xs">ops/forge_deps.txt</code>.
                 </p>
                 <DataTable
                   caption="Pinned reference implementations"

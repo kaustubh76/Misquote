@@ -51,10 +51,8 @@ export function MethodsView() {
             replays, and /advantage is a synthetic tape. And "net of fees" has
             the sign backwards: fees are income. The card's own row says "fees
             earned", and net = fees − adverse selection − costs. */}
-        Every <strong className="text-ink">quote</strong> on this site is a replay: the
-        policy is run over recorded pool history, and what it earned is priced net of
-        adverse selection and every cost of having been there. What follows is the
-        arithmetic between that replay and the range on the card.
+        Every <strong className="text-ink">quote</strong> here is a replay over recorded
+        pool history, priced net of adverse selection and every cost of being there.
       </p>
 
       {state && !state.ok && (
@@ -96,12 +94,12 @@ export function MethodsView() {
           )}</>} className="mt-10">
         <Card>
           <p className="mt-0 text-sm text-dim">
-            A single replay over the whole tape is <em>one</em> observation. One number
-            from one run tells you what happened, not what the strategy does — so the
-            history is cut into <strong className="text-ink">{count(q?.windows)}</strong>{" "}
-            overlapping sub-windows, each covering{" "}
-            <strong className="text-ink">half the span</strong>, and the policy is replayed
-            in each.
+            {/* "half the span" is the `× 0.5` row of the table three lines
+                below, and the middle sentence explains what the first already
+                says. */}
+            One replay is <em>one</em> observation, so the tape is cut into{" "}
+            <strong className="text-ink">{count(q?.windows)}</strong> overlapping
+            sub-windows and the policy is replayed in each.
           </p>
 
           <div className="my-5">
@@ -147,25 +145,18 @@ export function MethodsView() {
                   the sentence argued against its own two rendered numbers. So
                   the comparison is now made rather than asserted, and the
                   trade is stated in the terms that hold either way. */}
-              Overlapping rather than disjoint is a deliberate trade.{" "}
-              {count(q.windows)} disjoint windows over this tape would be about{" "}
-              {hours(d.replay.hours / q.windows)} each
+              {/* The computed comparison is the argument; the closing sermon
+                  restated it. */}
+              Disjoint, these would be {hours(d.replay.hours / q.windows)} each
               {d.replay.hours / q.windows < floors.min_window_hours ? (
-                <>
-                  {" "}
-                  — below the {hours(floors.min_window_hours)} policy horizon, so each one
-                  would measure nothing
-                </>
+                <> — under the {hours(floors.min_window_hours)} horizon, so each measures nothing</>
               ) : (
                 <>
-                  , which clears the {hours(floors.min_window_hours)} horizon. Overlapping
-                  them buys more of it: {count(q.windows)} windows of{" "}
-                  {hours(q.hours_per_window)} against {count(q.windows)} of{" "}
-                  {hours(d.replay.hours / q.windows)}
+                  {" "}
+                  against {hours(q.hours_per_window)} overlapping
                 </>
               )}
-              . Overlap costs independence and buys length, and length is what the horizon
-              needs. <Cite id="A5" />
+              . Overlap buys length at the cost of independence. <Cite id="A5" />
             </p>
           )}
         </Card>
@@ -179,10 +170,11 @@ export function MethodsView() {
           section arguing that a floor a UI could get wrong is not a floor. */}
       <Section title={<>The {count(floorCount)} floors</>}>
         <p className="mb-5 max-w-[64ch] text-sm text-dim">
-          Each of these can stop this product from printing a number. They are published
-          here with the values the code enforces — including the numbers in these
-          titles, which were hardcoded until a test served a different artifact and
-          they failed to follow it. A floor a UI could get wrong is not a floor.
+          {/* The changelog — "hardcoded until a test served a different
+              artifact" — moved to a comment. The demonstration is that every
+              number in these titles is visibly interpolated. */}
+          Each can stop this product printing a number, at the value the code enforces.
+          A floor a UI could get wrong is not a floor.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -207,9 +199,8 @@ export function MethodsView() {
                   the exact restatement this section says it eliminated, one
                   card below the sentence saying so. `pages.test.tsx` serves
                   `min_windows: 999`; the title followed and this did not. */}
-              A window shorter than the policy horizon is a measurement of nothing.{" "}
-              {count(floors?.min_windows)} of them are still{" "}
-              {count(floors?.min_windows)} measurements of nothing.
+              A window shorter than the policy horizon measures nothing, however many
+              of them there are.
             </p>
           </Card>
 
@@ -223,9 +214,10 @@ export function MethodsView() {
                   path while the artifact reports `annualised`, so the card
                   illustrated its rule with a case that breaks it. Which side
                   of the floor this run falls on is knowable, so it is said. */}
-              Below it, the figure is reported as-is with the span attached rather than
-              multiplied up into an annual rate nobody can support.{" "}
-              {q && d && floors && (
+              {/* The generic half went; the run-specific half is the whole
+                  value of the card, and it is the only explanation on the site
+                  for the magnitude on every quote. */}
+              {q && d && floors ? (
                 <>
                   This run is{" "}
                   <strong className="text-ink">
@@ -234,14 +226,12 @@ export function MethodsView() {
                   it at {hours(d.replay.hours)}, so the quote reads{" "}
                   <code className="font-mono text-xs">{q.basis}</code>
                   {q.annualised && (
-                    <>
-                      {" "}
-                      — which multiplies a {hours(d.replay.hours)} result up to a year,
-                      and is why a loss here reads as a figure no position could sustain
-                    </>
+                    <> — a {hours(d.replay.hours)} result multiplied up to a year</>
                   )}
                   .
                 </>
+              ) : (
+                <>Below it, the figure is reported as-is with its span attached.</>
               )}
             </p>
           </Card>
@@ -252,9 +242,9 @@ export function MethodsView() {
               eyebrow={`min_observations = ${floors?.min_observations ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
-              Below the floor the tearsheet prints &ldquo;no verdict&rdquo; and the count
-              that was missing. A card saying &ldquo;83% win rate&rdquo; on twelve
-              observations is worth less than one that refuses.
+              Below it the tearsheet prints &ldquo;no verdict&rdquo; and the count that
+              was missing. A confident number on a tiny sample is worth less than a
+              refusal.
             </p>
           </Card>
 
@@ -268,9 +258,8 @@ export function MethodsView() {
               eyebrow={`in_range_floor = ${floors?.in_range_floor ?? EMPTY}`}
             />
             <p className="m-0 text-sm text-dim">
-              The one floor here that does not withhold a number but calls one. A position
-              below it fails the in-range verdict on every card, and the threshold is shown
-              beside the verdict rather than left to be inferred from it.
+              The one floor that calls a verdict rather than withholding a number: below
+              it, in-range fails on every card.
             </p>
           </Card>
         </div>
@@ -280,8 +269,7 @@ export function MethodsView() {
       <Section title="Why the replay cannot cheat">
         <Card>
           <p className="mt-0 text-sm text-dim">
-            A backtest that can see the future is the easiest way to produce an impressive
-            number, so this one is prevented structurally rather than by review.
+            Look-ahead is prevented structurally rather than by review.
           </p>
           <ul className="mt-4 mb-0 list-none space-y-3 p-0 text-sm text-dim">
             <li className="border-l-2 border-line pl-4">
