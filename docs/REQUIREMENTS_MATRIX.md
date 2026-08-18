@@ -448,6 +448,54 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-16 · Equation (3) clamps the holdings *and* the price; only one of those is right — **fixed 18 Aug 2026**
+
+With costs and σ corrected, LVR is the largest term in the quote, so it was worth checking against
+something that is not itself. Fees had already been verified this way and agreed to 0.0e+00; LVR had
+`closed_form_lvr`, which is a genuinely independent derivation — but it only covers the case where
+**both endpoints are in range**, and Warden runs narrow ranges and leaves them constantly.
+
+Spec §3 distinguishes two prices, and it is easy to miss because the clamped value is right there:
+
+> "the position's holdings change by (Δx_k, Δy_k) **along the bonding curve**. The rebalancing
+> benchmark executes the same Δx_k **at the post-swap price P_k**."
+
+The *holdings* stop at the range edge — that is what clamping is for, and it is worth a great deal
+(P-3). The *valuation* is at the market price the swap ended at, which on a swap that leaves the
+range is beyond the edge. `absorb` used `self._price(s1)`, the clamped sqrt price, for both — so it
+understated the arbitrageur's edge on exactly the swaps that carried price out of the position.
+
+**Measured before claiming, and the measurement mattered.** A constructed 600-tick single swap shows
+the difference as **11×**, which would have been an alarming headline. On the real 30-day tape it is:
+
+| range | ratio | boundary-crossing swaps |
+|---|---|---|
+| ±60 ticks | **1.04×** | 73 of 40,000 |
+| ±400 ticks | **1.00×** | 0 |
+
+A pool this liquid does not move 600 ticks in one swap. So: a real deviation from the frozen spec,
+worth about **4%** of LVR on a narrow range and nothing on a wide one. Both halves are the finding —
+the constructed case would have justified far more alarm than the data supports.
+
+**And it inflated a published number.** This repository has recorded that *"LVR range-clamping is
+worth up to 134× on a narrow range"*. That ratio was measured through the bug: understating the
+clamped figure inflates the clamped-versus-naive comparison. With equation (3)'s actual post-swap
+price the honest figures are:
+
+| range | 500-tick move | 2,000-tick move |
+|---|---|---|
+| ±60 ticks | 4.4× | **16.9×** |
+| ±400 ticks | 1.0× | 2.8× |
+
+Clamping the holdings is still worth a great deal on the narrow ranges this agent runs. It is worth
+**up to ~17×, not 134×**, and the test that guarded it asserted `> 50` — a threshold only reachable
+with the bug in place.
+
+**The general lesson, and it is the fourth time today.** T4 was named for a check it does not perform;
+`closed_form_lvr` performs a real check but only over the regime the agent is rarely in; and the
+clamping test's threshold was calibrated against a defect. A test can be honest, well-named and
+green while covering the case that does not matter.
+
 ### P-15 · The volatility estimator threw away three quarters of the variance — **fixed 18 Aug 2026**
 
 Once P-13 and P-14 stopped costs from dominating, **LVR became the largest term in the quote** — about

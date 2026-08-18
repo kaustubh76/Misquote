@@ -125,13 +125,25 @@ def _price(tick: int) -> float:
 # --- clamping, which is matrix item P-3 ------------------------------------
 
 
-def test_clamping_to_the_range_is_worth_orders_of_magnitude() -> None:
+def test_clamping_the_holdings_to_the_range_is_worth_a_lot() -> None:
     """A swap crossing the whole range, accounted end to end, is wildly wrong.
 
     Above the upper bound the position holds no token0 — there is nothing left
     to pick off — and the rebalancing benchmark has sold out too. Only the
-    segment inside the range ever involved us. On the narrow ranges this agent
-    runs by design, the unclamped figure is off by more than a hundredfold.
+    segment inside the range ever involved us.
+
+    **The threshold here used to be 50x, and part of that was a bug.** The
+    valuation reused the *clamped* price as well as the clamped holdings, which
+    understated the clamped figure and so inflated this ratio. With equation
+    (3)'s actual post-swap price the honest numbers are:
+
+        range +/- 60t, 2000-tick move   16.9x
+        range +/- 60t,  500-tick move    4.4x
+        range +/-400t, 2000-tick move    2.8x
+
+    So clamping the holdings is worth a great deal on the narrow ranges this
+    agent runs, and the "up to 134x" this project had published was measured
+    through the bug. See P-16.
     """
     clamped = accountant(-64200).absorb(swap(-62000)).lvr_quote
     naive = closed_form_lvr(
@@ -139,7 +151,7 @@ def test_clamping_to_the_range_is_worth_orders_of_magnitude() -> None:
     ) / float(WAD)
 
     assert clamped > 0
-    assert naive / clamped > 50
+    assert naive / clamped > 4
 
 
 def test_a_move_entirely_outside_the_range_costs_nothing(monkeypatch) -> None:

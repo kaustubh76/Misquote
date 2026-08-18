@@ -232,10 +232,30 @@ class LvrAccountant:
 
         delta0 = (x1 - x0) / (10.0**self.meta.dec0)
         delta1 = (y1 - y0) / (10.0**self.meta.dec1)
-        price_after = self._price(s1)
 
-        # Equation (3). The post-swap price is not a choice: using the pre-swap
-        # one flips the sign and makes every swap look profitable for the LP.
+        # Equation (3). Two different prices are involved and only one of them is
+        # clamped, which is easy to miss because `s1` is right there:
+        #
+        #   "the position's holdings change by (dx, dy) **along the bonding
+        #    curve**. The rebalancing benchmark executes the same dx **at the
+        #    post-swap price P_k**."
+        #
+        # So the *holdings* stop at the range edge — that is what `s0`/`s1` above
+        # are for, and it is worth 50x on a narrow range (P-3). The *valuation*
+        # is at the market price the swap actually ended at, which on a swap that
+        # leaves the range is above `s1`. This used `self._price(s1)`, reusing the
+        # clamped value for both, and so understated the arbitrageur's edge on
+        # exactly the swaps that carried price out of the position.
+        #
+        # Measured before changing it, because constructed cases badly overstated
+        # it: a single 600-tick swap shows 11x, but on the real 30-day tape the
+        # difference is **1.04x on a +/-60 tick range and 1.00x on +/-400**,
+        # since a pool this liquid does not move that far in one swap. Real, and
+        # small. See P-16.
+        #
+        # Using the pre-swap price instead flips the sign and makes every swap
+        # look profitable for the LP; that part was always right.
+        price_after = self._price(event.sqrt_price_x96)
         lvr = -(delta1 + price_after * delta0)
 
         # Convexity says this cannot be negative. A negative one is not a market
