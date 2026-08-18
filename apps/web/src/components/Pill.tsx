@@ -43,3 +43,26 @@ export function verdictTone(verdict: { called: boolean; label: string }): PillTo
   if (verdict.label.startsWith("FAIL")) return "fail";
   return "info";
 }
+
+/**
+ * The tone for a readiness-gate status, which is a different vocabulary.
+ *
+ * `verdictTone` above reads a `{called, label}` object — the shape a quote
+ * carries. A gate in `status.json` is a bare string: PASS, FAIL, UNVERIFIED.
+ * The two are not interchangeable and a caller with the wrong one gets a type
+ * error rather than a plausible tone.
+ *
+ * This lived privately in `status/view.tsx`, which was fine while one page read
+ * gate statuses. It is here the moment a second one does, because the mapping
+ * that matters is UNVERIFIED to amber — "we could not check this" is not "this
+ * failed" and is never green — and two copies of that rule is one copy too
+ * many.
+ *
+ * An unrecognised status is `"unverified"`, not `"pass"`. A status nobody
+ * anticipated is by definition one nothing has checked.
+ */
+export function statusTone(status: string): PillTone {
+  if (status === "PASS") return "pass";
+  if (status === "FAIL") return "fail";
+  return "unverified";
+}

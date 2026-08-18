@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
 import { AgentComparison } from "@/components/AgentComparison";
+import { Integrations } from "@/components/Integrations";
 import { NotBuiltCard } from "@/components/Ledger";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -27,22 +28,43 @@ type AgentSlot = {
   result: Loaded<AgentArtifact>;
 };
 
+/** Only the fields the router reads. The two pages themselves own the rest. */
+interface VenueSummary {
+  venue: { name: string };
+  divergences: unknown[];
+}
+
+interface StatusSummary {
+  checks: { name: string; status: string; detail: string }[];
+}
+
+/** The gate the TermiX track turns on, by the name `go_no_go.py` gives it. */
+const DELIVERABLE_GATE = "agent advantage report";
+
 export default function OverviewPage() {
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
   const [build, setBuild] = useState<Loaded<BuildArtifact> | null>(null);
   const [agents, setAgents] = useState<AgentSlot[] | null>(null);
+  const [venue, setVenue] = useState<Loaded<VenueSummary> | null>(null);
+  const [status, setStatus] = useState<Loaded<StatusSummary> | null>(null);
 
   useEffect(() => {
     let live = true;
 
     (async () => {
-      const [idx, bld] = await Promise.all([
+      // The two router artifacts are fetched alongside, not after: neither
+      // gates the skeletons below, so a slow one must not hold up the cards.
+      const [idx, bld, ven, sts] = await Promise.all([
         load<IndexArtifact>("index.json"),
         load<BuildArtifact>("build.json"),
+        load<VenueSummary>("venue.json"),
+        load<StatusSummary>("status.json"),
       ]);
       if (!live) return;
       setIndex(idx);
       setBuild(bld);
+      setVenue(ven);
+      setStatus(sts);
 
       if (idx.ok) {
         const loaded = await loadAgents(idx.value.agents);
@@ -81,6 +103,14 @@ export default function OverviewPage() {
   // Read from the artifact, never typed — it is the threshold the in-range
   // verdict is called against, and `/methods` publishes it as one of the floors.
   const inRangeFloor = compared[0]?.data.floors?.in_range_floor;
+
+  const venueSummary = venue?.ok ? venue.value : null;
+  // Found by name rather than by index. `go_no_go.py` orders its checks and
+  // that order is not a contract; a positional read would silently start
+  // reporting a different gate's verdict the day one is inserted above it.
+  const deliverableGate = status?.ok
+    ? status.value.checks.find((c) => c.name === DELIVERABLE_GATE)
+    : undefined;
 
   return (
     <Loadable loading={loading} what="agent cards">
@@ -135,6 +165,21 @@ export default function OverviewPage() {
           <div className="grid gap-5">
             <CardSkeleton />
             <CardSkeleton />
+          </div>
+        )}
+
+        {/* Which of the two integrations is yours, before any scrolling.
+            The venue is the substrate every number below sits on; the track is
+            a requirement with one judged deliverable. Both read from artifacts
+            — the gate's verdict is `status.json`'s own string, so this cannot
+            advertise green while the checklist says amber. */}
+        {(venueSummary || deliverableGate) && (
+          <div className="mb-8">
+            <Integrations
+              venue={venueSummary?.venue.name}
+              divergences={venueSummary?.divergences.length}
+              gate={deliverableGate}
+            />
           </div>
         )}
 

@@ -5,7 +5,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { LedgerTable } from "@/components/Ledger";
-import { Pill, type PillTone } from "@/components/Pill";
+import { Pill, statusTone } from "@/components/Pill";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
@@ -29,12 +29,6 @@ interface StatusArtifact {
   outcome: "GO" | "NO GO" | "NOT YET";
   exit_code: number;
 }
-
-const STATUS_TONE: Record<StatusCheck["status"], PillTone> = {
-  PASS: "pass",
-  FAIL: "fail",
-  UNVERIFIED: "unverified",
-};
 
 const OUTCOME_STYLE: Record<string, string> = {
   GO: "border-good-line bg-good-bg/50 text-good",
@@ -132,7 +126,7 @@ export function StatusView() {
                         <p className="mt-2 mb-0 text-xs text-faint">→ {check.remedy}</p>
                       )}
                     </div>
-                    <Pill tone={STATUS_TONE[check.status]}>{check.status}</Pill>
+                    <Pill tone={statusTone(check.status)}>{check.status}</Pill>
                   </div>
                 </Card>
               ))}
