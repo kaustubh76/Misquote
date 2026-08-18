@@ -389,3 +389,35 @@ def test_a_position_inside_a1_still_quotes() -> None:
     """The other half. A refusal that fires on everything protects nobody."""
     q = quote_from_results([result(10.0)] * 40, windows=20, perturbation_count=3)
     assert q.sufficient, q.note
+
+
+# --- A5's parameter spread, and how much of it is real ----------------------
+
+
+def test_the_quote_reports_how_many_of_its_samples_are_distinct() -> None:
+    """A5 perturbs (gamma, kappa) by +/-25% and counts each window three times.
+
+    That is honest only if the perturbations change something. Measured on the
+    30-day tape they mostly do not: equation (2)'s half-width is 2.9-4.8 ticks
+    across the whole published gamma range at the measured volatility, and spec
+    section 3.2's anti-dust floor is 40 — so the floor sets the width and both
+    parameters fall out of it. Grid and Sentinel read neither at all.
+
+    `samples` still counts replays, because that is what A5's floor is written
+    against. `distinct_returns` says how many different numbers those replays
+    produced, so a reader can see the difference rather than infer it. See P-17.
+    """
+    identical = [result(10.0, hours=48.0) for _ in range(60)]
+    q = quote_from_results(identical, windows=20, perturbation_count=3)
+
+    assert q.sufficient
+    assert q.samples == 60
+    assert q.distinct_returns == 1, "sixty identical replays are one observation"
+
+
+def test_genuinely_different_replays_are_counted_as_such() -> None:
+    """The other half — the counter must not simply always report duplication."""
+    varied = [result(float(i), hours=48.0) for i in range(1, 61)]
+    q = quote_from_results(varied, windows=20, perturbation_count=3)
+
+    assert q.distinct_returns == 60

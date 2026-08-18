@@ -565,7 +565,7 @@
       "cited_by": [],
       "id": "G-1",
       "kind": "gap",
-      "line": 1055,
+      "line": 1107,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -600,7 +600,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 1056,
+      "line": 1108,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -635,7 +635,7 @@
       "cited_by": [],
       "id": "G-3",
       "kind": "gap",
-      "line": 1057,
+      "line": 1109,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -672,7 +672,7 @@
       ],
       "id": "G-4",
       "kind": "gap",
-      "line": 1058,
+      "line": 1110,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -790,7 +790,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 1006,
+      "line": 1058,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -857,7 +857,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 961,
+      "line": 1013,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -971,7 +971,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 895,
+      "line": 947,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1042,7 +1042,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 834,
+      "line": 886,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1084,7 +1084,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 793,
+      "line": 845,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1253,7 +1253,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 688,
+      "line": 740,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1344,7 +1344,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 634,
+      "line": 686,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1415,7 +1415,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 583,
+      "line": 635,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -1474,7 +1474,7 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 543,
+      "line": 595,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
@@ -1549,7 +1549,7 @@
       "cited_by": [],
       "id": "P-15",
       "kind": "correction",
-      "line": 499,
+      "line": 551,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
@@ -1635,9 +1635,111 @@
       "cited_by": [],
       "id": "P-16",
       "kind": "correction",
-      "line": 451,
+      "line": 503,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) clamps the holdings *and* the price; only one of those is right \u2014 **fixed 18 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Correcting \u03c3 (P-15) should have widened every range by 3.6\u00d7. It changed the width by **nothing**, and finding out why is the most consequential result of this project so far.",
+          "type": "p"
+        },
+        {
+          "text": "Spec \u00a73.2 sets `w_t = max(w_min, round_to_spacing(\u03b4*/ln 1.0001))` with `w_min = 4 \u00d7 tick_spacing = 40 ticks`. Equation (2)'s \u03b4*, at the volatility measured on the 30-day tape (17.0% annualised) and the \u03ba fitted for G-4:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "\u03b3 (the published risk dial)",
+            "equation (2)",
+            "width used"
+          ],
+          "rows": [
+            [
+              "0.2",
+              "2.86 ticks",
+              "40 (floor)"
+            ],
+            [
+              "0.5",
+              "2.97 ticks",
+              "40 (floor)"
+            ],
+            [
+              "0.8 (default)",
+              "3.09 ticks",
+              "40 (floor)"
+            ],
+            [
+              "2.0",
+              "3.57 ticks",
+              "40 (floor)"
+            ],
+            [
+              "5.0",
+              "4.75 ticks",
+              "40 (floor)"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**The floor binds across the entire published parameter range, by a factor of 8 to 14.** Equation (2) only overtakes it above **\u03c3 \u2248 0.09 per \u221ahour \u2014 849% annualised**. That is not a market this pool has.",
+          "type": "p"
+        },
+        {
+          "text": "So the range half-width \u2014 the thing the flagship agent exists to compute, and the headline of the A-S \u2194 v3 mapping \u2014 is set by an anti-dust constant, and the model's contribution is discarded.",
+          "type": "p"
+        },
+        {
+          "text": "**G-4 made it worse, and that is worth stating plainly.** With the provisional \u03ba = 500 the model produced **20.3 ticks**: still under the floor, but within a factor of two of it. Fitting \u03ba properly raised it to 3600.9, which *shrinks* the `ln(1 + \u03b3/\u03ba)` term and drops \u03b4* to **3.09 ticks**. Measuring the parameter more carefully moved the model further from mattering.",
+          "type": "p"
+        },
+        {
+          "text": "**And it hollows out A5's parameter spread.** A5 builds half the quote's range by perturbing (\u03b3, \u03ba) \u00b125%, counting each window three times. If the floor discards both parameters, those three replays are one replay. Measured on the tape:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "agent",
+            "windows where all three perturbations are identical",
+            "distinct returns of 60"
+          ],
+          "rows": [
+            [
+              "Grid",
+              "**20 / 20**",
+              "20"
+            ],
+            [
+              "Sentinel",
+              "**20 / 20**",
+              "20"
+            ],
+            [
+              "Warden",
+              "17 / 20",
+              "23"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Grid and Sentinel read neither \u03b3 nor \u03ba \u2014 Grid's own docstring says \"No Avellaneda\u2013Stoikov, no sigma, no kappa\" \u2014 so for them the perturbation is inert by construction and **60 reported samples are 20 results counted three times**, against an A5 floor of 20. Warden keeps a little: the width is floored, but \u03b3 still moves the range *centre* through equation (1), which changes the outcome in 3 windows of 20.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution, in two parts.** `Quote` now carries `distinct_returns` beside `samples`, so the difference is published rather than inferred \u2014 `samples` still counts replays because that is what A5's floor is written against. The larger question is not a code fix: **A9 already records that equation (2) prices no adverse selection and is systematically too narrow on an arbitrage-dominated venue.** This is the quantitative form of that assumption. The honest reading is that on this pool, at this tick spacing, Warden's range width is a dust floor with a model attached, and the card should not imply otherwise.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-17",
+      "kind": "correction",
+      "line": 451,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The Avellaneda\u2013Stoikov half-width never reaches the anti-dust floor \u2014 **18 Aug 2026**"
     },
     {
       "blocks": [

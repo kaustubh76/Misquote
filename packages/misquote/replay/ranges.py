@@ -68,6 +68,22 @@ class Quote:
     # the distribution rather than three order statistics of it.
     returns: tuple[float, ...] = ()
 
+    # How many of those returns are actually different numbers.
+    #
+    # A5 builds the parameter half of the spread by perturbing (gamma, kappa) by
+    # +/-25%, so `samples` counts each window three times. That is only honest if
+    # the perturbations change something, and mostly they do not: equation (2)'s
+    # half-width lands **2.9 to 4.8 ticks** across the whole published gamma
+    # range at the measured volatility, while spec section 3.2's anti-dust floor
+    # is **40**, so the floor sets the width and gamma and kappa fall out of it.
+    #
+    # Measured on the 30-day tape: Grid and Sentinel read neither parameter at
+    # all, so 20/20 windows are identical and 60 samples are 20 results counted
+    # three times. Warden keeps 23 distinct of 60 — the perturbation survives
+    # only through equation (1)'s effect on the range *centre*, in 3 windows of
+    # 20. See P-17.
+    distinct_returns: int = 0
+
     @property
     def spread(self) -> float:
         return self.p75 - self.p25
@@ -265,6 +281,7 @@ def quote_from_results(
         # annualisation scale is strictly positive, but it is a transform, and
         # the fact being counted is "this window finished ahead".
         net_positive=sum(1 for r in usable if r.net_quote > 0),
+        distinct_returns=len(set(returns)),
         returns=tuple(returns),
     )
 

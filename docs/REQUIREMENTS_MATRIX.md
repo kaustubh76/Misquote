@@ -448,6 +448,58 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-17 · The Avellaneda–Stoikov half-width never reaches the anti-dust floor — **18 Aug 2026**
+
+Correcting σ (P-15) should have widened every range by 3.6×. It changed the width by **nothing**, and
+finding out why is the most consequential result of this project so far.
+
+Spec §3.2 sets `w_t = max(w_min, round_to_spacing(δ*/ln 1.0001))` with `w_min = 4 × tick_spacing = 40
+ticks`. Equation (2)'s δ*, at the volatility measured on the 30-day tape (17.0% annualised) and the
+κ fitted for G-4:
+
+| γ (the published risk dial) | equation (2) | width used |
+|---|---|---|
+| 0.2 | 2.86 ticks | 40 (floor) |
+| 0.5 | 2.97 ticks | 40 (floor) |
+| 0.8 (default) | 3.09 ticks | 40 (floor) |
+| 2.0 | 3.57 ticks | 40 (floor) |
+| 5.0 | 4.75 ticks | 40 (floor) |
+
+**The floor binds across the entire published parameter range, by a factor of 8 to 14.** Equation (2)
+only overtakes it above **σ ≈ 0.09 per √hour — 849% annualised**. That is not a market this pool has.
+
+So the range half-width — the thing the flagship agent exists to compute, and the headline of the
+A-S ↔ v3 mapping — is set by an anti-dust constant, and the model's contribution is discarded.
+
+**G-4 made it worse, and that is worth stating plainly.** With the provisional κ = 500 the model
+produced **20.3 ticks**: still under the floor, but within a factor of two of it. Fitting κ properly
+raised it to 3600.9, which *shrinks* the `ln(1 + γ/κ)` term and drops δ* to **3.09 ticks**. Measuring
+the parameter more carefully moved the model further from mattering.
+
+**And it hollows out A5's parameter spread.** A5 builds half the quote's range by perturbing (γ, κ)
+±25%, counting each window three times. If the floor discards both parameters, those three replays
+are one replay. Measured on the tape:
+
+| agent | windows where all three perturbations are identical | distinct returns of 60 |
+|---|---|---|
+| Grid | **20 / 20** | 20 |
+| Sentinel | **20 / 20** | 20 |
+| Warden | 17 / 20 | 23 |
+
+Grid and Sentinel read neither γ nor κ — Grid's own docstring says "No Avellaneda–Stoikov, no sigma,
+no kappa" — so for them the perturbation is inert by construction and **60 reported samples are 20
+results counted three times**, against an A5 floor of 20. Warden keeps a little: the width is floored,
+but γ still moves the range *centre* through equation (1), which changes the outcome in 3 windows of
+20.
+
+**Resolution, in two parts.** `Quote` now carries `distinct_returns` beside `samples`, so the
+difference is published rather than inferred — `samples` still counts replays because that is what
+A5's floor is written against. The larger question is not a code fix: **A9 already records that
+equation (2) prices no adverse selection and is systematically too narrow on an arbitrage-dominated
+venue.** This is the quantitative form of that assumption. The honest reading is that on this pool,
+at this tick spacing, Warden's range width is a dust floor with a model attached, and the card should
+not imply otherwise.
+
 ### P-16 · Equation (3) clamps the holdings *and* the price; only one of those is right — **fixed 18 Aug 2026**
 
 With costs and σ corrected, LVR is the largest term in the quote, so it was worth checking against
