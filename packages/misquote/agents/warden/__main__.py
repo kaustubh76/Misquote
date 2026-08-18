@@ -58,7 +58,7 @@ from misquote.agents.warden.live import WardenLive
 from misquote.agents.warden.loop import DEFAULT_KILL_FILE, Journal, WardenLoop
 from misquote.chain.addresses import pool_for
 from misquote.chain.live_source import DEFAULT_POLL_SECONDS, LiveChainSource
-from misquote.core.types import Params, PoolMeta, PositionState
+from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Params, PoolMeta, PositionState
 from misquote.indexer.reader import BscReader, connect_all
 
 
@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--poll", type=float, default=DEFAULT_POLL_SECONDS, help="seconds between chain polls"
     )
-    parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument("--capital", type=float, default=DEFAULT_CAPITAL_QUOTE)
     parser.add_argument("--journal-dir", default=os.environ.get("MISQUOTE_JOURNAL_DIR"))
     args = parser.parse_args(argv)
 

@@ -23,10 +23,17 @@ from typing import Protocol, runtime_checkable
 
 from misquote.chain.source import ChainSource
 from misquote.core.errors import AssumptionViolated, PositionClosedNotReopened
-from misquote.core.liquidity import get_liquidity_for_amounts
+from misquote.core.liquidity import liquidity_for_capital
 from misquote.core.position import apply_decision
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Action, Decision, Params, PoolMeta, PositionState
+from misquote.core.types import (
+    DEFAULT_CAPITAL_QUOTE,
+    Action,
+    Decision,
+    Params,
+    PoolMeta,
+    PositionState,
+)
 from misquote.replay.engine import Engine, MarketState
 
 
@@ -108,7 +115,7 @@ class WardenLive:
         executor: Executor,
         *,
         params: Params | None = None,
-        capital_quote: float = 1000.0,
+        capital_quote: float = DEFAULT_CAPITAL_QUOTE,
     ) -> None:
         self.meta = meta
         self.params = params or Params()
@@ -241,10 +248,20 @@ class WardenLive:
         )
 
     def _size(self, decision: Decision, market: MarketState) -> int:
-        sa = get_sqrt_ratio_at_tick(decision.target_lower)
-        sb = get_sqrt_ratio_at_tick(decision.target_upper)
-        amount1 = int(self.capital_quote * 10**self.meta.dec1)
-        amount0 = int(self.capital_quote * 10**self.meta.dec0)
-        wanted = get_liquidity_for_amounts(market.sqrt_price_x96, sa, sb, amount0, amount1)
-        cap = int(market.pool_liquidity * self.params.eps_liquidity_share)
-        return max(1, min(wanted, cap))
+        """Liquidity worth `capital_quote`, via the one implementation.
+
+        Shared with `ReplayDriver._size` rather than restated. It *was* restated
+        — the same eight lines in both files — and the two diverged the moment
+        one was corrected. Test L1 caught it on the next run, which is the fifth
+        time the answer has been one implementation and both drivers.
+        """
+        liquidity, _capped = liquidity_for_capital(
+            market.sqrt_price_x96,
+            get_sqrt_ratio_at_tick(decision.target_lower),
+            get_sqrt_ratio_at_tick(decision.target_upper),
+            capital_quote=self.capital_quote,
+            dec1=self.meta.dec1,
+            pool_liquidity=market.pool_liquidity,
+            eps=self.params.eps_liquidity_share,
+        )
+        return liquidity

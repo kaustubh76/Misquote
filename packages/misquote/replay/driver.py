@@ -16,10 +16,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from misquote.core.liquidity import get_liquidity_for_amounts
+from misquote.core.liquidity import liquidity_for_capital
 from misquote.core.position import apply_decision
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
 from misquote.core.types import (
+    DEFAULT_CAPITAL_QUOTE,
     DEFAULT_GAS_QUOTE,
     Action,
     Decision,
@@ -73,6 +74,10 @@ class ReplayResult:
     total_costs: float = 0.0
     samples: int = 0
     in_range_samples: int = 0
+    # Times A1's 1% ceiling bound the position. A1 says a quote that breaches
+    # epsilon is *refused rather than rendered*; the cap was applied silently
+    # and the quote published anyway. See P-14.
+    a1_capped: int = 0
     first_ts: int | None = None
     last_ts: int | None = None
 
@@ -116,7 +121,7 @@ class ReplayDriver:
         *,
         params: Params | None = None,
         costs: CostModel | None = None,
-        capital_quote: float = 1000.0,
+        capital_quote: float = DEFAULT_CAPITAL_QUOTE,
         policy: Policy | None = None,
     ) -> None:
         self.meta = meta
@@ -240,19 +245,23 @@ class ReplayDriver:
         result.total_costs += self._move_cost(recentring=recentring)
 
     def _size(self, decision: Decision, market: MarketState) -> int:
-        """Liquidity for `capital_quote`, capped at A1's share of the pool."""
-        sa = get_sqrt_ratio_at_tick(decision.target_lower)
-        sb = get_sqrt_ratio_at_tick(decision.target_upper)
+        """Liquidity worth `capital_quote`, via the one implementation.
 
-        # Split the capital the way the curve will hold it at this price.
-        amount1 = int(self.capital_quote * 10**self.meta.dec1)
-        amount0 = int(self.capital_quote * 10**self.meta.dec0)
-        wanted = get_liquidity_for_amounts(market.sqrt_price_x96, sa, sb, amount0, amount1)
-
-        # Assumption A1. A replayed position big enough to have moved the price
-        # it is replayed against would be fiction, not a backtest.
-        cap = int(market.pool_liquidity * self.eps)
-        return max(1, min(wanted, cap))
+        This and `WardenLive._size` held the same arithmetic twice; correcting
+        one diverged the drivers and L1 said so. See `core.liquidity`.
+        """
+        liquidity, capped = liquidity_for_capital(
+            market.sqrt_price_x96,
+            get_sqrt_ratio_at_tick(decision.target_lower),
+            get_sqrt_ratio_at_tick(decision.target_upper),
+            capital_quote=self.capital_quote,
+            dec1=self.meta.dec1,
+            pool_liquidity=market.pool_liquidity,
+            eps=self.eps,
+        )
+        if capped:
+            self._result.a1_capped += 1
+        return liquidity
 
     def _settle(self, market: MarketState) -> None:
         """Bank what the closing position earned and cost."""

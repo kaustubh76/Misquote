@@ -211,7 +211,7 @@ def _sparse_tape(count: int = 1000, seed: int = 5):
     return [dataclasses.replace(e, ts=first + (e.ts - first) * _STRETCH) for e in events]
 
 
-def _quote_with(jobs: int | None, *, capital: float = 1000.0, events=None):
+def _quote_with(jobs: int | None, *, capital: float = 1.0, events=None):
     from _helpers import META
 
     from misquote.ops.parallel import fork_map
@@ -320,9 +320,9 @@ def test_capital_reaches_the_division_it_is_the_denominator_of(monkeypatch) -> N
         return real(results, **kwargs)
 
     monkeypatch.setattr(ranges, "quote_from_results", spy)
-    _quote_with(None, capital=7500.0, events=_sparse_tape(300))
+    _quote_with(None, capital=0.75, events=_sparse_tape(300))
 
-    assert seen == [7500.0], f"capital_quote reached the division as {seen}"
+    assert seen == [0.75], f"capital_quote reached the division as {seen}"
 
 
 def test_a_second_concurrent_quote_refuses_rather_than_overwriting(monkeypatch) -> None:
@@ -350,3 +350,42 @@ def test_the_guard_clears_itself_so_a_later_call_still_works() -> None:
     assert ranges._FORKED == {}, "state outlived the call that set it"
 
     _quote_with(None, events=_sparse_tape(200))  # would raise if it had latched
+
+
+# --- A1 is a refusal, not a clamp -------------------------------------------
+
+
+def test_a_position_that_breaches_a1_is_refused_rather_than_quoted() -> None:
+    """A1's own words: "quotes that would breach epsilon are **refused rather
+    than rendered**".
+
+    The driver clamped instead. A request for 1,000 WBNB got 1% of the pool —
+    worth about 3 WBNB in a narrow range — and its earnings were divided by the
+    1,000 it never deployed. Nothing anywhere said the cap had bound, so the
+    breach was invisible in the number *and* in the note beside it.
+    """
+    breached = result(10.0)
+    breached.a1_capped = 4
+
+    q = quote_from_results([breached] * 40, windows=20, perturbation_count=3)
+    assert not q.sufficient
+    assert "A1" in q.note
+    assert "refused" in q.note
+
+
+def test_the_refusal_names_how_many_mints_breached() -> None:
+    """A number a reader can act on: quote for less capital, this much less."""
+    # One breaching replay among clean ones. `[breached] * 40` is the same object
+    # forty times, so the count reads 280 — the code totals breaches across
+    # replays, which is right, and the first version of this test was not.
+    breached = result(10.0)
+    breached.a1_capped = 7
+    results = [result(10.0) for _ in range(39)] + [breached]
+
+    assert "7 mint(s)" in quote_from_results(results, windows=20, perturbation_count=3).note
+
+
+def test_a_position_inside_a1_still_quotes() -> None:
+    """The other half. A refusal that fires on everything protects nobody."""
+    q = quote_from_results([result(10.0)] * 40, windows=20, perturbation_count=3)
+    assert q.sufficient, q.note

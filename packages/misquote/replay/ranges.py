@@ -31,7 +31,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from misquote.core.types import Params, Policy, PoolMeta
+from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Params, Policy, PoolMeta
 from misquote.replay.driver import CostModel, ReplayDriver, ReplayResult
 
 
@@ -168,7 +168,7 @@ def quote_from_results(
     *,
     windows: int,
     perturbation_count: int,
-    capital_quote: float = 1000.0,
+    capital_quote: float = DEFAULT_CAPITAL_QUOTE,
     annualise: bool = True,
 ) -> Quote:
     """Turn a set of replays into a published range.
@@ -176,6 +176,33 @@ def quote_from_results(
     The metric is net return on deployed capital, annualised — fees, minus the
     adverse-selection upper bound, minus every cost of having been there.
     """
+    # Assumption A1, honoured as written: "quotes that would breach epsilon are
+    # **refused rather than rendered**". The driver used to clamp the position to
+    # 1% of the pool and publish the result anyway, so a request for 1,000 WBNB
+    # was quoted on the 3.4 WBNB it actually deployed. Refusing is not a
+    # degradation of the quote; it is the quote A1 promises. See P-14.
+    breached = sum(r.a1_capped for r in results)
+    if breached:
+        return Quote(
+            p25=0.0,
+            p50=0.0,
+            p75=0.0,
+            samples=0,
+            windows=windows,
+            perturbations=perturbation_count,
+            in_range_p50=0.0,
+            rebalances_p50=0.0,
+            hours_per_window=0.0,
+            sufficient=False,
+            note=(
+                f"refused: the position breached assumption A1's liquidity "
+                f"ceiling on {breached} mint(s) — A1 says such a quote is refused "
+                f"rather than rendered. Quote for less capital."
+            ),
+            net_positive=0,
+            returns=(),
+        )
+
     usable = [r for r in results if r.samples > 0 and r.hours >= MIN_WINDOW_HOURS]
     if len(usable) < MIN_SAMPLES:
         short = [r for r in results if 0 < r.hours < MIN_WINDOW_HOURS]
@@ -285,7 +312,7 @@ def quote(
     *,
     params: Params | None = None,
     costs: CostModel | None = None,
-    capital_quote: float = 1000.0,
+    capital_quote: float = DEFAULT_CAPITAL_QUOTE,
     windows: int | None = None,
     perturbation_fraction: float = 0.25,
     policy: Policy | None = None,

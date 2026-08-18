@@ -57,7 +57,7 @@ from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL
 from misquote.core.policy import passive_policy
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Event, PoolMeta
+from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Event, PoolMeta
 from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.ranges import quote as compute_quote
@@ -486,7 +486,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=str(REPO / "data" / "misquote.db"))
     parser.add_argument("--synthetic", type=int, default=0, help="use N synthetic swaps instead")
-    parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument("--capital", type=float, default=DEFAULT_CAPITAL_QUOTE)
     parser.add_argument(
         "--jobs",
         type=int,

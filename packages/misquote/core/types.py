@@ -329,6 +329,22 @@ class Decision:
 DEFAULT_GAS_QUOTE = 3.0e-5
 
 
+# The largest position assumption A1's 1% ceiling permits on the target pool,
+# measured 18 Aug 2026 against its real liquidity:
+#
+#     range +/-  20 ticks ->  1.03 WBNB  (~$631)
+#     range +/-  60 ticks ->  3.09 WBNB  (~$1,892)
+#     range +/-1000 ticks -> 50.26 WBNB  (~$30,810)
+#
+# The default was **1000**, which in quote currency is ~$613,000 and breaches A1
+# in every range this pool supports. Nothing said so: the driver clamped to 1% and
+# published the quote anyway, so a position deploying 3 WBNB had its earnings
+# divided by the 1,000 it never held. A1 says such a quote is refused rather than
+# rendered, and it now is — so a default that always breaches would refuse every
+# quote. 1.0 fits the narrowest range with margin. See P-14.
+DEFAULT_CAPITAL_QUOTE = 1.0
+
+
 # What an agent *is*, to this system: a pure function from everything it may
 # observe to what it intends to do. Nothing else — no pool handle, no clock, no
 # I/O. An agent wanting any of those would have to ask through `Observation`,

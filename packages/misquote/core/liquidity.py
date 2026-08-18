@@ -166,3 +166,50 @@ def get_amounts_for_liquidity(
             get_amount1_for_liquidity(lo, sqrt_price, liquidity),
         )
     return 0, get_amount1_for_liquidity(lo, hi, liquidity)
+
+
+def liquidity_for_capital(
+    sqrt_price_x96: int,
+    sqrt_a: int,
+    sqrt_b: int,
+    *,
+    capital_quote: float,
+    dec1: int,
+    pool_liquidity: int,
+    eps: float,
+) -> tuple[int, bool]:
+    """Liquidity worth `capital_quote` in token1, and whether A1's cap bound it.
+
+    Lives here because it lived in `ReplayDriver._size` **and**
+    `WardenLive._size`, identically, and correcting one diverged the two drivers
+    — which test L1 caught on the next run. That is the fifth time the answer has
+    been *one implementation, both drivers*; the position bookkeeping, the fee
+    window, the action cap and the gas constant were the others.
+
+    Two things it fixes about the version it replaces:
+
+    **It splits the capital.** The old code passed `capital_quote` as *both*
+    token amounts and let `get_liquidity_for_amounts` take whichever bound. On a
+    USDT/WBNB pool that is 1,000 USDT beside 1,000 WBNB — $1,000 beside $613,000
+    — so the cheap leg bound and the position deployed roughly twice the stated
+    capital while every return was divided by the stated figure. Amounts scale
+    linearly in liquidity, so one evaluation at a reference gives the exchange
+    rate and the split falls out.
+
+    **It reports the A1 breach instead of swallowing it.** A1 says a quote that
+    would breach epsilon is *refused rather than rendered*; the cap was applied
+    silently and the quote published anyway.
+
+    `price_raw` is token1 per token0 in raw units, which is exactly what
+    `sqrtPriceX96` encodes, so no decimal conversion is needed here.
+    """
+    reference = 10**24
+    ref0, ref1 = get_amounts_for_liquidity(sqrt_price_x96, sqrt_a, sqrt_b, reference)
+    price_raw = (sqrt_price_x96 / Q96) ** 2
+    value_ref = ref0 * price_raw + ref1
+    if value_ref <= 0:
+        return 1, False
+
+    wanted = int(reference * (capital_quote * 10**dec1) / value_ref)
+    cap = int(pool_liquidity * eps)
+    return max(1, min(wanted, cap)), wanted > cap
