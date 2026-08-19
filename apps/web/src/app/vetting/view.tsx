@@ -314,13 +314,26 @@ export function VettingView() {
                 {addrs.value.record && ` · ${addrs.value.record}`}
               </p>
             </Card>
+          ) : addrs === null ? (
+            /* Still loading, which is a third state and was being reported as
+               the second.
+               `addrs` is `null` until the fetch resolves, and `null` fell into
+               the branch below — so the shipped static HTML told every reader
+               without JavaScript that `addresses.json` "has not been generated",
+               while the file sat beside it in the same directory, 2,472 bytes,
+               copied into the export by the same build.
+               On this page. Under a `floor` line reading "an address nobody
+               checked and an address checked clean look identical once
+               rendered". The page did the thing it exists to warn about, to the
+               one reader who could not see it corrected a moment later. */
+            <CardSkeleton />
           ) : (
             <Refusal
               title="The addresses were not verified"
               reason={
-                addrs?.ok
+                addrs.ok
                   ? (addrs.value.reason ?? "no reading was recorded")
-                  : "addresses.json has not been generated — run `make addresses`"
+                  : `addresses.json could not be read — ${addrs.error.message}`
               }
               floor="an address nobody checked and an address checked clean look identical once rendered"
             />

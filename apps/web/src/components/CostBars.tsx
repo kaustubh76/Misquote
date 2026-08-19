@@ -8,13 +8,21 @@ import { amount, money, SIGN_CLASS, signOf } from "@/lib/format";
  * ten table rows, which left the reader to do the subtraction and to notice the
  * order of magnitude themselves. On the 30-day chain tape:
  *
- *     warden     fees 0.02   LVR 0.01   costs 186.76   net -186.74
- *     grid       fees 0.16   LVR 0.06   costs   0.78   net   -0.68
- *     sentinel   fees 0.01   LVR 0.00   costs 186.76   net -186.75
+ *     warden     fees 0.0099   LVR 0.0027   costs 0.1942   net -0.1869
+ *     grid       fees 0.0484   LVR 0.0202   costs 0.0101   net +0.0181
+ *     sentinel   fees 0.0017   LVR 0.0005   costs 0.1942   net -0.1929
  *
- * Warden's costs are **8,960× its fees** — 249 mints and 249 pulls with zero
- * rebalances. That is the entire story of the agent and it was legible only by
- * dividing two numbers four rows apart.
+ * Sentinel pays **112× its fees** in costs, on 249 mints and 249 pulls. Grid
+ * pays **0.2×**, on one mint and twelve recentres, and is the only one of the
+ * three that finishes ahead. That contrast is the entire argument about
+ * rebalancing, and it was legible only by dividing two numbers four rows apart.
+ *
+ * These figures are the fourth set this comment has carried. Every one of the
+ * engine fixes that moved them — the capital basis, a sigma estimator clipping
+ * 27.8% of its own sample, equation (3) clamping a price it should not have, a
+ * pull priced as a fresh entry — left this docstring describing a run that no
+ * longer existed, because nothing checks a comment. Read them as an
+ * illustration of the shape, and the artifact for the numbers.
  *
  * ## The scaling contract, inherited from GateHistogram
  *
@@ -37,7 +45,7 @@ import { amount, money, SIGN_CLASS, signOf } from "@/lib/format";
  * inherit it from the denominator they are drawn against and stay bare, which
  * is the ordinary convention and keeps three short numbers readable.
  *
- * `186.76` is not a hundred and eighty-seven dollars. It is that many BNB.
+ * `0.1942` is not nineteen cents. It is that many BNB — about $119.
  */
 export interface CostRow {
   label: string;
@@ -82,8 +90,10 @@ export function CostBars({
                 <div
                   className={`h-full rounded-full ${earned ? "bg-good" : "bg-warn"}`}
                   // A component that is a rounding error against the largest
-                  // still gets a visible mark: 0.02 against 186.76 is 0.011%,
-                  // which would otherwise vanish and read as "no fees at all".
+                  // still gets a visible mark: Sentinel's 0.0017 of fees against
+                  // 0.1942 of costs is 0.9%, and at the ratios this has carried
+                  // before it was 0.011% — which would vanish entirely and read
+                  // as "no fees at all".
                   style={{ width: `${row.value === 0 ? 0 : Math.max(share, 0.8)}%` }}
                 />
               </div>

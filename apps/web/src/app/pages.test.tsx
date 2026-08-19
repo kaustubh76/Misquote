@@ -669,7 +669,10 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     });
     expect(
       within(heading.closest("[data-heading-scope]") as HTMLElement).getByText(
-        /has not been generated/,
+        // Was `/has not been generated/`, which the page said about a file it
+        // had merely not fetched yet. It now reports what it knows: the read
+        // failed, and why.
+        /could not be read/,
       ),
     ).toBeInTheDocument();
   });
@@ -1000,5 +1003,32 @@ describe("an artifact missing its estimator block renders rather than throwing",
     // Every parameter row present, and every one of them an em dash.
     expect(within(section).getAllByText("—").length).toBeGreaterThanOrEqual(5);
     expect(within(section).getByText(/κ swaps used/)).toBeInTheDocument();
+  });
+});
+
+describe("Vetting distinguishes not-yet-read from not-generated", () => {
+  it("does not claim a file is missing while it is still being fetched", async () => {
+    // `addrs` is null until the fetch resolves, and null fell into the same
+    // branch as a failed read — so the page asserted "addresses.json has not
+    // been generated" about a file sitting beside it. That is the claim this
+    // page exists to make impossible about an address, made about itself.
+    render(<VettingPage />);
+
+    expect(screen.queryByText(/has not been generated/)).toBeNull();
+
+    await screen.findByRole("heading", { name: /The addresses the signer is pointed at/ });
+    expect(screen.queryByText(/has not been generated/)).toBeNull();
+  });
+
+  it("still says so when the file genuinely cannot be read", async () => {
+    // The refusal has to survive the fix, or this trades a false negative for
+    // silence — which on this page is the worse of the two.
+    serveArtifacts({ missing: ["addresses.json"] });
+    render(<VettingPage />);
+
+    expect(await screen.findByText(/addresses\.json could not be read/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/an address nobody checked and an address checked clean/),
+    ).toBeInTheDocument();
   });
 });

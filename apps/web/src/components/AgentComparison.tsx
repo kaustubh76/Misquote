@@ -10,13 +10,17 @@ import type { AgentArtifact, AgentRef } from "@/lib/artifacts";
  * screens of scrolling and a memory for numbers. The cards are the detail; this
  * is the answer.
  *
- * What it compares is chosen from what actually varies. The quote does not:
- * the interquartile range is 0.0062pp on a value of −233, and the three
- * perturbations produce identical returns. These do:
+ * What it compares is chosen from what actually varies. On the 30-day chain
+ * tape:
  *
- *     in range     6.1%  vs  100%      (against a 70% floor)
- *     moves         498  vs    13
- *     net       -186.74  vs  -0.68
+ *                in range   moves      net
+ *     warden         6.1%     498   -0.1869
+ *     grid         100.0%      13   +0.0181
+ *     sentinel       9.5%     498   -0.1929
+ *
+ * One agent clears its costs and two do not, and the difference is thirteen
+ * moves against four hundred and ninety-eight. That is the comparison; the
+ * quote is not, because its interquartile range is a fraction of a point.
  *
  * `net` is shared across all three rows by design — one scale, so a bar twice
  * as long means twice the loss. Scaling each row to itself would make three
@@ -51,10 +55,12 @@ export function AgentComparison({
   // Unanimous or nothing. `undefined` covers both "no artifact said" and "they
   // disagreed"; the second also suppresses the shared-scale claim below, since
   // in that case the bars are comparing quantities that are not comparable.
-  // "Net loss" was written into the caption. Every agent on the 30-day chain
-  // tape loses, so it read correctly for as long as that was the only tape
-  // anyone looked at — and on a run where all three profit it captions three
-  // green bars "the largest loss". Derived from the signs instead.
+  // "Net loss" was written into the caption, and it read correctly for as long
+  // as every agent on the chain tape lost. Derived from the signs instead —
+  // and the hypothetical arrived: Grid now finishes ahead while Warden and
+  // Sentinel do not, so the signs disagree, this reads "largest amount", and
+  // the bars are mixed red and green. The branch that had only a synthetic
+  // test is the one the site now takes.
   const signs = new Set(agents.map((a) => signOf(a.data.replay.net_quote)));
   const extreme = signs.size === 1 && signs.has("neg") ? "loss" : signs.size === 1 && signs.has("pos") ? "gain" : "amount";
 
