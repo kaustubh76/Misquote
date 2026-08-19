@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { AdvantageView } from "./view";
+import type { AdvantageArtifact } from "@/lib/artifacts";
+import { readArtifact } from "@/lib/build-artifact";
 
 // A server component, so the title reaches the prerendered HTML. Every route
 // was a client component, none could export metadata, and all seven pages
@@ -11,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <AdvantageView />;
+  return <AdvantageView initialMain={readArtifact<AdvantageArtifact>("advantage.json")} initialShort={readArtifact<AdvantageArtifact>("advantage_short.json")} />;
 }

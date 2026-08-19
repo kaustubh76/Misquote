@@ -56,14 +56,19 @@ interface Verification {
   receipt?: string;
 }
 
-interface VectorsArtifact {
+export interface VectorsArtifact {
   corpus: { dir: string; cases: number; groups: Group[]; pins: Pin[] };
   verification: { replay: Verification; differential: Verification };
   build: Build;
 }
 
-export function VectorsView() {
-  const [state, setState] = useState<Loaded<VectorsArtifact> | null>(null);
+export function VectorsView({ initial }: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initial?: VectorsArtifact;
+}) {
+  const [state, setState] = useState<Loaded<VectorsArtifact> | null>(
+    initial ? { ok: true, value: initial } : null,
+  );
 
   useEffect(() => {
     let live = true;

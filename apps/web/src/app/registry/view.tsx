@@ -22,7 +22,7 @@ interface Step {
   is_erc8183: boolean;
 }
 
-interface RegistryArtifact {
+export interface RegistryArtifact {
   hire_flow: {
     steps: Step[];
     transaction_count: number;
@@ -56,16 +56,27 @@ interface RegistryArtifact {
 }
 
 /** Only what the deliverable's gate needs. `/status` owns the rest of the shape. */
-interface StatusSummary {
+export interface StatusSummary {
   checks: { name: string; status: string; detail: string; remedy?: string }[];
 }
 
 /** The gate the track turns on, by the name `scripts/go_no_go.py` gives it. */
 const DELIVERABLE_GATE = "agent advantage report";
 
-export function RegistryView() {
-  const [state, setState] = useState<Loaded<RegistryArtifact> | null>(null);
-  const [status, setStatus] = useState<Loaded<StatusSummary> | null>(null);
+export function RegistryView({
+  initialRegistry,
+  initialStatus,
+}: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initialRegistry?: RegistryArtifact;
+  initialStatus?: StatusSummary;
+}) {
+  const [state, setState] = useState<Loaded<RegistryArtifact> | null>(
+    initialRegistry ? { ok: true, value: initialRegistry } : null,
+  );
+  const [status, setStatus] = useState<Loaded<StatusSummary> | null>(
+    initialStatus ? { ok: true, value: initialStatus } : null,
+  );
 
   useEffect(() => {
     let live = true;

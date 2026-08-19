@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { OverviewView } from "./view";
+import { readArtifact } from "@/lib/build-artifact";
 import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
 
 /**
@@ -24,18 +23,6 @@ import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
  * component at all — the same split `advantage`, `methods`, `registry`,
  * `status`, `vectors`, `venue` and `vetting` already have for `metadata`.
  */
-function readArtifact<T>(name: string): T | undefined {
-  const path = join(process.cwd(), "public", "artifacts", name);
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as T;
-  } catch {
-    // A missing artifact is a state this site renders on purpose — "nothing has
-    // generated the cards yet, run `make showcase-demo`". The client load owns
-    // that path; failing the build instead would replace a page that says what
-    // to do with a stack trace that does not.
-    return undefined;
-  }
-}
 
 export default function OverviewPage() {
   return (

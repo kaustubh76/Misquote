@@ -21,8 +21,13 @@ import { count, EMPTY, fraction, hours } from "@/lib/format";
  * overlapping sub-windows that are each half the tape — but nothing said so, so
  * the card appeared to disagree with itself about its own history.
  */
-export function MethodsView() {
-  const [state, setState] = useState<Loaded<AgentArtifact> | null>(null);
+export function MethodsView({ initial }: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initial?: AgentArtifact;
+}) {
+  const [state, setState] = useState<Loaded<AgentArtifact> | null>(
+    initial ? { ok: true, value: initial } : null,
+  );
 
   useEffect(() => {
     let live = true;

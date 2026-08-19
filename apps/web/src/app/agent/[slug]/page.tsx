@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Metadata } from "next";
+import { readArtifact } from "@/lib/build-artifact";
 import { AgentDetail } from "@/components/AgentDetail";
 import type { AgentArtifact } from "@/lib/artifacts";
 
@@ -16,18 +15,6 @@ import type { AgentArtifact } from "@/lib/artifacts";
 type IndexedAgent = { slug?: string; name?: string; category?: string };
 
 /** One artifact, read at build time. Absent is a state, not a build failure. */
-function readArtifact<T>(name: string): T | undefined {
-  const path = join(process.cwd(), "public", "artifacts", name);
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as T;
-  } catch {
-    // Not an error here. A missing artifact is what `make showcase-demo` has
-    // not been run yet looks like, and the client has the remedy text for it —
-    // throwing would turn a page that says "run this command" into a build
-    // that fails with a stack trace.
-    return undefined;
-  }
-}
 
 /** The generated index, read once at build time. */
 function readAgents(): IndexedAgent[] {

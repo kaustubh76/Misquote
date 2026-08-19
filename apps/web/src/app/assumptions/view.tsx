@@ -21,7 +21,7 @@ interface Entry {
   cited_by: string[];
 }
 
-interface AssumptionsArtifact {
+export interface AssumptionsArtifact {
   entries: Entry[];
   sections: Record<string, Block[]>;
   sources: string[];
@@ -80,9 +80,20 @@ function matches(entry: Entry, query: string): boolean {
   );
 }
 
-export function AssumptionsView() {
-  const [state, setState] = useState<Loaded<AssumptionsArtifact> | null>(null);
-  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
+export function AssumptionsView({
+  initialSheet,
+  initialIndex,
+}: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initialSheet?: AssumptionsArtifact;
+  initialIndex?: IndexArtifact;
+}) {
+  const [state, setState] = useState<Loaded<AssumptionsArtifact> | null>(
+    initialSheet ? { ok: true, value: initialSheet } : null,
+  );
+  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
+    initialIndex ? { ok: true, value: initialIndex } : null,
+  );
   const [kind, setKind] = useState("all");
   const [query, setQuery] = useState("");
   const [landed, setLanded] = useState<string | null>(null);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { VenueView } from "./view";
+import { VenueView, type VenueArtifact } from "./view";
+import { readArtifact } from "@/lib/build-artifact";
 
 export const metadata: Metadata = {
   title: "Where PancakeSwap is not Uniswap",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function VenuePage() {
-  return <VenueView />;
+  return <VenueView initial={readArtifact<VenueArtifact>("venue.json")} />;
 }

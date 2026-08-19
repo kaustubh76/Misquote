@@ -148,13 +148,39 @@ for (const [colorScheme, width] of VIEWPORTS) {
 // effects.
 //
 // So the claim could not go stale detectably. This is the check that makes it
-// detectable. Two routes hold the property today — the landing page and the
-// agent detail, which together are the walk a judge takes — and the floor is
-// stated per route rather than globally, because the honest number for a page
-// that is still client-only is small and saying so is the point.
+// detectable, and every route holds the property now.
+//
+// **The floor is per route and the needle matters more.** A floor only catches a
+// page that collapses to its heading; it cannot catch a page that renders its
+// prose and loses its numbers. `/methods` is the case that proves it — it never
+// gated on the artifact, so it prerendered its entire argument with an em dash
+// where every figure belonged, and a global floor would have called that fine.
+// Its needle carries a value for that reason.
+//
+// Needles are matched against whitespace-collapsed `innerText`, so they must not
+// straddle a span boundary that emits no space, and each is a string the view
+// produces only from artifact data — never from its own lede.
+//
+// They are also matched **as rendered**: `innerText` applies `text-transform`,
+// so an eyebrow written `min_observations` in the JSX arrives here as
+// `MIN_OBSERVATIONS`. Three of these were wrong on the first run for exactly
+// that reason, which is why they were read off the built page rather than
+// guessed from the source.
 const NO_JS = [
   // route, minimum characters of body text, a string that must be present
   ["/", 2000, "PancakeSwap"],
+  ["/venue/", 3000, "PancakeV3PoolDeployer"],
+  ["/advantage/", 2500, "COUNTERFACTUAL"],
+  // 2,509 characters before the conversion against 2,746 after — the floor here
+  // is nearly useless and the needle is the whole guard.
+  ["/methods/", 2600, "MIN_OBSERVATIONS = 30"],
+  ["/vectors/", 2000, "fee_growth_inside"],
+  // The sheet every citation on the site points into, inlined. A prerendered
+  // `/venue` whose P-1 link lands on a page needing JavaScript is a dead link.
+  ["/assumptions/", 50000, "none filtered out"],
+  ["/registry/", 2500, "JOB STATES"],
+  ["/vetting/", 3500, "factory resolves it"],
+  ["/status/", 3000, "kill switch"],
   ["/agent/warden/", 2000, "in range"],
 ];
 

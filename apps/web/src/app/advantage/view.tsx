@@ -15,9 +15,20 @@ import { SourceBanner } from "@/components/SourceBanner";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
 import { count, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
 
-export function AdvantageView() {
-  const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(null);
-  const [short, setShort] = useState<Loaded<AdvantageArtifact> | null>(null);
+export function AdvantageView({
+  initialMain,
+  initialShort,
+}: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initialMain?: AdvantageArtifact;
+  initialShort?: AdvantageArtifact;
+}) {
+  const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(
+    initialMain ? { ok: true, value: initialMain } : null,
+  );
+  const [short, setShort] = useState<Loaded<AdvantageArtifact> | null>(
+    initialShort ? { ok: true, value: initialShort } : null,
+  );
 
   useEffect(() => {
     let live = true;

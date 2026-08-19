@@ -36,7 +36,7 @@ interface VenuePool {
   quote_symbol: string;
 }
 
-interface VenueArtifact {
+export interface VenueArtifact {
   venue: { name: string; fork_of: string; chain_id: number };
   shared_math: { cases: number; groups: number; pins: { name: string; commit: string; pinned: string }[] };
   fee_tiers: { fee_pips: number; tick_spacing: number }[];
@@ -68,8 +68,13 @@ interface VenueArtifact {
  * `tests/web/test_artifact_projections.py` — so a page arguing that the details
  * were got right cannot itself carry a figure that drifted from the code.
  */
-export function VenueView() {
-  const [state, setState] = useState<Loaded<VenueArtifact> | null>(null);
+export function VenueView({ initial }: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initial?: VenueArtifact;
+}) {
+  const [state, setState] = useState<Loaded<VenueArtifact> | null>(
+    initial ? { ok: true, value: initial } : null,
+  );
 
   useEffect(() => {
     let live = true;

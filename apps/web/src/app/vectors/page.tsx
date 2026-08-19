@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { VectorsView } from "./view";
+import { VectorsView, type VectorsArtifact } from "./view";
+import { readArtifact } from "@/lib/build-artifact";
 
 export const metadata: Metadata = {
   title: "The tick math, against the real Solidity",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function VectorsPage() {
-  return <VectorsView />;
+  return <VectorsView initial={readArtifact<VectorsArtifact>("vectors.json")} />;
 }

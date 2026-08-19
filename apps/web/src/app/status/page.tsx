@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { StatusView } from "./view";
+import { StatusView, type StatusArtifact } from "./view";
+import type { IndexArtifact } from "@/lib/artifacts";
+import { readArtifact } from "@/lib/build-artifact";
 
 // A server component, so the title reaches the prerendered HTML. Every route
 // was a client component, none could export metadata, and all seven pages
@@ -11,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <StatusView />;
+  return <StatusView initialStatus={readArtifact<StatusArtifact>("status.json")} initialIndex={readArtifact<IndexArtifact>("index.json")} />;
 }

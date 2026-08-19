@@ -20,7 +20,7 @@ interface StatusCheck {
   blocking: boolean;
 }
 
-interface StatusArtifact {
+export interface StatusArtifact {
   generated_at: string;
   mainnet: boolean;
   fast: boolean;
@@ -45,9 +45,20 @@ const OUTCOME_STYLE: Record<string, string> = {
   "NOT YET": "border-warn-line bg-warn-bg/50 text-warn",
 };
 
-export function StatusView() {
-  const [status, setStatus] = useState<Loaded<StatusArtifact> | null>(null);
-  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
+export function StatusView({
+  initialStatus,
+  initialIndex,
+}: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initialStatus?: StatusArtifact;
+  initialIndex?: IndexArtifact;
+}) {
+  const [status, setStatus] = useState<Loaded<StatusArtifact> | null>(
+    initialStatus ? { ok: true, value: initialStatus } : null,
+  );
+  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
+    initialIndex ? { ok: true, value: initialIndex } : null,
+  );
 
   useEffect(() => {
     let live = true;

@@ -22,7 +22,7 @@ import { count, hours, shortAddress, timestamp } from "@/lib/format";
  * a configured key, and public endpoints are unreliable. Zero checks failing
  * and zero checks run render identically unless the artifact says which.
  */
-interface AddressArtifact {
+export interface AddressArtifact {
   chain_id: number;
   surveyed: boolean;
   reason?: string;
@@ -57,7 +57,7 @@ interface VettingPool {
   age_hours?: number;
 }
 
-interface VettingArtifact {
+export interface VettingArtifact {
   surveyed: boolean;
   reason?: string;
   chain_id: number;
@@ -90,10 +90,25 @@ interface VettingArtifact {
  * is not red either.
  */
 
-export function VettingView() {
-  const [state, setState] = useState<Loaded<VettingArtifact> | null>(null);
-  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(null);
-  const [addrs, setAddrs] = useState<Loaded<AddressArtifact> | null>(null);
+export function VettingView({
+  initialVetting,
+  initialIndex,
+  initialAddresses,
+}: {
+  /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
+  initialVetting?: VettingArtifact;
+  initialIndex?: IndexArtifact;
+  initialAddresses?: AddressArtifact;
+}) {
+  const [state, setState] = useState<Loaded<VettingArtifact> | null>(
+    initialVetting ? { ok: true, value: initialVetting } : null,
+  );
+  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
+    initialIndex ? { ok: true, value: initialIndex } : null,
+  );
+  const [addrs, setAddrs] = useState<Loaded<AddressArtifact> | null>(
+    initialAddresses ? { ok: true, value: initialAddresses } : null,
+  );
 
   useEffect(() => {
     let live = true;

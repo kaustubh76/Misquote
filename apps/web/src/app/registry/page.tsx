@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { RegistryView } from "./view";
+import { RegistryView, type RegistryArtifact, type StatusSummary } from "./view";
+import { readArtifact } from "@/lib/build-artifact";
 
 // A server component, so the title reaches the prerendered HTML. Every route
 // was a client component, none could export metadata, and all seven pages
@@ -11,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <RegistryView />;
+  return <RegistryView initialRegistry={readArtifact<RegistryArtifact>("registry.json")} initialStatus={readArtifact<StatusSummary>("status.json")} />;
 }
