@@ -206,6 +206,37 @@ EQUITY_POOL = PoolRef(
     quote_symbol="TSLAx",
 )
 
+# The same pair, one fee tier up. This is the second venue task 3 of the Agent
+# Advantage Report needs, and it has to be a real pool for that task to be a real
+# task — `synthetic_events()` on both sides made "which pool would you choose?"
+# a question about a random seed.
+#
+# It earns the slot by being genuinely different where it matters:
+#
+#   liquidity     1.99e22   against the flagship's 1.19e24 — 60x shallower
+#   fee_protocol  3200      against the flagship's 3400 — LPs keep 68%, not 66%
+#
+# That second line is P-8 happening a third time on one DEX. Three WBNB/USDT
+# tiers, three different protocol fees: 3300 at 0.01%, 3400 at 0.05%, 3200 here.
+# Anything that hardcodes one of them misprices the other two, and the error
+# lands on NetFeeAPR.
+#
+# Resolved through `factory.getPool(WBNB, USDT, 2500)` and read back from the
+# pool — never derived offline, per P-6.
+TARGET_POOL_WIDE = PoolRef(
+    chain_id=BSC_MAINNET,
+    address="0x1401ff943D08a7E098328C1d3a9d388923B115D2",
+    token0=USDT_MAINNET,  # same ordering as the flagship: USDT sorts before WBNB
+    token1=WBNB_MAINNET,
+    dec0=18,
+    dec1=18,
+    fee_pips=2500,
+    tick_spacing=50,
+    fee_protocol=3200,  # LPs keep 68%; effective fee 0.17%, not 0.25%
+    label="PancakeSwap v3 WBNB/USDT 0.25%",
+    quote_symbol="WBNB",
+)
+
 POOLS: dict[int, PoolRef] = {
     BSC_MAINNET: TARGET_POOL,
     BSC_TESTNET: TESTNET_MIRROR_POOL,
@@ -235,7 +266,12 @@ def pool_for(chain_id: int) -> PoolRef:
 
 # Every pool this repository has verified on chain, by address. `POOLS` maps a
 # chain to its *default* pool and cannot answer "which pool is this address".
-KNOWN_POOLS: tuple[PoolRef, ...] = (TARGET_POOL, EQUITY_POOL, TESTNET_MIRROR_POOL)
+KNOWN_POOLS: tuple[PoolRef, ...] = (
+    TARGET_POOL,
+    TARGET_POOL_WIDE,
+    EQUITY_POOL,
+    TESTNET_MIRROR_POOL,
+)
 
 
 def pool_by_address(address: str) -> PoolRef:
