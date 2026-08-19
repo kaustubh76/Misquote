@@ -87,8 +87,7 @@
         }
       ],
       "cited_by": [
-        "advantage_short.json",
-        "status.json"
+        "advantage_short.json"
       ],
       "id": "A5",
       "kind": "assumption",
@@ -141,7 +140,9 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "status.json"
+      ],
       "id": "A7",
       "kind": "assumption",
       "line": 59,
@@ -244,7 +245,9 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "status.json"
+      ],
       "id": "A11",
       "kind": "assumption",
       "line": 149,
@@ -562,10 +565,12 @@
           "type": "table"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "status.json"
+      ],
       "id": "G-1",
       "kind": "gap",
-      "line": 1107,
+      "line": 1168,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -600,7 +605,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 1108,
+      "line": 1169,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -632,10 +637,12 @@
           "type": "table"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "status.json"
+      ],
       "id": "G-3",
       "kind": "gap",
-      "line": 1109,
+      "line": 1170,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -667,12 +674,10 @@
           "type": "table"
         }
       ],
-      "cited_by": [
-        "status.json"
-      ],
+      "cited_by": [],
       "id": "G-4",
       "kind": "gap",
-      "line": 1110,
+      "line": 1171,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -790,7 +795,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 1058,
+      "line": 1119,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -857,7 +862,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 1013,
+      "line": 1074,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -971,7 +976,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 947,
+      "line": 1008,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1042,7 +1047,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 886,
+      "line": 947,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1084,7 +1089,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 845,
+      "line": 906,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1253,7 +1258,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 740,
+      "line": 801,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1344,7 +1349,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 686,
+      "line": 747,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1415,7 +1420,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 635,
+      "line": 696,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -1474,7 +1479,7 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 595,
+      "line": 656,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
@@ -1549,7 +1554,7 @@
       "cited_by": [],
       "id": "P-15",
       "kind": "correction",
-      "line": 551,
+      "line": 612,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
@@ -1635,7 +1640,7 @@
       "cited_by": [],
       "id": "P-16",
       "kind": "correction",
-      "line": 503,
+      "line": 564,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) clamps the holdings *and* the price; only one of those is right \u2014 **fixed 18 Aug 2026**"
     },
@@ -1737,9 +1742,84 @@
       "cited_by": [],
       "id": "P-17",
       "kind": "correction",
-      "line": 451,
+      "line": 512,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The Avellaneda\u2013Stoikov half-width never reaches the anti-dust floor \u2014 **18 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`registry/erc8183.py` shipped with `JOB_ESCROW` deliberately empty: the EIP is Draft, publishes no reference deployments, and BNB's own SDK is testnet-only. It gained exactly one entry \u2014 TermiX's `TermixEscrow` on BSC mainnet \u2014 on evidence that was real and, it turns out, entirely circumstantial:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "checked",
+            "result"
+          ],
+          "rows": [
+            [
+              "bytecode present",
+              "EIP-1967 proxy, 170 bytes; implementation `0xbc8225ee\u20261e854` holds 17,941"
+            ],
+            [
+              "`settlementToken()`",
+              "`0x55d3\u20267955` \u2014 our `USDT_MAINNET`, and token0 of the flagship pool"
+            ],
+            [
+              "identity registry",
+              "`0x8004A169\u2026a432` \u2014 byte-identical to the ERC-8004 registry we already read"
+            ],
+            [
+              "live config drift",
+              "zero mismatches across 16 addresses"
+            ],
+            [
+              "**the job interface itself**",
+              "**never exercised** \u2014 and the evidence said so, in those words"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**Every row above is still true.** None of them is about ERC-8183.",
+          "type": "p"
+        },
+        {
+          "text": "**What the last row was hiding.** The recorded evidence noted that `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert, and read that as *\"the accessors are named something else\"*. They are not. The implementation's dispatch table was recovered from the deployed bytecode \u2014 PUSH4 selectors, resolved by keccak \u2014 and **none of the seven calls `steps()` models is present**: not `createJob`, `setProvider`, `setBudget`, `fund`, `submit`, `complete` or `reject`, across **5,894 candidate signatures** (every 0-, 1-, 2- and 3-argument shape over the eight common ABI types, plus the EIP's own five-argument `createJob`).",
+          "type": "p"
+        },
+        {
+          "text": "What is there is an **order-keyed escrow**: `orders(bytes32)`, `acceptOrder(bytes32)`, `protocolFeeBps()`, `feeRecipient()`, `reputation()`. Jobs are identified by a `bytes32` order id, not the EIP's `uint256` jobId. That single fact explains every revert we had recorded \u2014 the calls were never misspelled, the interface is different.",
+          "type": "p"
+        },
+        {
+          "text": "**A job was read back, and it agrees.** TermiX's `/api/v1/explorer/jobs` is public and needs no credentials. `orders(bytes32)` returns a 13-word struct for a live order id, and word 3 is the budget in 18 decimals: it matched the figure their own explorer publishes for the same order on **20 of 20** live orders, exactly. That agreement with an independent source is what makes this a decode rather than a plausible reading of arbitrary bytes.",
+          "type": "p"
+        },
+        {
+          "text": "**What is deliberately still not decoded.** No word in the struct separates their `SETTLED` orders from their `PENDING_ACCEPT` ones \u2014 word 8 reads `4` on both \u2014 so this codebase does not claim to read an order's state, and `ORDER_STATE_IS_UNDECODED` asserts that rather than leaving it as a comment. 21 of 65 selectors resolved; the other 44 are **counted, not guessed**.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** `JOB_ESCROW` is empty again and `escrow_address(56)` raises again. The rule that mapping states \u2014 *no entry without evidence* \u2014 is now applied to itself: it is for verified **ERC-8183** job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a result and deleting it would erase the correction along with the claim. What the contract *is* now lives in `registry/aacp.py:ESCROW_INTERFACE`, recorded as signature\u2192selector pairs so the naming can be re-derived rather than trusted.",
+          "type": "p"
+        },
+        {
+          "text": "**Verified by tests that run against the live contract**, not by the paragraph above: `tests/registry/test_termix_escrow_fork.py` asserts the three EIP accessors revert, that `orders(bytes32)` answers, that the budget agrees with the explorer on every published order, and that the USDT escrow returns an empty struct for a USDC order \u2014 the trap being that an unknown order id returns thirteen zero words rather than reverting, so a caller pointed at the wrong settlement book gets a confident, well-formed, entirely fictional order with a budget of zero.",
+          "type": "p"
+        },
+        {
+          "text": "**What this costs and what it buys.** The `/registry` page loses an escrow address, and the hire flow goes back to publishing a refusal. `steps()` is unaffected: it describes what ERC-8183 requires, and that description was never a claim about this contract. The six-transaction count still stands as the answer to every competitor's one-click Hire button \u2014 it is now, accurately, a statement about the standard rather than about a deployment.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-18",
+      "kind": "correction",
+      "line": 451,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The one ERC-8183 escrow we had verified does not implement ERC-8183 \u2014 **19 Aug 2026**"
     },
     {
       "blocks": [

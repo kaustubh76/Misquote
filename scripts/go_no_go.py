@@ -160,10 +160,24 @@ def check_published_assumptions() -> Check:
             "kappa_default is still PROVISIONAL (G-4 pending the 30-day fit)",
             "run the backfill and publish the fitted value before quoting",
         )
-    for required in ("A7", "A8", "A9", "A10"):
-        if required not in assumptions:
-            return Check("published assumptions", FAIL, f"{required} not in ASSUMPTIONS.md")
-    return Check("published assumptions", PASS, "G-1..G-3 and A7..A12 published")
+    # A7..A11, and the range in the detail must be the range that was checked.
+    #
+    # This read "G-1..G-3 and A7..A12 published" while looping over A7..A10, so
+    # it claimed two assumptions it never looked at and one — **A12** — that has
+    # never existed; the sheet stops at A11. A green tick asserting a fact about
+    # a document it did not read is the same defect the mainnet-only gates had,
+    # and this one also escaped the repo: `status.json` carried the string, the
+    # citation extractor found "A12" in it, and the assumption link on that card
+    # pointed at nothing. Derived from the loop below so the two cannot drift.
+    required = ("A7", "A8", "A9", "A10", "A11")
+    for item in required:
+        if item not in assumptions:
+            return Check("published assumptions", FAIL, f"{item} not in ASSUMPTIONS.md")
+    return Check(
+        "published assumptions",
+        PASS,
+        f"G-1..G-3 and {required[0]}..{required[-1]} published",
+    )
 
 
 def check_provisional_constants() -> Check:
@@ -293,7 +307,7 @@ def check_tape() -> Check:
 
 
 def short(task: str) -> str:
-    """"Choose — which pool to provide liquidity to" -> "Choose"."""
+    """ "Choose — which pool to provide liquidity to" -> "Choose"."""
     return task.split("—")[0].strip() or task
 
 
