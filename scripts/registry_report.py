@@ -163,6 +163,34 @@ def aacp_overlap() -> dict[str, Any]:
             "available": True,
             "chain_id": aacp.BSC_MAINNET,
             "shares_our_identity_registry": aacp.shares_our_identity_registry(aacp.BSC_MAINNET),
+            # The interface the escrow actually has, recovered from its deployed
+            # bytecode. Published because the absence in `hire_flow.escrow` is
+            # only half the finding: a refusal that does not say what was found
+            # instead reads as "we did not look".
+            "escrow_interface": dict(aacp.ESCROW_INTERFACE),
+            "escrow_selectors": {
+                "total": aacp.ESCROW_SELECTORS_TOTAL,
+                "resolved": aacp.ESCROW_SELECTORS_RESOLVED,
+                "note": (
+                    "The unresolved ones are counted, not guessed. Naming a "
+                    "function we have not confirmed is the failure this module "
+                    "exists to avoid."
+                ),
+            },
+            "not_erc8183": (
+                "TermixEscrow implements none of the seven calls erc8183.steps() "
+                "models, across 5,894 candidate signatures. Jobs are keyed by a "
+                "bytes32 order id, not the EIP's uint256 jobId, which is why "
+                "jobs(uint256), nextJobId() and jobCount() all revert. Verified "
+                "against the live contract in tests/registry/test_termix_escrow_fork.py."
+            ),
+            "order_decode": (
+                "orders(bytes32) returns 13 words. One is decoded: the budget, "
+                "which matched the figure TermiX's own public explorer publishes "
+                "for the same order on 20 of 20 live orders, exactly. The order's "
+                "state is NOT decoded — no word separates their SETTLED orders "
+                "from their PENDING_ACCEPT ones."
+            ),
             "contracts": contracts,
             "note": (
                 "A snapshot of TermiX's published table, recorded to be checked "

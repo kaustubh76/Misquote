@@ -14,13 +14,31 @@ not. BNB Chain's announcement of the BNBAgent SDK says it is live on BNB Chain
 This module was written the day we caught ourselves about to ship a mainnet hire
 button against an address nobody had seen. It shipped with `JOB_ESCROW` empty.
 
-**It has one entry now**, and it earned it: TermiX's own AACP — the sponsor of
-the track this work serves — runs a `TermixEscrow` on BSC mainnet, and it was
-verified on chain rather than copied from a table. `JOB_ESCROW_EVIDENCE` records
-what was checked *and what was not*: the escrow is real, upgradeable, and settles
-in the same USDT this codebase already records, but nobody has read an ERC-8183
-job back out of it, so it is a verified escrow rather than a verified ERC-8183
-escrow. The rule is **no entry without evidence**, and a test enforces it.
+**It had one entry, and the entry was wrong.** TermiX's own AACP — the sponsor
+of the track this work serves — runs a `TermixEscrow` on BSC mainnet, and it was
+added here on the strength of being a real, verified, USDT-settling escrow whose
+identity registry is byte-identical to the ERC-8004 one this codebase already
+reads. Everything in that sentence is still true. It is also not sufficient,
+and the earlier evidence said so in its own words: *nobody has read an ERC-8183
+job back out of it*.
+
+Somebody has now, and the answer was no. The implementation's dispatch table was
+recovered from the deployed bytecode, and **none of the seven calls `steps()`
+models — `createJob`, `setProvider`, `setBudget`, `fund`, `submit`, `complete`,
+`reject` — is present**, across 5,894 candidate signatures. What is there is an
+order-keyed escrow: `orders(bytes32)` and `acceptOrder(bytes32)`. Jobs are
+identified by a `bytes32` order id, not the EIP's `uint256` jobId, which is why
+`nextJobId()`, `jobCount()` and `jobs(uint256)` all reverted — they were never
+the wrong *call*, they were the wrong *interface*.
+
+So `JOB_ESCROW` is empty again, and `escrow_address()` raises again. That is the
+module's own rule applied to itself rather than around itself: this mapping is
+for **verified ERC-8183 job escrows**, a real escrow that does not implement
+ERC-8183 is not one, and a mapping whose name overstates its contents is the
+misquote wearing our own logo. What the contract *is* is recorded in
+`registry/aacp.py`, under its real interface, with the readings.
+
+The rule is **no entry without evidence**, and a test enforces it.
 
 Nothing here can send. `steps()` builds and prices the sequence; there is no
 signer, no web3, and deliberately no code path that could acquire one.
@@ -87,22 +105,26 @@ from dataclasses import dataclass
 # The EIP is Draft and publishes no reference deployments, and BNB's own SDK is
 # testnet-only. This mapping was empty for exactly that reason.
 #
-# It has one entry now, and the rule that governs it is stricter than "we found
-# an address somewhere": **no entry without evidence**, enforced by a test that
-# refuses any key missing from `JOB_ESCROW_EVIDENCE`. A table on a vendor's
-# website is a claim; bytecode at an address is a verification.
-JOB_ESCROW: dict[int, str] = {
-    56: "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
-}
+# It held one entry for a while — TermiX's `TermixEscrow` — and giving it up was
+# the point. The rule governing this mapping is stricter than "we found an
+# address somewhere" and stricter than "the address is real": **no entry without
+# evidence that it implements this standard**, enforced by a test. A table on a
+# vendor's website is a claim; bytecode at an address is a verification; and
+# bytecode that verifies a *different* interface is a verification of something
+# else. See `registry/aacp.py:ESCROW_INTERFACE` for what was found instead.
+JOB_ESCROW: dict[int, str] = {}
 
 # What was actually checked, and — more importantly — what was not.
 #
-# Recorded rather than summarised as a boolean because the gap between "this is a
-# live escrow that settles in the token we already use" and "we have exercised
-# ERC-8183's job interface here" is precisely the kind of slippage this project
-# exists to catch. The first is verified below. The second is not.
-JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
-    56: (
+# Kept as a record even though `JOB_ESCROW` is empty, because the readings are
+# the interesting output and deleting them would erase the correction along with
+# the claim. Keyed by address rather than by chain: it is evidence about a
+# contract, and that contract is no longer this module's escrow.
+#
+# The last line is the one that moved. It used to say the job interface had not
+# been exercised. It has been now, and it is not there.
+FORMER_CANDIDATE_EVIDENCE: dict[str, tuple[str, ...]] = {
+    "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c": (
         "TermiX AACP `TermixEscrow` (USDT). Address appears in TermiX's own live "
         "config at /api/v1/config/contracts, and our recorded snapshot matched it "
         "with zero mismatches across 16 addresses.",
@@ -114,10 +136,12 @@ JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
         "TermiX's IdentityRegistry is 0x8004A169...a432, byte-identical to the "
         "ERC-8004 registry this codebase already reads, whose `name()` answers "
         "'AgentIdentity'.",
-        "NOT VERIFIED: the ERC-8183 job interface itself. `nextJobId()`, "
-        "`jobCount()` and `jobs(uint256)` all revert, so the accessors are named "
-        "something else and no job has been read back. Until one has, this is a "
-        "verified escrow, not a verified ERC-8183 escrow.",
+        "NOT ERC-8183. The implementation's dispatch table was recovered from the "
+        "deployed bytecode: none of `createJob`, `setProvider`, `setBudget`, "
+        "`fund`, `submit`, `complete` or `reject` appears, across 5,894 candidate "
+        "signatures. It is an order-keyed escrow — `orders(bytes32)`, "
+        "`acceptOrder(bytes32)` — so `jobs(uint256)` reverted because the "
+        "interface differs, not because the call was misspelled.",
         "SECURITY: `owner()` returns 0x1095ded9...5e42. The contract holding "
         "escrowed funds is upgradeable by that owner, so the code a job is "
         "escrowed under is not the code it may be settled under. That is a "
@@ -127,6 +151,10 @@ JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
         "writes runs on a fork first.",
     ),
 }
+
+#: Addresses that were considered and rejected, and why in one line. Published
+#: rather than dropped: a rejected candidate is a result.
+JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {}
 
 # Six states, per the EIP. Terminal states are the last three.
 STATES = ("Open", "Funded", "Submitted", "Completed", "Rejected", "Expired")
@@ -246,8 +274,13 @@ def escrow_address(chain_id: int) -> str:
         raise NoVerifiedDeployment(
             f"no verified ERC-8183 job escrow for chain {chain_id}. The EIP is Draft "
             "and publishes no reference deployments; BNB Chain's BNBAgent SDK is "
-            "live on testnet only, with mainnet 'coming soon'. Verify an address "
-            "on chain and add it to JOB_ESCROW with its evidence."
+            "live on testnet only, with mainnet 'coming soon'. "
+            "TermiX's TermixEscrow was carried here and removed: its deployed "
+            "bytecode implements none of createJob/setProvider/setBudget/fund/"
+            "submit/complete/reject, across 5,894 candidate signatures. It is an "
+            "order-keyed escrow — orders(bytes32) — so it is a real escrow that is "
+            "not this standard. See registry/aacp.py:ESCROW_INTERFACE. "
+            "Verify an address on chain and add it to JOB_ESCROW with its evidence."
         )
     return address
 

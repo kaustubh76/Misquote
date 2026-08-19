@@ -448,6 +448,67 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-18 · The one ERC-8183 escrow we had verified does not implement ERC-8183 — **19 Aug 2026**
+
+`registry/erc8183.py` shipped with `JOB_ESCROW` deliberately empty: the EIP is Draft, publishes no
+reference deployments, and BNB's own SDK is testnet-only. It gained exactly one entry — TermiX's
+`TermixEscrow` on BSC mainnet — on evidence that was real and, it turns out, entirely circumstantial:
+
+| checked | result |
+|---|---|
+| bytecode present | EIP-1967 proxy, 170 bytes; implementation `0xbc8225ee…1e854` holds 17,941 |
+| `settlementToken()` | `0x55d3…7955` — our `USDT_MAINNET`, and token0 of the flagship pool |
+| identity registry | `0x8004A169…a432` — byte-identical to the ERC-8004 registry we already read |
+| live config drift | zero mismatches across 16 addresses |
+| **the job interface itself** | **never exercised** — and the evidence said so, in those words |
+
+**Every row above is still true.** None of them is about ERC-8183.
+
+**What the last row was hiding.** The recorded evidence noted that `nextJobId()`, `jobCount()` and
+`jobs(uint256)` all revert, and read that as *"the accessors are named something else"*. They are
+not. The implementation's dispatch table was recovered from the deployed bytecode — PUSH4 selectors,
+resolved by keccak — and **none of the seven calls `steps()` models is present**: not `createJob`,
+`setProvider`, `setBudget`, `fund`, `submit`, `complete` or `reject`, across **5,894 candidate
+signatures** (every 0-, 1-, 2- and 3-argument shape over the eight common ABI types, plus the EIP's
+own five-argument `createJob`).
+
+What is there is an **order-keyed escrow**: `orders(bytes32)`, `acceptOrder(bytes32)`,
+`protocolFeeBps()`, `feeRecipient()`, `reputation()`. Jobs are identified by a `bytes32` order id,
+not the EIP's `uint256` jobId. That single fact explains every revert we had recorded — the calls
+were never misspelled, the interface is different.
+
+**A job was read back, and it agrees.** TermiX's `/api/v1/explorer/jobs` is public and needs no
+credentials. `orders(bytes32)` returns a 13-word struct for a live order id, and word 3 is the
+budget in 18 decimals: it matched the figure their own explorer publishes for the same order on
+**20 of 20** live orders, exactly. That agreement with an independent source is what makes this a
+decode rather than a plausible reading of arbitrary bytes.
+
+**What is deliberately still not decoded.** No word in the struct separates their `SETTLED` orders
+from their `PENDING_ACCEPT` ones — word 8 reads `4` on both — so this codebase does not claim to read
+an order's state, and `ORDER_STATE_IS_UNDECODED` asserts that rather than leaving it as a comment.
+21 of 65 selectors resolved; the other 44 are **counted, not guessed**.
+
+**Resolution.** `JOB_ESCROW` is empty again and `escrow_address(56)` raises again. The rule that
+mapping states — *no entry without evidence* — is now applied to itself: it is for verified **ERC-8183**
+job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is
+not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a
+result and deleting it would erase the correction along with the claim. What the contract *is* now
+lives in `registry/aacp.py:ESCROW_INTERFACE`, recorded as signature→selector pairs so the naming can
+be re-derived rather than trusted.
+
+**Verified by tests that run against the live contract**, not by the paragraph above:
+`tests/registry/test_termix_escrow_fork.py` asserts the three EIP accessors revert, that
+`orders(bytes32)` answers, that the budget agrees with the explorer on every published order, and
+that the USDT escrow returns an empty struct for a USDC order — the trap being that an unknown order
+id returns thirteen zero words rather than reverting, so a caller pointed at the wrong settlement
+book gets a confident, well-formed, entirely fictional order with a budget of zero.
+
+**What this costs and what it buys.** The `/registry` page loses an escrow address, and the hire flow
+goes back to publishing a refusal. `steps()` is unaffected: it describes what ERC-8183 requires, and
+that description was never a claim about this contract. The six-transaction count still stands as the
+answer to every competitor's one-click Hire button — it is now, accurately, a statement about the
+standard rather than about a deployment.
+
 ### P-17 · The Avellaneda–Stoikov half-width never reaches the anti-dust floor — **18 Aug 2026**
 
 Correcting σ (P-15) should have widened every range by 3.6×. It changed the width by **nothing**, and

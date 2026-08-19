@@ -9,30 +9,36 @@
       "TermixEscrow_USDT": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
       "TermixReputation": "0xFf3f7038c4919A420B30D7B3533cb386D5898189"
     },
+    "escrow_interface": {
+      "acceptOrder(bytes32)": "0xdfc86408",
+      "feeRecipient()": "0x46904840",
+      "orders(bytes32)": "0x9c3f1e90",
+      "protocolFeeBps()": "0x35659fb8",
+      "reputation()": "0xc52164c6",
+      "settlementToken()": "0x7b9e618d"
+    },
+    "escrow_selectors": {
+      "note": "The unresolved ones are counted, not guessed. Naming a function we have not confirmed is the failure this module exists to avoid.",
+      "resolved": 21,
+      "total": 65
+    },
+    "not_erc8183": "TermixEscrow implements none of the seven calls erc8183.steps() models, across 5,894 candidate signatures. Jobs are keyed by a bytes32 order id, not the EIP's uint256 jobId, which is why jobs(uint256), nextJobId() and jobCount() all revert. Verified against the live contract in tests/registry/test_termix_escrow_fork.py.",
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
+    "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
     "shares_our_identity_registry": true
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-18T15:59:27+00:00",
+    "generated_at": "2026-08-18T18:42:11+00:00",
     "git_dirty": true,
-    "git_sha": "69e468b",
+    "git_sha": "fa185b4",
     "source": "offline"
   },
   "hire_flow": {
     "client_transaction_count": 4,
     "escrow": {
-      "address": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c",
-      "available": true,
-      "evidence": [
-        "TermiX AACP `TermixEscrow` (USDT). Address appears in TermiX's own live config at /api/v1/config/contracts, and our recorded snapshot matched it with zero mismatches across 16 addresses.",
-        "EIP-1967 proxy: 170 bytes of code whose bytecode contains the 1967 implementation slot constant; implementation 0xbc8225ee...1e854 holds 17,941 bytes.",
-        "`settlementToken()` returns 0x55d3...7955 \u2014 read off the escrow itself, and byte-identical to our USDT_MAINNET and to token0 of the flagship pool.",
-        "TermiX's IdentityRegistry is 0x8004A169...a432, byte-identical to the ERC-8004 registry this codebase already reads, whose `name()` answers 'AgentIdentity'.",
-        "NOT VERIFIED: the ERC-8183 job interface itself. `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert, so the accessors are named something else and no job has been read back. Until one has, this is a verified escrow, not a verified ERC-8183 escrow.",
-        "SECURITY: `owner()` returns 0x1095ded9...5e42. The contract holding escrowed funds is upgradeable by that owner, so the code a job is escrowed under is not the code it may be settled under. That is a property of the venue, not a defect, but a marketplace that routes user funds through it should say so rather than discover it later.",
-        "NO TESTNET: TermiX documents chains 56 and 8453 only. Anything that writes runs on a fork first."
-      ]
+      "available": false,
+      "reason": "no verified ERC-8183 job escrow for chain 56. The EIP is Draft and publishes no reference deployments; BNB Chain's BNBAgent SDK is live on testnet only, with mainnet 'coming soon'. TermiX's TermixEscrow was carried here and removed: its deployed bytecode implements none of createJob/setProvider/setBudget/fund/submit/complete/reject, across 5,894 candidate signatures. It is an order-keyed escrow \u2014 orders(bytes32) \u2014 so it is a real escrow that is not this standard. See registry/aacp.py:ESCROW_INTERFACE. Verify an address on chain and add it to JOB_ESCROW with its evidence."
     },
     "states": [
       "Open",

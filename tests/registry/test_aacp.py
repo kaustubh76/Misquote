@@ -96,12 +96,65 @@ def test_evidence_reports_readings_rather_than_a_boolean() -> None:
     assert "NOT VERIFIED" in evidence.render()
 
 
-def test_the_escrow_address_matches_the_one_erc8183_carries() -> None:
-    """Two modules, one address. If they drifted, the hire flow would price a
-    sequence against a contract nobody verified."""
+def test_erc8183_carries_no_address_for_this_escrow() -> None:
+    """The two modules agree, and what they agree on has changed.
+
+    They used to hold the same address, and the test was that they had not
+    drifted. `erc8183.JOB_ESCROW` is empty now — the escrow is order-keyed by
+    bytes32 and implements none of the seven ERC-8183 calls — so the invariant
+    is the other way round: the address lives here, under the interface it
+    actually has, and must *not* reappear there without evidence of a different
+    kind than the one that was disproved.
+    """
     from misquote.registry.erc8183 import JOB_ESCROW
 
-    assert JOB_ESCROW[BSC_MAINNET].lower() == CONTRACTS[BSC_MAINNET]["TermixEscrow_USDT"].lower()
+    assert BSC_MAINNET not in JOB_ESCROW
+    # Still recorded here, because the contract is real and the snapshot is what
+    # `mismatches()` checks their live config against.
+    assert CONTRACTS[BSC_MAINNET]["TermixEscrow_USDT"].startswith("0x")
+
+
+def test_the_recovered_interface_is_selectors_not_names() -> None:
+    """Every entry is a signature paired with the 4 bytes it hashes to.
+
+    Recorded as selectors because that is what was actually observed in the
+    deployed dispatch table. A name alone would be a claim about a contract
+    whose source we have never read.
+    """
+    from eth_utils import keccak
+
+    from misquote.registry.aacp import ESCROW_INTERFACE
+
+    assert ESCROW_INTERFACE, "the finding is the interface; an empty dict states nothing"
+    for signature, selector in ESCROW_INTERFACE.items():
+        assert selector == "0x" + keccak(text=signature)[:4].hex(), signature
+
+
+def test_the_unresolved_selectors_are_counted_not_hidden() -> None:
+    """44 of 65 selectors were not resolved, and that is published.
+
+    A partial decode reported as a decode is how a plausible-looking ABI gets
+    built out of guesses. The ratio is the honest headline.
+    """
+    from misquote.registry.aacp import (
+        ESCROW_INTERFACE,
+        ESCROW_SELECTORS_RESOLVED,
+        ESCROW_SELECTORS_TOTAL,
+    )
+
+    assert ESCROW_SELECTORS_RESOLVED < ESCROW_SELECTORS_TOTAL
+    assert len(ESCROW_INTERFACE) <= ESCROW_SELECTORS_RESOLVED
+
+
+def test_the_order_state_is_not_claimed() -> None:
+    """No word in the struct separates SETTLED from PENDING_ACCEPT.
+
+    So this module does not offer a way to read an order's state, and the flag
+    saying so is asserted rather than left as a comment somebody deletes.
+    """
+    from misquote.registry.aacp import ORDER_STATE_IS_UNDECODED
+
+    assert ORDER_STATE_IS_UNDECODED is True
 
 
 # --- against the chain ------------------------------------------------------

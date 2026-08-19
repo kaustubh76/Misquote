@@ -1,14 +1,23 @@
-"""ERC-8183: the hire flow, and the evidence behind the one address it carries.
+"""ERC-8183: the hire flow, and the evidence behind the addresses it does not carry.
 
 Every competing submission will put a Hire button on a card. Two properties of
 ours are worth testing: it states the real cost of hiring — six transactions, not
 one click — and it cannot send any of them.
 
 `JOB_ESCROW` was empty when this module shipped, because we had verified nothing.
-It has one entry now, TermiX's own escrow, checked on chain rather than copied
-from their website. So the invariant under test is no longer "this must be
-empty" but the stronger **no address without recorded evidence, including the
-part that failed** — which is a rule that survives the mapping growing.
+It then held one entry, TermiX's own escrow, checked on chain rather than copied
+from their website. It is empty again, and that round trip is the point: the
+entry was justified by everything *around* the interface — real bytecode, a
+settlement token we already record, an identity registry byte-identical to ours
+— and its own evidence flagged the hole, that nobody had read an ERC-8183 job
+back out of it. Reading one closed the hole in the unexpected direction. The
+contract is an order-keyed escrow, `orders(bytes32)`, and implements none of the
+seven calls this module models.
+
+So the invariant under test is stronger than "this must be empty" and stronger
+than "no address without evidence": **no address without evidence that it
+implements this standard**. A real, verified, well-behaved escrow that does not
+is still not one.
 """
 
 from __future__ import annotations
@@ -16,6 +25,7 @@ from __future__ import annotations
 import pytest
 
 from misquote.registry.erc8183 import (
+    FORMER_CANDIDATE_EVIDENCE,
     JOB_ESCROW,
     JOB_ESCROW_EVIDENCE,
     STATES,
@@ -121,17 +131,35 @@ def test_no_address_may_exist_without_recorded_evidence() -> None:
 def test_the_evidence_states_what_was_not_verified() -> None:
     """Evidence that only lists successes is marketing.
 
-    The gap between "a live escrow settling in the token we use" and "we have
-    exercised ERC-8183's job interface here" is exactly the slippage this project
-    exists to catch, so it must be written down at the address that has it.
+    Repointed rather than deleted. It used to assert that the *populated* entry
+    disclosed its own hole — "nobody has read an ERC-8183 job back out of it".
+    Somebody did, the answer was no, and the entry is gone; the caveats that
+    survive belong to the rejected candidate, and they are still the part a
+    reader needs.
     """
-    for chain_id in JOB_ESCROW:
-        evidence = " ".join(JOB_ESCROW_EVIDENCE[chain_id])
-        assert "NOT VERIFIED" in evidence, "no statement of what remains unproven"
-        assert "job interface" in evidence
+    for address, evidence_lines in FORMER_CANDIDATE_EVIDENCE.items():
+        assert address.startswith("0x") and len(address) == 42
+        evidence = " ".join(evidence_lines)
+        assert "NOT ERC-8183" in evidence, "no statement of why this was rejected"
         # An upgradeable contract holding escrowed funds is a property a
-        # marketplace routing user money through it has to disclose.
+        # marketplace routing user money through it has to disclose, and that is
+        # true of a contract we declined to use as much as one we did.
         assert "upgradeable" in evidence.lower()
+        assert "NO TESTNET" in evidence
+
+
+def test_the_rejected_candidate_names_the_interface_it_actually_has() -> None:
+    """A rejection that does not say what was found instead is an assertion.
+
+    The useful half of this finding is not "it is not ERC-8183" — it is that the
+    escrow is order-keyed by bytes32, which explains every revert we saw and
+    predicts the next one.
+    """
+    evidence = " ".join(next(iter(FORMER_CANDIDATE_EVIDENCE.values())))
+    assert "orders(bytes32)" in evidence
+    assert "5,894" in evidence, "the size of the search belongs in the claim"
+    for call in ("createJob", "setBudget", "fund", "submit", "complete", "reject"):
+        assert call in evidence, f"{call} not named among what was searched for"
 
 
 def test_a_chain_with_no_verified_deployment_still_raises() -> None:
@@ -142,8 +170,16 @@ def test_a_chain_with_no_verified_deployment_still_raises() -> None:
         escrow_address(1)
 
 
-def test_the_verified_chain_returns_its_address() -> None:
-    assert escrow_address(56) == JOB_ESCROW[56]
+def test_mainnet_raises_again_now_the_candidate_is_rejected() -> None:
+    """The refusal came back, and that is the module working.
+
+    `escrow_address(56)` returned an address for as long as we believed the
+    contract implemented this standard. It does not, so this raises again — and
+    a caller that had started depending on the address finds out at the call
+    rather than by building a transaction to a contract that cannot receive it.
+    """
+    with pytest.raises(NoVerifiedDeployment, match="no verified"):
+        escrow_address(56)
 
 
 def test_nothing_here_can_send_a_transaction() -> None:
