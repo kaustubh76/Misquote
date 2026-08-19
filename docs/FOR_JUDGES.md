@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 950 tests, no network, ~35s
+make test                     # 1,028 tests, no network, ~35s
 make showcase-demo            # replay all three agents, write the cards
 make web                      # http://localhost:3000
 make go-no-go                 # the mainnet gate — it currently says NOT YET
@@ -43,10 +43,12 @@ Each of these is a test you can run, not a claim.
 | No gate is wired to nothing | Every toxicity arm is asserted to reach a non-zero value in a real run, and a threshold above its own ceiling refuses to construct | `tests/agents/test_sentinel.py` |
 | The advantage report contains no typed-in numbers | The engine is re-run independently and **exact** equality demanded — not approximate | `tests/tearsheet/test_advantage.py` |
 | The DIY baseline is not a different program | Both columns are one `ReplayDriver` with `policy=` swapped; same tape, same costs, same accountant | same |
+| The sponsor's escrow is not ERC-8183 | Three EIP accessors revert on the live contract; `orders(bytes32)` answers, and its budget word matches TermiX's own published figure on 20 of 20 live orders | `tests/registry/test_termix_escrow_fork.py` |
+| Every pool we quote was read, not assumed | All four recorded pools re-checked against chain — tokens, fee tier, spacing, factory, and `feeProtocol`, the field that decides what a fee is worth | `tests/chain/test_addresses.py` (chainfork) |
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**984 tests: 950 offline, 34 against a live chain or a fork.**
+**1066 tests: 1028 offline, 38 against a live chain or a fork.**
 
 ---
 
@@ -168,23 +170,64 @@ So **there is no equity tape and there will not be one**: `verdict(min_n=30)`
 would refuse it and cutting 384 swaps into twenty sub-windows leaves nineteen
 each. The pool stays a *generality* proof — same code, different fee tier,
 spacing and protocol fee — which is exactly what `test_equity_pool.py` asserts
-and the whole of what it asserts. It is not a venue we can quote, and the
-advantage report's third task says so rather than presenting constructed pools as
-real ones. It is also the *only* xStocks v3 pool on BSC with real liquidity at
-all; NVDAx and AAPLx have no pool at any tier, and the 1.00% TSLAx pool exists
-with zero liquidity and was refused rather than quoted.
+and the whole of what it asserts. It is not a venue we can quote. It is also the
+*only* xStocks v3 pool on BSC with real liquidity at all; NVDAx and AAPLx have no
+pool at any tier, and the 1.00% TSLAx pool exists with zero liquidity and was
+refused rather than quoted.
 
-**Security: the sponsor's own escrow, verified rather than trusted.** TermiX's
-AACP builds on ERC-8004 and ERC-8183 — and their `IdentityRegistry` is
+**A second real venue, because task 3 needed one.** "Which pool would you choose?"
+used to be answered on two tapes from `synthetic_events()` — one deep and toxic
+*by construction*, one shallow and balanced *by construction*. A task whose answer
+is written into its own setup is not evidence, however carefully the rest of the
+report is built. The second venue is now **WBNB/USDT at the 0.25% tier**,
+`0x1401ff94…`, resolved through `factory.getPool` and read back: same pair, real
+flow, **191× shallower** by median liquidity, and `feeProtocol = 3200` against the
+flagship's 3400. Which of the two is the "deepest" is now measured from the tapes
+rather than asserted by a label, and both tapes are clipped to the block range they
+share so the comparison is about two pools and not about two months.
+
+That protocol fee is **P-8 a third time**: three fee tiers of one pair on one DEX,
+three different protocol cuts — 3300 at 0.01%, 3400 at 0.05%, 3200 at 0.25%. Any
+constant is wrong for two of them, and the error lands on NetFeeAPR.
+
+Provenance is now recorded **per task** rather than per report. The gate used to
+read one top-level `source`, which a report with two real tasks and one constructed
+one would pass while its header said `chain`. It names the task that is not real.
+
+**Security: the sponsor's own escrow, verified — and then un-verified.** TermiX's
+AACP builds on ERC-8004 and ERC-8183, and their `IdentityRegistry` is
 `0x8004A169…a432`, **byte-identical to the contract this codebase already read**.
-Their `TermixEscrow` is now in `JOB_ESCROW[56]`, but only with
-`JOB_ESCROW_EVIDENCE` recording what was checked *and what was not*: it is an
-EIP-1967 proxy over 17,941 bytes, `settlementToken()` returns our own USDT, and
-**nobody has read an ERC-8183 job back out of it**, so it is a verified escrow
-rather than a verified ERC-8183 escrow. It is also **upgradeable by its owner** —
-escrowed funds sit behind code that can be replaced — which is a property of the
-venue a marketplace routing user money through it should disclose rather than
-discover.
+On that strength their `TermixEscrow` went into `JOB_ESCROW[56]`, with
+`JOB_ESCROW_EVIDENCE` recording what was checked *and what was not* — an EIP-1967
+proxy over 17,941 bytes, `settlementToken()` returning our own USDT, and the
+caveat that **nobody had read an ERC-8183 job back out of it**.
+
+Somebody has now, and **it is not an ERC-8183 escrow.** Its implementation's
+dispatch table, recovered from the deployed bytecode, contains none of the seven
+calls our hire flow models — not `createJob`, `setProvider`, `setBudget`, `fund`,
+`submit`, `complete` or `reject` — across **5,894 candidate signatures**. It is
+order-keyed: `orders(bytes32)`, `acceptOrder(bytes32)`. That is why
+`jobs(uint256)` reverted; the interface differs, the call was never misspelled.
+
+A job *was* read back, through the accessor that exists: `orders(bytes32)`
+returns a 13-word struct whose budget word matches the figure TermiX's own public
+explorer publishes for the same order on **20 of 20 live orders**, exactly. The
+order's state is deliberately **not** decoded — no word separates their `SETTLED`
+orders from their `PENDING_ACCEPT` ones — and 44 of 65 selectors are recorded as
+unresolved rather than guessed.
+
+So `JOB_ESCROW` is empty again and `escrow_address(56)` raises again. The rule
+that mapping states is *no entry without evidence*, and it is now applied to
+itself: a real, fully-verified, well-behaved escrow that implements a different
+interface is not an ERC-8183 escrow. The readings survive under
+`FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a result. The whole
+finding is **P-18** in the requirements matrix, and it is asserted against the
+live contract by `tests/registry/test_termix_escrow_fork.py` rather than by this
+paragraph.
+
+The escrow is also **upgradeable by its owner** — escrowed funds sit behind code
+that can be replaced — which remains a property of the venue a marketplace
+routing user money through it should disclose rather than discover.
 
 **And the report is not yet "real".** It runs on a synthetic tape, badged on every
 line. The keyed `BSC_RPC_URL` therefore blocks this track's core requirement, not
