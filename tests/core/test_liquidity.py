@@ -179,3 +179,83 @@ def test_amount1_at_price_one_is_liquidity_times_width() -> None:
     liquidity = 10**18
     amount1 = get_amount1_for_liquidity(Q96, 2 * Q96, liquidity)
     assert amount1 == liquidity  # (2Q96 - Q96)/Q96 == 1
+
+
+# --- A1's ceiling, read the other way ---------------------------------------
+
+
+def test_the_capital_ceiling_is_the_boundary_the_cap_branch_uses() -> None:
+    """`capital_for_liquidity_cap` must agree with `liquidity_for_capital`.
+
+    The two describe one boundary from opposite sides — "did this breach?" and
+    "at what capital does it start to?" — so a discrepancy would mean the report
+    picks a capital the driver then refuses, or worse, one it silently caps.
+
+    Checked by stepping across the boundary: just under it must not breach, and
+    a little over it must.
+    """
+    from misquote.core.liquidity import capital_for_liquidity_cap, liquidity_for_capital
+    from misquote.core.tickmath import get_sqrt_ratio_at_tick
+
+    sqrt_price = get_sqrt_ratio_at_tick(-64_000)
+    sqrt_a = get_sqrt_ratio_at_tick(-64_400)
+    sqrt_b = get_sqrt_ratio_at_tick(-63_600)
+    pool_liquidity = 1_252_831_372_941_186_525_611_792
+    eps = 0.01
+
+    ceiling = capital_for_liquidity_cap(
+        sqrt_price, sqrt_a, sqrt_b, dec1=18, pool_liquidity=pool_liquidity, eps=eps
+    )
+    assert ceiling > 0
+
+    def capped_at(capital: float) -> bool:
+        _, capped = liquidity_for_capital(
+            sqrt_price,
+            sqrt_a,
+            sqrt_b,
+            capital_quote=capital,
+            dec1=18,
+            pool_liquidity=pool_liquidity,
+            eps=eps,
+        )
+        return capped
+
+    assert not capped_at(ceiling * 0.99), "just inside the ceiling must not breach A1"
+    assert capped_at(ceiling * 1.01), "just outside it must"
+
+
+def test_a_shallower_pool_has_a_lower_ceiling_in_proportion() -> None:
+    """A1's ceiling is a property of the pool, which is the whole reason task 3
+    cannot run both of its venues at one capital chosen for the deeper one."""
+    from misquote.core.liquidity import capital_for_liquidity_cap
+    from misquote.core.tickmath import get_sqrt_ratio_at_tick
+
+    args = dict(
+        sqrt_price_x96=get_sqrt_ratio_at_tick(-64_000),
+        sqrt_a=get_sqrt_ratio_at_tick(-64_400),
+        sqrt_b=get_sqrt_ratio_at_tick(-63_600),
+        dec1=18,
+        eps=0.01,
+    )
+    deep = capital_for_liquidity_cap(pool_liquidity=1_252_831_372_941_186_525_611_792, **args)
+    shallow = capital_for_liquidity_cap(pool_liquidity=6_558_013_354_479_073_355_257, **args)
+
+    assert deep > shallow
+    assert deep / shallow == pytest.approx(191.0, rel=0.02), "linear in pool liquidity"
+
+
+def test_an_empty_pool_admits_no_capital_rather_than_dividing_by_zero() -> None:
+    from misquote.core.liquidity import capital_for_liquidity_cap
+    from misquote.core.tickmath import get_sqrt_ratio_at_tick
+
+    assert (
+        capital_for_liquidity_cap(
+            get_sqrt_ratio_at_tick(-64_000),
+            get_sqrt_ratio_at_tick(-64_400),
+            get_sqrt_ratio_at_tick(-63_600),
+            dec1=18,
+            pool_liquidity=0,
+            eps=0.01,
+        )
+        == 0.0
+    )

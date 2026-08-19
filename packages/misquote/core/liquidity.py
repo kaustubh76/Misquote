@@ -168,6 +168,45 @@ def get_amounts_for_liquidity(
     return 0, get_amount1_for_liquidity(lo, hi, liquidity)
 
 
+def capital_for_liquidity_cap(
+    sqrt_price_x96: int,
+    sqrt_a: int,
+    sqrt_b: int,
+    *,
+    dec1: int,
+    pool_liquidity: int,
+    eps: float,
+) -> float:
+    """The largest `capital_quote` that does **not** breach A1's ceiling here.
+
+    The exact inverse of `liquidity_for_capital`'s cap branch: that function
+    reports *whether* the ceiling bound the position, and this one answers *at
+    what capital it starts to*. Same arithmetic, read the other way, so the two
+    cannot disagree about where the boundary is.
+
+    Why it is needed. A1's ceiling is `eps x pool_liquidity`, which is a property
+    of the **pool**, not of the strategy. Comparing an agent across two venues at
+    one capital therefore asks a question the shallower venue may be unable to
+    answer: the flagship WBNB/USDT pool carries about 191x the median liquidity
+    of the 0.25% tier, so a position that sits comfortably inside A1 on one
+    breaches it on the other and A1 says such a quote is refused, not clamped.
+    Picking the capital by hand until both clear would be fitting a published
+    number to the answer it produces; deriving it is not.
+
+    Returns a float because it is a boundary, not a position size. Callers that
+    need to stay inside it should take a margin — a capital computed to land
+    exactly on the ceiling breaches it on the first swap that removes liquidity.
+    """
+    reference = 10**24
+    ref0, ref1 = get_amounts_for_liquidity(sqrt_price_x96, sqrt_a, sqrt_b, reference)
+    price_raw = (sqrt_price_x96 / Q96) ** 2
+    value_ref = ref0 * price_raw + ref1
+    if value_ref <= 0 or pool_liquidity <= 0:
+        return 0.0
+    cap = pool_liquidity * eps
+    return cap * value_ref / (reference * 10**dec1)
+
+
 def liquidity_for_capital(
     sqrt_price_x96: int,
     sqrt_a: int,
