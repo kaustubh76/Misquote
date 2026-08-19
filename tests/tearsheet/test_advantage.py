@@ -21,12 +21,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from advantage import (  # noqa: E402
     META,
+    META_WIDE,
     NEVER_WITHDRAW,
+    a1_ceiling,
     build,
+    shared_capital,
     synthetic_events,
     task_earn,
     task_protect,
     to_payload,
+    venue_depth,
+    venue_toxicity,
 )
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy  # noqa: E402
 from misquote.core.policy import passive_policy  # noqa: E402
@@ -307,3 +312,91 @@ def test_the_artifact_round_trips_and_carries_the_badge(comparisons) -> None:
     for task in payload["tasks"]:
         assert {"baseline", "agent", "delta_pp", "verdict"} <= set(task)
     assert json.loads(json.dumps(payload)) == payload
+
+
+# --- task 3's two venues ----------------------------------------------------
+#
+# The task used to run on two tapes from `synthetic_events()`, one deep and
+# toxic *by construction* and one shallow and balanced *by construction*. Its
+# answer was therefore written into its own setup. These pin the two decisions
+# that replaced that: which venue is deeper is measured, and what capital both
+# can honestly carry is derived.
+
+
+def test_the_deeper_venue_is_measured_rather_than_labelled() -> None:
+    """`venue_depth` must rank by what the tape says, not by argument order."""
+    shallow = synthetic_events(400, seed=3, liquidity=10**22)
+    deep = synthetic_events(400, seed=3, liquidity=50 * 10**22)
+
+    assert venue_depth(deep) > venue_depth(shallow)
+    assert venue_depth(deep) / venue_depth(shallow) == pytest.approx(50.0, rel=0.01)
+
+
+def test_an_empty_tape_has_no_depth_rather_than_crashing() -> None:
+    assert venue_depth([]) == 0
+
+
+def test_a_shallow_venue_lowers_the_capital_for_both_columns() -> None:
+    """A1's ceiling belongs to the pool, so the shallower venue binds the pair.
+
+    The failure this prevents is concrete and was measured: at the report's
+    default capital the 0.25% tier refused on 564 mints, and A1 says a quote
+    that breaches is *refused rather than rendered* — so task 3 would have
+    published nothing at all.
+    """
+    deep = synthetic_events(300, seed=5, liquidity=200 * 10**22)
+    shallow = synthetic_events(300, seed=5, liquidity=10**22)
+
+    assert a1_ceiling(deep, META) > a1_ceiling(shallow, META_WIDE)
+
+    capital, note = shared_capital(
+        [(deep, META, "deep"), (shallow, META_WIDE, "shallow")], requested=1.0
+    )
+    assert capital < 1.0, "the requested capital breaches A1 on the shallow venue"
+    assert capital <= a1_ceiling(shallow, META_WIDE), "above the binding ceiling"
+    assert "shallow" in note and "A1" in note, "the reduction must be explained, not silent"
+
+
+def test_a_capital_both_venues_can_carry_is_left_alone() -> None:
+    """The clamp must not fire when it is not needed, or every task 3 would
+    quietly run at half the ceiling of whichever venue happened to be thinnest."""
+    deep = synthetic_events(300, seed=5, liquidity=200 * 10**22)
+    other = synthetic_events(300, seed=5, liquidity=180 * 10**22)
+
+    capital, note = shared_capital([(deep, META, "deep"), (other, META, "other")], requested=1e-6)
+    assert capital == 1e-6
+    assert note == "", "nothing was changed, so nothing should be explained"
+
+
+def test_both_columns_get_the_same_capital() -> None:
+    """The point of the exercise. Two venues at two capitals is partly a
+    comparison between two position sizes, whatever the label says."""
+    deep = synthetic_events(300, seed=5, liquidity=200 * 10**22)
+    shallow = synthetic_events(300, seed=5, liquidity=10**22)
+    venues = [(deep, META, "deep"), (shallow, META_WIDE, "shallow")]
+
+    first, _ = shared_capital(venues, requested=1.0)
+    second, _ = shared_capital(list(reversed(venues)), requested=1.0)
+    assert first == second, "the shared capital must not depend on venue order"
+
+
+def test_the_screen_picks_the_agents_venue_rather_than_the_leftover() -> None:
+    """§3.4's imbalance arm chooses, using the estimator Sentinel withdraws on.
+
+    The subtler rigging this replaces: with two venues, the baseline took the
+    deeper one and the agent was simply handed *the other*. That silently
+    assumes the screen disagrees with depth — and if it does not, the task
+    reports a difference it never measured.
+    """
+    one_way = synthetic_events(600, seed=11, drift=0.55)
+    balanced = synthetic_events(600, seed=11, drift=0.0)
+
+    assert venue_toxicity(one_way, META) > 0.9, "a one-way tape must read as toxic"
+    assert venue_toxicity(balanced, META) < 0.1, "a balanced one must not"
+
+
+def test_a_quiet_venue_is_not_called_toxic_by_a_short_window() -> None:
+    """Below a full window there is no verdict, so the fraction is zero rather
+    than an emergency computed from four swaps."""
+    assert venue_toxicity(synthetic_events(5, seed=2), META) == 0.0
+    assert venue_toxicity([], META) == 0.0

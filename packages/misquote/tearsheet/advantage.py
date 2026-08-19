@@ -90,6 +90,16 @@ class Comparison:
     note: str
     windows: int
 
+    # Where this task's tape came from — "chain" or "synthetic" — per task
+    # rather than per report.
+    #
+    # One report-level flag was not enough. Task 3 compares two venues, and it
+    # was possible for tasks 1 and 2 to run on real swaps while task 3 ran on
+    # two constructed tapes, under a report stamped `source: chain`. The gate in
+    # `go_no_go` read that one flag and passed. The track asks for three *real*
+    # tasks, so provenance has to travel with the task that has it.
+    source: str = "synthetic"
+
     # Supporting detail, published because the headline alone is not auditable.
     baseline_in_range: float = 0.0
     agent_in_range: float = 0.0
@@ -157,6 +167,7 @@ def compare(
     agent_quote,
     baseline_result=None,
     agent_result=None,
+    source: str = "synthetic",
 ) -> Comparison:
     """Build a `Comparison` from two quotes produced by the same engine.
 
@@ -192,6 +203,7 @@ def compare(
         quotable=quotable,
         note=note,
         windows=agent_quote.windows,
+        source=source,
         baseline_in_range=_of(baseline_result, "in_range_fraction"),
         agent_in_range=_of(agent_result, "in_range_fraction"),
         baseline_costs=_of(baseline_result, "total_costs"),
