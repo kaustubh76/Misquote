@@ -1,10 +1,10 @@
 {
-  "capital_quote": 1000.0,
+  "capital_quote": 1.0,
   "command": "python scripts/showcase.py",
   "events": 252923,
-  "generated_at": "2026-08-18T06:14:48+00:00",
+  "generated_at": "2026-08-18T18:05:17+00:00",
   "git_dirty": true,
-  "git_sha": "9b96c0f",
+  "git_sha": "bb1c644",
   "quote_symbol": "WBNB",
   "source": "chain",
   "span_hours": 725.72,
