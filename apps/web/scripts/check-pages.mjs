@@ -168,7 +168,12 @@ for (const [colorScheme, width] of VIEWPORTS) {
 // guessed from the source.
 const NO_JS = [
   // route, minimum characters of body text, a string that must be present
-  ["/", 2000, "PancakeSwap"],
+  // `Router`, from `index.json.not_built[0].name` — not `PancakeSwap`, which
+  // only reaches this page through `SourceBanner`'s *chain* branch. The moment
+  // a run was regenerated from a synthetic tape the banner switched to "a
+  // generated tape", the pool name vanished, and the needle failed for a reason
+  // that had nothing to do with prerendering. A needle has to survive the data.
+  ["/", 2000, "Router"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
@@ -202,6 +207,65 @@ for (const [path, floor, needle] of NO_JS) {
 }
 
 await noJs.close();
+
+// --- interaction, in a real browser ------------------------------------------
+//
+// Everything else here loads a page and looks at it. Nothing anywhere in this
+// repository has ever clicked, typed or pressed a key in a real browser: the
+// component tests are jsdom, which has no layout and its own scheduling, and
+// this script only ever navigated by URL.
+//
+// That gap hid a live defect on the site's core mechanism. `/assumptions` is
+// where every citation lands; following one from a filtered page is supposed to
+// clear the filter, mark the entry and scroll to it. The filter cleared and the
+// other two silently did not — React batches the state updates, so the reveal
+// looked for its target in a DOM that was still filtered, found nothing, and
+// returned. **The jsdom test for exactly this scenario passed throughout.**
+// Measured in Chromium: the entry was marked `false` and left 2,340px away.
+//
+// So this pass exists, and it starts with the case that proved it was needed.
+const live = await browser.newContext();
+const page2 = await live.newPage();
+
+await page2.goto(BASE + "/assumptions/", { waitUntil: "networkidle" });
+await page2.waitForTimeout(400);
+await page2.getByRole("radio", { name: /^Gaps/ }).click();
+await page2.waitForTimeout(200);
+
+const hiddenWhileFiltered = await page2.evaluate(() => !document.getElementById("A5"));
+await page2.evaluate(() => {
+  window.location.hash = "#A5";
+});
+await page2.waitForTimeout(600);
+
+const revealed = await page2.evaluate(() => {
+  const el = document.getElementById("A5");
+  if (!el) return { found: false, marked: false, near: false };
+  return {
+    found: true,
+    marked: el.innerText.includes("followed a citation here"),
+    near: Math.abs(el.getBoundingClientRect().top) < 400,
+  };
+});
+
+// The premise first: if the filter stopped hiding A5, this proves nothing.
+if (!hiddenWhileFiltered) {
+  failures.push("citation reveal: A5 was not hidden by the Gaps filter, so the test proves nothing");
+}
+for (const [ok, what] of [
+  [revealed.found, "the filter did not clear"],
+  [revealed.marked, "the entry was not marked as the one followed to"],
+  [revealed.near, "the reader was not scrolled to the entry"],
+]) {
+  if (!ok) failures.push(`citation reveal: ${what}`);
+}
+const revealOk = hiddenWhileFiltered && revealed.found && revealed.marked && revealed.near;
+console.log(
+  `  ${revealOk ? "ok  " : "FAIL"}  ${"interact citation reveal".padEnd(30)}` +
+    `  cleared=${revealed.found} marked=${revealed.marked} scrolled=${revealed.near}`,
+);
+
+await live.close();
 await browser.close();
 
 if (failures.length) {

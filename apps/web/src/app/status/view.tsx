@@ -4,6 +4,7 @@ import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
+import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { LedgerTable } from "@/components/Ledger";
 import { Pill, statusTone } from "@/components/Pill";
 import { ErrorNotice } from "@/components/Refusal";
@@ -38,6 +39,25 @@ export interface StatusArtifact {
    */
   build?: Build;
 }
+
+/**
+ * Verdict order, worst last — the same direction `/vetting`'s rollup uses.
+ *
+ * Listed rather than derived from the data so the chips do not reorder
+ * themselves between runs: a control whose options move when the underlying
+ * numbers move is one nobody can build a habit with.
+ */
+const STATUSES = ["PASS", "UNVERIFIED", "FAIL"] as const;
+
+/** What the filter can be set to: any verdict, or everything. */
+type Verdict = (typeof STATUSES)[number];
+type Filter = Verdict | "all";
+
+const STATUS_LABEL: Record<Verdict, string> = {
+  PASS: "Passing",
+  UNVERIFIED: "Unverified",
+  FAIL: "Failing",
+};
 
 const OUTCOME_STYLE: Record<string, string> = {
   GO: "border-good-line bg-good-bg/50 text-good",
@@ -75,6 +95,32 @@ export function StatusView({
   }, []);
 
   const d = status?.ok ? status.value : null;
+
+  /**
+   * Which verdict to show. The page's question is "what has nobody checked",
+   * and answering it meant reading eleven cards and counting.
+   *
+   * `"all"` rather than defaulting to the unverified ones: a checklist that
+   * opens pre-filtered to its own failures is arguing rather than reporting,
+   * and the passing gates are the evidence that the amber ones are not simply
+   * everything.
+   */
+  const [only, setOnly] = useState<Filter>("all");
+
+  const checks = d?.checks ?? [];
+  const shown = only === "all" ? checks : checks.filter((c) => c.status === only);
+
+  // Counts off the checks themselves, never off `summary` — the two are the
+  // same numbers from different code, and a filter whose label disagrees with
+  // the list under it is worse than no filter.
+  const chips: Chip<Filter>[] = [
+    { value: "all", label: "All", meta: String(checks.length) },
+    ...STATUSES.filter((s) => checks.some((c) => c.status === s)).map((s) => ({
+      value: s,
+      label: STATUS_LABEL[s],
+      meta: String(checks.filter((c) => c.status === s).length),
+    })),
+  ];
 
   return (
     <Loadable loading={status === null} what="the go/no-go status">
@@ -133,8 +179,35 @@ export function StatusView({
           )}
 
           <Section title="Gates">
+            <div className="mb-5 rounded-lg border border-line bg-panel-2 p-4">
+              <ChipGroup
+                label="Filter by verdict"
+                options={chips}
+                value={only}
+                onChange={setOnly}
+              />
+              {/* Announced, not merely rendered — filtering removes cards from
+                  below the fold. Named, because `Loadable` already owns an
+                  unnamed `role="status"` on this page and two anonymous voices
+                  is one too many. */}
+              <p role="status" aria-label="Filter result" className="mt-3 mb-0 text-xs text-faint">
+                {only === "all"
+                  ? `All ${checks.length} gates.`
+                  : `${shown.length} of ${checks.length} gates ${STATUS_LABEL[only].toLowerCase()}.`}
+              </p>
+            </div>
+
+            {shown.length === 0 ? (
+              /* In words. A filter that empties the list and says nothing reads
+                 as a broken page, and on this page in particular "no gate is
+                 failing" is a result worth stating rather than implying with
+                 blank space. */
+              <p className="m-0 text-sm text-dim">
+                No gate is {STATUS_LABEL[only as Verdict].toLowerCase()}.
+              </p>
+            ) : (
             <div className="grid gap-3">
-              {d.checks.map((check) => (
+              {shown.map((check) => (
                 <Card key={check.name} className="!p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -151,6 +224,7 @@ export function StatusView({
                 </Card>
               ))}
             </div>
+            )}
           </Section>
 
           {index?.ok && index.value.not_built.length > 0 && (

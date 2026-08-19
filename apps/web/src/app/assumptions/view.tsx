@@ -97,6 +97,8 @@ export function AssumptionsView({
   const [kind, setKind] = useState("all");
   const [query, setQuery] = useState("");
   const [landed, setLanded] = useState<string | null>(null);
+  /** An id from the hash, waiting for the filter reset to land. */
+  const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -131,26 +133,24 @@ export function AssumptionsView({
       setKind("all");
       setQuery("");
 
-      const target = document.getElementById(id);
-      if (!target) return;
-
-      // Mark before scrolling, not after. `scrollIntoView` is the one call here
-      // an environment can be missing — jsdom has no layout and does not
-      // implement it — and an exception thrown mid-effect takes everything
-      // after it down. Ordered the other way, the marking silently depended on
-      // the scroll succeeding, which is the weaker of the two: a reader who
-      // cannot tell which entry they landed on is worse off than one who has
-      // to scroll to it.
+      // And then stop, because the entry is not in the DOM yet.
       //
-      // The marking is itself the non-colour signal. `:target` alone is a
-      // border tint, and the programmatic focus below does not reliably
-      // satisfy `:focus-visible` for a reader who arrived by clicking — so a
-      // mouse user got colour and nothing else, on the page every citation
-      // points at. `Pill.tsx` states the rule that breaks: colour is the third
-      // signal, never the only one.
-      setLanded(id);
-      target.focus({ preventScroll: true });
-      target.scrollIntoView?.({ block: "start" });
+      // React batches those two setters, so at this point the page is still
+      // filtered and `getElementById` returns null for exactly the entry this
+      // exists to reveal. The early return below then skipped the marking, the
+      // focus and the scroll — leaving a reader who followed a citation from a
+      // filtered page at whatever scroll position they were already at, with
+      // nothing marked.
+      //
+      // **jsdom cannot see this.** The test covering this scenario passed
+      // throughout, and a real browser fails it: filtered to Gaps, following a
+      // citation to A5 clears the filter, renders no badge, and leaves the
+      // entry 2,340px down the page. The guard that does see it is the
+      // interaction pass in `scripts/check-pages.mjs`.
+      //
+      // So the DOM work moves to its own effect, which runs after the filter
+      // has actually been applied.
+      setPending(id);
     }
 
     reveal();
@@ -165,6 +165,42 @@ export function AssumptionsView({
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, [state]);
+
+  /**
+   * The half of the reveal that needs the DOM, run once the filter has cleared.
+   *
+   * Keyed on `kind` and `query` as well as `pending`, so it fires on the render
+   * *after* the setters above have been applied — which is the render in which
+   * the target entry actually exists. Doing it inline was the defect: React
+   * batches, so the element was never found and the reader was left unmarked
+   * and unscrolled.
+   */
+  useEffect(() => {
+    if (!pending) return;
+
+    const target = document.getElementById(pending);
+    if (!target) return;
+
+    // Mark before scrolling, not after. `scrollIntoView` is the one call here
+    // an environment can be missing — jsdom has no layout and does not
+    // implement it — and an exception thrown mid-effect takes everything
+    // after it down. Ordered the other way, the marking silently depended on
+    // the scroll succeeding, which is the weaker of the two: a reader who
+    // cannot tell which entry they landed on is worse off than one who has
+    // to scroll to it.
+    //
+    // The marking is itself the non-colour signal. `:target` alone is a
+    // border tint, and the programmatic focus below does not reliably
+    // satisfy `:focus-visible` for a reader who arrived by clicking — so a
+    // mouse user got colour and nothing else, on the page every citation
+    // points at. `Pill.tsx` states the rule that breaks: colour is the third
+    // signal, never the only one.
+    setLanded(pending);
+    target.focus({ preventScroll: true });
+    target.scrollIntoView?.({ block: "start" });
+
+    setPending(null);
+  }, [pending, kind, query, state]);
 
   const d = state?.ok ? state.value : null;
   const agentSlugs = new Set(index?.ok ? index.value.agents.map((a) => a.slug) : []);

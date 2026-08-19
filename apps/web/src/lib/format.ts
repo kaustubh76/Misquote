@@ -25,12 +25,51 @@ export function isNum(v: unknown): v is number {
  * helper written for it sat exported with no importers. Putting it back would
  * mean hiding a figure behind a hover, which is the affordance `Pill` and
  * `Band` had their `title` attributes removed for.
+ *
+ * ## Two decimal places deleted the numbers
+ *
+ * Fixed at two, this printed `0.00` for every figure below half a cent — and
+ * once capital moved from 1,000 WBNB to 1.0, that was most of them. Sentinel's
+ * chart rendered fees `0.00024111` as `+0.00`, adverse selection `0.00181907`
+ * as `−0.00`, costs `0.00379389` as `−0.00`, and then captioned itself
+ *
+ *     net — bars scaled against 0.00 WBNB, the largest component
+ *
+ * A stated denominator of zero, under bars drawn from real ratios. Twelve of
+ * the eighteen money cells on `/advantage` were `0.00` the same way, including
+ * every baseline column on all three tasks.
+ *
+ * So the precision follows the magnitude: two places for anything at or above
+ * one, and below that, enough to keep two significant figures. A rounding that
+ * rounds a measurement to nothing is not a display choice, it is a deletion —
+ * and this is a site whose argument is that the numbers are real.
  */
+/** Significant figures a small amount must keep, however small it is. */
+const MIN_SIGNIFICANT = 2;
+
+/** Where to stop. Past this the digits are noise from a float, not a reading. */
+const MAX_DECIMALS = 8;
+
+/**
+ * How many decimal places this value needs to say anything.
+ *
+ * At or above 1, `decimals` — a fee of 865.43 does not want six places, which
+ * is the defect `amount` was written for. Below 1, enough to keep
+ * `MIN_SIGNIFICANT` figures, because two decimal places on a quantity of
+ * 0.00024 is not a rounding, it is the number being deleted.
+ */
+function placesFor(v: number, decimals: number): number {
+  if (v === 0 || Math.abs(v) >= 1) return decimals;
+  const leadingZeros = Math.ceil(-Math.log10(Math.abs(v)));
+  return Math.min(Math.max(decimals, leadingZeros + MIN_SIGNIFICANT - 1), MAX_DECIMALS);
+}
+
 export function amount(v: unknown, decimals = 2): string {
   if (!isNum(v)) return EMPTY;
+  const places = placesFor(v, decimals);
   return v.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: places,
+    maximumFractionDigits: places,
   });
 }
 

@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts, textFrom } from "@/test/harness";
 import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
@@ -1074,5 +1075,65 @@ describe("the agent page is rendered before JavaScript runs", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByText(/make showcase-demo/)).toBeInTheDocument();
+  });
+});
+
+describe("Status can be narrowed to what nobody checked", () => {
+  interface Status {
+    checks: { name: string; status: string }[];
+  }
+
+  it("counts each verdict from the checks, not from the summary block", async () => {
+    // Two sets of the same numbers exist in the artifact — `summary` and the
+    // checks themselves — and a filter whose label disagrees with the list
+    // under it is worse than no filter.
+    const status = readArtifact<Status>("status.json");
+    const unverified = status.checks.filter((c) => c.status === "UNVERIFIED").length;
+    render(<StatusPage />);
+    await screen.findByRole("heading", { name: "Gates" });
+
+    expect(screen.getByRole("radio", { name: `All ${status.checks.length}` })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: `Unverified ${unverified}` })).toBeInTheDocument();
+  });
+
+  it("narrows the list and says by how much", async () => {
+    const user = userEvent.setup();
+    const status = readArtifact<Status>("status.json");
+    const unverified = status.checks.filter((c) => c.status === "UNVERIFIED");
+    render(<StatusPage />);
+    await screen.findByRole("heading", { name: "Gates" });
+
+    await user.click(screen.getByRole("radio", { name: /^Unverified/ }));
+
+    // The gates that remain are exactly the unverified ones.
+    for (const check of unverified) {
+      expect(screen.getByRole("heading", { name: check.name })).toBeInTheDocument();
+    }
+    for (const check of status.checks.filter((c) => c.status === "PASS")) {
+      expect(screen.queryByRole("heading", { name: check.name })).toBeNull();
+    }
+
+    // Announced, because the cards it removed are below the fold.
+    expect(screen.getByLabelText("Filter result")).toHaveTextContent(
+      `${unverified.length} of ${status.checks.length} gates unverified.`,
+    );
+  });
+
+  it("says so in words when a verdict has no gates", async () => {
+    // A filter that empties the list and renders blank space reads as a broken
+    // page — and on this page "no gate is failing" is a result worth stating.
+    const user = userEvent.setup();
+    render(<StatusPage />);
+    await screen.findByRole("heading", { name: "Gates" });
+
+    const failing = screen.queryByRole("radio", { name: /^Failing/ });
+    if (failing) {
+      await user.click(failing);
+      expect(screen.getByText(/No gate is failing/)).toBeInTheDocument();
+    } else {
+      // No FAIL chip is offered when nothing failed — which is itself the
+      // answer, and is why the chips are built from the checks present.
+      expect(screen.getByRole("radio", { name: /^All/ })).toBeInTheDocument();
+    }
   });
 });

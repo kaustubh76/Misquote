@@ -65,7 +65,11 @@ describe("every figure survives without the bars", () => {
 
     // Colour is never the only signal: earned and spent differ by sign and by
     // label as well as by tone.
-    expect(region.getByText("+0.02")).toBeInTheDocument();
+    // `+0.021`, not `+0.02`. Precision follows magnitude now: at two fixed
+    // places this fixture's 0.0208 of fees rendered `0.02` and Sentinel's real
+    // 0.00024 rendered `0.00`, with the chart captioning its own denominator
+    // `0.00 WBNB`. The assertion pinned the lossy rendering.
+    expect(region.getByText("+0.021")).toBeInTheDocument();
     expect(region.getByText("−186.76")).toBeInTheDocument();
   });
 });
@@ -103,7 +107,7 @@ describe("the unit the figures are in", () => {
     expect(within(chart()).getByText(/-186\.74\s*WBNB/)).toBeInTheDocument();
 
     // Not on the rows. Three short numbers stay readable.
-    expect(within(chart()).getByText("+0.02")).toBeInTheDocument();
+    expect(within(chart()).getByText("+0.021")).toBeInTheDocument();
   });
 
   it("renders bare when the artifact does not say what the unit is", () => {

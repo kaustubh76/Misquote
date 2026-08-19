@@ -107,3 +107,40 @@ describe("a bare parameter, to a fixed number of decimals", () => {
     expect(fixed(0.00045053116084847397, 6)).toBe("0.000451");
   });
 });
+
+describe("a small amount is not rounded to nothing", () => {
+  it("keeps two significant figures below one", () => {
+    // Sentinel's whole chart, at the capital basis that landed this week:
+    // fees 0.00024111, adverse selection 0.00181907, costs 0.00379389. At two
+    // fixed places every one of them printed 0.00 — and `CostBars` captioned
+    // itself "scaled against 0.00 WBNB, the largest component". A denominator
+    // of zero, under bars drawn from real ratios.
+    expect(amount(0.00024111)).toBe("0.00024");
+    expect(amount(0.00181907)).toBe("0.0018");
+    expect(amount(0.00379389)).toBe("0.0038");
+    expect(money(0.00379389, "WBNB")).toBe("0.0038 WBNB");
+  });
+
+  it("still refuses six decimals of a large figure", () => {
+    // The defect this function was written for, which must survive the fix.
+    // `num(v, 6)` rendered a fee total as 865.430184 — six decimals of
+    // precision the number does not have.
+    expect(amount(865.43018362)).toBe("865.43");
+    expect(amount(-186.742015)).toBe("-186.74");
+  });
+
+  it("honours an explicit larger precision", () => {
+    // `fixed()` covers bare parameters, but a caller asking `amount` for more
+    // places must still get them — the rule only ever adds, never removes.
+    expect(amount(0.5, 4)).toBe("0.5000");
+    expect(amount(0.00024111, 6)).toBe("0.000241");
+  });
+
+  it("stops before the float noise", () => {
+    // Past eight places the digits are an artefact of binary floating point,
+    // not a reading. A number too small to show is still not shown as zero:
+    // it is shown at the cap.
+    expect(amount(1e-12).length).toBeLessThanOrEqual("0.00000000".length);
+    expect(amount(0)).toBe("0.00");
+  });
+});
