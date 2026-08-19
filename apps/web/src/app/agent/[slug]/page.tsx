@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Metadata } from "next";
 import { AgentDetail } from "@/components/AgentDetail";
+import type { AgentArtifact } from "@/lib/artifacts";
 
 /**
  * Slugs come from the generated index at build time.
@@ -14,15 +15,23 @@ import { AgentDetail } from "@/components/AgentDetail";
  */
 type IndexedAgent = { slug?: string; name?: string; category?: string };
 
+/** One artifact, read at build time. Absent is a state, not a build failure. */
+function readArtifact<T>(name: string): T | undefined {
+  const path = join(process.cwd(), "public", "artifacts", name);
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as T;
+  } catch {
+    // Not an error here. A missing artifact is what `make showcase-demo` has
+    // not been run yet looks like, and the client has the remedy text for it —
+    // throwing would turn a page that says "run this command" into a build
+    // that fails with a stack trace.
+    return undefined;
+  }
+}
+
 /** The generated index, read once at build time. */
 function readAgents(): IndexedAgent[] {
-  const path = join(process.cwd(), "public", "artifacts", "index.json");
-  try {
-    const index = JSON.parse(readFileSync(path, "utf8")) as { agents?: IndexedAgent[] };
-    return index.agents ?? [];
-  } catch {
-    return [];
-  }
+  return readArtifact<{ agents?: IndexedAgent[] }>("index.json")?.agents ?? [];
 }
 
 /**
@@ -61,5 +70,9 @@ export function generateStaticParams() {
 
 export default async function AgentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  return <AgentDetail slug={slug} />;
+  // The artifact, into the exported HTML. This route already read this
+  // directory twice per page — for the slug list and for the tab title — and
+  // threw the contents away, so the page that renders the most numbers on the
+  // site exported none of them.
+  return <AgentDetail slug={slug} initial={readArtifact<AgentArtifact>(`${slug}.json`)} />;
 }

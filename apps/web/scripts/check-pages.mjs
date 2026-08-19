@@ -138,6 +138,44 @@ for (const [colorScheme, width] of VIEWPORTS) {
   await context.close();
 }
 
+// --- the property `next.config.ts` claims, with JavaScript off ---------------
+//
+// `output: "export"` is justified in `next.config.ts` by the page it replaced
+// having "rendered identically when every server behind it was down". The
+// rewrite lost that and nothing noticed for months, because every check in this
+// repository runs with JavaScript on: this script launches Chromium and then
+// waits 350ms *for the fetch*, and the vitest suite is jsdom, which always runs
+// effects.
+//
+// So the claim could not go stale detectably. This is the check that makes it
+// detectable. Two routes hold the property today — the landing page and the
+// agent detail, which together are the walk a judge takes — and the floor is
+// stated per route rather than globally, because the honest number for a page
+// that is still client-only is small and saying so is the point.
+const NO_JS = [
+  // route, minimum characters of body text, a string that must be present
+  ["/", 2000, "PancakeSwap"],
+  ["/agent/warden/", 2000, "in range"],
+];
+
+const noJs = await browser.newContext({ javaScriptEnabled: false });
+const bare = await noJs.newPage();
+
+for (const [path, floor, needle] of NO_JS) {
+  await bare.goto(BASE + path, { waitUntil: "domcontentloaded" });
+  const text = (await bare.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").trim();
+
+  if (text.length < floor) {
+    failures.push(`${path} without JS: ${text.length} chars of body text, floor is ${floor}`);
+  }
+  if (!text.includes(needle)) {
+    failures.push(`${path} without JS: does not contain ${JSON.stringify(needle)}`);
+  }
+  const ok = text.length >= floor && text.includes(needle);
+  console.log(`  ${ok ? "ok  " : "FAIL"}  ${`no-js ${path}`.padEnd(30)}  ${text.length} chars`);
+}
+
+await noJs.close();
 await browser.close();
 
 if (failures.length) {

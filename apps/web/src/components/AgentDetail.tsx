@@ -52,8 +52,35 @@ function unitFor(n: number, expected: number | undefined, unit: string) {
   return expected !== undefined && n === expected ? ` ${unit}` : "";
 }
 
-export function AgentDetail({ slug }: { slug: string }) {
-  const [state, setState] = useState<Loaded<AgentArtifact> | null>(null);
+export function AgentDetail({
+  slug,
+  initial,
+}: {
+  slug: string;
+  /**
+   * The artifact, read from disk at build time by the route above.
+   *
+   * `output: "export"` gave this project a page that any file server can serve
+   * with no process alive — and then every figure on it was fetched after
+   * mount, so the exported HTML for this route was the nav and the word
+   * "warden". Nothing else. The one page a judge deep-links to rendered nothing
+   * at all without JavaScript.
+   *
+   * Only the success case crosses the boundary. `ArtifactError` is a class with
+   * its own fields and does not survive serialisation, so a build-time read
+   * that fails passes nothing and the client's own error path handles it —
+   * which is the path that already has the remedy text and the tests.
+   *
+   * The effect below still runs. That is deliberate and it is what keeps the
+   * route's original promise, written in `agent/[slug]/page.tsx`: *editing a
+   * JSON and reloading still works*. The build-time value is the first paint;
+   * the fetch is the truth, and it wins.
+   */
+  initial?: AgentArtifact;
+}) {
+  const [state, setState] = useState<Loaded<AgentArtifact> | null>(
+    initial ? { ok: true, value: initial } : null,
+  );
 
   useEffect(() => {
     let live = true;

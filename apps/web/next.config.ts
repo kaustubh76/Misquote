@@ -2,18 +2,38 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 /**
- * Static export, deliberately.
+ * Static export, deliberately — and the property it was chosen for, stated
+ * accurately.
  *
- * The page this replaces earned its keep by importing no framework and calling
- * no backend, so it rendered identically when every server behind it was down —
- * which is the state a demo is most likely to find them in. `output: "export"`
- * keeps that property through the rewrite: `pnpm build` produces `out/`, a
- * directory of files that any static server (including `python3 -m http.server`)
- * can serve with no node process alive.
+ * The page this replaces imported no framework and called no backend, so it
+ * rendered identically when every server behind it was down, which is the state
+ * a demo is most likely to find them in. `output: "export"` keeps half of that
+ * through the rewrite and this comment used to claim all of it.
  *
- * `public/artifacts/*.json` is copied verbatim into `out/`, so the Python
- * emitters keep writing to the same path they always did and the artifacts stay
- * readable — and editable — by hand.
+ * **What is true.** `pnpm build` produces a directory any static server can
+ * serve with no node process alive, and `public/artifacts/*.json` is copied
+ * verbatim, so the Python emitters keep writing to the same path and the
+ * artifacts stay readable — and editable — by hand. No page reaches a network
+ * at load beyond its own JSON.
+ *
+ * **What was not.** Every view is `"use client"` and fetches after mount, so
+ * "renders identically" did not survive: with JavaScript off, the built HTML
+ * for `/agent/warden` was the nav and the word "warden", and no page showed a
+ * figure. Nothing detected that for months, because every check in this
+ * repository runs JavaScript — `check-pages.mjs` launches Chromium and then
+ * waits for the fetch, and vitest is jsdom, which always runs effects.
+ *
+ * **Where it stands.** Two routes hold the property: `/` and `/agent/[slug]`,
+ * which are the walk a reader takes — landing page, agent card, detail. Their
+ * `page.tsx` reads the artifact from disk at build time and hands it down as a
+ * first paint, and the client still fetches, so editing a JSON and reloading
+ * still works. The other eight render their heading and lede and then need
+ * JavaScript for every number, and `layout.tsx`'s `<noscript>` is what a reader
+ * without it gets.
+ *
+ * `check-pages.mjs` now loads those two routes with `javaScriptEnabled: false`
+ * and fails if the body text falls under a floor. That guard, not this comment,
+ * is what keeps the claim honest — a comment cannot go red.
  */
 const nextConfig: NextConfig = {
   output: "export",

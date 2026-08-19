@@ -1032,3 +1032,47 @@ describe("Vetting distinguishes not-yet-read from not-generated", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("the agent page is rendered before JavaScript runs", () => {
+  it("paints from the build-time artifact with no fetch resolved", () => {
+    // `output: "export"` is justified by the site rendering with no process
+    // alive. The exported HTML for this route was the nav and the word
+    // "warden" — 397 characters, no figures — because every view fetches after
+    // mount. The route already read this directory at build time for the slug
+    // list and the tab title, and threw the contents away.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    // No `serveArtifacts()`: nothing may resolve, and the figures must be there
+    // anyway. That is the whole claim.
+    render(<AgentDetail slug="warden" initial={warden} />);
+
+    expect(screen.getByRole("heading", { name: warden.agent })).toBeInTheDocument();
+    expect(screen.queryByText(/Loading/)).toBeNull();
+  });
+
+  it("lets the client fetch win, so editing a JSON and reloading still works", async () => {
+    // The route's own promise, written in `agent/[slug]/page.tsx`. A baked-in
+    // value goes stale at the next edit, so the effect still runs and overwrites
+    // it — the build is the first paint, the fetch is the truth.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    serveArtifacts({
+      overrides: { "warden.json": { ...warden, agent: "Warden (from the fetch)" } },
+    });
+    render(<AgentDetail slug="warden" initial={warden} />);
+
+    expect(screen.getByRole("heading", { name: warden.agent })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Warden (from the fetch)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("still reaches the client error path when the build read found nothing", async () => {
+    // A missing artifact must stay a page that says which command to run, not a
+    // build that fails with a stack trace — so the server read returns undefined
+    // and the client owns the failure, which is where the remedy text lives.
+    serveArtifacts({ missing: ["warden.json"] });
+    render(<AgentDetail slug="warden" initial={undefined} />);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/make showcase-demo/)).toBeInTheDocument();
+  });
+});

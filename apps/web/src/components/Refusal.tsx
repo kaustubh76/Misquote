@@ -36,8 +36,21 @@ export function Refusal({
         </span>
         <Heading className="m-0 text-sm font-semibold text-warn">{title}</Heading>
       </div>
-      <p className="mt-2 mb-0 text-sm text-dim">{reason}</p>
-      {floor && <p className="mt-1 mb-0 font-mono text-xs text-faint">{floor}</p>}
+      {/* `break-words` here too, and for the same reason as the floor below:
+          a reason is often an artifact string, and artifact strings name code.
+          `createJob/setProvider/setBudget/fund/submit/complete/reject,` — sixty
+          characters with no space in them — pushed /registry 26px past a 390px
+          viewport the first time an emitter wrote it. */}
+      <p className="mt-2 mb-0 text-sm break-words text-dim">{reason}</p>
+      {/* `break-words`, because a floor names code and code has no spaces in it.
+          `registry/erc8183.py::escrow_address raises rather than returning a
+          plausible address` pushed /registry 26px wide at 390px the first time a
+          run took that branch — the string had been in the file for weeks and
+          only rendered once an artifact reported the escrow unavailable. Every
+          other monospace line on the site already carries this. */}
+      {floor && (
+        <p className="mt-1 mb-0 font-mono text-xs break-words text-faint">{floor}</p>
+      )}
       {cite && (
         <p className="mt-2 mb-0 text-xs">
           <Link href={`/assumptions#${cite}`} className="text-warn">
