@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
+import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { CheckList } from "@/components/CheckList";
 import { Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
@@ -165,6 +166,39 @@ export function VettingView({
   const RANK = ["PASS", "WARN", "UNKNOWN", "FAIL"];
 
   /**
+   * Which verdict to show, across both subjects at once.
+   *
+   * Twenty-nine checks render fully expanded — nine per pool, eleven for the
+   * addresses — and the page's question is which of them is not a PASS. The
+   * rollup at the top already answers it as a number; this makes the number
+   * something you can act on.
+   *
+   * Ordered by `RANK`, the same severity order the rollup is computed with, so
+   * the chips read worst-last rather than in whatever order the artifact
+   * happened to list them.
+   */
+  const [verdict, setVerdict] = useState<string>("all");
+
+  const everyCheck = [
+    ...(state?.ok ? (state.value.pools ?? []).flatMap((p) => p.checks ?? []) : []),
+    ...(addrs?.ok ? (addrs.value.checks ?? []) : []),
+  ];
+
+  const verdictChips: Chip<string>[] = [
+    { value: "all", label: "All", meta: String(everyCheck.length) },
+    ...RANK.filter((r) => everyCheck.some((c) => c.status === r)).map((r) => ({
+      value: r,
+      label: r.charAt(0) + r.slice(1).toLowerCase(),
+      meta: String(everyCheck.filter((c) => c.status === r).length),
+    })),
+  ];
+
+  /** A subject's checks, narrowed. Kept here so both subjects narrow alike. */
+  function narrow<T extends { status: string }>(checks: T[] | undefined): T[] {
+    return verdict === "all" ? (checks ?? []) : (checks ?? []).filter((c) => c.status === verdict);
+  }
+
+  /**
    * A subject-level verdict's tone.
    *
    * Both rollup pills were `verdict === "PASS" ? "pass" : "fail"`, so a WARN or
@@ -292,7 +326,7 @@ export function VettingView({
                     }
                   />
 
-                  <CheckList checks={pool.checks ?? []} />
+                  <CheckList checks={narrow(pool.checks)} />
 
                   <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                     read {timestamp(pool.read_at)}
@@ -322,6 +356,37 @@ export function VettingView({
       )}
 
 
+        {/* Only when there is something to choose between.
+            Every check on a clean run carries the same verdict, and a chip row
+            reading "All 29 · Pass 29" offers one button that does nothing —
+            which is the kind of control this pass exists to remove, not add.
+            The count is the useful part, so it is stated in a sentence instead
+            and the group appears the moment a second verdict does. */}
+        {everyCheck.length > 0 && verdictChips.length <= 2 && (
+          <p className="mt-8 mb-0 text-sm text-dim">
+            Every one of the {everyCheck.length} checks below returned{" "}
+            <strong className="text-ink">{verdictChips[1]?.value ?? "the same verdict"}</strong>.
+          </p>
+        )}
+
+        {everyCheck.length > 0 && verdictChips.length > 2 && (
+          <div className="mt-8 rounded-lg border border-line bg-panel-2 p-4">
+            <ChipGroup
+              label="Filter checks by verdict"
+              options={verdictChips}
+              value={verdict}
+              onChange={setVerdict}
+            />
+            {/* Named, because `Loadable` already owns an unnamed `role="status"`
+                on this page. Two anonymous voices is one too many. */}
+            <p role="status" aria-label="Check filter result" className="mt-3 mb-0 text-xs text-faint">
+              {verdict === "all"
+                ? `All ${everyCheck.length} checks, across every subject below.`
+                : `${everyCheck.filter((c) => c.status === verdict).length} of ${everyCheck.length} checks are ${verdict}.`}
+            </p>
+          </div>
+        )}
+
         {/* The addresses the signer is aimed at. Same renderer as the pools
             above, because they are the same question — named checks, chain
             readings, a verdict — asked about a different subject. */}
@@ -348,7 +413,7 @@ export function VettingView({
                 The strong checks are the mutual ones: the factory naming the pool that
                 names itself. Agreeing takes being the deployment.
               </p>
-              <CheckList checks={addrs.value.checks ?? []} />
+              <CheckList checks={narrow(addrs.value.checks)} />
               <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                 read {timestamp(addrs.value.read_at)}
                 {now !== null && <> · {hours(ageHours(addrs.value.read_at, now))} ago</>}

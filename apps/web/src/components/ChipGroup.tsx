@@ -39,6 +39,21 @@ export function ChipGroup<T extends string>({
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 
+  /**
+   * Which option owns the group's single tab stop.
+   *
+   * A radiogroup has exactly one, and it belongs to the selected option — but
+   * if `value` matches nothing, every chip would get `tabIndex={-1}` and the
+   * whole control would become unreachable by keyboard while looking perfectly
+   * normal. `ThemeToggle` guards its equivalent case; this did not, and it is
+   * one refactor away from a filter nobody can tab to.
+   *
+   * Falls back to the first option, which is the same answer APG gives for a
+   * radiogroup with nothing checked.
+   */
+  const selectedIndex = options.findIndex((o) => o.value === value);
+  const tabStop = selectedIndex === -1 ? 0 : selectedIndex;
+
   function onKeyDown(event: React.KeyboardEvent, index: number) {
     const last = options.length - 1;
     let next: number | null = null;
@@ -75,7 +90,7 @@ export function ChipGroup<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={i === tabStop ? 0 : -1}
             onKeyDown={(event) => onKeyDown(event, i)}
             onClick={() => onChange(option.value)}
             className={[

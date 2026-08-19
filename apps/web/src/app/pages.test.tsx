@@ -1137,3 +1137,57 @@ describe("Status can be narrowed to what nobody checked", () => {
     }
   });
 });
+
+describe("Vetting offers a verdict filter only when there is a choice", () => {
+  interface Vetting {
+    pools: { checks: { name: string; status: string }[] }[];
+  }
+  interface Addrs {
+    checks: { name: string; status: string }[];
+  }
+
+  it("states the result in a sentence when every check agrees", async () => {
+    // On a clean run every check is a PASS, and a chip row reading
+    // "All 29 · Pass 29" offers one button that does nothing. The count is the
+    // useful part; the control is not.
+    const vetting = readArtifact<Vetting>("vetting.json");
+    const addrs = readArtifact<Addrs>("addresses.json");
+    const all = [...vetting.pools.flatMap((p) => p.checks), ...addrs.checks];
+    const verdicts = new Set(all.map((c) => c.status));
+    render(<VettingPage />);
+    await screen.findByRole("heading", { name: /Due diligence/ });
+
+    if (verdicts.size === 1) {
+      expect(
+        await screen.findByText(new RegExp(`Every one of the ${all.length} checks`)),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: /^All/ })).toBeNull();
+    }
+  });
+
+  it("filters both subjects at once when verdicts differ", async () => {
+    // Pools and addresses are the same question asked of two subjects, so one
+    // control narrows both — a filter that silently applied to half the page
+    // would be worse than none.
+    const vetting = readArtifact<Vetting>("vetting.json");
+    const addrs = readArtifact<Addrs>("addresses.json");
+    const doctored = {
+      ...vetting,
+      pools: vetting.pools.map((p, i) =>
+        i === 0 ? { ...p, checks: p.checks.map((c, j) => (j === 0 ? { ...c, status: "FAIL" } : c)) } : p,
+      ),
+    };
+    serveArtifacts({ overrides: { "vetting.json": doctored } });
+    const user = userEvent.setup();
+    render(<VettingPage />);
+    await screen.findByRole("heading", { name: /Due diligence/ });
+
+    const total = doctored.pools.flatMap((p) => p.checks).length + addrs.checks.length;
+    expect(await screen.findByRole("radio", { name: `All ${total}` })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /^Fail/ }));
+    expect(screen.getByLabelText("Check filter result")).toHaveTextContent(
+      `1 of ${total} checks are FAIL.`,
+    );
+  });
+});
