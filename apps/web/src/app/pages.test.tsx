@@ -417,46 +417,89 @@ describe("Assumptions", () => {
 
 describe("Registry: the escrow claims only what was recorded", () => {
   interface Reg {
-    hire_flow: { escrow: { available: boolean; evidence?: string[] } };
+    hire_flow: {
+      escrow: { available: boolean; address?: string; reason?: string; evidence?: string[] };
+    };
     identity: { surveyed: boolean };
   }
+
+  const CAVEAT = /^(NOT VERIFIED|SECURITY|NO TESTNET)\b/;
+
+  /**
+   * Which branch runs is the artifact's decision, not this file's.
+   *
+   * Both of these tests asserted the shape of the *available* branch
+   * unconditionally, and `0bac20b` removed the one escrow we had — its deployed
+   * bytecode implements none of createJob/setProvider/setBudget/fund/submit/
+   * complete/reject across 5,894 candidate signatures, so it is a real escrow
+   * that is not this standard. The view took its refusal branch, correctly, and
+   * the suite went red at a page that was doing exactly the right thing.
+   *
+   * A test that fails when its subject correctly changes state is testing the
+   * run rather than the behaviour. The escrow has now been through both states
+   * once, so both are asserted, and the artifact picks.
+   */
+  const escrow = readArtifact<Reg>("registry.json").hire_flow.escrow;
 
   it("shows the recorded findings instead of a verdict nobody computed", async () => {
     // This rendered a green "Verified" pill beside "a chain check confirmed it"
     // while the same artifact says `source: offline` and "no registry read was
     // attempted". `available` is a dict lookup, not a read.
-    const reg = readArtifact<Reg>("registry.json");
     render(<RegistryPage />);
     await screen.findByRole("heading", { name: "The escrow contract" });
 
+    // Neither branch, ever. The pill was removed for a stated reason and the
+    // refusal branch must not be the door it comes back through.
     expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+
+    if (!escrow.available) {
+      // Nothing was recorded, so nothing is counted. A "0 recorded findings"
+      // line here would be the opposite claim to the one the artifact makes:
+      // an absence of evidence, rendered as evidence of an absence.
+      expect(screen.queryByText(/recorded findings/)).not.toBeInTheDocument();
+      return;
+    }
 
     // One item per recorded finding. Matched by count plus a tail fragment
     // rather than by whole string: a caveat renders its "NOT VERIFIED" prefix
     // in its own <strong>, so the line is two nodes and a full-text match on it
     // would silently never fire.
     const items = [...document.querySelectorAll("li")].map((li) => li.textContent ?? "");
-    for (const finding of reg.hire_flow.escrow.evidence ?? []) {
+    for (const finding of escrow.evidence ?? []) {
       const tail = finding.slice(-40);
       expect(items.some((text) => text.includes(tail))).toBe(true);
     }
   });
 
-  it("carries the NOT VERIFIED clause, which is the point of publishing the list", async () => {
+  it("carries the NOT VERIFIED clause, or the reason there is nothing to caveat", async () => {
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The escrow contract" });
+
+    if (!escrow.available) {
+      // The refusal is the product working, and what makes it work is that the
+      // emitter's own sentence reaches the reader instead of a house phrase.
+      // `registry/erc8183.py::escrow_address` raises rather than returning a
+      // plausible address — why it raises is the finding, and it names the
+      // contract that was carried here and removed.
+      expect(escrow.reason, "an unavailable escrow with no reason is a silent absence").toBeTruthy();
+      expect(screen.getByText(escrow.reason as string)).toBeInTheDocument();
+      expect(screen.getByText(/erc8183\.py/)).toBeInTheDocument();
+      return;
+    }
+
     // `JOB_ESCROW_EVIDENCE`'s own comment: the gap between "a live escrow that
     // settles in the token we already use" and "we have exercised ERC-8183's
     // job interface here" is the slippage this project exists to catch. That
     // sentence had no surface at all while the page showed a green tick.
-    const reg = readArtifact<Reg>("registry.json");
-    const caveats = (reg.hire_flow.escrow.evidence ?? []).filter((e) =>
-      /^(NOT VERIFIED|SECURITY|NO TESTNET)\b/.test(e),
-    );
-    render(<RegistryPage />);
-    await screen.findByRole("heading", { name: "The escrow contract" });
+    const caveats = (escrow.evidence ?? []).filter((e) => CAVEAT.test(e));
 
-    expect(caveats.length).toBeGreaterThan(0);
+    expect(
+      caveats.length,
+      "an address published with no caveat against it is the green tick again",
+    ).toBeGreaterThan(0);
+
     for (const caveat of caveats) {
-      const label = /^(NOT VERIFIED|SECURITY|NO TESTNET)/.exec(caveat)?.[1] ?? "";
+      const label = CAVEAT.exec(caveat)?.[1] ?? "";
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });
