@@ -8,13 +8,13 @@
       "status": "PASS"
     },
     {
-      "detail": "0.05% -> spacing 10",
+      "detail": "0.25% -> spacing 50",
       "name": "tick spacing matches tier",
       "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
       "status": "PASS"
     },
     {
-      "detail": "feeProtocol 3400 \u2014 LPs keep 66%, effective 3.300bps",
+      "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
       "name": "protocol fee read",
       "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
       "status": "PASS"
@@ -26,19 +26,19 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -64669",
+      "detail": "tick -64689",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=40, [-64710, -64630]",
+      "detail": "w_min=200, [-64900, -64500]",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
       "status": "PASS"
     },
     {
-      "detail": "3,223,803,941,502,167,396,426,305 \u2014 a 1% share is 32,238,039,415,021,675,479,040",
+      "detail": "9,887,725,552,973,490,939,014 \u2014 a 1% share is 98,877,255,529,734,914,048",
       "name": "liquidity supports a position",
       "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
       "status": "PASS"
@@ -56,8 +56,8 @@
       "status": "PASS"
     }
   ],
-  "label": "PancakeSwap v3 WBNB/USDT 0.05%",
-  "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+  "label": "PancakeSwap v3 WBNB/USDT 0.25%",
+  "pool": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
   "safe_to_provide": true,
   "verdict": "PASS"
 }

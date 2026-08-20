@@ -38,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from misquote.chain.addresses import BSC_MAINNET, EQUITY_POOL, POOLS, TARGET_POOL
+from misquote.chain.addresses import BSC_MAINNET, known_pools_on
 from misquote.tearsheet import provenance
 
 REPO = Path(__file__).resolve().parents[1]
@@ -62,19 +62,25 @@ def shown(path: Path) -> str:
 def listed_pools(chain_id: int) -> list[tuple[str, str]]:
     """Every pool this repository claims to care about, on one chain.
 
-    Mirrors `vetting/read.py::_known_pools`. The point of listing them here is
-    that a pool with no badge can be *named* as unbadged rather than quietly
-    missing from the page.
-    """
-    refs = [POOLS.get(chain_id)]
-    if chain_id == BSC_MAINNET:
-        refs += [TARGET_POOL, EQUITY_POOL]
+    The point of listing them here is that a pool with no badge can be *named*
+    as unbadged rather than quietly missing from the page.
 
+    It used to say it "mirrors `vetting/read.py::_known_pools`" and write the
+    list out again, which is a mirror only for as long as somebody keeps
+    polishing it. Both call `known_pools_on` now, and neither is a subset of
+    `KNOWN_POOLS` chosen by hand — `TARGET_POOL_WIDE` was missing from every
+    such subset in the repository at once.
+
+    In `known_pools_on`'s order, not sorted by address. Sorting was harmless
+    while the mainnet list was two pools that happened to sort flagship-first;
+    adding `0x1401ff94…` put the second venue at the top of a page that leads
+    with the pool this project actually trades. `known_pools_on` is already
+    deterministic, so the sort was buying nothing.
+    """
     seen: dict[str, str] = {}
-    for ref in refs:
-        if ref is not None and ref.chain_id == chain_id:
-            seen.setdefault(ref.address.lower(), ref.label or ref.address)
-    return sorted(seen.items())
+    for ref in known_pools_on(chain_id):
+        seen.setdefault(ref.address.lower(), ref.label or ref.address)
+    return list(seen.items())
 
 
 def badges_on_disk(directory: Path) -> dict[str, dict[str, Any]]:

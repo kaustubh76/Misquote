@@ -47,8 +47,10 @@ from misquote.chain.addresses import (
     BSC_MAINNET,
     EQUITY_POOL,
     TARGET_POOL,
+    TARGET_POOL_WIDE,
     TESTNET_MIRROR_POOL,
     PoolRef,
+    known_pools_on,
 )
 from misquote.core.fees import lp_share_of_fee
 from misquote.core.tickmath import MIN_TICK
@@ -107,6 +109,38 @@ def pool_row(pool: PoolRef, role: str) -> dict[str, Any]:
         "w_min_ticks": pool.w_min_ticks,
         "quote_symbol": pool.quote_symbol,
     }
+
+
+# What each verified pool is *for*, keyed by address. The role is the only part
+# of a row that is not read off the `PoolRef`, so it is the only part that can
+# be missing — and `tests/chain/test_known_pools_are_published.py` fails on a
+# pool with no entry here rather than letting it publish as "".
+#
+# A pool nobody has described is a pool nobody has thought about, and this table
+# is on the page that argues the details were read rather than assumed.
+POOL_ROLES: dict[str, str] = {
+    TARGET_POOL.address.lower(): "flagship",
+    TARGET_POOL_WIDE.address.lower(): "the second venue",
+    EQUITY_POOL.address.lower(): "tokenized equity",
+    TESTNET_MIRROR_POOL.address.lower(): "testnet mirror",
+}
+
+
+def pool_rows() -> list[dict[str, Any]]:
+    """Every verified pool, on both chains, in a stable order.
+
+    This was three literal `pool_row(...)` calls and `TARGET_POOL_WIDE` was not
+    one of them — so the section headed "The pools we actually read" omitted the
+    pool the Agent Advantage Report's third task compares the flagship against,
+    and whose protocol fee of 3200 against the flagship's 3400 is the third
+    instance of P-8. Derived from `KNOWN_POOLS` now, so a pool cannot be
+    verified and then left off the page that lists what was verified.
+    """
+    rows: list[dict[str, Any]] = []
+    for chain_id in (BSC_MAINNET, TESTNET_MIRROR_POOL.chain_id):
+        for pool in known_pools_on(chain_id):
+            rows.append(pool_row(pool, POOL_ROLES.get(pool.address.lower(), "")))
+    return rows
 
 
 def divergences() -> list[dict[str, Any]]:
@@ -225,11 +259,7 @@ def build_payload() -> dict[str, Any]:
         "fee_overstatement": fee_overstatement(TARGET_POOL.fee_protocol),
         "unmintable_remainder": unmintable_remainder(TARGET_POOL.tick_spacing),
         "divergences": divergences(),
-        "pools": [
-            pool_row(TARGET_POOL, "flagship"),
-            pool_row(EQUITY_POOL, "tokenized equity"),
-            pool_row(TESTNET_MIRROR_POOL, "testnet mirror"),
-        ],
+        "pools": pool_rows(),
     }
 
 

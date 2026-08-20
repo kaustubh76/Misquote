@@ -1,9 +1,9 @@
 {
   "build": {
     "command": "python scripts/venue_report.py",
-    "generated_at": "2026-08-18T15:59:27+00:00",
+    "generated_at": "2026-08-20T10:29:08+00:00",
     "git_dirty": true,
-    "git_sha": "69e468b",
+    "git_sha": "82e0f91",
     "source": "offline"
   },
   "divergences": [
@@ -93,6 +93,18 @@
       "role": "flagship",
       "tick_spacing": 10,
       "w_min_ticks": 40
+    },
+    {
+      "address": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
+      "chain_id": 56,
+      "fee_pips": 2500,
+      "fee_protocol": 3200,
+      "label": "PancakeSwap v3 WBNB/USDT 0.25%",
+      "lp_fee_share": 0.6799999999999999,
+      "quote_symbol": "WBNB",
+      "role": "the second venue",
+      "tick_spacing": 50,
+      "w_min_ticks": 200
     },
     {
       "address": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",

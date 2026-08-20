@@ -24,7 +24,7 @@ from pathlib import Path
 from web3 import Web3
 from web3.exceptions import Web3Exception
 
-from misquote.chain.addresses import DEPLOYMENTS, EQUITY_POOL, POOLS
+from misquote.chain.addresses import DEPLOYMENTS, KNOWN_POOLS, known_pools_on
 from misquote.vetting.badge import Badge, PoolReadings, evaluate
 
 REPO = Path(__file__).resolve().parents[3]
@@ -111,7 +111,11 @@ def recorded_for(address: str) -> dict[str, int] | None:
     alternative — printing the chain and trusting the constants — is how a
     wrong `fee_protocol` survived being published.
     """
-    for pool in (*POOLS.values(), EQUITY_POOL):
+    # Every verified pool, not a subset. This read `(*POOLS.values(),
+    # EQUITY_POOL)` and so returned `None` for `TARGET_POOL_WIDE` — which does
+    # not fail, it silently drops the repo-versus-chain comparison for the one
+    # pool whose `fee_protocol` differs from the flagship's.
+    for pool in KNOWN_POOLS:
         if pool.address.lower() == address.lower():
             return {
                 "fee_pips": pool.fee_pips,
@@ -218,10 +222,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _known_pools(chain_id: int):
-    pools = [POOLS[chain_id]] if chain_id in POOLS else []
-    if chain_id == EQUITY_POOL.chain_id:
-        pools.append(EQUITY_POOL)
-    return pools
+    return list(known_pools_on(chain_id))
 
 
 if __name__ == "__main__":

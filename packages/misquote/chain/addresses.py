@@ -274,6 +274,39 @@ KNOWN_POOLS: tuple[PoolRef, ...] = (
 )
 
 
+def known_pools_on(chain_id: int) -> tuple[PoolRef, ...]:
+    """Every verified pool on one chain, the default one first.
+
+    ## Why this exists rather than three lists
+
+    Four places needed "the pools we care about on this chain" and each grew its
+    own answer: `vetting/read.py` had two — one in `recorded_for`, one in
+    `_known_pools` — `vetting_report.py::listed_pools` had a third that its own
+    docstring describes as mirroring the second, and `venue_report.py` wrote a
+    fourth out by hand as three literal rows.
+
+    `TARGET_POOL_WIDE` was in none of them. It is in `KNOWN_POOLS`, it is
+    indexed with 14,016 real swaps, its `fee_protocol` of 3200 against the
+    flagship's 3400 is asserted by a test, and it is the second venue in the
+    Agent Advantage Report's third task — so half of a judged comparison ran on
+    a pool that had never been through the nine checks, and that appeared on
+    neither of the two pages whose subject is which pools were read.
+
+    Four hand-maintained subsets of one tuple is why. Deriving them removes the
+    class of error rather than this instance of it: a pool added to
+    `KNOWN_POOLS` is now published and vetted by construction, and
+    `tests/chain/test_known_pools_are_published.py` fails if a caller goes back
+    to writing its own list.
+
+    Default first because `/vetting` and `/venue` both lead with the flagship,
+    and ordering by declaration would put whichever pool was declared earliest
+    at the top of a page about the one this project actually trades.
+    """
+    default = POOLS.get(chain_id)
+    rest = [p for p in KNOWN_POOLS if p.chain_id == chain_id and p is not default]
+    return tuple(([default] if default is not None else []) + rest)
+
+
 def pool_by_address(address: str) -> PoolRef:
     """The verified reference for a pool address, or a refusal.
 
