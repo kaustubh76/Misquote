@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts, textFrom } from "@/test/harness";
 import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { money, signed } from "@/lib/format";
 
 import AdvantagePage from "./advantage/page";
@@ -1374,5 +1376,82 @@ describe("Two runs, one question", () => {
         `${task.task} is not quoted on its own capital`,
       ).toBe(true);
     }
+  });
+});
+
+/**
+ * How current the readiness gates are, counted rather than asserted.
+ *
+ * `/status` is a recording of one run, and it rendered as a wall of verdicts
+ * with nothing saying how old the recording was. On the tree this was written
+ * against its gate read "agent advantage report: 0/3 tasks on chain data" —
+ * recorded at `fa185b4` on 18 Aug, false since the chain run landed, sitting
+ * under a heading whose entire subject is what has and has not been checked.
+ *
+ * The census is recomputed here from the directory rather than read back from
+ * the component, so this fails if `censusArtifacts` starts looking in the wrong
+ * place for a commit — which is the part with a real decision in it, since
+ * `build.json` records its sha at the top level and everything else records it
+ * under `build`.
+ */
+describe("Status says how current its gates are", () => {
+  const dir = join(process.cwd(), "public", "artifacts");
+  const files = readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
+  const EXEMPT = ["assumptions.json"];
+
+  const shaOf = (name: string) => {
+    const blob = JSON.parse(readFileSync(join(dir, name), "utf8"));
+    const sha = blob?.build?.git_sha ?? blob?.git_sha;
+    return typeof sha === "string" && sha.length > 0 ? sha : undefined;
+  };
+
+  const counted = files.filter((n) => !EXEMPT.includes(n));
+  const unstamped = counted.filter((n) => !shaOf(n));
+
+  it("counts the artifacts that record no commit, and names them", async () => {
+    // Both halves. A census reporting zero unstamped artifacts would be the
+    // more comfortable page and, on this tree, a false one — every file behind
+    // `/`, `/advantage` and the three agent cards records nothing.
+    expect(unstamped.length, "every artifact is stamped — this notice is now moot").toBeGreaterThan(
+      0,
+    );
+
+    render(<StatusPage />);
+    const notice = await screen.findByText(/How current this is/);
+    // The whole notice, not the sentence. `parentElement` is the <p> the
+    // heading sits in, and the list of unnamed artifacts is its sibling — so
+    // scoping there asserted the counts against a string that could never have
+    // contained the names.
+    const text = notice.closest("div")?.textContent ?? "";
+
+    expect(text).toContain(`${files.length} artifacts`);
+    expect(text).toContain(`${unstamped.length} record no commit`);
+
+    // Scoped to the notice. Unscoped, several of these filenames also appear in
+    // the gate details below — "build.json is 2 engine commit(s) behind" — and
+    // the assertion passed on a notice that listed nothing at all.
+    for (const name of unstamped) {
+      expect(text, `${name} is counted but not named`).toContain(name);
+    }
+  });
+
+  it("names what it excluded and why, rather than quietly not counting it", async () => {
+    render(<StatusPage />);
+    await screen.findByText(/How current this is/);
+
+    for (const name of EXEMPT.filter((n) => files.includes(n))) {
+      const line = screen.getByText(/is not counted against that/);
+      expect(line.textContent).toContain(name);
+      expect(line.textContent).toMatch(/projection of docs/);
+    }
+  });
+
+  it("reports the run's own commit, from the artifact", async () => {
+    const status = readArtifact<{ build?: { git_sha?: string } }>("status.json");
+    expect(status.build?.git_sha, "status.json records no commit — retarget this").toBeTruthy();
+
+    render(<StatusPage />);
+    const notice = await screen.findByText(/How current this is/);
+    expect(notice.closest("div")?.textContent).toContain(status.build!.git_sha!);
   });
 });
