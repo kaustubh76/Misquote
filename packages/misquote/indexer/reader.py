@@ -77,6 +77,33 @@ DEFAULT_ATTEMPTS = 6
 #
 # Both log-serving endpoints declare the same 5,000-block ceiling — see
 # `backfill.DEFAULT_CHUNK`.
+#
+# ## How far back they serve, measured 20 Aug 2026 at head 117,024,979
+#
+# The width limit is documented above and the *depth* limit was not, which cost
+# an hour: backfilling a third pool over the same window as the first two —
+# blocks 110,495,529 to 116,298,456, the 30 days the Agent Advantage Report is
+# computed on — failed six times in a row, each run dying at ~210s with
+# `header not found` and recording zero coverage.
+#
+# It is not flakiness and it is not the pool. Probing one 3,000-block window per
+# endpoint at three depths:
+#
+#   endpoint                        head-4k     ~7 days     ~34 days
+#   bsc.rpc.blxrbdn.com             ok          ok          connection reset
+#   rpc-bsc.48.club                 ok          ok          header not found
+#   bsc-rpc.publicnode.com          ok          403         403
+#   bsc-dataseed.bnbchain.org       limit       limit       limit
+#   bsc-dataseed1.defibit.io        limit       limit       limit
+#
+# So free BSC endpoints serve roughly the last week of logs and refuse the rest.
+# The committed 30-day tape was captured on 16 Aug, when its window was fresh;
+# **it cannot be reproduced from these endpoints today, and neither can a new
+# pool be indexed over it.** That is a property of the endpoints, not of this
+# code, and re-running the backfill will not fix it — an archive RPC will.
+#
+# Worth knowing before spending the hour, which is why it is written down here
+# rather than in a commit message.
 PUBLIC_RPCS: dict[int, tuple[str, ...]] = {
     56: (
         # Serves logs, and does the work: latency tracked the response size
