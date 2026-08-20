@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { readArtifact } from "@/lib/build-artifact";
 import { AgentDetail } from "@/components/AgentDetail";
-import type { AgentArtifact } from "@/lib/artifacts";
+import type { AdvantageArtifact, AgentArtifact } from "@/lib/artifacts";
+
 
 /**
  * Slugs come from the generated index at build time.
@@ -61,5 +62,17 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   // directory twice per page — for the slug list and for the tab title — and
   // threw the contents away, so the page that renders the most numbers on the
   // site exported none of them.
-  return <AgentDetail slug={slug} initial={readArtifact<AgentArtifact>(`${slug}.json`)} />;
+  //
+  // The report comes with it. `advantage.json` answers the same question as
+  // this card from a different run, and the two have disagreed by as much as a
+  // sign; the card names the other answer now, and it has to do so in the
+  // static HTML rather than only after a fetch, because the no-JS export is
+  // where a disclosure is least likely to be noticed missing.
+  return (
+    <AgentDetail
+      slug={slug}
+      initial={readArtifact<AgentArtifact>(`${slug}.json`)}
+      initialAdvantage={readArtifact<AdvantageArtifact>("advantage.json")}
+    />
+  );
 }

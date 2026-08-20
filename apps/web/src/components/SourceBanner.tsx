@@ -8,21 +8,41 @@ import { Badge } from "@/components/Badge";
  * `scripts/showcase.py` calls mistaking one for the other "the failure this
  * whole project is named after", and this is the surface that makes it hard to.
  *
- * Both branches are live, which is worth saying because this comment used to
- * claim otherwise. The agent artifacts and the index are replayed over indexed
- * chain history; `advantage.json` and `advantage_short.json` are synthetic, and
- * `/status` reports that as a failing gate rather than a footnote. So the two
- * pages a reader is most likely to compare — `/` and `/advantage`, one linked
- * from the other — carry different banners on purpose.
+ * ## Why this no longer says which artifact is on which side
+ *
+ * It used to, twice, and it was wrong both times — most recently asserting that
+ * "the agent artifacts and the index are replayed over indexed chain history;
+ * `advantage.json` and `advantage_short.json` are synthetic" on a tree where
+ * `index.json` reads `"source": "synthetic"` and `advantage.json` reads
+ * `"source": "chain"`. Exactly reversed.
+ *
+ * Which run produced which file is data, and it changes whenever somebody runs
+ * an emitter. A comment cannot track it and a reader who trusts one is worse
+ * off than a reader who has none. The rule is what belongs here, and the rule
+ * is: **a page says which tape it read before it says what the tape showed.**
+ *
+ * ## `note`
+ *
+ * When two artifacts answer the same question from different runs, each side
+ * carries the other's answer here — see `lib/counterpart`. It sits in the
+ * banner rather than beside the figure because it is the same claim the banner
+ * already makes, in its sharpest form: not "this tape is generated" but "the
+ * other tape said something else".
  */
 export function SourceBanner({
   source,
   badge,
   pool,
+  span,
+  note,
 }: {
   source: string;
   badge?: string;
   pool?: string;
+  /** How much tape, already formatted. Omitted where the artifact records none. */
+  span?: string;
+  /** The other run's answer to the same question, if there is one. */
+  note?: React.ReactNode;
 }) {
   const synthetic = source !== "chain";
 
@@ -53,7 +73,14 @@ export function SourceBanner({
             <span className="font-mono text-xs">{pool}</span>. No position was held.
           </>
         )}
+        {/* The span goes in the same sentence as the source, because "synthetic"
+            and "62.2 hours" are one qualification and a reader who takes only
+            the first half has the smaller of the two problems. */}
+        {span && <> {span} of it.</>}
       </p>
+      {note && (
+        <p className="mt-2 mb-0 border-t border-line pt-2 text-sm text-dim">{note}</p>
+      )}
     </div>
   );
 }

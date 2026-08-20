@@ -13,15 +13,24 @@ import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
+import { agentSlugFor, type IndexedAgentRef } from "@/lib/counterpart";
 import { count, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
 
 export function AdvantageView({
   initialMain,
   initialShort,
+  initialAgents,
 }: {
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initialMain?: AdvantageArtifact;
   initialShort?: AdvantageArtifact;
+  /**
+   * The exported agent routes, for linking each task to the card that answers
+   * it from its own run. From `index.json`, because that is the file
+   * `generateStaticParams` builds the routes from — a slug guessed here would
+   * work in dev and 404 on the static export.
+   */
+  initialAgents?: IndexedAgentRef[];
 }) {
   const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(
     initialMain ? { ok: true, value: initialMain } : null,
@@ -29,6 +38,7 @@ export function AdvantageView({
   const [short, setShort] = useState<Loaded<AdvantageArtifact> | null>(
     initialShort ? { ok: true, value: initialShort } : null,
   );
+  const [agents, setAgents] = useState<IndexedAgentRef[] | undefined>(initialAgents);
 
   useEffect(() => {
     let live = true;
@@ -39,6 +49,14 @@ export function AdvantageView({
       if (!live) return;
       setMain(m);
       setShort(s);
+    });
+    // Refreshed rather than frozen at build time, on the same terms as the
+    // reports themselves. Only a successful read replaces it: a missing index
+    // means no cards were generated, and the honest surface for that is a task
+    // that names its agent without linking, not an error on a page about
+    // something else.
+    load<{ agents?: IndexedAgentRef[] }>("index.json").then((r) => {
+      if (live && r.ok) setAgents(r.value.agents);
     });
     return () => {
       live = false;
@@ -146,7 +164,13 @@ export function AdvantageView({
           >
             <div className="grid gap-6">
               {d.tasks.map((task) => (
-                <TaskCard key={task.task} task={task} capital={d.capital_quote} unit={d.quote_symbol} />
+                <TaskCard
+                  key={task.task}
+                  task={task}
+                  capital={d.capital_quote}
+                  unit={d.quote_symbol}
+                  slug={agentSlugFor(task, agents)}
+                />
               ))}
             </div>
           </Section>
@@ -252,12 +276,27 @@ function TaskCard({
   task,
   capital,
   unit,
+  slug,
 }: {
   task: AdvantageTask;
-  capital: number;
+  /**
+   * The report-level basis, used only when the task carries none of its own.
+   *
+   * It is `number | string` because the emitter writes the sentence "per task —
+   * see tasks[].capital_quote" whenever the tasks disagree, which they now do.
+   * `money()` returns a dash for anything non-numeric, so passing that string
+   * through rendered "on — of capital" on all three cards.
+   */
+  capital: number | string;
   unit?: string;
+  /** The route for the agent this task hired, when the index exports one. */
+  slug?: string;
 }) {
   const sign = signOf(task.delta_pp);
+  // Per task first. The Choose task is quoted on 0.0318 WBNB and the other two
+  // on 1.0 — one basis for all three has not been true since the report started
+  // comparing venues.
+  const basis = task.capital_quote ?? capital;
 
   return (
     <Card as="article">
@@ -282,7 +321,18 @@ function TaskCard({
         </div>
         <div className="rounded-sm border border-line bg-panel-2 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">With an agent</dt>
-          <dd className="m-0 mt-1 text-dim">{task.with_agent}</dd>
+          {/* The agent's own card answers this same task from its own run, and
+              the two have disagreed by as much as a sign. This sentence named
+              the agent as inert text, so a reader had no way to reach the other
+              answer or to know there was one.
+
+              Only when the index exports a route for it. The third task hires
+              nobody — its agent column is a paragraph about which pool to
+              provide to — and it must stay unlinked rather than acquire a link
+              to a page that was never built. */}
+          <dd className="m-0 mt-1 text-dim">
+            {slug ? <Link href={`/agent/${slug}`}>{task.with_agent}</Link> : task.with_agent}
+          </dd>
         </div>
       </dl>
 
@@ -359,7 +409,7 @@ function TaskCard({
               }}
             />
             <p className="mt-3 mb-0 text-xs text-faint">
-              {task.metric} · on {money(capital, unit)} of capital · {task.note}
+              {task.metric} · on {money(basis, unit)} of capital · {task.note}
             </p>
           </div>
         </details>

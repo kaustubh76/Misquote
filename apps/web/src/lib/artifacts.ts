@@ -397,6 +397,24 @@ export interface AdvantageTask {
   material: boolean;
   separated: boolean;
   verdict: string;
+  /**
+   * The tape behind this one task.
+   *
+   * Optional because it is, on disk. `advantage.json` records it per task —
+   * the three tasks are separate replays and need not share a tape — while
+   * `advantage_short.json` predates the field and carries only the report-level
+   * `source`. Declaring it required would type a lie about a file the site
+   * ships.
+   */
+  source?: string;
+  /**
+   * The capital this task was quoted on, in `quote_symbol`.
+   *
+   * Also per task, and also absent from the short report. The Choose task is
+   * quoted on 0.0318 WBNB against 1.0 for the other two, which is why the
+   * report-level field stopped being a number — see `AdvantageArtifact`.
+   */
+  capital_quote?: number;
 }
 
 export interface AdvantageArtifact {
@@ -405,7 +423,23 @@ export interface AdvantageArtifact {
   counterfactual: boolean;
   badge: string;
   source: string;
-  capital_quote: number;
+  /**
+   * One capital basis for the whole report, or a pointer to the per-task ones.
+   *
+   * It stopped being a number when the tasks stopped sharing a basis: the
+   * emitter now writes the literal string `"per task — see
+   * tasks[].capital_quote"` whenever they differ, and on the current report
+   * they do — 1.0 WBNB for Earn and Protect, 0.0318 for Choose.
+   *
+   * This was typed `number` for as long as that was true, and the string then
+   * flowed straight into `money()`, which returns `EMPTY` for anything that is
+   * not a number. So all three task cards read "on — of capital": a dash
+   * standing in for a figure the artifact was holding, on the one page this
+   * project is judged by. `TaskCard` reads the task's own value now and falls
+   * back here only when a report has no per-task figures, which is exactly the
+   * case `advantage_short.json` is.
+   */
+  capital_quote: number | string;
   /** Unit of `capital_quote` and of every fee/cost figure on each task. */
   quote_symbol?: string;
   summary: {

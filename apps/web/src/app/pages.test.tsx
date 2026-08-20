@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts, textFrom } from "@/test/harness";
 import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
+import { money, signed } from "@/lib/format";
 
 import AdvantagePage from "./advantage/page";
 import AssumptionsPage from "./assumptions/page";
@@ -1232,5 +1233,146 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     expect(screen.getByLabelText("Check filter result")).toHaveTextContent(
       `1 of ${total} checks are FAIL.`,
     );
+  });
+});
+
+/**
+ * Two artifacts, one question, and whether a reader can tell they disagree.
+ *
+ * `advantage.json` and the agent cards both answer "did the agent beat doing it
+ * yourself", from different runs. On the tree these tests were written against
+ * the report is `source: "chain"` and the cards are `source: "synthetic"`, and
+ * they disagree by as much as a sign — Sentinel loses by 38.17pp on one page and
+ * wins by 0.72pp on the other, one click apart.
+ *
+ * Nothing here asserts which is right, and nothing asserts they agree: two runs
+ * over different tape are *supposed* to be able to differ. What is asserted is
+ * that neither page can state its answer without saying which tape it read and
+ * what the other one said.
+ */
+describe("Two runs, one question", () => {
+  const report = readArtifact<AdvantageArtifact>("advantage.json");
+  const index = readArtifact<IndexArtifact>("index.json");
+
+  /** The report's row for an agent, by the same rule `lib/counterpart` uses. */
+  const taskFor = (name: string) =>
+    report.tasks.find((t) => t.with_agent.toLowerCase().startsWith(name.toLowerCase()));
+
+  const sourceLabel = (source: string) =>
+    source === "chain" ? /Indexed chain history/ : /Synthetic tape — not chain data/;
+
+  it("says which tape it read before it says what the tape showed", async () => {
+    // The defect was position, not absence. `source` was on this page the whole
+    // time — as a row in a provenance table 330 lines below the headline — so
+    // an assertion that the word is *present* passes on the broken page and
+    // proves nothing. Document order is the claim.
+    const card = readArtifact<AgentArtifact>("sentinel.json");
+    render(<AgentDetail slug="sentinel" />);
+
+    const banner = await screen.findByText(sourceLabel(card.source));
+
+    // Before *every* claim, not merely before the delta. Written the narrow way
+    // first, and a mutation run walked straight through it: moving the banner
+    // down past the quote section still left it above the advantage figure, so
+    // the test went green on a page where the source had been pushed halfway
+    // down again. The first heading is where the claims start.
+    const headings = screen.getAllByRole("heading");
+    expect(headings.length, "the card renders no headings — retarget this").toBeGreaterThan(1);
+    expect(card.advantage, "sentinel.json publishes no advantage — retarget this").toBeTruthy();
+
+    for (const claim of [
+      headings[1]!,
+      screen.getAllByText(signed(card.advantage!.delta_pp, 2, "pp"))[0]!,
+    ]) {
+      expect(
+        banner.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `"${claim.textContent}" is stated before the page says which tape it read`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("carries the other run's answer, its figure, and a way to reach it", async () => {
+    const task = taskFor("Sentinel");
+    expect(task, "the report has no Sentinel task — retarget this test").toBeTruthy();
+
+    render(<AgentDetail slug="sentinel" />);
+    await screen.findByRole("heading", { name: "Sentinel" });
+
+    // The figure is read from the report, not restated: change `advantage.json`
+    // and this must change with it.
+    expect(screen.getByText(signed(task!.delta_pp, 2, "pp"))).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `${task!.task} →` })).toHaveAttribute(
+      "href",
+      "/advantage",
+    );
+  });
+
+  it("renders no cross-reference for an agent the report does not judge", async () => {
+    // Grid appears in none of the report's rows, and the third row hires nobody
+    // at all — its agent column is a paragraph about which pool to provide to.
+    // So two of the six pairings resolve to nothing, and nothing must render as
+    // nothing rather than as an empty box or a link to a page that would answer
+    // a different question.
+    expect(taskFor("Grid"), "the report now judges Grid — retarget this test").toBeUndefined();
+
+    const card = readArtifact<AgentArtifact>("grid.json");
+    render(<AgentDetail slug="grid" />);
+    await screen.findByRole("heading", { name: "Grid" });
+
+    expect(screen.getByText(sourceLabel(card.source))).toBeInTheDocument();
+    expect(
+      screen.queryAllByText((_, el) =>
+        (el?.textContent ?? "").includes("The same task, replayed over"),
+      ),
+    ).toEqual([]);
+    expect(document.querySelectorAll('a[href="/advantage"]')).toHaveLength(0);
+  });
+
+  it("links each task to the agent card that answers it, and only those", async () => {
+    render(<AdvantagePage />);
+    await screen.findByRole("heading", { name: /^The \d+ tasks$/ });
+
+    for (const task of report.tasks) {
+      const agent = index.agents.find((a) =>
+        task.with_agent.toLowerCase().startsWith(a.name.toLowerCase()),
+      );
+
+      if (agent) {
+        expect(screen.getByRole("link", { name: task.with_agent })).toHaveAttribute(
+          "href",
+          `/agent/${agent.slug}`,
+        );
+      } else {
+        // Still named, just not linked. A slug guessed from the name would
+        // resolve in dev and 404 on the static export, where only the slugs
+        // `index.json` lists are built.
+        expect(screen.queryByRole("link", { name: task.with_agent })).not.toBeInTheDocument();
+        expect(screen.getAllByText(task.with_agent).length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("quotes each task on its own capital basis rather than a dash", async () => {
+    // `capital_quote` at the report level stopped being a number when the tasks
+    // stopped sharing a basis: the emitter writes the literal string "per task
+    // — see tasks[].capital_quote" when they differ, and `money()` returns a
+    // dash for anything that is not a number. All three cards on the page this
+    // project is judged by read "on — of capital", while every figure they
+    // needed was one level down in the same file.
+    render(<AdvantagePage />);
+    await screen.findByRole("heading", { name: /^The \d+ tasks$/ });
+
+    const lines = [...document.querySelectorAll("p")].map((p) => p.textContent ?? "");
+    expect(lines.some((t) => t.includes("of capital"))).toBe(true);
+    expect(lines.filter((t) => t.includes("on — of capital"))).toEqual([]);
+
+    for (const task of report.tasks) {
+      if (!task.quotable) continue;
+      const basis = task.capital_quote ?? report.capital_quote;
+      expect(
+        lines.some((t) => t.includes(`on ${money(basis, report.quote_symbol)} of capital`)),
+        `${task.task} is not quoted on its own capital`,
+      ).toBe(true);
+    }
   });
 });

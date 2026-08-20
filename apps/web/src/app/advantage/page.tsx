@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdvantageView } from "./view";
 import type { AdvantageArtifact } from "@/lib/artifacts";
 import { readArtifact } from "@/lib/build-artifact";
+import type { IndexedAgentRef } from "@/lib/counterpart";
 
 // A server component, so the title reaches the prerendered HTML. Every route
 // was a client component, none could export metadata, and all seven pages
@@ -13,5 +14,15 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <AdvantageView initialMain={readArtifact<AdvantageArtifact>("advantage.json")} initialShort={readArtifact<AdvantageArtifact>("advantage_short.json")} />;
+  // The index comes along for the agent routes. Each task names the agent it
+  // hired, and that agent's own card answers the same task from a different
+  // run — the two have disagreed by as much as a sign, and neither page said
+  // so. Read here so the link survives into the static export.
+  return (
+    <AdvantageView
+      initialMain={readArtifact<AdvantageArtifact>("advantage.json")}
+      initialShort={readArtifact<AdvantageArtifact>("advantage_short.json")}
+      initialAgents={readArtifact<{ agents?: IndexedAgentRef[] }>("index.json")?.agents}
+    />
+  );
 }
