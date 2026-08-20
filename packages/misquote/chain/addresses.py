@@ -187,9 +187,37 @@ TESTNET_MIRROR_POOL = PoolRef(
 # `vetting/badge.py` now cross-checks every recorded value against chain, which
 # is what would have caught it the first time.
 #
-# Thin, and said plainly: this is the *only* xStocks v3 pool on BSC with real
-# liquidity. NVDAx and AAPLx are bridged and have no pool at any fee tier, and
-# the 1.00% TSLAx/USDT pool exists with zero liquidity — a pool on paper.
+# Thin, and said plainly: this is the *only* xStocks v3 pool on BSC with any
+# liquidity at all. NVDAx and AAPLx are bridged and have no pool at any fee
+# tier, and the 1.00% TSLAx/USDT pool exists with zero liquidity — a pool on
+# paper.
+#
+# ## "real liquidity" was our own overstatement — measured 20 Aug 2026
+#
+# This comment said "the only xStocks v3 pool on BSC with **real** liquidity",
+# which was a comparison against two pools that do not exist rather than against
+# anything a position would meet. Indexed over 99.1 hours (blocks 116,219,000 to
+# 117,033,192) it is:
+#
+#     swaps                  85, one every 70 minutes
+#     median swap size       0.2 USDT
+#     largest swap in 4 days 9.6 USDT
+#
+# Against the flagship's 348.5 swaps an hour. The tape says the same thing a
+# second way: **8.2% of these swaps are mispriced by more than 10% by their own
+# post-swap tick**, against 1 in 60,000 on the flagship — each trade moves the
+# price materially because there is nothing there to absorb it.
+#
+# That is the tokenized-equity category the TermiX track weights alongside
+# trading and security, and it is why this pool has a badge and no task. The
+# arithmetic would run: 99.1 hours cuts into sub-windows of 49.5, clearing the
+# 24h policy horizon, and a P25–P75 band would come out the far end looking
+# exactly like the flagship's. It would be a real number about a venue whose
+# entire four-day flow is a few tens of dollars.
+#
+# The pool stays verified, badged and published, because it is a real pool and
+# the reading is a result. What is not published is a quote, and this is the
+# measurement that says why rather than a judgement that asserts it.
 TSLAX_MAINNET = "0x8Ad3c73F833d3f9a523ab01476625F269AeB7cf0"
 
 EQUITY_POOL = PoolRef(
