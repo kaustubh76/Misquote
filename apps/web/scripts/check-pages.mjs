@@ -21,6 +21,9 @@
  *   - the current page is marked in the nav, and is actually on screen — the
  *     nav is a hidden-scrollbar scroller, so at 390px the active pill sat two
  *     screens to the right of the visible strip and nothing was highlighted
+ *   - every link on every route resolves, anchors included — `Cite` builds
+ *     links out of artifact prose with a regex, and renders one to an
+ *     assumption that does not exist exactly like one that does
  *
  * Exits non-zero on either. Optionally writes screenshots for a human to look
  * at, which is the other half of not shipping a UI nobody has seen.
@@ -68,7 +71,12 @@ for (const [colorScheme, width] of VIEWPORTS) {
 
   const problems = [];
   page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
-  page.on("pageerror", (e) => problems.push(`uncaught: ${e}`));
+  // The URL, because these are not always attributable to the route the loop
+  // thinks it is on: a hydration error can fire while the *previous* page is
+  // still hydrating and land in this bucket. React error #418 has shown up
+  // roughly once per sixty loads, on a different route each time, and the tag
+  // alone sent two investigations at innocent pages.
+  page.on("pageerror", (e) => problems.push(`uncaught on ${page.url()}: ${e}`));
   page.on("requestfailed", (r) => problems.push(`request failed: ${r.url()}`));
   page.on("response", (r) => {
     if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);
@@ -208,6 +216,81 @@ for (const [path, floor, needle] of NO_JS) {
 
 await noJs.close();
 
+// --- every link goes somewhere -----------------------------------------------
+//
+// `ed60489` reported "107 link targets, all of which resolve". That was an
+// audit, in a commit message, true once. Nothing here has ever checked that a
+// link goes anywhere — this script tested console errors, overflow, nav state,
+// titles and prerendering, and would pass a site where every link 404'd.
+//
+// `Cite` is what makes it load-bearing. It linkifies `A6`, `P-1` and `V-13`
+// straight out of artifact prose with a regex, so an emitter can write a
+// citation to an assumption that does not exist and the page renders it
+// identically to a live one — a confident little link to nothing, on the sheet
+// the site's whole argument rests on. `tests/web/test_citations.py` checks the
+// artifacts against the sheet; this checks what was actually rendered.
+//
+// JavaScript on, deliberately. The no-JS pass above proves the export carries
+// its content; this wants the *superset*, including any link a view only draws
+// once its fetch lands.
+const linkCtx = await browser.newContext();
+const linkPage = await linkCtx.newPage();
+
+/** target -> the routes that link to it, for naming the source of a dead one. */
+const targets = new Map();
+
+for (const [, path] of ROUTES) {
+  await linkPage.goto(BASE + path, { waitUntil: "networkidle" });
+  await linkPage.waitForTimeout(350);
+
+  const hrefs = await linkPage.evaluate(() =>
+    [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")),
+  );
+
+  for (const href of hrefs) {
+    if (!href || href.startsWith("http") || href.startsWith("mailto:") || href === "#") continue;
+    // A bare fragment resolves against the page it is on.
+    const target = href.startsWith("#") ? path + href : href;
+    if (!target.startsWith("/")) continue;
+    (targets.get(target) ?? targets.set(target, new Set()).get(target)).add(path);
+  }
+}
+
+await linkCtx.close();
+
+/** The served HTML for a path, fetched once. */
+const documents = new Map();
+async function documentAt(path) {
+  if (!documents.has(path)) {
+    const res = await fetch(BASE + path);
+    documents.set(path, res.ok ? await res.text() : null);
+  }
+  return documents.get(path);
+}
+
+let dead = 0;
+for (const [target, sources] of [...targets].sort()) {
+  const [path, hash] = target.split("#");
+  // Every route is a directory under `trailingSlash: true`, and `Cite` writes
+  // `/assumptions#A6` with no slash — which the server redirects. Following it
+  // here rather than rewriting: a link a browser resolves is not dead.
+  const html = await documentAt(path);
+  const from = [...sources].join(", ");
+
+  if (html === null) {
+    failures.push(`dead link: ${target} does not resolve (linked from ${from})`);
+    dead += 1;
+  } else if (hash && !html.includes(`id="${hash}"`)) {
+    failures.push(`dead anchor: ${target} — the page has no ${hash} (linked from ${from})`);
+    dead += 1;
+  }
+}
+
+console.log(
+  `  ${dead === 0 ? "ok  " : "FAIL"}  ${"links resolve".padEnd(30)}` +
+    `  ${targets.size} distinct targets across ${ROUTES.length} routes, ${dead} dead`,
+);
+
 // --- interaction, in a real browser ------------------------------------------
 //
 // Everything else here loads a page and looks at it. Nothing anywhere in this
@@ -236,7 +319,25 @@ const hiddenWhileFiltered = await page2.evaluate(() => !document.getElementById(
 await page2.evaluate(() => {
   window.location.hash = "#A5";
 });
-await page2.waitForTimeout(600);
+
+// Polled, not slept. A flat 600ms was enough on most runs and not on all of
+// them: the reveal clears a filter, re-renders 55 entries and *then* scrolls,
+// and on a slow run the scroll had not landed when the assertion read it —
+// reporting `scrolled=false` for a mechanism that works. A check that fails
+// once in a few runs teaches people to re-run it until it passes, which is
+// worse than not having it.
+//
+// The timeout is the assertion. If the scroll never lands, this throws and the
+// read below still records what the page ended up doing.
+await page2
+  .waitForFunction(
+    () => {
+      const el = document.getElementById("A5");
+      return !!el && Math.abs(el.getBoundingClientRect().top) < 400;
+    },
+    { timeout: 5000 },
+  )
+  .catch(() => {});
 
 const revealed = await page2.evaluate(() => {
   const el = document.getElementById("A5");
