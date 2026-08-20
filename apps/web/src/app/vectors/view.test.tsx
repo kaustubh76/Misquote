@@ -19,6 +19,13 @@ function withReplay(replay: Record<string, unknown>) {
   return { ...d, verification: { ...d.verification, replay } };
 }
 
+/** The same, for the other run. Both are recorded on the committed artifact
+ *  now, so the withheld and failing states need fixtures on either side. */
+function withDifferential(differential: Record<string, unknown>) {
+  const d = real();
+  return { ...d, verification: { ...d.verification, differential } };
+}
+
 beforeEach(() => serveArtifacts());
 afterEach(() => {
   cleanup();
@@ -40,10 +47,10 @@ async function loaded() {
 /**
  * One verification card, by its title.
  *
- * Both cards can be in the same state at once — the committed artifact has a
- * recorded replay and no differential — so an unscoped `getByText(/Nothing has
- * been recorded/)` either finds two elements or finds the wrong one. Every
- * assertion about a verification has to name which.
+ * Both cards can be in the same state at once — the committed artifact now has
+ * a recorded replay *and* a recorded differential, and for a long time it had
+ * only the first — so an unscoped `getByText(...)` either finds two elements or
+ * finds the wrong one. Every assertion about a verification has to name which.
  */
 const card = (title: string) =>
   screen.getByRole("heading", { name: title }).closest("section")!;
@@ -104,13 +111,70 @@ describe("a verification nobody ran", () => {
     expect(within(card("Replay")).queryByText("PASS")).not.toBeInTheDocument();
   });
 
-  it("says the differential is unrecorded even though the replay passed", async () => {
-    // The two answer different questions and only one has ever been recorded
-    // here. `FOR_JUDGES.md` row 1 quotes the differential's headline, so
-    // collapsing them is the specific conflation to avoid.
+  it("refuses the differential on its own terms, not the replay's", async () => {
+    // This asserted against the committed artifact that the differential had
+    // never been run — true for as long as nothing could write its receipt, and
+    // false the moment one did. The durable claim is the one it was reaching
+    // for: the two answer different questions, and a page that has recorded one
+    // must still refuse the other rather than let a passing replay stand in.
+    //
+    // `FOR_JUDGES.md` row 1 quotes the differential's headline, so that
+    // substitution is the specific one to prevent.
+    serveArtifacts({
+      overrides: {
+        "vectors.json": withDifferential({
+          recorded: false,
+          reason: "no differential run has been recorded — `make vectors-check` needs foundry",
+        }),
+      },
+    });
     await loaded();
-    expect(screen.getByRole("heading", { name: "Differential" })).toBeInTheDocument();
-    expect(screen.getByText(/needs foundry and a local anvil/)).toBeInTheDocument();
+
+    const differential = within(card("Differential"));
+    expect(differential.getByText(/Nothing has been recorded for this check/)).toBeInTheDocument();
+    expect(differential.getByText(/make vectors-check/)).toBeInTheDocument();
+    // The replay is recorded in this fixture and must not lend its pass across.
+    expect(differential.queryByText("PASS")).not.toBeInTheDocument();
+  });
+
+  it("gives each run its own remedy, and never the other one's", async () => {
+    // `VerificationCard` had one caller for as long as the differential could
+    // not be recorded, and had hardcoded that caller in three places: the table
+    // row read "pytest said" for a run that never invokes pytest, the stale
+    // branch told a reader to re-run `make vectors-verify` whichever check had
+    // gone stale, and the failure banner described the replay.
+    //
+    // Both stale, both scoped, so neither can be satisfied by the other card.
+    serveArtifacts({
+      overrides: {
+        "vectors.json": {
+          ...real(),
+          verification: {
+            replay: { recorded: true, corpus_matches: false, corpus_moved: ["constants"] },
+            differential: { recorded: true, corpus_matches: false, corpus_moved: ["constants"] },
+          },
+        },
+      },
+    });
+    await loaded();
+
+    expect(within(card("Replay")).getByText(/make vectors-verify/)).toBeInTheDocument();
+    expect(within(card("Replay")).queryByText(/make vectors-check/)).not.toBeInTheDocument();
+    expect(within(card("Differential")).getByText(/make vectors-check/)).toBeInTheDocument();
+    expect(within(card("Differential")).queryByText(/make vectors-verify/)).not.toBeInTheDocument();
+  });
+
+  it("does not attribute the differential's summary to pytest", async () => {
+    // The third hardcoded string, and the one a mutation run walked straight
+    // through: the table row said "pytest said" on both cards, for a run that
+    // spawns anvil and forge and never invokes pytest. Asserted against the
+    // committed artifact, which now records both.
+    const both = real().verification;
+    if (!both.replay.recorded || !both.differential.recorded) return;
+
+    await loaded();
+    expect(within(card("Replay")).getByText("pytest said")).toBeInTheDocument();
+    expect(within(card("Differential")).queryByText("pytest said")).not.toBeInTheDocument();
   });
 });
 
@@ -167,8 +231,8 @@ describe("a recorded run", () => {
     const replay = within(card("Replay"));
     expect(replay.getByText(/does not reproduce the recorded answers/)).toBeInTheDocument();
     expect(replay.getByText("1 failed, 9 passed")).toBeInTheDocument();
-    // Scoped: the differential is genuinely unrecorded in this fixture, so an
-    // unscoped query finds its refusal and the assertion means nothing.
+    // Scoped, because both cards render through one component and an unscoped
+    // query cannot say which one it found.
     expect(replay.queryByText(/Nothing has been recorded/)).not.toBeInTheDocument();
   });
 });

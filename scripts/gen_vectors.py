@@ -394,6 +394,73 @@ def run(exposer: Any, n: int, seed: int) -> Differ:
     return d
 
 
+#: Where `--check` leaves what it observed, beside the replay's own receipt.
+DIFFERENTIAL_RECEIPT = REPO / "vetting" / "runs" / "vectors-differential.json"
+
+
+def write_receipt(args: argparse.Namespace, differ: Differ) -> None:
+    """Record what the differential actually compared, for `/vectors` to publish.
+
+    ## Why this did not exist
+
+    `vectors_report.py` hardcoded `differential: {"recorded": False}` under a
+    comment reading "No differential receipt is written by anything yet", and
+    the same file notes that `docs/FOR_JUDGES.md` row 1 *quotes the
+    differential's headline*. So the claim that makes a fork comparison
+    meaningful at all — this Python reproduces Uniswap's own libraries — was
+    asserted in a document and refused on the page, while the run that would
+    settle it printed its result and exited.
+
+    ## What this receipt claims, and what it must not
+
+    `--check` **fuzzes fresh cases against the deployed Solidity**. It does not
+    replay `tests/core/vectors/`. Those are two different assurances and the
+    stronger sentence — "the committed vectors were verified against Solidity" —
+    belongs to `vectors_verify.py`, which watches a replay of exactly those
+    files. Writing it here would be this project's own failure mode: a true
+    claim about one thing, printed where a reader takes it for another.
+
+    So `summary_line` says *fuzzed*, and `cases_covered` is
+    `differ.compared` — the comparisons this run actually made — never the
+    corpus's 19,546.
+
+    ## The digests are still the corpus's
+
+    Deliberately, and it is the same mechanism `read_receipt` applies to the
+    replay: they record *what the corpus looked like when the two
+    implementations were last shown to agree*. Regenerate the vectors and this
+    receipt stops describing them, `corpus_matches` goes false at publish time,
+    and the page says so. A receipt cannot vouch for itself.
+    """
+    from misquote.tearsheet import provenance, vectors
+
+    corpus = vectors.corpus()
+    ok = not differ.mismatches
+    receipt = {
+        "command": f"python scripts/gen_vectors.py -n {args.n} --seed {args.seed} --check",
+        "exit_code": 0 if ok else 1,
+        "outcome": "PASS" if ok else "FAIL",
+        "cases_covered": differ.compared,
+        "mismatches": len(differ.mismatches),
+        "groups_compared": sorted(differ.vectors),
+        "seed": args.seed,
+        "cases_per_group": args.n,
+        "summary_line": (
+            f"{differ.compared:,} fresh cases fuzzed against the deployed Solidity "
+            f"across {len(differ.vectors)} groups, {len(differ.mismatches)} mismatches"
+        ),
+        "digests": {g["group"]: g["sha256"] for g in corpus["groups"]},
+        **provenance.build_stamp(
+            f"python scripts/gen_vectors.py -n {args.n} --check",
+            source="Uniswap v3 Solidity, redeployed to a local anvil",
+        ),
+    }
+
+    DIFFERENTIAL_RECEIPT.parent.mkdir(parents=True, exist_ok=True)
+    DIFFERENTIAL_RECEIPT.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+    print(f"  -> {DIFFERENTIAL_RECEIPT.relative_to(REPO)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", type=int, default=3000, help="random cases per group")
@@ -409,6 +476,15 @@ def main() -> int:
         d = run(exposer, args.n, args.seed)
 
     print(f"\n{d.compared:,} comparisons, {len(d.mismatches)} mismatches")
+
+    # Before the mismatch branch, not after it. Written the other way round
+    # first, and it had the asymmetry exactly backwards: a passing run recorded
+    # itself and a failing one exited at `return 1` having recorded nothing, so
+    # `/vectors` could show a green differential and never a red one. A page
+    # that can only publish agreement is not evidence of agreement.
+    if args.check:
+        write_receipt(args, d)
+
     if d.mismatches:
         for line in d.mismatches[:20]:
             print(f"  {line}")

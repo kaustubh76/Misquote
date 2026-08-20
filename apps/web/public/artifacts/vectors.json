@@ -1,9 +1,9 @@
 {
   "build": {
     "command": "python scripts/vectors_report.py",
-    "generated_at": "2026-08-17T09:10:21+00:00",
+    "generated_at": "2026-08-20T10:27:09+00:00",
     "git_dirty": true,
-    "git_sha": "ccd8824",
+    "git_sha": "82e0f91",
     "source": "vector files on disk"
   },
   "corpus": {
@@ -112,8 +112,33 @@
   },
   "verification": {
     "differential": {
-      "reason": "no differential run has been recorded \u2014 `make vectors-check` redeploys the reference Solidity and needs foundry and a local anvil",
-      "recorded": false
+      "cases_covered": 19546,
+      "cases_per_group": 2000,
+      "command": "python scripts/gen_vectors.py -n 2000 --check",
+      "corpus_matches": true,
+      "corpus_moved": [],
+      "exit_code": 0,
+      "generated_at": "2026-08-20T10:26:57+00:00",
+      "git_dirty": true,
+      "git_sha": "82e0f91",
+      "groups_compared": [
+        "constants",
+        "fee_growth_inside",
+        "get_amount0_delta",
+        "get_amount1_delta",
+        "get_amounts_for_liquidity",
+        "get_liquidity_for_amounts",
+        "get_sqrt_ratio_at_tick",
+        "get_tick_at_sqrt_ratio",
+        "tokens_owed"
+      ],
+      "mismatches": 0,
+      "outcome": "PASS",
+      "receipt": "vetting/runs/vectors-differential.json",
+      "recorded": true,
+      "seed": 20260813,
+      "source": "Uniswap v3 Solidity, redeployed to a local anvil",
+      "summary_line": "19,546 fresh cases fuzzed against the deployed Solidity across 9 groups, 0 mismatches"
     },
     "replay": {
       "cases_covered": 19546,

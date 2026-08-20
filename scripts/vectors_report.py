@@ -63,6 +63,8 @@ DEFAULT_OUT = REPO / "apps" / "web" / "public" / "artifacts" / "vectors.json"
 
 #: Where `scripts/vectors_verify.py` leaves what it observed.
 RECEIPT = REPO / "vetting" / "runs" / "vectors-replay.json"
+#: Where `scripts/gen_vectors.py --check` leaves what it observed.
+DIFFERENTIAL_RECEIPT = REPO / "vetting" / "runs" / "vectors-differential.json"
 
 WITHHELD_REPLAY = (
     "no replay has been recorded — run `make vectors-verify`, which replays "
@@ -74,15 +76,20 @@ WITHHELD_DIFFERENTIAL = (
 )
 
 
-def read_receipt(path: Path, current: dict[str, Any]) -> dict[str, Any]:
+def read_receipt(path: Path, current: dict[str, Any], withheld: str) -> dict[str, Any]:
     """A recorded run, checked against the corpus as it stands now.
 
     Absent, unreadable and stale are three different sentences and this returns
     three different answers. Collapsing them is how "we did not look" comes to
     look like "we looked and it was fine".
+
+    `withheld` is a parameter because two runs read through here now and they
+    have different remedies — one is a pytest replay, the other redeploys
+    Solidity to an anvil. It was hardcoded to the replay's sentence, which would
+    have told a reader with no differential receipt to run the wrong command.
     """
     if not path.is_file():
-        return {"recorded": False, "reason": WITHHELD_REPLAY}
+        return {"recorded": False, "reason": withheld}
 
     try:
         receipt = json.loads(path.read_text())
@@ -107,17 +114,23 @@ def read_receipt(path: Path, current: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build(out: Path, receipt: Path = RECEIPT) -> dict[str, Any]:
+def build(
+    out: Path,
+    receipt: Path = RECEIPT,
+    differential: Path = DIFFERENTIAL_RECEIPT,
+) -> dict[str, Any]:
     corpus = vectors.corpus()
     return {
         "corpus": corpus,
         "verification": {
-            "replay": read_receipt(receipt, corpus),
-            # No differential receipt is written by anything yet. Stated as a
-            # withheld field rather than omitted, because an absent key reads
-            # as "there is no such check" and there very much is one — it is
-            # the check `FOR_JUDGES.md` row 1 is actually quoting.
-            "differential": {"recorded": False, "reason": WITHHELD_DIFFERENTIAL},
+            "replay": read_receipt(receipt, corpus, WITHHELD_REPLAY),
+            # Both through the same reader, so both get the same digest
+            # re-check. This field was hardcoded to `{"recorded": False}` for as
+            # long as nothing wrote a receipt — while `FOR_JUDGES.md` row 1 was
+            # already quoting the differential's headline. The claim that makes
+            # a fork comparison meaningful was asserted in a document and
+            # refused on the page.
+            "differential": read_receipt(differential, corpus, WITHHELD_DIFFERENTIAL),
         },
         "build": provenance.build_stamp(
             "python scripts/vectors_report.py",
@@ -130,25 +143,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--receipt", default=str(RECEIPT))
+    parser.add_argument("--differential", default=str(DIFFERENTIAL_RECEIPT))
     args = parser.parse_args()
 
     out = Path(args.out)
-    payload = build(out, Path(args.receipt))
+    payload = build(out, Path(args.receipt), Path(args.differential))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
     corpus = payload["corpus"]
-    replay = payload["verification"]["replay"]
     print(f"  corpus         {corpus['cases']:,} cases in {len(corpus['groups'])} groups")
     print(f"  pinned         {', '.join(p['name'] for p in corpus['pins']) or 'nothing'}")
-    if not replay["recorded"]:
-        print(f"  replay         not recorded — {replay['reason']}")
-    elif not replay["corpus_matches"]:
-        print(f"  replay         STALE — these groups moved since: {replay['corpus_moved']}")
-    else:
-        print(f"  replay         {replay.get('outcome')} — {replay.get('summary_line')}")
+    # Both verifications, not just the replay. The differential's line was never
+    # printed because nothing could ever write its receipt, so the terminal
+    # agreed with the page that there was only one check here.
+    for name, run in payload["verification"].items():
+        print(f"  {name:<14} {_line(run)}")
     print(f"  -> {out}")
     return 0
+
+
+def _line(run: dict[str, Any]) -> str:
+    if not run["recorded"]:
+        return f"not recorded — {run['reason']}"
+    if not run["corpus_matches"]:
+        return f"STALE — these groups moved since: {run['corpus_moved']}"
+    return f"{run.get('outcome')} — {run.get('summary_line')}"
 
 
 if __name__ == "__main__":

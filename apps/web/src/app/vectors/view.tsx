@@ -47,7 +47,20 @@ interface Verification {
   tests_passed?: number;
   tests_failed?: number;
   cases_covered?: number;
+  /**
+   * The groups a run touched, under the name that run uses for what it did.
+   *
+   * Two different words, deliberately. The replay *replays* the committed
+   * answers; the differential *fuzzes fresh cases* against redeployed Solidity
+   * and never opens those files. Normalising them to one name here would make
+   * the weaker claim look like the stronger one in the only place a reader
+   * sees either.
+   */
   groups_replayed?: string[];
+  groups_compared?: string[];
+  mismatches?: number;
+  seed?: number;
+  source?: string;
   generated_at?: string;
   git_sha?: string | null;
   git_dirty?: boolean | null;
@@ -200,11 +213,17 @@ export function VectorsView({ initial }: {
               <VerificationCard
                 title="Replay"
                 what="Our math against the recorded answers. No network, no fork, no foundry — which is what lets it run on every commit."
+                said="pytest"
+                remedy="make vectors-verify"
+                onFailure="The replay does not reproduce the recorded answers."
                 v={d.verification.replay}
               />
               <VerificationCard
                 title="Differential"
                 what="Our math against freshly deployed Solidity. Regenerates the whole comparison rather than reading these files, so it can catch a corpus that was recorded wrong."
+                said="the run"
+                remedy="make vectors-check"
+                onFailure="This Python and Uniswap's own Solidity disagree."
                 v={d.verification.differential}
               />
             </div>
@@ -222,12 +241,34 @@ export function VectorsView({ initial }: {
   );
 }
 
+/**
+ * One recorded run, whichever run it was.
+ *
+ * This had exactly one caller for as long as the differential could never be
+ * recorded, and three of its strings had quietly hardcoded that caller: the
+ * table row read "pytest said" for a run that never invokes pytest, the stale
+ * branch told a reader to re-run `make vectors-verify` whichever check had gone
+ * stale, and the failure banner said "the replay does not reproduce the
+ * recorded answers" about a run that does not read them.
+ *
+ * All three now come from the caller. A shared component whose prose only fits
+ * one of its callers is worse than two components.
+ */
 function VerificationCard({
   title,
   what,
+  said,
+  remedy,
+  onFailure,
   v,
 }: {
   title: string;
+  /** What the "said" row is quoting — `pytest`, `anvil`, whatever ran. */
+  said: string;
+  /** The command that would refresh this specific receipt. */
+  remedy: string;
+  /** What a FAIL means, in this run's terms. */
+  onFailure: string;
   what: string;
   v: Verification;
 }) {
@@ -264,7 +305,7 @@ function VerificationCard({
           reason={`These vector files have changed since the run was recorded: ${(
             v.corpus_moved ?? []
           ).join(", ")}. A pass against files that no longer exist is not a pass.`}
-          floor="re-run `make vectors-verify`"
+          floor={`re-run \`${remedy}\``}
         />
       </Card>
     );
@@ -281,8 +322,7 @@ function VerificationCard({
 
       {failed && (
         <p className="mt-0 mb-4 rounded-md border border-bad-line bg-bad-bg/40 p-3 text-sm text-bad">
-          The replay does not reproduce the recorded answers. Every number on this site is
-          priced with this arithmetic.
+          {onFailure} Every number on this site is priced with this arithmetic.
         </p>
       )}
 
@@ -290,14 +330,14 @@ function VerificationCard({
         caption={`${title} run`}
         rows={[
           { label: "command", value: <span className="font-mono text-xs">{v.command}</span> },
-          { label: "pytest said", value: v.summary_line ?? "—" },
+          { label: `${said} said`, value: v.summary_line ?? "—" },
           {
             // Never "comparisons made". Nothing watched the assertion loops.
             // What was observed: named tests exited zero, and those tests load
             // these groups, which hold this many cases.
             label: "cases covered",
             value: count(v.cases_covered),
-            note: `${(v.groups_replayed ?? []).length} groups`,
+            note: `${(v.groups_replayed ?? v.groups_compared ?? []).length} groups`,
           },
           { label: "ran at", value: v.generated_at ?? "—" },
           {
