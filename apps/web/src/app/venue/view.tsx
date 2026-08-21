@@ -68,23 +68,58 @@ export interface VenueArtifact {
  * `tests/web/test_artifact_projections.py` — so a page arguing that the details
  * were got right cannot itself carry a figure that drifted from the code.
  */
-export function VenueView({ initial }: {
+/** Only what this page needs of `vetting.json`: which pools carry a badge. */
+export interface BadgeSurvey {
+  chain_id: number;
+  pools: { pool?: string; badged?: boolean }[];
+}
+
+export function VenueView({ initial, initialBadges }: {
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initial?: VenueArtifact;
+  /**
+   * What `/vetting` has actually checked.
+   *
+   * This page listed four pools under a link reading "The nine checks each of
+   * them passed" — and `/vetting` runs against one chain. The chapel mirror is
+   * on 97 and has never been through a single check, so the sentence was an
+   * overstatement about a quarter of its own table, on the page whose whole
+   * argument is that these details were read rather than assumed.
+   *
+   * Derived rather than asserted, for the reason `SourceBanner`'s docstring was
+   * wrong twice: which pools are covered is data, and a view that hardcodes it
+   * is correct only until somebody runs `make vet --chain 97`.
+   */
+  initialBadges?: BadgeSurvey;
 }) {
   const [state, setState] = useState<Loaded<VenueArtifact> | null>(
     initial ? { ok: true, value: initial } : null,
   );
+  const [badges, setBadges] = useState<BadgeSurvey | undefined>(initialBadges);
 
   useEffect(() => {
     let live = true;
     load<VenueArtifact>("venue.json").then((r) => {
       if (live) setState(r);
     });
+    // Refreshed on the same terms as the table it annotates. Only a successful
+    // read replaces it: a missing `vetting.json` means nothing has been badged,
+    // and the honest surface for that is every row reading "not checked".
+    load<BadgeSurvey>("vetting.json").then((r) => {
+      if (live && r.ok) setBadges(r.value);
+    });
     return () => {
       live = false;
     };
   }, []);
+
+  // Lowercased, because one file writes checksummed addresses and the other
+  // writes them folded.
+  const checked = new Set(
+    (badges?.pools ?? [])
+      .filter((p) => p.badged && typeof p.pool === "string")
+      .map((p) => (p.pool as string).toLowerCase()),
+  );
 
   const d = state?.ok ? state.value : null;
 
@@ -203,18 +238,31 @@ export function VenueView({ initial }: {
               <DataTable
                 caption="Every pool this project has read, and where they differ"
                 hideCaption={false}
-                columns={["Pool", "Fee tier · spacing", "LPs keep"]}
+                columns={["Pool", "Fee tier · spacing", "LPs keep · checked"]}
                 rows={d.pools.map((pool) => ({
                   label: pool.label,
                   value: `${pool.fee_pips} · ${pool.tick_spacing}`,
-                  note: `${fraction(pool.lp_fee_share)} — feeProtocol ${pool.fee_protocol}`,
+                  // The badge verdict sits with the constants it vouches for.
+                  // `feeProtocol 3400` and "nobody has checked that on chain"
+                  // are one fact, and this page's argument does not survive
+                  // splitting them into two places.
+                  note: `${fraction(pool.lp_fee_share)} — feeProtocol ${pool.fee_protocol} · ${
+                    checked.has(pool.address.toLowerCase())
+                      ? "nine checks passed"
+                      : `not checked — /vetting reads chain ${badges?.chain_id ?? "56"}`
+                  }`,
                 }))}
                 notes="prose"
               />
 
               <p className="mt-4 mb-0 text-xs text-faint">
                 {d.pools.map((pool) => shortAddress(pool.address)).join(" · ")} ·{" "}
-                <Link href="/vetting">The nine checks each of them passed →</Link>
+                {/* Counted, not claimed. This read "The nine checks each of them
+                    passed" over a table containing a pool on another chain that
+                    no check has ever touched. */}
+                <Link href="/vetting">
+                  {count(checked.size)} of {count(d.pools.length)} through the nine checks →
+                </Link>
               </p>
             </Card>
 

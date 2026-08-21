@@ -71,12 +71,22 @@ for (const [colorScheme, width] of VIEWPORTS) {
 
   const problems = [];
   page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
-  // The URL, because these are not always attributable to the route the loop
-  // thinks it is on: a hydration error can fire while the *previous* page is
-  // still hydrating and land in this bucket. React error #418 has shown up
-  // roughly once per sixty loads, on a different route each time, and the tag
-  // alone sent two investigations at innocent pages.
-  page.on("pageerror", (e) => problems.push(`uncaught on ${page.url()}: ${e}`));
+  // The URL and the top of the stack, because React error #418 — a hydration
+  // mismatch — shows up here roughly once per sixty loads on a different route
+  // each time, and has never reproduced on demand: not in five dedicated
+  // attempts at a single route, not across 120 loads of a faithful replay of
+  // this loop, and not once under `next dev`, which reports no hydration
+  // warning on any route at all.
+  //
+  // The URL was added first and settled one question — it does fire on the
+  // route it is reported against, not on the previous one still hydrating. The
+  // frames are here so the *next* occurrence identifies the component instead
+  // of costing another afternoon of failing to reproduce it. Minified, but a
+  // chunk name and an offset are enough to find it.
+  page.on("pageerror", (e) => {
+    const frames = (e.stack ?? "").split("\n").slice(1, 4).map((l) => l.trim()).join(" <- ");
+    problems.push(`uncaught on ${page.url()}: ${e}${frames ? ` [${frames}]` : ""}`);
+  });
   page.on("requestfailed", (r) => problems.push(`request failed: ${r.url()}`));
   page.on("response", (r) => {
     if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);

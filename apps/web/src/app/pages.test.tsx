@@ -800,6 +800,71 @@ describe("Vetting", () => {
   });
 });
 
+/**
+ * The pool table and the badge run, which disagreed.
+ *
+ * `/venue` lists every pool this repository has verified — four of them, one on
+ * chain 97 — under a link that read **"The nine checks each of them passed"**.
+ * `/vetting` runs against one chain, so the chapel mirror has never been through
+ * a single check, and the sentence overstated a quarter of its own table on the
+ * page whose entire argument is that these details were read rather than
+ * assumed.
+ *
+ * Both halves are asserted from the artifacts, so this holds whichever pools
+ * exist and whichever have been badged.
+ */
+describe("Venue: what has been checked, and what has not", () => {
+  interface Pools {
+    pools: { label: string; address: string; chain_id: number }[];
+  }
+  interface Badges {
+    chain_id: number;
+    pools: { pool?: string; badged?: boolean }[];
+  }
+
+  const pools = readArtifact<Pools>("venue.json").pools;
+  const badged = new Set(
+    readArtifact<Badges>("vetting.json")
+      .pools.filter((p) => p.badged && p.pool)
+      .map((p) => (p.pool as string).toLowerCase()),
+  );
+  const covered = pools.filter((p) => badged.has(p.address.toLowerCase()));
+
+  it("counts the checked pools rather than claiming all of them", async () => {
+    // Both bounds. Zero would mean the join is broken and every row reads "not
+    // checked"; all of them would mean the artifacts no longer disagree and
+    // this test has stopped covering the case it was written for.
+    expect(covered.length).toBeGreaterThan(0);
+    expect(
+      covered.length,
+      "every listed pool is badged now — the overstatement is unreachable, retarget this",
+    ).toBeLessThan(pools.length);
+
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "The pools we actually read" });
+
+    const link = screen.getByRole("link", { name: /through the nine checks/ });
+    expect(link.textContent).toContain(`${covered.length} of ${pools.length}`);
+    expect(link).toHaveAttribute("href", "/vetting");
+  });
+
+  it("marks the unchecked pool as unchecked, beside its constants", async () => {
+    const unchecked = pools.filter((p) => !badged.has(p.address.toLowerCase()));
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "The pools we actually read" });
+
+    const rows = [...document.querySelectorAll("tr")].map((r) => r.textContent ?? "");
+    for (const pool of unchecked) {
+      const row = rows.find((t) => t.includes(pool.label));
+      expect(row, `${pool.label} is not in the table at all`).toBeTruthy();
+      expect(row).toContain("not checked");
+    }
+    for (const pool of covered) {
+      expect(rows.find((t) => t.includes(pool.label))).toContain("nine checks passed");
+    }
+  });
+});
+
 describe("Venue: the divergences, not the pool label", () => {
   interface Venue {
     divergences: { what: string; costs: string; provenance: string }[];

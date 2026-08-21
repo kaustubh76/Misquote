@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { VenueView, type VenueArtifact } from "./view";
+import { VenueView, type BadgeSurvey, type VenueArtifact } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
 
 export const metadata: Metadata = {
@@ -9,5 +9,13 @@ export const metadata: Metadata = {
 };
 
 export default function VenuePage() {
-  return <VenueView initial={readArtifact<VenueArtifact>("venue.json")} />;
+  // The badge survey comes with it. This page lists every pool the repository
+  // has verified, `/vetting` checks the ones on mainnet, and the link between
+  // them claimed all of them had passed.
+  return (
+    <VenueView
+      initial={readArtifact<VenueArtifact>("venue.json")}
+      initialBadges={readArtifact<BadgeSurvey>("vetting.json")}
+    />
+  );
 }
