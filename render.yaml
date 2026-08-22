@@ -1,0 +1,46 @@
+# Render blueprint for the read-only artifact API.
+#
+#   https://render.com/docs/blueprint-spec
+#
+# What runs here is `packages/misquote/api/service.py` and nothing else. It
+# serves the JSON under `apps/web/public/artifacts/` and computes nothing, so
+# this service needs no database, no persistent disk, no RPC and no secrets.
+# That is worth stating in the file that provisions it: a deployment manifest is
+# where a service quietly acquires capabilities nobody asked it to have.
+#
+# ## Why the install is editable
+#
+# `pyproject.toml` packages `packages/misquote` into the wheel and **not** the
+# artifacts, which live under `apps/web/`. A normal install puts the code in
+# site-packages, and `REPO = Path(__file__).resolve().parents[3]` then points at
+# site-packages rather than at the checkout — so the service would come up
+# healthy, serving zero artifacts, and `/health` would say `ok: true` because
+# that field is deliberately about the process rather than the data.
+#
+# `-e` keeps `__file__` inside the repository, so the path resolves. The
+# alternative is `MISQUOTE_ARTIFACTS`, which `service.py` honours; it is left
+# unset here because a hardcoded absolute host path is the more brittle of the
+# two and this one is checkable locally.
+#
+# ## The free plan sleeps
+#
+# A free web service is spun down after inactivity and the next request pays a
+# cold start. For a demo API over static files that is the right trade, and it
+# is recorded rather than discovered: a judge clicking a link after an idle hour
+# waits for a boot, and that is not the service being broken.
+services:
+  - type: web
+    name: misquote-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -e ".[api]"
+    startCommand: uvicorn misquote.api.service:app --host 0.0.0.0 --port $PORT
+    # `/health` answers from the process without touching an artifact, which is
+    # what makes it usable as a health check: a probe that went red when a file
+    # was missing would restart the container in a loop over exactly the
+    # condition `/artifacts` exists to explain.
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.12"

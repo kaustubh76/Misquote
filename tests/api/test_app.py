@@ -1,0 +1,262 @@
+"""The API must serve the artifacts and add nothing to them.
+
+Its whole claim is that every figure in a response body is bytes an emitter
+wrote. That is a property worth a test rather than a docstring: the moment this
+service computes a summary it becomes a second implementation of something
+`tearsheet/` already does, and the two will disagree.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+# `fastapi` lives in the optional `api` extra, so a checkout installed without
+# it has no API to test — and must say so rather than fail to collect. Without
+# this, `make test` on a clean clone dies at import with a ModuleNotFoundError
+# that looks like a broken suite instead of an absent extra.
+#
+# Installed here, so these run; a skip that always skips is worse than no test,
+# and `test_the_extra_is_installed_in_this_checkout` below is what keeps the
+# skip from becoming permanent unnoticed.
+pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv sync --extra api`")
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from misquote.api import service as api  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(api.app)
+
+
+@pytest.fixture
+def names() -> list[str]:
+    found = api.artifact_names()
+    if not found:
+        pytest.skip("no artifacts on disk; run `make artifacts`")
+    return found
+
+
+def test_every_artifact_is_served_byte_for_byte(client: TestClient, names: list[str]) -> None:
+    """The claim, asserted as equality rather than as a shape.
+
+    Not "the response has the expected keys" — that passes on a service that
+    rounds a float or drops a field it did not recognise. The parsed body must
+    equal the parsed file, for every artifact, including the 179KB one.
+    """
+    for name in names:
+        on_disk = json.loads((api.ARTIFACTS / f"{name}.json").read_text())
+        served = client.get(f"/artifacts/{name}")
+        assert served.status_code == 200, name
+        assert served.json() == on_disk, f"{name} was altered in transit"
+
+
+def test_the_body_is_not_wrapped(client: TestClient, names: list[str]) -> None:
+    """Unwrapped, so this surface and the static site return the same shape.
+
+    Nesting under a `data` key would make every consumer read one shape here and
+    another from the export for the same file.
+    """
+    name = "venue" if "venue" in names else names[0]
+    body = client.get(f"/artifacts/{name}").json()
+    assert set(body) != {"data"}
+    assert body == json.loads((api.ARTIFACTS / f"{name}.json").read_text())
+
+
+def test_provenance_travels_in_headers_not_the_body(client: TestClient, names: list[str]) -> None:
+    name = names[0]
+    response = client.get(f"/artifacts/{name}")
+    assert "X-Misquote-Commit" in response.headers
+    assert response.json() == json.loads((api.ARTIFACTS / f"{name}.json").read_text())
+
+
+def test_the_census_reports_unstamped_artifacts_rather_than_hiding_them(
+    client: TestClient, names: list[str]
+) -> None:
+    """The one question a static host cannot answer.
+
+    Six artifacts published replay results with no `git_sha` for weeks, which is
+    why the readiness gate sat UNVERIFIED. A census that silently counted only
+    the stamped ones would have reported the same clean number the whole time.
+    """
+    body = client.get("/artifacts").json()
+
+    assert body["total"] == len(names)
+    assert body["stamped"] + len(body["unstamped"]) == body["total"]
+    assert set(body["unstamped"]).isdisjoint({e["name"] for e in body["artifacts"] if e.get("records_commit")})
+
+    for entry in body["artifacts"]:
+        assert "records_commit" in entry, f"{entry['name']} does not say whether it records a commit"
+
+
+def test_a_missing_artifact_refuses_with_the_command_that_writes_it(client: TestClient) -> None:
+    """A bare 404 is indistinguishable from a typo in the URL."""
+    response = client.get("/artifacts/nothing_has_ever_written_this")
+    assert response.status_code == 404
+
+    detail = response.json()["detail"]
+    assert "available" in detail and detail["available"]
+    assert "remedy" in detail
+    assert "absence" in detail["note"]
+
+
+def test_a_known_artifact_that_is_absent_names_its_own_emitter(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`REMEDIES` is keyed by stem, so the advice is specific rather than generic."""
+    monkeypatch.setattr(api, "ARTIFACTS", tmp_path)
+    response = client.get("/artifacts/advantage")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["remedy"] == "make advantage"
+
+
+@pytest.mark.parametrize(
+    "attempt",
+    [
+        "../pyproject",
+        "..%2F..%2Fpyproject",
+        "....//pyproject",
+        "%2e%2e%2fpyproject",
+        "/etc/passwd",
+        "warden/../../../pyproject",
+    ],
+)
+def test_no_path_walks_out_of_the_artifacts_directory(client: TestClient, attempt: str) -> None:
+    """Membership in the listing, never string sanitising.
+
+    `ARTIFACTS / name` with a crafted value leaves the directory. Checking
+    against `artifact_names()` means the only reachable paths are files that
+    function just enumerated, so there is no expression that reaches a
+    sixteenth file — including the encodings a sanitiser typically misses.
+    """
+    response = client.get(f"/artifacts/{attempt}")
+    assert response.status_code in (404, 307), attempt
+    if response.status_code == 404 and isinstance(response.json().get("detail"), dict):
+        assert "pyproject" not in json.dumps(response.json())
+
+
+def test_health_stays_up_when_there_are_no_artifacts(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Health is about the process, not the data.
+
+    A check that went red on a missing artifact would take the service down for
+    exactly the condition the service exists to report — and a host would then
+    restart it in a loop while `/artifacts` was ready to explain the problem.
+    """
+    monkeypatch.setattr(api, "ARTIFACTS", tmp_path)
+    body = client.get("/health").json()
+
+    assert body["ok"] is True
+    assert body["artifacts_present"] == 0
+
+
+def test_the_agent_index_keeps_what_was_not_built(client: TestClient, names: list[str]) -> None:
+    """`not_built` is a published absence, and filtering it would silence it."""
+    if "index" not in names:
+        pytest.skip("no index artifact")
+
+    body = client.get("/agents").json()
+    on_disk = json.loads((api.ARTIFACTS / "index.json").read_text())
+
+    assert body["agents"] == on_disk["agents"]
+    assert body["not_built"] == on_disk.get("not_built", [])
+    assert "records_commit" in body["provenance"]
+
+
+def test_an_agent_the_index_does_not_list_is_refused(client: TestClient, names: list[str]) -> None:
+    """The site and this API must refuse the same set.
+
+    `generateStaticParams` builds exactly the slugs `index.json` lists. A slug
+    that 404s on the site and answers here is two products disagreeing about
+    which agents exist.
+    """
+    if "index" not in names:
+        pytest.skip("no index artifact")
+
+    response = client.get("/agents/not-an-agent")
+    assert response.status_code == 404
+    assert "available" in response.json()["detail"]
+
+    for slug in [a["slug"] for a in client.get("/agents").json()["agents"]]:
+        assert client.get(f"/agents/{slug}").status_code == 200, slug
+
+
+def test_a_half_written_artifact_is_transient_rather_than_broken(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """503, not 500. An emitter mid-write is a retry, not a fault."""
+    monkeypatch.setattr(api, "ARTIFACTS", tmp_path)
+    (tmp_path / "venue.json").write_text('{"divergences": [')
+
+    response = client.get("/artifacts/venue")
+    assert response.status_code == 503
+    assert "writing it" in response.json()["detail"]["note"]
+
+
+def test_the_service_is_read_only(client: TestClient, names: list[str]) -> None:
+    """No verb but GET. This reads files and must never grow a way to write one."""
+    for method in (client.post, client.put, client.delete, client.patch):
+        assert method(f"/artifacts/{names[0]}").status_code == 405
+
+
+def test_every_handler_is_actually_routed() -> None:
+    """The decorator did its job, asserted rather than assumed.
+
+    Two things make this worth its own test.
+
+    **`tests/test_no_dead_definitions.py` cannot see a decorator.** It scans for
+    identifiers that something loads, calls, imports or accesses, and a FastAPI
+    handler is referenced by none of those — `@app.get("/health")` wires it and
+    the name then appears nowhere. It flagged `health` for exactly that reason.
+    The instruction it prints is "delete it, wire it up, or add it to ALLOWED
+    with the reason", and of those three only one is true here: it *is* wired.
+    An ALLOWED entry would record the opposite — that the name is deliberately
+    unreferenced — so the reference belongs here, in an assertion that the
+    wiring exists.
+
+    **The other five pass that guard by coincidence.** `index`, `artifacts`,
+    `artifact`, `agents` and `agent` are ordinary words this codebase uses in
+    dozens of places, so the scan finds them whether or not they are routed. A
+    handler that lost its decorator would keep passing. This does not.
+    """
+    routed = {
+        route.path: route.endpoint
+        for route in api.app.routes
+        if hasattr(route, "endpoint") and hasattr(route, "path")
+    }
+
+    for path, handler in (
+        ("/health", api.health),
+        ("/", api.index),
+        ("/artifacts", api.artifacts),
+        ("/artifacts/{name}", api.artifact),
+        ("/agents", api.agents),
+        ("/agents/{slug}", api.agent),
+    ):
+        assert routed.get(path) is handler, f"{path} is not wired to {handler.__name__}"
+
+
+def test_the_service_starts_from_the_command_render_runs() -> None:
+    """`render.yaml` names an import path, and a typo in it fails at deploy.
+
+    `uvicorn misquote.api.service:app` is a string in a YAML file that nothing
+    else resolves. Asserting the module and attribute exist under exactly that
+    spelling catches a rename here before Render catches it in a build log.
+    """
+    import importlib
+
+    module = importlib.import_module("misquote.api.service")
+    assert hasattr(module, "app"), "render.yaml points at misquote.api.service:app"
+
+    blueprint = (REPO / "render.yaml").read_text()
+    assert "misquote.api.service:app" in blueprint
+    assert "--host 0.0.0.0" in blueprint, "Render needs the service bound off localhost"
+    assert "$PORT" in blueprint, "Render assigns the port; a hardcoded one is unreachable"
