@@ -67,7 +67,7 @@ export function AdvantageView({
 
   return (
     <Loadable loading={main === null} what="the advantage report">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
         Does hiring an agent beat doing the job yourself?
       </h1>
       <p className="mt-3 max-w-[68ch] text-dim">

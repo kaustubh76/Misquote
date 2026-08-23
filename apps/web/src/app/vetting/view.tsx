@@ -247,7 +247,7 @@ export function VettingView({
           Pools are what an agent provides liquidity to; the addresses below are
           the contracts a signer is aimed at, and a pool can pass every check
           here while the factory constant used to find it points elsewhere. */}
-      <h1 className="text-2xl font-semibold">Due diligence, read from chain</h1>
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">Due diligence, read from chain</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         Every pool an agent touches and every address the signer is aimed at, read from
         chain. Each check names the defect that paid for it.

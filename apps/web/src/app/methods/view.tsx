@@ -48,8 +48,8 @@ export function MethodsView({ initial }: {
   const floorCount = floors ? Object.keys(floors).length : null;
 
   return (
-    <Loadable loading={state === null} what="the method detail">
-      <h1 className="text-2xl font-semibold">How a quote is made</h1>
+    <Loadable loading={state === null} what="the method detail" className="max-w-3xl">
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">How a quote is made</h1>
       <p className="mt-3 max-w-[64ch] text-dim">
         {/* Two corrections. "Every figure on this site" was false — /vetting,
             /registry, /vectors and /status are chain reads and test runs, not

@@ -124,8 +124,8 @@ export function VenueView({ initial, initialBadges }: {
   const d = state?.ok ? state.value : null;
 
   return (
-    <Loadable loading={state === null} what="the venue report">
-      <h1 className="text-2xl font-semibold">
+    <Loadable loading={state === null} what="the venue report" className="max-w-3xl">
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
         Where PancakeSwap is not Uniswap
       </h1>
       <p className="mt-3 max-w-[68ch] text-dim">

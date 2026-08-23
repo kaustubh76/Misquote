@@ -44,15 +44,29 @@ export function Loadable({
   loading,
   what,
   children,
+  className = "",
 }: {
   loading: boolean;
   what: string;
   children: React.ReactNode;
+  /**
+   * Applied to the content container, which is where a page sets its measure.
+   *
+   * `<main>` is `max-w-6xl` because the nav and the dashboard-shaped pages need
+   * that width. A page of running prose does not: at 1280px it produced lines
+   * of well over a hundred characters, and the pages worst affected are the
+   * ones a reader is most expected to read end to end — the assumption sheet,
+   * the method, the vector corpus. The measure belongs to the page rather than
+   * to the layout, and this is the seam it hangs on.
+   */
+  className?: string;
 }) {
   return (
     <>
       <LoadingStatus loading={loading} what={what} />
-      <div aria-busy={loading}>{children}</div>
+      <div aria-busy={loading} className={className}>
+        {children}
+      </div>
     </>
   );
 }

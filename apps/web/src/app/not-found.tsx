@@ -52,7 +52,7 @@ const BLURB: Record<string, string> = {
 export default function NotFound() {
   return (
     <>
-      <h1 className="text-2xl font-semibold">No such page</h1>
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">No such page</h1>
       <p className="mt-3 max-w-[62ch] text-dim">
         This site is a static export: it contains exactly the pages listed below and
         nothing else, so a URL that is not one of them was never generated. No data is

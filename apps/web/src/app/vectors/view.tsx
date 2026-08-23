@@ -96,8 +96,8 @@ export function VectorsView({ initial }: {
   const d = state?.ok ? state.value : null;
 
   return (
-    <Loadable loading={state === null} what="the vector report">
-      <h1 className="text-2xl font-semibold">The tick math, against the real Solidity</h1>
+    <Loadable loading={state === null} what="the vector report" className="max-w-3xl">
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">The tick math, against the real Solidity</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         Every range here is priced with tick math, where an off-by-one is a revert or a
         figure quietly wrong everywhere.{" "}

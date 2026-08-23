@@ -236,7 +236,7 @@ export function RegistryView({
 
   return (
     <Loadable loading={state === null} what="the registry sample">
-      <h1 className="text-2xl font-semibold">TermiX, and what its standards cost</h1>
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">TermiX, and what its standards cost</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         {/* The track asks for one thing and this page is organised around it.
             Reordered from "standards, generally" because a judge arriving here

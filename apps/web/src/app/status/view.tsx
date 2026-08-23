@@ -139,7 +139,7 @@ export function StatusView({
 
   return (
     <Loadable loading={status === null} what="the go/no-go status">
-      <h1 className="text-2xl font-semibold">Readiness</h1>
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">Readiness</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         {/* The opening sentence justified the page rather than describing it. */}
         A checklist that runs. It exits non-zero on a failure, and anything it cannot

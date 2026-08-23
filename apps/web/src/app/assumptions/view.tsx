@@ -224,8 +224,8 @@ export function AssumptionsView({
   const others = shown.filter((e) => e.kind !== "assumption");
 
   return (
-    <Loadable loading={state === null} what="the assumption sheet">
-      <h1 className="text-2xl font-semibold">The assumption sheet</h1>
+    <Loadable loading={state === null} what="the assumption sheet" className="max-w-3xl">
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">The assumption sheet</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         Read this the way you would read the footnotes of a fund factsheet — except these
         footnotes are the point. Every number this site displays must trace to a chain
