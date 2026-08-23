@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Publish where the live API is, as an artifact rather than as a build flag.
+
+The web app is `output: "export"` — built once, served anywhere — and the API
+origin differs between a laptop, a preview and Render. `NEXT_PUBLIC_*` bakes at
+build time, so pointing the export at a different backend would mean rebuilding
+it, which defeats the property the export exists for.
+
+So the base URL is read at runtime, from a file. Putting that file *inside*
+`apps/web/public/artifacts/` rather than beside it is what makes it cheap:
+
+- `src/test/harness.tsx` throws on any fetch whose URL is not root-absolute
+  under `/artifacts/`, and this path already is, so the test harness needs no
+  exception carved into it;
+- `api/service.py` serves it at `/artifacts/api` like every other artifact,
+  so the API can tell a client where the API is;
+- the provenance census counts it, and `build_stamp()` gives it the same
+  commit trail as everything else the site reads.
+
+`base` is deliberately allowed to be null. A site with no backend configured is
+the normal case — the whole export works without one — and `null` says "there is
+no live API here" where an empty string would read as "the API is at the site
+root", which is a different and wrong claim.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from misquote.tearsheet.provenance import build_stamp
+
+REPO = Path(__file__).resolve().parents[1]
+DEFAULT_OUT = REPO / "apps" / "web" / "public" / "artifacts"
+
+#: Read from the environment so a deploy sets it without editing a file.
+ENV_VAR = "MISQUOTE_API_BASE"
+
+
+def config(base: str | None) -> dict[str, Any]:
+    """What the client needs to decide whether to try the API at all."""
+    cleaned = (base or "").strip().rstrip("/")
+    return {
+        "base": cleaned or None,
+        "routes": {
+            "tape": "/tape",
+            "journal": "/journal/{agent}",
+            "vetting": "/vetting/{address}",
+            "registry": "/registry/agents",
+            "positions": "/wallet/{address}/positions",
+        },
+        "note": (
+            "base is null when no live API is configured, which is the ordinary "
+            "state: every page on this site renders from the artifacts alone. A "
+            "client that finds null must not fall back to the site origin — there "
+            "is no API there, and requesting one would 404 against the export."
+        ),
+        "build": build_stamp(command="make artifacts", source="environment"),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", default=os.environ.get(ENV_VAR, ""))
+    parser.add_argument("--out", default=str(DEFAULT_OUT))
+    args = parser.parse_args(argv)
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / "api.json"
+    path.write_text(json.dumps(config(args.base), indent=2, sort_keys=True) + "\n")
+
+    where = config(args.base)["base"] or "no live API configured"
+    print(f"  api base -> {where}")
+    print(f"\n  -> {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

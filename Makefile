@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -291,10 +291,16 @@ venue:  ## PancakeSwap as an integration: where the fork is not the original (of
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report assumptions judges status  ## every artifact the site reads
+artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report api-config assumptions judges status  ## every artifact the site reads
 	# `judges` sits second-to-last on purpose: it derives its blocks from the
 	# artifacts above it, and `status` runs the go/no-go gate — which now
 	# checks the document is current, so it has to see the synced version.
+
+api-config:  ## publish where the live API is, as apps/web/public/artifacts/api.json
+	# Reads MISQUOTE_API_BASE. Unset publishes `base: null`, which is the honest
+	# default: the export works with no backend, and a client that finds null must
+	# not fall back to the site origin.
+	$(UV) run python scripts/emit_api_config.py
 
 api:  ## the artifact API in dev mode, http://localhost:8000
 	# The one command that runs the service had never been in this file: it

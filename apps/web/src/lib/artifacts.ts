@@ -63,7 +63,16 @@ export class ArtifactError extends Error {
   constructor(
     message: string,
     readonly url: string,
-    readonly kind: "http" | "parse" | "network" | "shape",
+    /**
+     * `"refused"` is the live API's, and it is not a failure of the request.
+     *
+     * The service answers a question it cannot support with a status that means
+     * something — 409 for thin evidence, 501 for an absent capability — and a
+     * body carrying the remedy. Folding those into `"http"` would discard the
+     * one field the UI acts on. See `RefusalError` in `lib/api.ts`; the union
+     * shape is unchanged, so every existing `switch` on `kind` still compiles.
+     */
+    readonly kind: "http" | "parse" | "network" | "shape" | "refused",
   ) {
     super(message);
     this.name = "ArtifactError";

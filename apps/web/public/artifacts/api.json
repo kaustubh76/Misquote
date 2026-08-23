@@ -1,0 +1,18 @@
+{
+  "base": null,
+  "build": {
+    "command": "make artifacts",
+    "generated_at": "2026-08-23T14:57:56+00:00",
+    "git_dirty": true,
+    "git_sha": "772976b",
+    "source": "environment"
+  },
+  "note": "base is null when no live API is configured, which is the ordinary state: every page on this site renders from the artifacts alone. A client that finds null must not fall back to the site origin \u2014 there is no API there, and requesting one would 404 against the export.",
+  "routes": {
+    "journal": "/journal/{agent}",
+    "positions": "/wallet/{address}/positions",
+    "registry": "/registry/agents",
+    "tape": "/tape",
+    "vetting": "/vetting/{address}"
+  }
+}

@@ -83,6 +83,7 @@ REMEDIES: dict[str, str] = {
     "vectors": "make vectors-report",
     "venue": "make venue",
     "addresses": "make addresses",
+    "api": "make api-config",
 }
 
 
