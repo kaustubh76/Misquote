@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ROUTES } from "@/lib/routes";
+import { type Route, routesIn } from "@/lib/routes";
 
 
 
@@ -123,13 +123,106 @@ function useOverflowEdges<T extends HTMLElement>(current: string) {
   return { ref, ...edges };
 }
 
-export function Nav() {
-  const pathname = usePathname() ?? "/";
+/**
+ * One band of the nav: its own scroller, its own fades, its own reveal.
+ *
+ * Extracted rather than duplicated because both bands need the whole of
+ * `useOverflowEdges` — a band that fits at 1280px does not fit at 390px, and
+ * the fade and the scroll-into-view are exactly as load-bearing on the second
+ * row as on the first.
+ */
+function Band({
+  label,
+  routes,
+  pathname,
+  className = "",
+}: {
+  label: string;
+  routes: readonly Route[];
+  pathname: string;
+  className?: string;
+}) {
   const { ref, start, end } = useOverflowEdges<HTMLUListElement>(pathname);
 
   return (
+    <nav aria-label={label} className={`relative min-w-0 flex-1 ${className}`}>
+      {/* The affordance the hidden scrollbar took away. `aria-hidden` and
+          `pointer-events-none`: this is a hint that content continues, and
+          a screen reader already has the full list — it never scrolled. */}
+      {start && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-bg to-transparent"
+        />
+      )}
+      {end && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-bg to-transparent"
+        />
+      )}
+      {/* `overflow-x: auto` computes overflow-y to auto as well, so the box
+          clips on both axes and ate the 2px focus ring at its 2px offset.
+          The padding makes room inside the scroll box; the negative margin
+          puts the layout back. CSS-only, so `make web-check` is its only
+          guard. */}
+      <ul
+        ref={ref}
+        className="flex list-none items-center gap-1 overflow-x-auto p-1.5 -m-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {routes.map((link) => {
+          const active = activeness(pathname, link.href);
+          return (
+            <li key={link.href} className="shrink-0">
+              <Link
+                href={link.href}
+                aria-current={
+                  active === "page" ? "page" : active === "section" ? "true" : undefined
+                }
+                className={[
+                  "block rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors",
+                  // The active pill was `bg-neutral-bg text-ink` — the same
+                  // grey as every tint on the site, so "where am I" was
+                  // carried by a background one shade off the header. Brand
+                  // is the only colour here that is not a verdict, which is
+                  // what makes it safe to use for position.
+                  active
+                    ? "bg-brand-bg font-medium text-brand"
+                    : "text-dim hover:bg-panel-2 hover:text-ink",
+                ].join(" ")}
+              >
+                {link.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Two bands, because eleven routes fitted one strip and thirteen do not.
+ *
+ * The flat list was already a horizontal scroller with measured fades, and it
+ * worked — but at 1280px the last label was cut mid-word, and a scroller is a
+ * way to *survive* not fitting rather than a way to fit. The split is by what a
+ * reader is doing: the top band is the product (look at the agents, get a
+ * quote, hire one, browse the registry), the second is the evidence any of it
+ * rests on.
+ *
+ * Every route stays a link in the document on every page. A disclosure that
+ * unmounted the second band would be tidier and would break two things at once:
+ * `check-pages.mjs` requires the current route's pill to be *visible*, and a
+ * screen-reader user would lose seven routes behind a control they have to find
+ * first. Nothing here is hidden; it is arranged.
+ */
+export function Nav() {
+  const pathname = usePathname() ?? "/";
+
+  return (
     <header className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center gap-4 px-5 py-3">
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pt-3">
         {/* A mark, not just a word. The wordmark was one of nine grey items in
             a horizontal strip and did not read as the way home. The glyph is
             the same P25-P75 band the favicon draws — a range with a median
@@ -147,65 +240,23 @@ export function Nav() {
           Misquote
         </Link>
 
-        {/* Overflows to a horizontal scroll rather than wrapping or truncating,
-            so every route stays reachable at 320px. */}
-        <nav aria-label="Primary" className="relative min-w-0 flex-1">
-          {/* The affordance the hidden scrollbar took away. `aria-hidden` and
-              `pointer-events-none`: this is a hint that content continues, and
-              a screen reader already has the full list — it never scrolled. */}
-          {start && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-bg to-transparent"
-            />
-          )}
-          {end && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-bg to-transparent"
-            />
-          )}
-          {/* `overflow-x: auto` computes overflow-y to auto as well, so the box
-              clips on both axes and ate the 2px focus ring at its 2px offset.
-              The padding makes room inside the scroll box; the negative margin
-              puts the layout back. CSS-only, so `make web-check` is its only
-              guard. */}
-          <ul
-            ref={ref}
-            className="flex list-none items-center gap-1 overflow-x-auto p-1.5 -m-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {ROUTES.map((link) => {
-              const active = activeness(pathname, link.href);
-              return (
-                <li key={link.href} className="shrink-0">
-                  <Link
-                    href={link.href}
-                    aria-current={
-                      active === "page" ? "page" : active === "section" ? "true" : undefined
-                    }
-                    className={[
-                      "block rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors",
-                      // The active pill was `bg-neutral-bg text-ink` — the same
-                      // grey as every tint on the site, so "where am I" was
-                      // carried by a background one shade off the header. Brand
-                      // is the only colour here that is not a verdict, which is
-                      // what makes it safe to use for position.
-                      active
-                        ? "bg-brand-bg font-medium text-brand"
-                        : "text-dim hover:bg-panel-2 hover:text-ink",
-                    ].join(" ")}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+        <Band label="Primary" routes={routesIn("product")} pathname={pathname} />
 
         <div className="shrink-0">
           <ThemeToggle />
         </div>
+      </div>
+
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pb-2">
+        {/* Labelled "Evidence" rather than "Secondary": the distinction is what
+            the pages are for, not which one matters. A reader auditing the tick
+            math is not doing something secondary. */}
+        <Band
+          label="Evidence"
+          routes={routesIn("evidence")}
+          pathname={pathname}
+          className="text-sm"
+        />
       </div>
     </header>
   );

@@ -118,8 +118,15 @@ for (const [colorScheme, width] of VIEWPORTS) {
     // nav answered "what else is there" and not "where am I". Only a real
     // browser can check this — jsdom lays nothing out, so `offsetLeft` and
     // `clientWidth` are 0 there and any assertion passes vacuously.
+    // Every band in the header, not just the first. The nav is two rows now —
+    // product on top, evidence below — and querying only `Primary` would have
+    // reported "no nav link marked aria-current" on all seven evidence routes,
+    // which is the guard failing rather than the nav. Widened rather than
+    // relaxed: the current pill must still be *visible inside its own
+    // scroller*, and that is now checked on whichever band holds it.
     const navCurrent = await page.evaluate(() => {
-      const list = document.querySelector('nav[aria-label="Primary"] ul');
+      const lists = [...document.querySelectorAll("header nav[aria-label] ul")];
+      const list = lists.find((ul) => ul.querySelector("[aria-current]"));
       const current = list?.querySelector("[aria-current]");
       if (!list || !current) return { found: false, visible: false };
       const l = list.getBoundingClientRect();

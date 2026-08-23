@@ -51,10 +51,10 @@ beforeEach(() => {
 describe("every route is in the nav, whether or not it is on screen", () => {
   it("renders a link for every page", () => {
     render(<Nav />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const header = screen.getByRole("banner");
 
     for (const [label, href] of ROUTES) {
-      expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("href", href);
+      expect(within(header).getByRole("link", { name: label })).toHaveAttribute("href", href);
     }
   });
 
@@ -64,20 +64,26 @@ describe("every route is in the nav, whether or not it is on screen", () => {
     // makes five of the seven pages unreachable, which is the state the fades
     // were added to get out of — not a state to formalise.
     render(<Nav />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getAllByRole("link")).toHaveLength(ROUTES.length);
-    expect(nav.querySelector("ul")?.className).toContain("overflow-x-auto");
+    const header = screen.getByRole("banner");
+    // Every route, across both bands, plus the wordmark's link home.
+    expect(within(header).getAllByRole("link")).toHaveLength(ROUTES.length + 1);
+    for (const label of ["Primary", "Evidence"]) {
+      const band = screen.getByRole("navigation", { name: label });
+      expect(band.querySelector("ul")?.className).toContain("overflow-x-auto");
+    }
   });
 
   it("marks the current page for assistive tech, not only with a colour", () => {
     render(<Nav />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getByRole("link", { name: "Overview" })).toHaveAttribute(
+    const header = screen.getByRole("banner");
+    expect(within(header).getByRole("link", { name: "Overview" })).toHaveAttribute(
       "aria-current",
       "page",
     );
+    // In the other band, and still not marked — the two rows are one nav for
+    // the purpose of "where am I".
     expect(
-      within(nav).getByRole("link", { name: "Status" }).getAttribute("aria-current"),
+      within(header).getByRole("link", { name: "Status" }).getAttribute("aria-current"),
     ).toBeNull();
   });
 });
@@ -92,14 +98,14 @@ describe("an agent detail page is somewhere, not nowhere", () => {
     const { Nav: Detail } = await import("./Nav");
 
     render(<Detail />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    const overview = within(nav).getByRole("link", { name: "Overview" });
+    const header = screen.getByRole("banner");
+    const overview = within(header).getByRole("link", { name: "Overview" });
 
     // "true", not "page". Saying `aria-current="page"` here would tell a screen
     // reader the Overview link leads where the reader already is.
     expect(overview).toHaveAttribute("aria-current", "true");
     expect(
-      within(nav)
+      within(header)
         .getAllByRole("link")
         .filter((a) => a.getAttribute("aria-current") === "page"),
     ).toHaveLength(0);

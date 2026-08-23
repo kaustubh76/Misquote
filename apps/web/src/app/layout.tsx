@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* tabIndex -1 so the skip link actually moves focus. Without it the jump
             is left to browser heuristics, which is the one thing a skip link
             exists to avoid. */}
-        <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-5 pt-10 pb-24">
+        <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-5 pt-10 pb-24">
           {children}
         </main>
 

@@ -19,21 +19,39 @@
  * listed below and nothing else". A reader who mistyped `/vetting` was told the
  * site has no such page, by the one page whose job is to say what it does have.
  */
+/**
+ * Which band of the nav a route belongs to.
+ *
+ * `product` is what someone came to do — look at the agents, get a quote, hire
+ * one, browse the registry. `evidence` is how any of it is checked. The split
+ * exists because the flat list stopped working: eleven routes fitted a single
+ * strip at 1280px and thirteen do not, and the honest ordering was never
+ * alphabetical or chronological anyway — a reader wanting a quote and a reader
+ * auditing the tick math are doing different things.
+ */
+export type RouteGroup = "product" | "evidence";
+
 export interface Route {
   href: string;
   label: string;
+  group: RouteGroup;
 }
 
 export const ROUTES: readonly Route[] = [
-  { href: "/", label: "Overview" },
-  { href: "/quote", label: "Quote" },
-  { href: "/activate", label: "Activate" },
-  { href: "/venue", label: "Venue" },
-  { href: "/advantage", label: "Advantage" },
-  { href: "/methods", label: "Methods" },
-  { href: "/vectors", label: "Vectors" },
-  { href: "/assumptions", label: "Assumptions" },
-  { href: "/registry", label: "Registry" },
-  { href: "/vetting", label: "Vetting" },
-  { href: "/status", label: "Status" },
+  { href: "/", label: "Overview", group: "product" },
+  { href: "/quote", label: "Quote", group: "product" },
+  { href: "/activate", label: "Activate", group: "product" },
+  { href: "/registry", label: "Registry", group: "product" },
+  { href: "/advantage", label: "Advantage", group: "evidence" },
+  { href: "/methods", label: "Methods", group: "evidence" },
+  { href: "/assumptions", label: "Assumptions", group: "evidence" },
+  { href: "/vectors", label: "Vectors", group: "evidence" },
+  { href: "/venue", label: "Venue", group: "evidence" },
+  { href: "/vetting", label: "Vetting", group: "evidence" },
+  { href: "/status", label: "Status", group: "evidence" },
 ] as const;
+
+/** The routes in one band, in the order the nav shows them. */
+export function routesIn(group: RouteGroup): readonly Route[] {
+  return ROUTES.filter((route) => route.group === group);
+}
