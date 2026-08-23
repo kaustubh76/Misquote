@@ -36,9 +36,6 @@ from misquote.tearsheet.provenance import build_stamp
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = REPO / "apps" / "web" / "public" / "artifacts"
 
-#: Read from the environment so a deploy sets it without editing a file.
-ENV_VAR = "MISQUOTE_API_BASE"
-
 
 def config(base: str | None) -> dict[str, Any]:
     """What the client needs to decide whether to try the API at all."""
@@ -64,7 +61,13 @@ def config(base: str | None) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", default=os.environ.get(ENV_VAR, ""))
+    # The literal, not a constant holding it. `tests/test_env_template.py` finds
+    # environment reads by walking the AST for string literals, so a name routed
+    # through `ENV_VAR = "MISQUOTE_API_BASE"` is invisible to it — and that guard
+    # is precisely what keeps `.env.example` from drifting out of step with what
+    # the program actually reads. Indirection here would have bought nothing and
+    # cost the check.
+    parser.add_argument("--base", default=os.environ.get("MISQUOTE_API_BASE", ""))
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     args = parser.parse_args(argv)
 
