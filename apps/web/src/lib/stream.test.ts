@@ -67,7 +67,7 @@ describe("subscribe", () => {
 
     const before = call;
     await new Promise((r) => setTimeout(r, 20));
-    expect(call).toBe(before, "kept polling after a terminal state");
+    expect(call, "kept polling after a terminal state").toBe(before);
   });
 
   it("reports the same status once, not on every tick", async () => {
@@ -119,7 +119,7 @@ describe("subscribe", () => {
     const after = call;
     await new Promise((r) => setTimeout(r, 25));
 
-    expect(call).toBe(after, "the poll loop outlived its subscriber");
+    expect(call, "the poll loop outlived its subscriber").toBe(after);
   });
 
   it("says so when no API is configured rather than watching nothing", async () => {
