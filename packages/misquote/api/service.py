@@ -32,7 +32,12 @@ body is bytes an emitter wrote. The moment this file starts computing a summary,
 it becomes a second implementation of something `tearsheet/` already does, and
 the two will disagree — which is this project's name.
 
-Nor does it write, sign, or reach a chain. It is `GET` only, over files.
+It does not sign, and it holds no key. It does now reach a chain — for a
+wallet's positions and for an agent card the survey never sampled — and it does
+accept one write verb: `POST /quote`, which creates a job and computes nothing
+itself. What has not changed is the artifact surface: those routes serve bytes
+an emitter wrote, and `tests/api/test_app.py` asserts that nothing under
+`/artifacts` accepts a write verb.
 """
 
 from __future__ import annotations
@@ -221,7 +226,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    # POST because `/quote` creates a job, and OPTIONS because a browser sends a
+    # preflight before any POST carrying a content-type. Omitting OPTIONS is the
+    # subtle half: the POST route existed and worked from curl, and the page
+    # failed with a bare "TypeError: Failed to fetch" — no status, no body, and
+    # nothing in the service log, because the request the browser actually made
+    # first was the one that was refused.
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 

@@ -215,6 +215,31 @@ def test_a_half_written_artifact_is_transient_rather_than_broken(
     assert "writing it" in response.json()["detail"]["note"]
 
 
+def test_a_browser_can_reach_the_one_write_route(client: TestClient) -> None:
+    """The preflight, which is the request that actually fails first.
+
+    CORS was `allow_methods=["GET"]` for as long as the service was read-only,
+    and widening it was deferred until a POST route existed. When one did, the
+    POST worked from curl and the page failed with a bare
+    `TypeError: Failed to fetch` — no status, no body, nothing in the service
+    log — because a browser sends `OPTIONS` before any POST carrying a
+    content-type, and that was the request being refused.
+
+    Asserted through the middleware rather than by reading the config, so the
+    thing checked is what a browser would actually receive.
+    """
+    response = client.options(
+        "/quote",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert "POST" in response.headers.get("access-control-allow-methods", "")
+
+
 def test_no_artifact_route_accepts_a_write_verb(client: TestClient, names: list[str]) -> None:
     """The read-only guarantee, restated where it still holds.
 

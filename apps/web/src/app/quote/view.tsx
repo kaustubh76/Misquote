@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
-import { loadLive, RefusalError } from "@/lib/api";
+import { apiBase, loadLive, RefusalError } from "@/lib/api";
+import { type JobEvent, subscribe } from "@/lib/stream";
 
 /** One pool the wallet holds a position in, as `/quote/eligibility` reports it. */
 interface Holding {
@@ -16,6 +17,18 @@ interface Holding {
   open_positions: number;
   quotable: boolean;
   why_not: string[];
+}
+
+/** A job as `/quote/job/{id}` reports it. */
+interface JobView {
+  jobId: string;
+  status: string;
+  done: number;
+  total: number;
+  phase: string;
+  note: string;
+  refusal?: { note?: string; remedy?: string };
+  result?: { p25: number; p50: number; p75: number; samples: number; interactive_budget: boolean };
 }
 
 interface Eligibility {
@@ -216,13 +229,201 @@ function Result({ value }: { value: Eligibility }) {
         </div>
       )}
 
-      <Heading className="mt-8 mb-2 text-md font-semibold">What happens next</Heading>
-      <p className="m-0 max-w-[62ch] text-sm text-dim">
-        Queuing the replay itself is not built. The pre-flight above is what
-        decides whether it would be worth queuing, and it is the part that can
-        answer honestly today — see <Link href="/status">readiness</Link> for what
-        else is and is not built.
+      <Heading className="mt-8 mb-2 text-md font-semibold">Run one</Heading>
+      <p className="m-0 mb-4 max-w-[62ch] text-sm text-dim">
+        A replay is minutes of arithmetic, not milliseconds, and it needs a worker
+        draining the queue (<code className="font-mono text-xs">make api-worker</code>).
+        Progress below is the job&rsquo;s own event log, so closing this page does
+        not lose it — reopening replays from where it got to.
       </p>
+      {value.holdings
+        .filter((h) => h.quotable)
+        .map((h) => (
+          <QuoteRun key={h.pool} pool={h.pool} label={h.label} />
+        ))}
     </Section>
+  );
+}
+
+
+type RunState =
+  | { phase: "idle" }
+  | { phase: "queueing" }
+  | { phase: "watching"; job: JobView }
+  | { phase: "refused"; reason: string; remedy: string }
+  | { phase: "failed"; message: string };
+
+/**
+ * Enqueue one pool's replay and watch it.
+ *
+ * The 409 path is the one worth reading closely. `POST /quote` runs the
+ * engine's own sufficiency check before minting a job id, so a tape that cannot
+ * support a quote comes back as a refusal in a hundred milliseconds rather than
+ * as a job that resolves into one twenty minutes later. That refusal renders as
+ * a `Refusal`, not an `ErrorNotice` — nothing broke.
+ */
+function QuoteRun({ pool, label }: { pool: string; label: string }) {
+  const [state, setState] = useState<RunState>({ phase: "idle" });
+
+  useEffect(() => {
+    if (state.phase !== "watching") return;
+
+    const stop = subscribe(state.job.jobId, {
+      onEvent: (event: JobEvent) =>
+        setState((prev) =>
+          prev.phase === "watching"
+            ? {
+                phase: "watching",
+                job: {
+                  ...prev.job,
+                  status: event.kind,
+                  done: Number(event.payload.done ?? prev.job.done),
+                  total: Number(event.payload.total ?? prev.job.total),
+                  phase: String(event.payload.phase ?? prev.job.phase),
+                },
+              }
+            : prev,
+        ),
+      onFinished: async () => {
+        const base = await apiBase();
+        if (!base) return;
+        const res = await fetch(`${base}/quote/job/${state.job.jobId}`, { cache: "no-store" });
+        const body = (await res.json()) as JobView & { job_id: string };
+        setState({
+          phase: "watching",
+          job: { ...body, jobId: state.job.jobId, done: 0, total: 0, phase: "" },
+        });
+      },
+      onError: (message) => setState({ phase: "failed", message }),
+    });
+
+    return stop;
+    // Keyed on the job id: re-subscribing on every progress tick would open a
+    // stream per event, which on a job with sixty of them is sixty streams.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase === "watching" ? state.job.jobId : null]);
+
+  async function enqueue() {
+    setState({ phase: "queueing" });
+    const base = await apiBase();
+    if (!base) {
+      return setState({
+        phase: "failed",
+        message: "No live API is configured. Start one with `make api` and `make api-config`.",
+      });
+    }
+
+    const res = await fetch(`${base}/quote`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pool }),
+    });
+    const body = await res.json().catch(() => null);
+
+    if (res.status === 202 && body?.job_id) {
+      return setState({
+        phase: "watching",
+        job: { jobId: body.job_id, status: "queued", done: 0, total: 0, phase: "", note: body.note },
+      });
+    }
+
+    const detail = body?.detail;
+    if (detail?.error) {
+      return setState({
+        phase: "refused",
+        reason: [detail.error, detail.note].filter(Boolean).join(" — "),
+        remedy: detail.remedy ?? "",
+      });
+    }
+    setState({ phase: "failed", message: `The API returned ${res.status}.` });
+  }
+
+  const running = state.phase === "queueing" || state.phase === "watching";
+
+  return (
+    <Card as="article" className="mb-4">
+      <CardHeader
+        title={label || pool}
+        eyebrow={<span className="normal-case">{pool}</span>}
+        aside={
+          <button
+            type="button"
+            onClick={enqueue}
+            disabled={running}
+            className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90 disabled:opacity-45"
+          >
+            {running ? "Running…" : "Replay this pool"}
+          </button>
+        }
+      />
+
+      {state.phase === "refused" && (
+        <Refusal title="No quote for this pool" reason={state.reason} floor={state.remedy} />
+      )}
+
+      {state.phase === "failed" && (
+        <ErrorNotice title="The run could not be started" detail={state.message} />
+      )}
+
+      {state.phase === "watching" && <RunProgress job={state.job} />}
+    </Card>
+  );
+}
+
+function RunProgress({ job }: { job: JobView }) {
+  const pct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+
+  return (
+    <div aria-busy={!["done", "refused", "failed", "cancelled", "orphaned"].includes(job.status)}>
+      <p className="m-0 text-sm text-dim">
+        <span className="font-mono text-xs text-faint">{job.jobId.slice(0, 8)}</span>{" "}
+        <Pill tone={job.status === "done" ? "pass" : job.status === "failed" ? "fail" : "none"}>
+          {job.status}
+        </Pill>{" "}
+        {job.phase}
+      </p>
+
+      {job.total > 0 && (
+        <>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-panel-2">
+            <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="tabular mt-1 mb-0 text-xs text-faint">
+            {job.done} of {job.total} replays
+          </p>
+        </>
+      )}
+
+      {job.refusal && (
+        <div className="mt-4">
+          {/* The engine's own sentence, not a rewording of it. */}
+          <Refusal
+            title="The evidence could not support a quote"
+            reason={job.refusal.note ?? ""}
+            floor={job.refusal.remedy}
+          />
+        </div>
+      )}
+
+      {job.result && (
+        <div className="mt-4 rounded-md border border-line bg-panel-2 p-4">
+          <p className="tabular m-0 text-lg font-semibold text-ink">
+            {job.result.p25.toFixed(2)}% – {job.result.p75.toFixed(2)}%
+          </p>
+          <p className="m-0 text-sm text-dim">
+            median {job.result.p50.toFixed(2)}% over {job.result.samples} observations
+          </p>
+          {job.result.interactive_budget && (
+            <p className="mt-2 mb-0 text-xs text-warn">
+              Run on the reduced interactive budget, so this range is wider than a
+              published card&rsquo;s and is not comparable with one.{" "}
+              <Link href="/assumptions#A15">A15</Link> says what was traded away.
+            </p>
+          )}
+        </div>
+      )}
+
+      {job.note && <p className="mt-3 mb-0 text-xs text-faint">{job.note}</p>}
+    </div>
   );
 }

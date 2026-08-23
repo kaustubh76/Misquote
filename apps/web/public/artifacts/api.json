@@ -2,9 +2,9 @@
   "base": null,
   "build": {
     "command": "make artifacts",
-    "generated_at": "2026-08-23T16:26:22+00:00",
+    "generated_at": "2026-08-23T16:49:11+00:00",
     "git_dirty": true,
-    "git_sha": "6fb0194",
+    "git_sha": "511ac9a",
     "source": "environment"
   },
   "note": "base is null when no live API is configured, which is the ordinary state: every page on this site renders from the artifacts alone. A client that finds null must not fall back to the site origin \u2014 there is no API there, and requesting one would 404 against the export.",
