@@ -250,3 +250,38 @@ def test_never_vetted_and_never_verified_are_different_refusals(client: TestClie
     assert unverified.status_code == 404
     assert "nothing has ever looked at it" in unverified.json()["detail"]["note"]
     assert unverified.json()["detail"]["remedy"] != "make vet"
+
+
+# ── wallet positions ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["nope", "0x", "0x1234", "0xZZZZ34567890123456789012345678901234567890", ""],
+)
+def test_a_malformed_address_is_refused_before_the_chain_read(client: TestClient, bad: str) -> None:
+    """A typo must not come back as an empty wallet.
+
+    An unreachable address and an address holding nothing return the same thing
+    from an RPC, so the shape is checked first. Without this the most common
+    user error — a truncated paste — renders as "you hold no positions", which
+    is a confident wrong answer to a question that was never asked.
+    """
+    response = client.get(f"/wallet/{bad}/positions")
+    assert response.status_code in (400, 404), bad
+    if response.status_code == 400:
+        assert "not a 20-byte hex address" in response.json()["detail"]["error"]
+
+
+def test_a_wellformed_address_without_an_endpoint_says_so(client: TestClient) -> None:
+    """`conftest` blackholes every RPC, so this is the no-capability path.
+
+    503 and not 200-with-an-empty-list: the wallet was never read, and an empty
+    `positions` here would be indistinguishable from a wallet that holds nothing.
+    """
+    response = client.get("/wallet/0x1234567890123456789012345678901234567890/positions")
+    assert response.status_code == 503
+
+    detail = response.json()["detail"]
+    assert detail["remedy"] == "set BSC_RPC_URL"
+    assert "No read was attempted" in detail["note"]

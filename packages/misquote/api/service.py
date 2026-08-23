@@ -47,8 +47,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from misquote.api import journal as journal_routes
+from misquote.api import registry as registry_routes
 from misquote.api import tape as tape_routes
 from misquote.api import vetting as vetting_routes
+from misquote.api import wallet as wallet_routes
 from misquote.api.errors import refuse
 
 REPO = Path(__file__).resolve().parents[3]
@@ -256,6 +258,9 @@ def index() -> dict[str, Any]:
             "/journal/{agent}": "one agent's decisions, as appended",
             "/vetting": "which pools carry a due-diligence badge, and which do not",
             "/vetting/{address}": "one pool's recorded badge",
+            "/registry/agents": "search the surveyed agents, with the coverage that search had",
+            "/registry/agents/{agent_id}": "one agent, from the survey or from chain",
+            "/wallet/{address}/positions": "a wallet's v3 positions, and which we could replay",
         },
         "note": (
             "The artifact routes serve what the emitters wrote and add nothing to it. "
@@ -283,6 +288,9 @@ for _path, _handler in (
     ("/journal/{agent}", journal_routes.journal),
     ("/vetting", vetting_routes.vetting),
     ("/vetting/{address}", vetting_routes.badge),
+    ("/registry/agents", registry_routes.registry_agents),
+    ("/registry/agents/{agent_id}", registry_routes.registry_agent),
+    ("/wallet/{address}/positions", wallet_routes.wallet_positions),
 ):
     app.add_api_route(_path, _handler, methods=["GET"])
 

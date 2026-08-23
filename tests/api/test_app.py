@@ -29,9 +29,11 @@ pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from misquote.api import journal as journal_routes  # noqa: E402
+from misquote.api import registry as registry_routes  # noqa: E402
 from misquote.api import service as api  # noqa: E402
 from misquote.api import tape as tape_routes  # noqa: E402
 from misquote.api import vetting as vetting_routes  # noqa: E402
+from misquote.api import wallet as wallet_routes  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -265,6 +267,9 @@ def test_every_handler_is_actually_routed() -> None:
         ("/journal/{agent}", journal_routes.journal),
         ("/vetting", vetting_routes.vetting),
         ("/vetting/{address}", vetting_routes.badge),
+        ("/registry/agents", registry_routes.registry_agents),
+        ("/registry/agents/{agent_id}", registry_routes.registry_agent),
+        ("/wallet/{address}/positions", wallet_routes.wallet_positions),
     )
 
     for path, handler in expected:
