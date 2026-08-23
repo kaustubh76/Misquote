@@ -78,6 +78,11 @@ def _isolate_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("DB_PATH", str(db))
     monkeypatch.setenv("MISQUOTE_JOURNAL_DIR", str(journal))
+    # The job store, for the same reason as the two above. Without this the
+    # first job test writes `data/jobs.db` into the repository and every
+    # subsequent run inherits whatever the last one queued — including, once
+    # `POST /quote` exists, a real 4.6-hour replay left in `queued`.
+    monkeypatch.setenv("MISQUOTE_JOBS_DB", str(tmp_path / "jobs.db"))
 
 
 @pytest.fixture

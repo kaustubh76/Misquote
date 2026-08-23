@@ -268,6 +268,9 @@ def index() -> dict[str, Any]:
             "/quote/eligibility/{address}": "what one wallet holds, and which of it is quotable",
             "/sessions/capability": "what activation would consist of, and why it is not possible",
             "/sessions/{owner}": "the grants an address holds, once there is a module to ask",
+            "POST /quote": "enqueue a replay, or refuse before anyone waits",
+            "/quote/job/{job_id}": "where a queued replay got to",
+            "/quote/job/{job_id}/stream": "the same, as server-sent events",
         },
         "note": (
             "The artifact routes serve what the emitters wrote and add nothing to it. "
@@ -302,8 +305,17 @@ for _path, _handler in (
     ("/quote/eligibility/{address}", quote_routes.quote_eligibility),
     ("/sessions/capability", sessions_routes.sessions_capability),
     ("/sessions/{owner}", sessions_routes.sessions_for),
+    ("/quote/job/{job_id}", quote_routes.quote_job_status),
+    ("/quote/job/{job_id}/stream", quote_routes.quote_job_stream),
 ):
     app.add_api_route(_path, _handler, methods=["GET"])
+
+# The one write verb on this service, and a POST rather than a GET because it
+# creates something: a queued job with an id. `tests/api/test_app.py` asserts
+# separately that nothing under `/artifacts` accepts a write verb — that is
+# where the read-only guarantee still holds, and it is worth restating there
+# now that it is no longer true of the service as a whole.
+app.add_api_route("/quote", quote_routes.submit_quote, methods=["POST"], status_code=202)
 
 
 @app.get("/artifacts")

@@ -386,6 +386,29 @@ that isn't a fee.
 
 ---
 
+## A15 · An interactive quote runs fewer windows than a published card
+
+**Added.** `replay/ranges.py::quote()` defaults to **20** rolling sub-windows, and every card on
+this site is quoted at that budget. A quote requested from `/quote` runs **8**.
+
+*Why:* the measured cost of the full budget on the 30-day WBNB/USDT tape is 60 replays of ~125,700
+events each — **4.6 hours** for the four agents the showcase runs, recorded in `quote()`'s own
+docstring. A surface where a stranger can ask for a replay cannot spend that per request, and the
+alternative to a smaller budget is not a faster quote, it is no quote at all.
+
+*Direction of the error:* **toward refusing**, which is the safe direction. Fewer windows means
+fewer observations against the same floors — `MIN_SAMPLES` and the 30-observation verdict floor do
+not move — so a reduced run is more likely to be withheld and, when it does quote, quotes a **wider**
+P25–P75 than the full budget would. It cannot manufacture a narrow range out of a thin one.
+
+*How you can tell:* every interactive result carries `interactive_budget: true` and the window count
+it actually ran. The published cards do not, because they did not. The two are different
+measurements and must not be compared without that flag being read — a reduced range next to a full
+one looks like disagreement between the agents when it is disagreement between the budgets.
+
+*What does not change:* the windows themselves, the perturbations, the floors, and every assumption
+above. This entry is about how many times the same arithmetic is run, not about the arithmetic.
+
 ## What settles versus what is displayed
 
 Two different numbers, deliberately.

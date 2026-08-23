@@ -215,6 +215,21 @@ def test_a_half_written_artifact_is_transient_rather_than_broken(
     assert "writing it" in response.json()["detail"]["note"]
 
 
+def test_no_artifact_route_accepts_a_write_verb(client: TestClient, names: list[str]) -> None:
+    """The read-only guarantee, restated where it still holds.
+
+    `POST /quote` exists now, so the service as a whole is no longer GET-only
+    and the docstring that said so has been rewritten. What has not changed is
+    the part worth guarding: the artifact routes read files an emitter wrote and
+    must never grow a way to write one. Asserted here rather than left implied
+    by the older test's name.
+    """
+    for method in (client.post, client.put, client.delete, client.patch):
+        assert method("/artifacts").status_code == 405
+        assert method(f"/artifacts/{names[0]}").status_code == 405
+        assert method("/agents").status_code == 405
+
+
 def test_the_service_is_read_only(client: TestClient, names: list[str]) -> None:
     """No verb but GET. This reads files and must never grow a way to write one."""
     for method in (client.post, client.put, client.delete, client.patch):
@@ -276,6 +291,9 @@ def test_every_handler_is_actually_routed() -> None:
         ("/quote/eligibility/{address}", quote_routes.quote_eligibility),
         ("/sessions/capability", sessions_routes.sessions_capability),
         ("/sessions/{owner}", sessions_routes.sessions_for),
+        ("/quote", quote_routes.submit_quote),
+        ("/quote/job/{job_id}", quote_routes.quote_job_status),
+        ("/quote/job/{job_id}/stream", quote_routes.quote_job_stream),
     )
 
     for path, handler in expected:

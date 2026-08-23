@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -301,6 +301,13 @@ api-config:  ## publish where the live API is, as apps/web/public/artifacts/api.
 	# default: the export works with no backend, and a client that finds null must
 	# not fall back to the site origin.
 	$(UV) run python scripts/emit_api_config.py
+
+api-worker:  ## drain the quote job queue (a replay is hours, not seconds)
+	# Its own process, and not a thread inside the API: `ranges.quote()` keeps
+	# per-run state in a module-level dict and raises if entered twice, and
+	# `fork_map` must fork from a single-threaded parent. Run more of these for
+	# more concurrency; each claims under BEGIN IMMEDIATE.
+	$(UV) run python -m misquote.ops.worker
 
 api:  ## the artifact API in dev mode, http://localhost:8000
 	# The one command that runs the service had never been in this file: it
