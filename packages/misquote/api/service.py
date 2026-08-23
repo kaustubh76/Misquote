@@ -42,9 +42,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from misquote.api.errors import refuse
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -102,19 +104,17 @@ def _path_for(name: str) -> Path:
     is no expression a caller can supply that reaches a seventeenth file.
     """
     if name not in artifact_names():
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": f"no artifact named {name!r}",
-                "remedy": REMEDIES.get(name, "see `make help` for the emitters"),
-                "available": artifact_names(),
-                # Absent and not-yet-generated are different sentences, and a
-                # bare 404 collapses them.
-                "note": (
-                    "This is a file nobody has generated, or a name that does not exist. "
-                    "Both are absences and neither is an empty result."
-                ),
-            },
+        raise refuse(
+            404,
+            error=f"no artifact named {name!r}",
+            remedy=REMEDIES.get(name, "see `make help` for the emitters"),
+            available=artifact_names(),
+            # Absent and not-yet-generated are different sentences, and a
+            # bare 404 collapses them.
+            note=(
+                "This is a file nobody has generated, or a name that does not exist. "
+                "Both are absences and neither is an empty result."
+            ),
         )
     return ARTIFACTS / f"{name}.json"
 
@@ -127,12 +127,11 @@ def _load(name: str) -> Any:
         # A half-written artifact is not an artifact. 503 rather than 500: an
         # emitter is very likely mid-write, and the correct advice is to retry —
         # which is a different instruction from "this is broken".
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": f"{name}.json is on disk and could not be read: {error}",
-                "note": "An emitter may be writing it. This is a transient state, not a failure.",
-            },
+        raise refuse(
+            503,
+            error=f"{name}.json is on disk and could not be read: {error}",
+            remedy=f"retry; if it persists, {REMEDIES.get(name, 'see `make help`')}",
+            note="An emitter may be writing it. This is a transient state, not a failure.",
         ) from error
 
 
@@ -184,7 +183,9 @@ def census() -> dict[str, Any]:
         except (OSError, json.JSONDecodeError):
             entries.append({"name": name, "readable": False, "records_commit": False})
             continue
-        entries.append({"name": name, "readable": True, "bytes": path.stat().st_size, **_stamp(blob)})
+        entries.append(
+            {"name": name, "readable": True, "bytes": path.stat().st_size, **_stamp(blob)}
+        )
 
     stamped = [e for e in entries if e.get("records_commit")]
     return {
@@ -311,12 +312,10 @@ def agent(slug: str) -> JSONResponse:
     """
     known = [a.get("slug") for a in _load("index").get("agents", [])]
     if slug not in known:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": f"the index lists no agent {slug!r}",
-                "available": [s for s in known if s],
-                "remedy": REMEDIES["index"],
-            },
+        raise refuse(
+            404,
+            error=f"the index lists no agent {slug!r}",
+            remedy=REMEDIES["index"],
+            available=[s for s in known if s],
         )
     return artifact(slug)

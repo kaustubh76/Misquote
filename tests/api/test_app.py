@@ -92,10 +92,14 @@ def test_the_census_reports_unstamped_artifacts_rather_than_hiding_them(
 
     assert body["total"] == len(names)
     assert body["stamped"] + len(body["unstamped"]) == body["total"]
-    assert set(body["unstamped"]).isdisjoint({e["name"] for e in body["artifacts"] if e.get("records_commit")})
+    assert set(body["unstamped"]).isdisjoint(
+        {e["name"] for e in body["artifacts"] if e.get("records_commit")}
+    )
 
     for entry in body["artifacts"]:
-        assert "records_commit" in entry, f"{entry['name']} does not say whether it records a commit"
+        assert "records_commit" in entry, (
+            f"{entry['name']} does not say whether it records a commit"
+        )
 
 
 def test_a_missing_artifact_refuses_with_the_command_that_writes_it(client: TestClient) -> None:

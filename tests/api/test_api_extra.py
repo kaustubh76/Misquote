@@ -39,7 +39,7 @@ def _declared() -> list[str]:
     extras = data["project"]["optional-dependencies"]
     assert EXTRA in extras, (
         f"pyproject.toml declares no {EXTRA!r} extra. render.yaml installs "
-        f'`.[{EXTRA}]` and tests/api/test_app.py skips on it.'
+        f"`.[{EXTRA}]` and tests/api/test_app.py skips on it."
     )
     return extras[EXTRA]
 
