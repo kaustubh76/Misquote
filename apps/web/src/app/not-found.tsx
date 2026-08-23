@@ -19,6 +19,7 @@ export const metadata: Metadata = { title: "No such page" };
  */
 const BLURB: Record<string, string> = {
   "/": "every agent that exists, and everything advertised that does not",
+  "/quote": "your own positions, checked against the tape before anything is queued",
   "/venue": "where PancakeSwap is not Uniswap, and what each difference cost",
   "/advantage": "hiring an agent against doing the job yourself",
   "/methods": "how a quote is made, and what stops it being made",

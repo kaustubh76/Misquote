@@ -14,9 +14,17 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
  *
  * Stated rather than left implicit, because a test that silently cannot fail is
  * worse than no test: it occupies the space where a real one would go.
+ *
+ * The list below is a deliberate second copy of `lib/routes.ts` rather than an
+ * import of it. Importing would make the nav correct by definition — the two
+ * would agree because they are the same array — and the drift this file exists
+ * to catch is exactly the kind in the 404 test at the bottom, where a hand-kept
+ * copy fell to six routes against eight. Adding a route means adding it here
+ * too, and that second edit is the check.
  */
 const ROUTES = [
   ["Overview", "/"],
+  ["Quote", "/quote"],
   ["Venue", "/venue"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],
@@ -40,7 +48,7 @@ beforeEach(() => {
 });
 
 describe("every route is in the nav, whether or not it is on screen", () => {
-  it("renders a link for all seven pages", () => {
+  it("renders a link for every page", () => {
     render(<Nav />);
     const nav = screen.getByRole("navigation", { name: "Primary" });
 

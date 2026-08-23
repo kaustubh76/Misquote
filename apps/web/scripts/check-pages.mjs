@@ -38,6 +38,7 @@ const shotsAt = process.argv.includes("--shots")
 
 const ROUTES = [
   ["overview", "/"],
+  ["quote", "/quote/"],
   ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
@@ -198,6 +199,11 @@ const NO_JS = [
   // generated tape", the pool name vanished, and the needle failed for a reason
   // that had nothing to do with prerendering. A needle has to survive the data.
   ["/", 2000, "Router"],
+  // The interactive half of /quote needs JavaScript — it is an input — but the
+  // explanation of why a quote is a job rather than a request must not. The
+  // needle is that sentence, because a prerender that dropped it would leave a
+  // reader with a form and no account of what pressing it costs.
+  ["/quote/", 1200, "not a button that returns a number"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
