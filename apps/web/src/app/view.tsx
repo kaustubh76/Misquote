@@ -1,6 +1,7 @@
 "use client";
 
 import { BuildStamp } from "@/components/BuildStamp";
+import { Button } from "@/components/Button";
 import { count } from "@/lib/format";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
@@ -164,25 +165,37 @@ export function OverviewView({
 
   return (
     <Loadable loading={loading} what="agent cards">
-      <h1 className="text-2xl font-semibold">Every marketplace misquotes you.</h1>
-      {/* 48 words carrying four claims, three of which the page demonstrates
-          below: the ranges are drawn, the withheld quotes say so themselves,
-          and every figure links to its assumption. What only prose can say is
-          what the alternative does — so that is what is left. */}
-      <p className="mt-3 max-w-[64ch] text-dim">
-        Others rank agents by star ratings. Every number here traces to chain state or a{" "}
-        <Link href="/assumptions">published assumption</Link>, and where the evidence is
-        thin it <strong className="text-ink">says nothing instead</strong>.
-      </p>
+      {/* The hero.
+          This was an h1, a paragraph and a bordered grey box with a blue link
+          in it — visually indistinguishable from the cards below, on the one
+          screen that has to say what the product is before anything is read.
+          The band gives it ground, the brand fill gives the primary action a
+          shape that reads as an action, and the type scale finally has a size
+          above a section heading to put a headline at. */}
+      <div className="-mx-5 mb-10 border-b border-line bg-brand-bg/40 px-5 pt-4 pb-10">
+        <p className="mb-3 font-mono text-xs tracking-widest text-brand uppercase">
+          Agent marketplace · BNB Chain
+        </p>
+        <h1 className="max-w-[18ch] text-3xl leading-[1.1] font-semibold text-balance">
+          Every marketplace misquotes you.
+        </h1>
+        {/* 48 words carrying four claims, three of which the page demonstrates
+            below: the ranges are drawn, the withheld quotes say so themselves,
+            and every figure links to its assumption. What only prose can say is
+            what the alternative does — so that is what is left. */}
+        <p className="mt-4 max-w-[60ch] text-md text-dim">
+          Others rank agents by star ratings. Every number here traces to chain state or a{" "}
+          <Link href="/assumptions">published assumption</Link>, and where the evidence is
+          thin it <strong className="text-ink">says nothing instead</strong>.
+        </p>
 
-      <p className="mt-4">
-        <Link
-          href="/advantage"
-          className="inline-block rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-ink no-underline hover:border-accent hover:text-accent"
-        >
-          Does hiring an agent beat doing it yourself? →
-        </Link>
-      </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button href="/advantage">Does hiring an agent beat doing it yourself?</Button>
+          <Button href="/methods" tone="secondary">
+            How a quote is made
+          </Button>
+        </div>
+      </div>
 
       <div className="mt-10">
         {index?.ok && (

@@ -59,17 +59,39 @@
   --focus: light-dark(#1d4ed8, #7aa2f7);
   --accent: light-dark(#1d4ed8, #8ab4f8);
 
+  /* Brand.
+   *
+   * Separate from --accent, which is the link and focus blue and stays that.
+   * A product needs a colour it can put on a primary action without that action
+   * reading as a hyperlink, and this palette had none — every surface was grey
+   * with blue links, and colour was reserved entirely for verdicts.
+   *
+   * Violet was chosen by measurement, not taste. The candidates that clear AA on
+   * every surface in both themes are teal, cyan, indigo, violet and rose; of
+   * those, teal and cyan sit beside --good, rose beside --bad, and indigo beside
+   * --accent. Violet is the only one hue-separated from all four verdict colours
+   * *and* from the link blue, which matters because this product spends its
+   * colour budget on judgements and a brand that could be mistaken for one would
+   * be reading as a verdict on every page.
+   *
+   * The dark arm is #d8b4fe rather than the #c4b5fd it started as, and a test
+   * is why. `test_the_brand_is_not_one_of_the_verdict_colours` measures sRGB
+   * distance — contrast ratio is a luminance comparison and says nothing about
+   * hue — and found the first pick sitting 58 units from --accent's #8ab4f8.
+   * Two light blue-violets on a dark ground: a primary action and a hyperlink,
+   * near-indistinguishable in exactly the theme this site opens in. #d8b4fe is
+   * 78 away and unambiguously violet.
+   *
+   * AA against --bg 6.86/11.01 · --panel 7.10/10.16 · --brand-bg 6.24/9.69.
+   * --brand-ink is the label on a filled brand button: 7.10/10.19. */
+  --brand: light-dark(#6d28d9, #d8b4fe);
+  --brand-bg: light-dark(#f3eefc, #1e1733);
+  --brand-line: light-dark(#c9b6f0, #4a3a7a);
+  --brand-ink: light-dark(#ffffff, #1a1033);
+
   /* Type. */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
-  --text-base: 0.9375rem;
-  --text-md: 1.0625rem;
-  --text-lg: 1.3125rem;
-  --text-xl: 1.625rem;
-  --text-2xl: 2.125rem;
 
   /* Space + shape. */
   --s-1: 0.25rem;
@@ -84,6 +106,21 @@
   --r-sm: 3px;
   --r-md: 8px;
   --r-lg: 12px;
+  --r-xl: 18px;
+  --r-full: 999px;
+
+  /* Elevation.
+   *
+   * Written with rgb() rather than hex, and that is required rather than
+   * stylistic: `tests/web/test_theme_tokens.py` fails any `--token: #hex` in
+   * :root as a colour that forgot its second theme arm. A shadow is not a theme
+   * pair — it is the same geometry at two opacities — so it is expressed as one.
+   *
+   * Dark surfaces do not take shadow; they take a lighter edge. The dark arm is
+   * therefore weaker and the borders carry the separation instead. */
+  --elev-1: 0 1px 2px rgb(15 18 22 / 0.06), 0 1px 1px rgb(15 18 22 / 0.04);
+  --elev-2: 0 4px 12px rgb(15 18 22 / 0.08), 0 1px 3px rgb(15 18 22 / 0.06);
+  --elev-brand: 0 2px 10px rgb(109 40 217 / 0.18);
 }
 
 /* An explicit choice pins `color-scheme`, which is what `light-dark()` reads.
@@ -128,12 +165,54 @@
   --color-focus: var(--focus);
   --color-accent: var(--accent);
 
+  --color-brand: var(--brand);
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-line: var(--brand-line);
+  --color-brand-ink: var(--brand-ink);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-full: var(--r-full);
+
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-brand: var(--elev-brand);
+
+  /* The type scale, defined here and *only* here.
+   *
+   * It used to live in `:root` as `--text-xs` through `--text-2xl`, and nothing
+   * read it: no component uses `var(--text-…)`, and `@theme` never mapped the
+   * names, so every `text-sm` and `text-2xl` in the codebase was resolving to
+   * Tailwind's default scale. The tokens were a scale the site did not use,
+   * sitting next to a comment describing the scale it did.
+   *
+   * `text-md` is the proof. Six components ask for it; Tailwind has no such
+   * default utility and nothing generated one, so those six have been rendering
+   * at inherited size — the token existed, the class did not, and the two never
+   * met. Defining the scale here generates it.
+   *
+   * Body moves 15px -> 16px. 15px is a documentation size, and with every step
+   * set against it metadata landed at 12px and most body copy at 13px; on a page
+   * whose whole job is close reading that is the single largest reason the site
+   * reads as cramped. 3xl and 4xl are new — there was no size above 2.125rem, so
+   * a hero and a section heading had to be the same thing.
+   *
+   * Literal values, not `var()`: `--text-3xl: var(--text-3xl)` is a self
+   * reference and resolves to nothing. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+  --text-3xl: 2.75rem;
+  --text-4xl: 3.5rem;
 }
 
 @layer base {
@@ -150,7 +229,7 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: var(--text-base);
+    font-size: 1rem;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }

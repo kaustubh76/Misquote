@@ -20,7 +20,9 @@ export function Card({
   as?: "section" | "article";
 }) {
   return (
-    <Tag className={`rounded-lg border border-line bg-panel p-6 ${className}`}>
+    <Tag
+      className={`rounded-lg border border-line bg-panel p-6 shadow-elev-1 ${className}`}
+    >
       {children}
     </Tag>
   );

@@ -267,13 +267,23 @@ export function Band({
                     figures are the point, and an annualised short-window
                     return is exactly the kind of number this project refuses
                     to round away. */}
+                {/* `min-w-0` on the label, and it is load-bearing at 390px.
+                    A flex item's default `min-width: auto` refuses to shrink
+                    below its min-content width, so a series label like "pick
+                    the pool whose flow is not one-way — PancakeSwap v3
+                    WBNB/USDT 0.05%" pushed this row 45px wider than its
+                    container, and the document with it. `flex-wrap` does not
+                    help: it wraps between items, not inside one. This survived
+                    only because the old 13px type left just enough room —
+                    raising the base size to 16px is what exposed it, which is
+                    the sort of latent break a type scale change is for. */}
                 <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
-                  <span className="flex items-center gap-1.5 text-dim">
+                  <span className="flex min-w-0 items-center gap-1.5 text-dim">
                     <span
-                      className={`inline-block h-2 w-2 rounded-full ${tone.dot}`}
+                      className={`inline-block h-2 w-2 shrink-0 rounded-full ${tone.dot}`}
                       aria-hidden="true"
                     />
-                    {s.label}
+                    <span className="min-w-0 break-words">{s.label}</span>
                   </span>
                   <span className={`tabular ${tone.text}`}>
                     {pct(s.p25)} – {pct(s.p75)}

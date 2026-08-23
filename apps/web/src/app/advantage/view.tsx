@@ -345,7 +345,14 @@ function TaskCard({
               nobody — its agent column is a paragraph about which pool to
               provide to — and it must stay unlinked rather than acquire a link
               to a page that was never built. */}
-          <dd className="m-0 mt-1 text-dim">
+          {/* `overflow-wrap: anywhere`, because this carries a pool address.
+              A 42-character hex string is one unbreakable word, and `break-words`
+              only breaks at opportunities the text offers — of which an address
+              offers none. At the old 13px it happened to fit the column; at 16px
+              it pushed the grid 75px past the viewport at 390px. The value is
+              prose *plus* an address, so `break-all` is wrong: it would hyphenate
+              the sentence too. `anywhere` breaks only where nothing else works. */}
+          <dd className="m-0 mt-1 text-dim [overflow-wrap:anywhere]">
             {slug ? <Link href={`/agent/${slug}`}>{task.with_agent}</Link> : task.with_agent}
           </dd>
         </div>

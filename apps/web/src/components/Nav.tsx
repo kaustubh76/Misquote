@@ -130,10 +130,20 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center gap-4 px-5 py-3">
+        {/* A mark, not just a word. The wordmark was one of nine grey items in
+            a horizontal strip and did not read as the way home. The glyph is
+            the same P25-P75 band the favicon draws — a range with a median
+            tick — which is the one shape this product is about. */}
         <Link
           href="/"
-          className="shrink-0 font-mono text-sm font-semibold tracking-tight text-ink no-underline"
+          className="flex shrink-0 items-center gap-2 font-mono text-sm font-semibold tracking-tight text-ink no-underline"
         >
+          <span
+            aria-hidden="true"
+            className="relative inline-block h-4 w-6 rounded-sm bg-brand/25 ring-1 ring-brand-line"
+          >
+            <span className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-brand" />
+          </span>
           Misquote
         </Link>
 
@@ -174,8 +184,15 @@ export function Nav() {
                       active === "page" ? "page" : active === "section" ? "true" : undefined
                     }
                     className={[
-                      "block rounded-sm px-2.5 py-1.5 text-sm no-underline transition-colors",
-                      active ? "bg-neutral-bg text-ink" : "text-dim hover:text-ink",
+                      "block rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors",
+                      // The active pill was `bg-neutral-bg text-ink` — the same
+                      // grey as every tint on the site, so "where am I" was
+                      // carried by a background one shade off the header. Brand
+                      // is the only colour here that is not a verdict, which is
+                      // what makes it safe to use for position.
+                      active
+                        ? "bg-brand-bg font-medium text-brand"
+                        : "text-dim hover:bg-panel-2 hover:text-ink",
                     ].join(" ")}
                   >
                     {link.label}
