@@ -41,10 +41,10 @@
     },
     {
       "category": "Activation",
-      "evidence": "packages/misquote/sessions/__init__.py \u2014 docstring only",
+      "evidence": "packages/misquote/sessions/keys.py \u2014 SESSION_KEY_MODULE is empty",
       "name": "Altana session keys",
       "what": "The caps subset: allowlist, spend cap, expiry, Keystore, and one-transaction revoke, so hiring an agent is bounded and reversible.",
-      "why": "Unimplemented. Without it there is no activation path, which is why no page here has a Hire button \u2014 the button would not do anything."
+      "why": "The caps subset is enumerated and priced \u2014 `sessions/keys.py` publishes the grant as two transactions and the revoke as one \u2014 but no Altana session-key module has been verified on either network, so there is no address to send them to. That is why no page here has a Hire button: the button would not do anything."
     },
     {
       "category": "Due diligence",

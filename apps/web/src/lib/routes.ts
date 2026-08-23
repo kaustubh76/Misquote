@@ -27,6 +27,7 @@ export interface Route {
 export const ROUTES: readonly Route[] = [
   { href: "/", label: "Overview" },
   { href: "/quote", label: "Quote" },
+  { href: "/activate", label: "Activate" },
   { href: "/venue", label: "Venue" },
   { href: "/advantage", label: "Advantage" },
   { href: "/methods", label: "Methods" },

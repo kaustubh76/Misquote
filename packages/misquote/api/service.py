@@ -49,6 +49,7 @@ from fastapi.responses import JSONResponse
 from misquote.api import journal as journal_routes
 from misquote.api import quote as quote_routes
 from misquote.api import registry as registry_routes
+from misquote.api import sessions as sessions_routes
 from misquote.api import tape as tape_routes
 from misquote.api import vetting as vetting_routes
 from misquote.api import wallet as wallet_routes
@@ -265,6 +266,8 @@ def index() -> dict[str, Any]:
             "/wallet/{address}/positions": "a wallet's v3 positions, and which we could replay",
             "/quote/preflight": "whether each pool's tape could support a quote",
             "/quote/eligibility/{address}": "what one wallet holds, and which of it is quotable",
+            "/sessions/capability": "what activation would consist of, and why it is not possible",
+            "/sessions/{owner}": "the grants an address holds, once there is a module to ask",
         },
         "note": (
             "The artifact routes serve what the emitters wrote and add nothing to it. "
@@ -297,6 +300,8 @@ for _path, _handler in (
     ("/wallet/{address}/positions", wallet_routes.wallet_positions),
     ("/quote/preflight", quote_routes.quote_preflight),
     ("/quote/eligibility/{address}", quote_routes.quote_eligibility),
+    ("/sessions/capability", sessions_routes.sessions_capability),
+    ("/sessions/{owner}", sessions_routes.sessions_for),
 ):
     app.add_api_route(_path, _handler, methods=["GET"])
 

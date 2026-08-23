@@ -74,10 +74,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "transaction revoke, so hiring an agent is bounded and reversible."
         ),
         why=(
-            "Unimplemented. Without it there is no activation path, which is why "
-            "no page here has a Hire button — the button would not do anything."
+            "The caps subset is enumerated and priced — `sessions/keys.py` "
+            "publishes the grant as two transactions and the revoke as one — but "
+            "no Altana session-key module has been verified on either network, so "
+            "there is no address to send them to. That is why no page here has a "
+            "Hire button: the button would not do anything."
         ),
-        evidence="packages/misquote/sessions/__init__.py — docstring only",
+        evidence="packages/misquote/sessions/keys.py — SESSION_KEY_MODULE is empty",
     ),
     NotBuilt(
         name="Vetting proof-of-concepts",

@@ -32,6 +32,7 @@ from misquote.api import journal as journal_routes  # noqa: E402
 from misquote.api import quote as quote_routes  # noqa: E402
 from misquote.api import registry as registry_routes  # noqa: E402
 from misquote.api import service as api  # noqa: E402
+from misquote.api import sessions as sessions_routes  # noqa: E402
 from misquote.api import tape as tape_routes  # noqa: E402
 from misquote.api import vetting as vetting_routes  # noqa: E402
 from misquote.api import wallet as wallet_routes  # noqa: E402
@@ -273,6 +274,8 @@ def test_every_handler_is_actually_routed() -> None:
         ("/wallet/{address}/positions", wallet_routes.wallet_positions),
         ("/quote/preflight", quote_routes.quote_preflight),
         ("/quote/eligibility/{address}", quote_routes.quote_eligibility),
+        ("/sessions/capability", sessions_routes.sessions_capability),
+        ("/sessions/{owner}", sessions_routes.sessions_for),
     )
 
     for path, handler in expected:

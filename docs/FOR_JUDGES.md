@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 1,520 tests, no network, ~35s
+make test                     # 1,540 tests, no network, ~35s
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -49,7 +49,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**1558 tests: 1520 offline, 38 against a live chain or a fork.**
+**1578 tests: 1540 offline, 38 against a live chain or a fork.**
 
 ---
 

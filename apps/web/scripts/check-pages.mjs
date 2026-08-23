@@ -39,6 +39,7 @@ const shotsAt = process.argv.includes("--shots")
 const ROUTES = [
   ["overview", "/"],
   ["quote", "/quote/"],
+  ["activate", "/activate/"],
   ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
@@ -204,6 +205,10 @@ const NO_JS = [
   // needle is that sentence, because a prerender that dropped it would leave a
   // reader with a form and no account of what pressing it costs.
   ["/quote/", 1200, "not a button that returns a number"],
+  // The absence *is* the content here, so the needle is the sentence that
+  // states it. A prerender that dropped the refusal and left the plan would
+  // read as an activation page that works.
+  ["/activate/", 1800, "no Hire button"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
