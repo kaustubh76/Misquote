@@ -167,3 +167,35 @@ def test_the_stream_honours_last_event_id(client: TestClient) -> None:
 
     assert "event: queued" not in body, "already-seen events were resent"
     assert "event: done" in body
+
+
+def test_submitting_says_whether_anything_will_run_it(client: TestClient, pool: str) -> None:
+    """The silent failure this exists to prevent.
+
+    With nothing draining the queue, `POST /quote` succeeds, returns a job id,
+    and the row sits `queued` forever — which looks exactly like a slow replay
+    and is not one. On a deployment where the worker was never provisioned it
+    would look that way indefinitely, and nothing in the response would hint
+    why. `render.yaml` ships with the worker commented out, so this is the
+    ordinary state there, not an edge case.
+    """
+    from misquote.ops import jobs as job_store
+
+    store = job_store.connect()
+    try:
+        assert job_store.worker_last_seen(store) is None, "a fresh queue has seen no worker"
+    finally:
+        store.close()
+
+
+def test_a_claimed_job_is_evidence_that_a_worker_exists(client: TestClient) -> None:
+    """Evidence, not proof: there is no worker registry, only jobs they touch."""
+    from misquote.ops import jobs as job_store
+
+    store = job_store.connect()
+    try:
+        job_store.submit(store, "quote", {"pool": "0x0"})
+        job_store.claim(store, pid=1)
+        assert job_store.worker_last_seen(store) is not None
+    finally:
+        store.close()

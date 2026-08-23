@@ -183,6 +183,7 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
                 "windows": payload.get("windows"),
             },
         )
+        last_seen = jobs.worker_last_seen(store)
     finally:
         store.close()
 
@@ -192,9 +193,19 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         "poll": f"/quote/job/{job_id}",
         "stream": f"/quote/job/{job_id}/stream",
         "preflight": check["plan"],
+        # Whether anything is draining the queue, reported at submit time.
+        #
+        # Without this the failure is silent and indistinguishable from a slow
+        # replay: the POST succeeds, the job sits `queued`, and the page shows
+        # "queued" forever. On a deployment where the worker was never
+        # provisioned it would show that indefinitely, and nothing in the
+        # response would hint why.
+        "worker_last_seen": last_seen,
         "note": (
-            "Queued, not computed. A worker has to claim this — start one with "
-            "`make api-worker` — and a full run is hours of arithmetic, not seconds."
+            "Queued, not computed. A full run is hours of arithmetic, not seconds."
+            if last_seen
+            else "Queued — but nothing has claimed a job on this instance, so it may "
+            "sit here. Start a worker with `make api-worker`."
         ),
     }
 

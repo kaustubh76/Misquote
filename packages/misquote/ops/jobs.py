@@ -202,6 +202,27 @@ def sweep_orphans(conn: sqlite3.Connection, *, stale_after_s: int = STALE_AFTER_
     return orphaned
 
 
+def worker_last_seen(conn: sqlite3.Connection) -> int | None:
+    """Epoch seconds of the most recent sign of a worker, or None.
+
+    Evidence, not proof. There is no worker registry — a worker is only visible
+    through the jobs it claims and beats — so this is the newest `started_ts` or
+    `heartbeat_ts` in the table, and a queue that has never had a job returns
+    `None`.
+
+    It exists because the alternative failure is silent. With nothing draining
+    the queue, `POST /quote` succeeds, returns a job id, and the row sits
+    `queued` forever; the page shows "queued" and keeps showing it. That looks
+    identical to a slow replay and is not one, and on a deployment where the
+    worker was never provisioned it would look that way indefinitely.
+    """
+    row = conn.execute(
+        "SELECT max(coalesce(heartbeat_ts, 0), coalesce(started_ts, 0)) AS seen FROM job"
+    ).fetchone()
+    seen = int(row["seen"] or 0) if row else 0
+    return seen or None
+
+
 def get(conn: sqlite3.Connection, job_id: str) -> dict[str, Any] | None:
     row = conn.execute("SELECT * FROM job WHERE id = ?", (job_id,)).fetchone()
     return dict(row) if row else None

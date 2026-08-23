@@ -1,12 +1,44 @@
-# Render blueprint for the read-only artifact API.
+# Render blueprint for the Misquote API.
 #
 #   https://render.com/docs/blueprint-spec
 #
-# What runs here is `packages/misquote/api/service.py` and nothing else. It
-# serves the JSON under `apps/web/public/artifacts/` and computes nothing, so
-# this service needs no database, no persistent disk, no RPC and no secrets.
-# That is worth stating in the file that provisions it: a deployment manifest is
-# where a service quietly acquires capabilities nobody asked it to have.
+# This file used to say the service "computes nothing, so it needs no database,
+# no persistent disk, no RPC and no secrets". Every clause of that is now false,
+# and a deployment manifest is exactly where a service quietly acquires
+# capabilities nobody asked it to have — so what it needs is stated here rather
+# than discovered.
+#
+# **It reaches a chain.** `/wallet/{address}/positions` and an unsampled
+# `/registry/agents/{id}` read BSC. Without `BSC_RPC_URL` they fall back to the
+# public endpoints, and when none answers they refuse at 503 saying so — the
+# service comes up either way, and says which it is.
+#
+# **It reads the tape.** `/tape`, `/quote/preflight` and every replay open
+# `data/misquote.db`, which is 256MB and **is not in this repository**. A
+# deploy without it serves the artifact routes normally and refuses the tape
+# routes at 503 with `make indexer` as the remedy. That is a working deployment
+# of a smaller thing, not a broken one.
+#
+# **It writes.** `POST /quote` creates a job in `data/jobs.db`. On an instance
+# with no disk that database lives on ephemeral storage and is lost on restart,
+# which for queued work means the queue is lost with it.
+#
+# ## The worker, and what happens without one
+#
+# A quote is run by `python -m misquote.ops.worker`, not by the web process —
+# `ranges.quote()` raises if entered twice in one process, and `fork_map` must
+# fork from a single-threaded parent, which an ASGI server is not. The worker is
+# declared below and is **commented out**, because Render background workers
+# need a paid plan and this blueprint is a free-tier demo.
+#
+# That absence is not silent. `jobs.worker_last_seen` reports whether anything
+# has ever claimed a job, `POST /quote` returns it, and the response says
+# plainly that a job may sit queued when nothing is draining. Without it the
+# page would show "queued" forever and look exactly like a slow replay.
+#
+# A free instance also spins down when idle, so even with a worker a 4.6-hour
+# replay would not survive to finish. The pre-flight, the refusals and every
+# read route are what this deployment can honestly serve.
 #
 # ## Why the install is editable
 #
@@ -44,3 +76,33 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.12"
+      # Unset here on purpose. The chain routes prefer this and fall back to the
+      # public endpoints the indexer already uses; setting a keyed URL in a
+      # committed blueprint would put a credential in git.
+      - key: BSC_RPC_URL
+        sync: false
+
+# The worker that actually runs a replay. Commented out rather than deleted:
+# Render background workers require a paid plan, and a blueprint that declared
+# one would fail to apply on the free tier this file targets. Uncomment it — and
+# attach a disk for `data/jobs.db` — to make `POST /quote` produce a quote
+# rather than a queued job.
+#
+#  - type: worker
+#    name: misquote-worker
+#    runtime: python
+#    plan: starter
+#    region: oregon
+#    buildCommand: pip install -e ".[api]"
+#    startCommand: python -m misquote.ops.worker
+#    envVars:
+#      - key: PYTHON_VERSION
+#        value: "3.12.12"
+#      - key: MISQUOTE_JOBS_DB
+#        value: /var/data/jobs.db
+#      - key: BSC_RPC_URL
+#        sync: false
+#    disk:
+#      name: jobs
+#      mountPath: /var/data
+#      sizeGB: 1
