@@ -46,6 +46,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from misquote.api import journal as journal_routes
+from misquote.api import tape as tape_routes
+from misquote.api import vetting as vetting_routes
 from misquote.api.errors import refuse
 
 REPO = Path(__file__).resolve().parents[3]
@@ -247,13 +250,41 @@ def index() -> dict[str, Any]:
             "/artifacts/{name}": "one artifact, verbatim",
             "/agents": "the generated agent index",
             "/agents/{slug}": "one agent card, verbatim",
+            "/tape": "what the indexed tape holds, per verified pool",
+            "/tape/{address}": "one pool's coverage, longest contiguous run, and holes",
+            "/journal": "which agents have written a decision journal",
+            "/journal/{agent}": "one agent's decisions, as appended",
+            "/vetting": "which pools carry a due-diligence badge, and which do not",
+            "/vetting/{address}": "one pool's recorded badge",
         },
         "note": (
-            "This serves what the emitters wrote and computes nothing. The same files "
-            "are published by the static site; what is here and not there is the "
-            "provenance census at /artifacts."
+            "The artifact routes serve what the emitters wrote and add nothing to it. "
+            "The tape and journal routes answer live questions a static host cannot: "
+            "what the database holds right now, and what the agents actually did. "
+            "Neither computes a metric — the tape reports coverage, the journal "
+            "reports rows, and the one summary is `read_journal`'s own return value."
         ),
     }
+
+
+# Registered here rather than with `include_router`, and the difference is not
+# stylistic. Under FastAPI 0.141 an included router lands in `app.routes` as a
+# single opaque `_IncludedRouter` with no `.path` and no `.endpoint`, so its
+# handlers are invisible to `test_every_handler_is_actually_routed` — which is
+# the *only* thing keeping them visible to `tests/test_no_dead_definitions.py`,
+# because a route decorator is not a reference any AST scan can see. Mounting by
+# router would have quietly removed four public functions from both guards at
+# once. `add_api_route` flattens them into real `APIRoute` objects, and the
+# wiring stays assertable.
+for _path, _handler in (
+    ("/tape", tape_routes.tape),
+    ("/tape/{address}", tape_routes.tape_for_pool),
+    ("/journal", journal_routes.journals),
+    ("/journal/{agent}", journal_routes.journal),
+    ("/vetting", vetting_routes.vetting),
+    ("/vetting/{address}", vetting_routes.badge),
+):
+    app.add_api_route(_path, _handler, methods=["GET"])
 
 
 @app.get("/artifacts")

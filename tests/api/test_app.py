@@ -28,7 +28,10 @@ pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv 
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from misquote.api import journal as journal_routes  # noqa: E402
 from misquote.api import service as api  # noqa: E402
+from misquote.api import tape as tape_routes  # noqa: E402
+from misquote.api import vetting as vetting_routes  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -233,6 +236,15 @@ def test_every_handler_is_actually_routed() -> None:
     `artifact`, `agents` and `agent` are ordinary words this codebase uses in
     dozens of places, so the scan finds them whether or not they are routed. A
     handler that lost its decorator would keep passing. This does not.
+
+    **And the list has to be the whole list.** A tuple of names checked one by
+    one only proves the named ones are wired; handler number eleven, absent from
+    it, would be routed, unasserted here, and invisible to the dead-definition
+    scan — exactly the state this test exists to make impossible. So the tuple
+    is also asserted to be complete, against every route whose handler this
+    package defines. FastAPI's own `/docs`, `/redoc` and `/openapi.json` are
+    excluded by that rule rather than by name, so a future version adding a
+    seventh built-in does not fail us.
     """
     routed = {
         route.path: route.endpoint
@@ -240,15 +252,67 @@ def test_every_handler_is_actually_routed() -> None:
         if hasattr(route, "endpoint") and hasattr(route, "path")
     }
 
-    for path, handler in (
+    expected = (
         ("/health", api.health),
         ("/", api.index),
         ("/artifacts", api.artifacts),
         ("/artifacts/{name}", api.artifact),
         ("/agents", api.agents),
         ("/agents/{slug}", api.agent),
-    ):
+        ("/tape", tape_routes.tape),
+        ("/tape/{address}", tape_routes.tape_for_pool),
+        ("/journal", journal_routes.journals),
+        ("/journal/{agent}", journal_routes.journal),
+        ("/vetting", vetting_routes.vetting),
+        ("/vetting/{address}", vetting_routes.badge),
+    )
+
+    for path, handler in expected:
         assert routed.get(path) is handler, f"{path} is not wired to {handler.__name__}"
+
+    ours = {
+        path
+        for path, handler in routed.items()
+        if getattr(handler, "__module__", "").startswith("misquote.api")
+    }
+    assert ours == {path for path, _ in expected}, (
+        "a route this package defines is not in the tuple above. Add it — that "
+        "tuple is the only reference tests/test_no_dead_definitions.py can see, "
+        f"so a handler missing from it is a public function nothing appears to "
+        f"use: {sorted(ours ^ {p for p, _ in expected})}"
+    )
+
+
+def test_included_routers_would_not_have_been_caught() -> None:
+    """Why the new routes are added with `add_api_route`, not `include_router`.
+
+    Under FastAPI 0.141 an included router lands in `app.routes` as one opaque
+    `_IncludedRouter` with neither `.path` nor `.endpoint`, so the comprehension
+    above skips it entirely and every handler inside it is silently unasserted —
+    and, because a decorator is not a reference, silently invisible to the
+    dead-definition scan as well. Mounting four handlers by router would have
+    removed them from both guards in one line, and nothing would have gone red.
+
+    This pins the shape rather than the version: if a future FastAPI starts
+    flattening included routers, this fails and the comment above it is the
+    thing to delete.
+    """
+    from fastapi import APIRouter, FastAPI
+
+    probe = APIRouter()
+
+    @probe.get("/probe")
+    def _probe() -> dict[str, str]:
+        return {}
+
+    app = FastAPI()
+    app.include_router(probe)
+
+    reachable = [r for r in app.routes if getattr(r, "path", None) == "/probe"]
+    assert not reachable, (
+        "included routers now flatten into app.routes; add_api_route is no longer "
+        "required and the comment in service.py explaining it is stale"
+    )
 
 
 def test_the_service_starts_from_the_command_render_runs() -> None:
