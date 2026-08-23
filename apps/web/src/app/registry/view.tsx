@@ -22,6 +22,121 @@ interface Step {
   is_erc8183: boolean;
 }
 
+/**
+ * One third-party agent from the ERC-8004 registry.
+ *
+ * Deliberately shaped unlike our own agent cards, which carry a P25-P75 range
+ * replayed from thirty days of real history. We do not have a third party's
+ * policy, so there is nothing to replay and there is no number to show. Every
+ * other marketplace fills that gap with stars or install counts; filling it
+ * here would be the misquote this project is named after, on our own page.
+ *
+ * `tests/web/test_third_party_listings.py` asserts against the artifact that no
+ * field on this type is performance-shaped, so the absence cannot be undone by
+ * an edit to this file alone.
+ */
+export interface ThirdPartyListing {
+  agent_id: number;
+  name: string;
+  description: string;
+  endpoints: string[];
+  declares_active: boolean;
+  declares_schema: boolean;
+  resolvable: boolean;
+  describes_a_service: boolean;
+  looks_like_a_placeholder: boolean;
+  substantive: boolean;
+  on_chain: boolean;
+  notes: string[];
+}
+
+function ListingCard({ agent }: { agent: ThirdPartyListing }) {
+  const name = agent.name.trim() || `Agent #${agent.agent_id}`;
+  return (
+    <Card as="article" className="flex min-w-0 flex-col gap-2">
+      <CardHeader
+        title={name}
+        eyebrow={`ERC-8004 #${agent.agent_id}`}
+        aside={
+          <Pill tone={agent.substantive ? "pass" : "unverified"}>
+            {agent.substantive ? "describes a service" : "registration only"}
+          </Pill>
+        }
+      />
+      {/* `break-words`, and it is not decorative. These descriptions are written
+          by strangers: one agent in the first real survey describes itself as
+          "5301971776071525618169367322226036917262739277182945465082…", sixty
+          digits with no space in them. Rendered without this it set the card's
+          min-content width to 599px and pushed /registry **234px** past a 390px
+          viewport — the same failure `Refusal` documents for its floor line and
+          `vectors/view.tsx` for its command string.
+
+          `min-w-0` on the card and its grid item for the other half of it: a
+          grid item defaults to `min-width: auto` and refuses to shrink below
+          its own min-content, so wrapping the text is not enough on its own. */}
+      {agent.description.trim() && (
+        <p className="text-sm break-words text-dim line-clamp-3">{agent.description}</p>
+      )}
+      <ul className="flex flex-wrap gap-1.5">
+        <Pill tone={agent.resolvable ? "pass" : "fail"}>
+          {agent.resolvable ? "card resolves" : "card does not resolve"}
+        </Pill>
+        <Pill tone={agent.declares_active ? "pass" : "none"}>
+          {agent.declares_active ? "declares active" : "not active"}
+        </Pill>
+        {agent.on_chain && <Pill tone="info">card is on chain</Pill>}
+        {agent.looks_like_a_placeholder && <Pill tone="fail">placeholder</Pill>}
+      </ul>
+      {agent.endpoints.length > 0 && (
+        <p className="font-mono text-xs break-all text-dim">{agent.endpoints[0]}</p>
+      )}
+      {/* The sentence that makes this page honest. It is on every card, not in
+          a footnote, because the absence of a number is the claim. */}
+      <p className="text-xs text-dim">
+        No quote — we cannot replay a policy we do not have.
+      </p>
+    </Card>
+  );
+}
+
+function ThirdPartyListings({
+  agents,
+  population,
+}: {
+  agents: ThirdPartyListing[];
+  population?: number;
+}) {
+  const substantive = agents.filter((a) => a.substantive).length;
+  return (
+    <Card className="mt-4">
+      <CardHeader
+        title="Third-party agents, as the registry describes them"
+        aside={
+          <Pill tone="info">
+            {substantive} of {agents.length} sampled
+          </Pill>
+        }
+      />
+      <p className="mt-2 text-sm text-dim">
+        Sampled across{" "}
+        {population ? population.toLocaleString() : "the"} registered agents, not across the
+        oldest few hundred. These are listings, not tearsheets: each one repeats what its
+        registration claims and what our own reading of it found, and carries{" "}
+        <strong>no performance figure</strong>. Our four agents are quoted because their
+        policies can be replayed on real history. These cannot be, so they are not quoted —
+        and that is the difference the rest of this site exists to make visible.
+      </p>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {agents.map((agent) => (
+          <li key={agent.agent_id} className="min-w-0">
+            <ListingCard agent={agent} />
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export interface RegistryArtifact {
   hire_flow: {
     steps: Step[];
@@ -34,12 +149,26 @@ export interface RegistryArtifact {
   identity: {
     surveyed: boolean;
     reason?: string;
+    population?: number;
+    agents?: ThirdPartyListing[];
     identity_registry: Record<string, string>;
     reputation_registry: Record<string, string>;
     reputation_note: string;
     substantive_share?: number;
+    /** Numerator and denominator of `substantive_share`, so the page need not
+     *  reconstruct either from a percentage it was handed. */
+    substantive?: number;
+    sampled?: number;
     sampled_at_block?: number;
     sampled_ids?: number[];
+    /** How many of the sampled agents are published as cards. The shares are
+     *  computed from the whole sample; this bounds only what renders, and both
+     *  numbers are carried so the card count cannot be read as the sample size. */
+    listings_shown?: number;
+    /** A 95% Wilson interval per share. A share from a few hundred of ~280,000
+     *  agents is not a point, and printing it as one is the false precision
+     *  this page exists to criticise. */
+    intervals?: Record<string, { low: number; high: number }>;
   };
   aacp: {
     available: boolean;
@@ -347,6 +476,17 @@ export function RegistryView({
           <Section title="ERC-8004 identity registry">
             {d.identity.surveyed ? (
               <Card>
+                {/* The share carries its own denominator, and the registry
+                    carries its own size.
+
+                    This read "substantive agent cards — 30.0%" with the sample
+                    size two rows below it and the population only in a prose
+                    sentence one card further down. 30% of forty agents drawn
+                    from two hundred and seventy-two thousand is a different
+                    claim from 30% of the registry, and the table was letting a
+                    reader pick either. Both numbers are in the artifact; the
+                    emitter measures the population rather than assuming it,
+                    precisely so a share here can say what it is a share of. */}
                 <DataTable
                   caption="Registry survey"
                   rows={[
@@ -356,6 +496,22 @@ export function RegistryView({
                         d.identity.substantive_share !== undefined
                           ? `${(100 * d.identity.substantive_share).toFixed(1)}%`
                           : "—",
+                      note: (() => {
+                        const { substantive, sampled, intervals } = d.identity;
+                        if (substantive === undefined || sampled === undefined) return "";
+                        const of = `${count(substantive)} of ${count(sampled)} sampled`;
+                        const ci = intervals?.substantive;
+                        // The interval, never omitted when we have it: a share
+                        // this size is a range, and the range is the honest half.
+                        return ci
+                          ? `${of} · 95% CI ${(100 * ci.low).toFixed(0)}–${(100 * ci.high).toFixed(0)}%`
+                          : of;
+                      })(),
+                    },
+                    {
+                      label: "registered agents",
+                      value: count(d.identity.population),
+                      note: "measured at the block below, not carried from a doc",
                     },
                     { label: "sampled at block", value: count(d.identity.sampled_at_block) },
                     { label: "ids sampled", value: count(d.identity.sampled_ids?.length) },
@@ -367,6 +523,13 @@ export function RegistryView({
                 title="The registry was not surveyed"
                 reason={d.identity.reason ?? "No survey was attempted."}
                 floor="A count carried over from a previous run would be indistinguishable from a fresh one."
+              />
+            )}
+
+            {d.identity.surveyed && (d.identity.agents?.length ?? 0) > 0 && (
+              <ThirdPartyListings
+                agents={d.identity.agents ?? []}
+                population={d.identity.population}
               />
             )}
 

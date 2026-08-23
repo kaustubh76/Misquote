@@ -36,6 +36,10 @@ def healthy(**overrides) -> PoolReadings:
             "dec1": 18,
         },
         "resolved_by_factory": POOL,
+        # What the factory answers for this tier. The badge reads this rather
+        # than looking the tier up in a constant, so a fixture that omits it
+        # gets UNKNOWN — which is the point: an unread tier is not a pass.
+        "factory_tick_spacing": 10,
         "fee_pips": 500,
         "tick_spacing": 10,
         "fee_protocol": 3400,
@@ -56,6 +60,10 @@ def healthy(**overrides) -> PoolReadings:
 
 def status_of(badge, name: str) -> str:
     return next(c.status for c in badge.checks if c.name == name)
+
+
+def detail_of(badge, name: str) -> str:
+    return next(c.detail for c in badge.checks if c.name == name)
 
 
 def test_a_healthy_pool_passes_every_check() -> None:
@@ -207,3 +215,63 @@ def test_the_badge_serialises_for_the_web_page() -> None:
     assert payload["safe_to_provide"] is True
     assert len(payload["checks"]) == 9
     assert json.loads(json.dumps(payload)) == payload
+
+
+# --- the tier comes from the factory, not from a constant --------------------
+
+
+def test_a_tier_the_factory_does_not_enable_fails() -> None:
+    """`feeAmountTickSpacing` returns 0 for a tier that was never enabled.
+
+    That zero is the factory saying "this tier does not exist here", and it is
+    the check the recorded map used to make by omission — Uniswap has a 3000
+    tier and Pancake does not, so a pool claiming one is not a Pancake pool.
+    """
+    badge = evaluate(healthy(fee_pips=3000, tick_spacing=60, factory_tick_spacing=0))
+
+    assert status_of(badge, "tick spacing matches tier") == "FAIL"
+    assert "does not enable" in detail_of(badge, "tick spacing matches tier")
+
+
+def test_a_tier_enabled_after_we_recorded_our_map_warns_rather_than_fails() -> None:
+    """The case a hardcoded map cannot express, and the reason for this change.
+
+    Tick spacings are settable: governance can `enableFeeAmount` a new tier. The
+    old check looked the tier up in `FEE_TIER_SPACING`, missed it, and returned
+    FAIL — "not one PancakeSwap v3 deploys" — about a pool the factory had just
+    made legitimate. Chain decides; the gap against what we recorded is worth
+    saying, and it is worth saying as amber rather than as a failure.
+    """
+    badge = evaluate(healthy(fee_pips=400, tick_spacing=8, factory_tick_spacing=8))
+
+    assert status_of(badge, "tick spacing matches tier") == "WARN"
+    assert "not among the tiers this repository recorded" in detail_of(
+        badge, "tick spacing matches tier"
+    )
+
+
+def test_a_tier_whose_spacing_moved_since_we_recorded_it_warns() -> None:
+    """Chain and the recorded map disagree. Chain wins, and the badge says so
+    rather than reporting a clean pass over a stale constant."""
+    badge = evaluate(healthy(fee_pips=500, tick_spacing=20, factory_tick_spacing=20))
+
+    assert status_of(badge, "tick spacing matches tier") == "WARN"
+    assert "we recorded 10" in detail_of(badge, "tick spacing matches tier")
+
+
+def test_a_pool_disagreeing_with_its_own_factory_fails() -> None:
+    """The pool reports one spacing and the factory enables another. One of them
+    is not what it claims to be, and neither is safe to mint into."""
+    badge = evaluate(healthy(fee_pips=500, tick_spacing=60, factory_tick_spacing=10))
+
+    assert status_of(badge, "tick spacing matches tier") == "FAIL"
+
+
+def test_an_unread_factory_is_unknown_and_never_a_pass() -> None:
+    """Falling back to the constant here would quietly restore the behaviour
+    this check was changed to avoid, and it would do it in the one case where
+    nobody could tell — a read that failed looks exactly like a read that agreed.
+    """
+    badge = evaluate(healthy(factory_tick_spacing=None))
+
+    assert status_of(badge, "tick spacing matches tier") == "UNKNOWN"

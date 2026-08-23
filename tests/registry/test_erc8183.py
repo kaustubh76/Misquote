@@ -1,12 +1,12 @@
 """ERC-8183: the hire flow, and the evidence behind the addresses it does not carry.
 
 Every competing submission will put a Hire button on a card. Two properties of
-ours are worth testing: it states the real cost of hiring — six transactions, not
+ours are worth testing: it states the real cost of hiring — seven transactions, not
 one click — and it cannot send any of them.
 
 `JOB_ESCROW` was empty when this module shipped, because we had verified nothing.
 It then held one entry, TermiX's own escrow, checked on chain rather than copied
-from their website. It is empty again, and that round trip is the point: the
+from their website. It was emptied, then refilled with a different contract that passed the same checks, and that round trip is the point: the
 entry was justified by everything *around* the interface — real bytecode, a
 settlement token we already record, an identity registry byte-identical to ours
 — and its own evidence flagged the hole, that nobody had read an ERC-8183 job
@@ -40,12 +40,18 @@ from misquote.registry.erc8183 import (
 )
 
 
-def test_hiring_takes_six_transactions_end_to_end() -> None:
-    """Four from the client, then the provider's submit and the evaluator's
-    complete. Our docs said "3-4" for weeks, which was a guess in roughly the
-    right place — the way a wrong number survives is by looking careful."""
-    assert transaction_count() == 6
-    assert client_transaction_count() == 4
+def test_hiring_takes_seven_transactions_end_to_end() -> None:
+    """Five from the client, then the provider's submit and the evaluator's settle.
+
+    Six for as long as the sequence was read off the Draft EIP. The deployed
+    AgenticCommerce kernel needs one more, and it is not a step anybody would
+    guess: `registerJob` binds the dispute policy on a **separate**
+    EvaluatorRouter contract. Our docs said "3-4" originally, which was a guess
+    in roughly the right place — the way a wrong number survives is by looking
+    careful.
+    """
+    assert transaction_count() == 7
+    assert client_transaction_count() == 5
 
 
 def test_the_count_is_derived_from_the_sequence_not_written_down() -> None:
@@ -55,12 +61,17 @@ def test_the_count_is_derived_from_the_sequence_not_written_down() -> None:
     assert client_transaction_count() == sum(1 for s in steps() if s.sender == "client")
 
 
-def test_an_open_call_for_bids_costs_one_more() -> None:
-    """`setProvider` is needed only when `createJob` passed address(0)."""
-    assert transaction_count(provider_known_at_creation=False) == 7
-    calls = [s.call for s in steps(provider_known_at_creation=False)]
-    assert "setProvider" in calls
-    assert calls.index("setProvider") < calls.index("setBudget"), "provider before price"
+def test_an_open_call_for_bids_is_refused_rather_than_priced() -> None:
+    """There is no `setProvider` on the deployed kernel.
+
+    This used to assert that an open call cost one extra transaction. That was
+    modelled from the EIP; the kernel takes the provider as an argument to
+    `createJob` and exposes no setter, so the shape does not exist and pricing
+    it would be fiction. Refusing is the same rule `escrow_address` follows for
+    an unverified chain.
+    """
+    with pytest.raises(ValueError, match="no setProvider"):
+        steps(provider_known_at_creation=False)
     assert "setProvider" not in [s.call for s in steps()]
 
 
@@ -71,12 +82,20 @@ def test_the_approve_is_not_part_of_the_standard() -> None:
     assert len(approve) == 1
     assert not approve[0].is_erc8183
     assert approve[0].contract == "erc20"
-    assert sum(1 for s in steps() if s.is_erc8183) == 5
+    assert sum(1 for s in steps() if s.is_erc8183) == 6
 
 
 def test_the_order_is_the_one_the_state_machine_requires() -> None:
     calls = [s.call for s in steps()]
-    assert calls == ["approve", "createJob", "setBudget", "fund", "submit", "complete"]
+    assert calls == [
+        "approve",
+        "createJob",
+        "registerJob",
+        "setBudget",
+        "fund",
+        "submit",
+        "settle",
+    ]
     # fund() pulls the budget, so the allowance has to exist first, and the
     # budget has to be set before there is an amount to pull.
     assert calls.index("approve") < calls.index("fund")
@@ -88,7 +107,8 @@ def test_only_the_evaluator_settles_and_only_the_provider_delivers() -> None:
     rather than a detail: whoever it is can withhold payment."""
     by_call = {s.call: s.sender for s in steps()}
     assert by_call["submit"] == "provider"
-    assert by_call["complete"] == "evaluator"
+    # `complete` on the EIP; `settle` on the deployed EvaluatorRouter.
+    assert by_call["settle"] == "evaluator"
     assert by_call["fund"] == "client"
 
 
@@ -163,23 +183,42 @@ def test_the_rejected_candidate_names_the_interface_it_actually_has() -> None:
 
 
 def test_a_chain_with_no_verified_deployment_still_raises() -> None:
-    """There is no TermiX testnet. Asking for one must fail, not fall back."""
-    with pytest.raises(NoVerifiedDeployment, match="no verified"):
-        escrow_address(97)
-    with pytest.raises(NoVerifiedDeployment):
-        escrow_address(1)
+    """A chain nobody has checked must fail, not fall back.
 
-
-def test_mainnet_raises_again_now_the_candidate_is_rejected() -> None:
-    """The refusal came back, and that is the module working.
-
-    `escrow_address(56)` returned an address for as long as we believed the
-    contract implemented this standard. It does not, so this raises again — and
-    a caller that had started depending on the address finds out at the call
-    rather than by building a transaction to a contract that cannot receive it.
+    Chapel used to be in this test on the grounds that there was no TermiX
+    testnet. There is a verified ERC-8183 deployment on chapel now — a different
+    contract, checked directly — so the example moved to a chain that genuinely
+    has none. The property under test never changed: absence raises.
     """
     with pytest.raises(NoVerifiedDeployment, match="no verified"):
-        escrow_address(56)
+        escrow_address(1)
+    with pytest.raises(NoVerifiedDeployment):
+        escrow_address(137)
+
+
+def test_both_bsc_networks_resolve_to_the_verified_kernel() -> None:
+    """The refusal lifted, and only because something was actually checked.
+
+    This test has now been all three states, which is the module working rather
+    than the module churning. It returned an address while we believed TermiX's
+    escrow implemented the standard; it raised once that was disproved (P-18);
+    and it returns an address again now that `scripts/verify_erc8183.py` has
+    read a *different* contract three ways on both chains — bytecode present,
+    `jobCounter()` and `paymentToken()` answering, and the kernel's own payment
+    token agreeing with the published table.
+
+    Every entry carries its readings, which is the condition the module set.
+    """
+    from misquote.registry.erc8183 import JOB_ESCROW, JOB_ESCROW_EVIDENCE
+
+    for chain in (56, 97):
+        address = escrow_address(chain)
+        assert address == JOB_ESCROW[chain]
+        assert address.startswith("0x") and len(address) == 42
+        assert JOB_ESCROW_EVIDENCE.get(chain), (
+            f"chain {chain} has an escrow address and no evidence — the rule is "
+            f"no entry without evidence, and a test enforces it"
+        )
 
 
 def test_nothing_here_can_send_a_transaction() -> None:
@@ -219,8 +258,8 @@ def test_nothing_here_can_send_a_transaction() -> None:
 
 def test_render_states_the_count_and_the_missing_deployment() -> None:
     text = render()
-    assert "6 transactions" in text
-    assert "4 from the client" in text
+    assert "7 transactions" in text
+    assert "5 from the client" in text
     assert "unsigned" in text
     # Whichever state the escrow mapping is in, the page says which.
     assert ("Escrow verified on chain" in text) == bool(JOB_ESCROW)

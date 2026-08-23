@@ -68,6 +68,61 @@ MATERIAL_PP = 0.10
 
 
 @dataclass(frozen=True, slots=True)
+class PrimaryMetric:
+    """The quantity a task is *named after*, and both sides' value for it.
+
+    Every task here headlines net return, which is the right headline and is not
+    always the thing the task asks about. Task 2 is called *"Protect — avoid
+    being picked off by one-way flow"* and on exactly that quantity — realized
+    convexity cost — the agent wins by a factor of seventeen. The report never
+    showed it. A reader was given the number the tasks have in common and not
+    the number the task is about.
+
+    This does **not** displace the headline. The net-return figure and its
+    verdict are unchanged, including where they are unflattering; this is an
+    additional column, and its direction is carried so a cost and a return are
+    not read the same way round.
+    """
+
+    name: str
+    baseline: float
+    agent: float
+    #: True when smaller is better — a cost, a loss, an error.
+    lower_is_better: bool
+    unit: str = ""
+
+    @property
+    def delta(self) -> float:
+        """Agent minus baseline, always. Sign is interpreted by `improved`."""
+        return self.agent - self.baseline
+
+    @property
+    def improved(self) -> bool:
+        return self.delta < 0 if self.lower_is_better else self.delta > 0
+
+    @property
+    def ratio(self) -> float | None:
+        """How many times better or worse, when that is expressible.
+
+        `None` when the baseline is zero: "seventeen times less" is a useful
+        sentence and "infinitely times less" is not one.
+        """
+        if self.baseline == 0:
+            return None
+        return self.agent / self.baseline
+
+    def render(self) -> str:
+        arrow = "better" if self.improved else "worse"
+        body = f"{self.name}: {self.agent:,.6g}{self.unit} vs {self.baseline:,.6g}{self.unit}"
+        r = self.ratio
+        if r is not None and r > 0:
+            factor = (1 / r) if self.lower_is_better else r
+            if factor >= 1.05:
+                return f"{body} — {factor:.1f}x {arrow}"
+        return f"{body} — {arrow}"
+
+
+@dataclass(frozen=True, slots=True)
 class Comparison:
     """One task, done both ways, with everything needed to disbelieve it."""
 
@@ -90,6 +145,10 @@ class Comparison:
     note: str
     windows: int
 
+    #: The quantity this task is named after, when it is not net return.
+    #: `None` for a task whose name and headline already agree.
+    primary: PrimaryMetric | None = None
+
     # Where this task's tape came from — "chain" or "synthetic" — per task
     # rather than per report.
     #
@@ -99,6 +158,16 @@ class Comparison:
     # `go_no_go` read that one flag and passed. The track asks for three *real*
     # tasks, so provenance has to travel with the task that has it.
     source: str = "synthetic"
+
+    # What this task actually ran at, which is not always the report's figure.
+    #
+    # Task 3 compares two venues, and A1's liquidity ceiling belongs to the
+    # *pool*: on the 0.25% tier the report's default capital breached it on 564
+    # mints, and A1 refuses such a quote rather than clamping it. So that task
+    # runs at a capital derived from the shallower venue, and a report-level
+    # `capital_quote` would describe it wrongly while looking authoritative. The
+    # prose already said so; a machine reading the artifact could not.
+    capital_quote: float = 0.0
 
     # Supporting detail, published because the headline alone is not auditable.
     baseline_in_range: float = 0.0
@@ -111,6 +180,41 @@ class Comparison:
     agent_lvr: float = 0.0
     baseline_moves: int = 0
     agent_moves: int = 0
+
+    # `moves` decomposed. Published because the aggregate hides the mechanism:
+    # 498 moves reads as a busy agent, and 249 mints beside 249 pulls and **zero
+    # recentres** reads as an agent that spent its entire daily budget leaving
+    # and coming back. Those are different findings, and only the second is what
+    # the tape shows. See P-20.
+    baseline_mints: int = 0
+    agent_mints: int = 0
+    baseline_pulls: int = 0
+    agent_pulls: int = 0
+    baseline_recentres: int = 0
+    agent_recentres: int = 0
+
+    # How many of the reported samples are actually distinct results.
+    #
+    # P-17 built this field and this report never published it. A5 counts each
+    # window three times under a +/-25% perturbation of (gamma, kappa), so when
+    # the anti-dust floor discards both parameters those three replays are one
+    # replay — P-17 measured Warden at 23 distinct returns of 60 reported
+    # samples. A P25-P75 band drawn from 20 results counted three times is
+    # narrower than the evidence supports, and a reader cannot tell without
+    # this number.
+    baseline_distinct: int = 0
+    agent_distinct: int = 0
+
+    # UTC calendar days the replay touched — **not** its elapsed span.
+    #
+    # The distinction is the difference between a rate that can be compared to
+    # `max_rebalances_per_day` and one that cannot. `core.position.
+    # rebalances_today` resets on the UTC calendar day of the last move, and
+    # says so: *"calendar days are what 'per day' means to the operator reading
+    # the parameter."* Dividing 32 cycles by a 2.6-day *span* gives 12.3/day and
+    # reads as an agent exceeding a cap of 8; dividing by the 4 calendar days it
+    # actually touched gives 8.0, which is the cap being hit exactly.
+    days: float = 0.0
 
     @property
     def delta(self) -> float:
@@ -168,6 +272,8 @@ def compare(
     baseline_result=None,
     agent_result=None,
     source: str = "synthetic",
+    capital_quote: float = 0.0,
+    primary: PrimaryMetric | None = None,
 ) -> Comparison:
     """Build a `Comparison` from two quotes produced by the same engine.
 
@@ -203,7 +309,9 @@ def compare(
         quotable=quotable,
         note=note,
         windows=agent_quote.windows,
+        primary=primary,
         source=source,
+        capital_quote=capital_quote,
         baseline_in_range=_of(baseline_result, "in_range_fraction"),
         agent_in_range=_of(agent_result, "in_range_fraction"),
         baseline_costs=_of(baseline_result, "total_costs"),
@@ -214,6 +322,15 @@ def compare(
         agent_lvr=_of(agent_result, "total_lvr"),
         baseline_moves=_moves(baseline_result),
         agent_moves=_moves(agent_result),
+        baseline_mints=_count(baseline_result, "mints"),
+        agent_mints=_count(agent_result, "mints"),
+        baseline_pulls=_count(baseline_result, "pulls"),
+        agent_pulls=_count(agent_result, "pulls"),
+        baseline_recentres=_count(baseline_result, "rebalances"),
+        agent_recentres=_count(agent_result, "rebalances"),
+        baseline_distinct=int(getattr(baseline_quote, "distinct_returns", 0) or 0),
+        agent_distinct=int(getattr(agent_quote, "distinct_returns", 0) or 0),
+        days=_span_days(agent_result) or _span_days(baseline_result),
     )
 
 
@@ -221,10 +338,48 @@ def _of(result, name: str) -> float:
     return float(getattr(result, name, 0.0)) if result is not None else 0.0
 
 
+def _count(result, name: str) -> int:
+    return int(getattr(result, name, 0) or 0) if result is not None else 0
+
+
+def _span_days(result) -> float:
+    """UTC calendar days the replay touched, matching the budget's own window.
+
+    Deliberately not the elapsed span. The daily rebalance budget resets on the
+    UTC calendar day of the last move (`core.position.rebalances_today`), so a
+    rate meant to be read against `max_rebalances_per_day` has to divide by the
+    same thing the budget counts in. Elapsed span gives 12.3/day where the
+    budget saw 8.0/day, and the report would appear to show the cap being
+    breached.
+
+    Returns 0.0 rather than guessing when the result carries no timestamps: a
+    rate computed against an assumed window would be wrong in the direction that
+    makes the agent look calmer.
+    """
+    if result is None:
+        return 0.0
+    first, last = getattr(result, "first_ts", None), getattr(result, "last_ts", None)
+    if not first or not last or last < first:
+        return 0.0
+    return float(last // 86400 - first // 86400 + 1)
+
+
 def _moves(result) -> int:
+    """Every action that spent gas, whatever kind of agent produced it.
+
+    An LP result decomposes into mints, recentres and pulls; an allocation
+    result into entries, switches and exits and exposes their sum as `moves`.
+    Preferring `moves` when it exists keeps this the one place that knows the
+    difference — the sibling accessors above are already defensive, and this one
+    reached straight for `result.mints` and raised on anything that was not a
+    range replay.
+    """
     if result is None:
         return 0
-    return int(result.mints + result.rebalances + result.pulls)
+    own = getattr(result, "moves", None)
+    if own is not None:
+        return int(own)
+    return int(_count(result, "mints") + _count(result, "rebalances") + _count(result, "pulls"))
 
 
 def overall(comparisons: list[Comparison]) -> Verdict:

@@ -3,7 +3,11 @@ import { count, fraction, money, pct, SIGN_CLASS, signOf } from "@/lib/format";
 import type { AgentArtifact, AgentRef } from "@/lib/artifacts";
 
 /**
- * The three agents on one set of axes, above the cards rather than instead.
+ * The LP agents on one set of axes, above the cards rather than instead.
+ *
+ * Router is deliberately absent: it supplies to a lending market, so it has no
+ * in-range fraction and no adverse-selection cost, and a zero in either column
+ * would read as a claim. `view.tsx` renders the exclusion and its reason.
  *
  * The landing page was a heading, a paragraph, a link and three stacked cards,
  * so the question it exists to answer — *which of these works* — took three

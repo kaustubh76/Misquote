@@ -18,9 +18,33 @@ every quote the product has ever produced becomes unverifiable.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
 
 from misquote.core.errors import LookAheadError, OutOfOrderError
-from misquote.core.types import Event
+
+
+@runtime_checkable
+class Timed(Protocol):
+    """Anything the firewall can order: a timestamp and a total-order key.
+
+    `Event` — a pool swap — satisfies this unchanged, and was the only thing
+    that existed when the guards below were written. Venus's `RateEvent` is the
+    second, and it is not a swap: it carries an interest accumulator, not a
+    price.
+
+    The alternative to widening this was to give `Event` a `kind` field and
+    carry `borrowIndex` in `sqrt_price_x96`, or to write a second base class
+    with the same two guards in it. The first is a lie in a type; the second
+    puts the look-ahead firewall in two places, and this module's own docstring
+    is about why there must be exactly one. A structural protocol costs nothing
+    at runtime and keeps both properties.
+    """
+
+    @property
+    def ts(self) -> int: ...
+
+    @property
+    def key(self) -> tuple[int, int]: ...
 
 
 class TrailingEstimator(ABC):
@@ -72,7 +96,7 @@ class TrailingEstimator(ABC):
         how a stale estimate gets published as a fresh one.
         """
 
-    def ingest(self, event: Event) -> None:
+    def ingest(self, event: Timed) -> None:
         """Absorb one event, or refuse to.
 
         The two guards are the whole point of this class, so they come before
@@ -97,7 +121,7 @@ class TrailingEstimator(ABC):
             self.ingest(event)
 
     @abstractmethod
-    def _absorb(self, event: Event) -> None:
+    def _absorb(self, event: Timed) -> None:
         """Update internal state from one event known to be in the past."""
 
     @abstractmethod

@@ -32,6 +32,26 @@ SEARCHED = (REPO / "packages", REPO / "scripts", REPO / "tests")
 #: strings under `from __future__ import annotations`, so the AST cannot see them.
 #: Anything else here should be viewed with suspicion.
 ALLOWED: dict[str, str] = {
+    "MASTERCHEF_V3_IS_A_NON_GOAL": (
+        "A declaration, not a value. `docs/ASSUMPTIONS.md` records that Warden "
+        "deliberately does not stake into MasterChefV3 — staking transfers NFT "
+        "ownership and would contaminate the fee-APR metric with emissions. The "
+        "constant exists so the decision is greppable from the address module "
+        "it constrains. Nothing reads it because nothing may."
+    ),
+    "ERC8004_SCHEMA": (
+        "The registration schema URL the EIP publishes. Carried beside the "
+        "registry addresses so a reader can check what a resolvable agent is "
+        "supposed to contain; the survey reads `tokenURI` payloads rather than "
+        "validating against it, and validating would be a claim this project "
+        "has not earned."
+    ),
+    "ORDER_WORD_WINDOW": (
+        "How many 32-byte words TermiX's `orders(bytes32)` returns, recorded "
+        "from the bytecode during P-18. Kept as the reading that identified the "
+        "escrow as order-keyed rather than job-keyed; nothing decodes an order "
+        "because nothing signs."
+    ),
     "Tape": (
         "Protocol describing the tape interface. Currently annotates nothing — "
         "`ReplayDriver.run(self, tape, ...)` is untyped — so it documents rather "
@@ -53,13 +73,33 @@ def _python_files(root: Path) -> list[Path]:
 
 
 def _public_definitions() -> dict[str, tuple[Path, int]]:
-    """Module-level `def`/`class` in the package, excluding `_private` ones."""
+    """Module-level `def`/`class`/CONSTANT in the package, excluding `_private`.
+
+    Constants were not surveyed at all, and that omission had a cost: three
+    verified ERC-8183 addresses — `EVALUATOR_ROUTER`, `OPTIMISTIC_POLICY`,
+    `PAYMENT_TOKEN` — shipped with no callers and a green suite, under a
+    docstring claiming they were load-bearing, while `steps()` priced the flow
+    against string literals instead.
+
+    Only SCREAMING_CASE names are collected. Module-level lowercase bindings are
+    usually configured instances rather than published facts, and sweeping them
+    in would produce noise that trains people to add exemptions.
+    """
     found: dict[str, tuple[Path, int]] = {}
     for path in _python_files(PACKAGE):
         for node in ast.parse(path.read_text()).body:
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 if not node.name.startswith("_"):
                     found[node.name] = (path.relative_to(REPO), node.lineno)
+            elif isinstance(node, ast.Assign | ast.AnnAssign):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in targets:
+                    if not isinstance(target, ast.Name):
+                        continue
+                    name = target.id
+                    if name.startswith("_") or not name.isupper():
+                        continue
+                    found[name] = (path.relative_to(REPO), node.lineno)
     return found
 
 
@@ -69,7 +109,15 @@ def _used_identifiers() -> set[str]:
         for path in _python_files(root):
             for node in ast.walk(ast.parse(path.read_text())):
                 if isinstance(node, ast.Name):
-                    used.add(node.id)
+                    # **Load context only.** An assignment's target is an
+                    # `ast.Name` too, so counting every `Name` made each
+                    # constant a user of itself and the constant survey below
+                    # vacuous — it passed against a tree where three verified
+                    # addresses had no callers at all. Functions and classes
+                    # were never affected: they are `FunctionDef`/`ClassDef`,
+                    # not `Name`.
+                    if isinstance(node.ctx, ast.Load):
+                        used.add(node.id)
                 elif isinstance(node, ast.Attribute):
                     used.add(node.attr)
                 elif isinstance(node, ast.ImportFrom):

@@ -80,7 +80,7 @@ function shaOf(blob: unknown): string | undefined {
  * stale again the next time an emitter ran, and nothing would say so. What the
  * page can do without another run is state what is on disk beside it. Six
  * artifacts publish replay results and record no commit at all — every file
- * behind `/`, `/advantage` and the three agent cards — which is also why
+ * behind `/`, `/advantage` and the agent cards — which is also why
  * `go_no_go.py`'s own freshness check has reported UNVERIFIED for weeks. This
  * is the first surface that says so to a reader rather than to a terminal.
  *

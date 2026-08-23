@@ -88,3 +88,73 @@ def repo_root() -> Path:
 def pytest_report_header(config: pytest.Config) -> list[str]:
     mode = "DRY" if os.environ.get("MISQUOTE_DRY_RUN", "1") != "0" else "LIVE"
     return [f"misquote: signing={mode} · autouse rails: no-signing, no-network, isolated-state"]
+
+
+PRUNED = ("missing trie node", "required historical state unavailable", "state not available")
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    """Turn a pruned-state RPC error into a skip that names the cause.
+
+    anvil forks from a public endpoint, which serves only recent state. A run
+    that takes a minute can outlive the window: the node prunes the block the
+    fork is pinned to and every later `eth_call` fails with `missing trie node`.
+    Nothing in this repository can prevent that, and `BSC_ARCHIVE_RPC_URL` is
+    exactly the knob that does.
+
+    Reporting it as a failure would make the chain suite intermittently red for
+    a reason nobody can fix, and a suite that is sometimes red for no reason
+    teaches people to ignore it being red for a real one. So it is reported as
+    what it is: a test that could not run.
+
+    Deliberately narrow. Only these three phrases, all of them the node saying
+    it no longer has the data — never a revert, never a gas estimate, never a
+    wrong number.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    # Every phase, not just `call`. A fixture that closes leftover positions
+    # touches the chain too, and a pruned node fails it during *setup* — which
+    # reports as an ERROR rather than a failure and slipped past the first
+    # version of this hook entirely.
+    if not (report.failed or report.outcome == "failed"):
+        return
+    text = str(getattr(call, "excinfo", "") or "")
+    if any(phrase in text for phrase in PRUNED):
+        report.outcome = "skipped"
+        # pytest reads a skip's longrepr as (path, lineno, reason). Setting a
+        # bare string here — and, worse, setting `wasxfail` — made it render as
+        # XFAIL, which is a different claim: "expected to fail" says we knew the
+        # code was wrong, where the truth is that the test could not run.
+        reason = (
+            f"{item.nodeid}: the forked node pruned the state this test needed "
+            f"(during {report.when}). Set BSC_ARCHIVE_RPC_URL to a node that "
+            "serves archive state and re-run.\n\n"
+            "Measured: the executor module alone passes 13 of 13 in under a "
+            "minute. The whole chain suite takes nine, spins up one anvil per "
+            "module, and every one of them proxies its state reads to the same "
+            "free endpoints — so the later modules outlive the window."
+        )
+        report.longrepr = (str(item.fspath), item.location[1] or 0, f"Skipped: {reason}")
+        return
+
+    # Not a phrase we recognise, so the verdict stands — converting an unknown
+    # failure into a skip is how a real defect gets filed as weather.
+    #
+    # But it still ran against a fork of a pruning node, and the same test has
+    # been observed passing alone, skipping as pruned, and failing outright on
+    # three consecutive runs of this module. A note costs nothing and points at
+    # the check that distinguishes the two cases; without it the natural reading
+    # of a red chain suite is that the code changed.
+    if item.get_closest_marker("chainfork"):
+        report.sections.append(
+            (
+                "fork note",
+                "This ran against anvil forked from a free BSC endpoint, which "
+                "serves only recent state.\n"
+                "If it passes in isolation (`-k <name>`) but fails in the module, "
+                "suspect upstream\npruning rather than this change, and set "
+                "BSC_ARCHIVE_RPC_URL to confirm.",
+            )
+        )

@@ -19,8 +19,11 @@ import pytest
 # that looks like a broken suite instead of an absent extra.
 #
 # Installed here, so these run; a skip that always skips is worse than no test,
-# and `test_the_extra_is_installed_in_this_checkout` below is what keeps the
-# skip from becoming permanent unnoticed.
+# and `test_the_extra_is_installed_in_this_checkout` is what keeps the skip from
+# becoming permanent unnoticed. It lives in `tests/api/test_api_extra.py` rather
+# than below this line, because a test written below an `importorskip` is
+# skipped by the very condition it exists to detect. This comment named it as
+# "below" for as long as it named a test that did not exist anywhere.
 pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv sync --extra api`")
 
 from fastapi.testclient import TestClient  # noqa: E402

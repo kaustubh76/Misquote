@@ -10,7 +10,7 @@
     {
       "detail": "0.05% -> spacing 10",
       "name": "tick spacing matches tier",
-      "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+      "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
       "status": "PASS"
     },
     {
@@ -26,19 +26,19 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -64669",
+      "detail": "tick -64752",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=40, [-64710, -64630]",
+      "detail": "w_min=40, [-64800, -64720]",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
       "status": "PASS"
     },
     {
-      "detail": "3,223,803,941,502,167,396,426,305 \u2014 a 1% share is 32,238,039,415,021,675,479,040",
+      "detail": "3,233,876,951,067,468,072,845,826 \u2014 a 1% share is 32,338,769,510,674,680,774,656",
       "name": "liquidity supports a position",
       "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
       "status": "PASS"

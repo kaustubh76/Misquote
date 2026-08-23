@@ -81,7 +81,19 @@ FACTORY_ABI = [
         "stateMutability": "view",
         "inputs": [{"type": "address"}, {"type": "address"}, {"type": "uint24"}],
         "outputs": [{"type": "address"}],
-    }
+    },
+    {
+        # The tick spacing the factory enables for a fee tier, and **0** for a
+        # tier it does not. `badge.py` held that mapping as a constant with a
+        # comment explaining that Pancake has no 3000 tier; the factory says so
+        # itself, and governance can `enableFeeAmount` a new one — on that day a
+        # constant would fail a pool that had just become legitimate.
+        "name": "feeAmountTickSpacing",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [{"type": "uint24"}],
+        "outputs": [{"type": "int24"}],
+    },
 ]
 
 
@@ -144,6 +156,13 @@ def read_pool(w3: Web3, address: str, chain_id: int, *, label: str = "") -> Pool
         )
         resolved = _try(lambda: factory.functions.getPool(token0, token1, fee).call())
 
+    factory_spacing = None
+    if deployment is not None and fee is not None:
+        factory_contract = w3.eth.contract(
+            address=Web3.to_checksum_address(deployment.factory), abi=FACTORY_ABI
+        )
+        factory_spacing = _try(lambda: factory_contract.functions.feeAmountTickSpacing(fee).call())
+
     def decimals(token):
         if not token:
             return None
@@ -161,6 +180,7 @@ def read_pool(w3: Web3, address: str, chain_id: int, *, label: str = "") -> Pool
         chain_id=chain_id,
         recorded=recorded_for(address),
         resolved_by_factory=resolved,
+        factory_tick_spacing=factory_spacing,
         fee_pips=fee,
         tick_spacing=_try(lambda: pool.functions.tickSpacing().call()),
         # Index **5**. Index 2 is observationIndex, and reading that is how P-8

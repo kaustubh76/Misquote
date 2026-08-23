@@ -10,7 +10,7 @@
     {
       "detail": "0.25% -> spacing 50",
       "name": "tick spacing matches tier",
-      "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+      "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
       "status": "PASS"
     },
     {
@@ -26,13 +26,13 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -61862",
+      "detail": "tick -58679",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=200, [-62100, -61700]",
+      "detail": "w_min=200, [-58900, -58500]",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
       "status": "PASS"

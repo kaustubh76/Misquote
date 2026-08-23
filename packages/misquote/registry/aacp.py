@@ -1,9 +1,10 @@
 """TermiX AACP: the sponsor's protocol, and what we already share with it.
 
 TermiX judges the track this module exists for, and its Agent Autonomous Commerce
-Protocol turns out not to be a parallel world to ours. It builds on **ERC-8004**
-for identity and **ERC-8183** for job escrow — the same two standards this
-codebase already reads and models.
+Protocol turns out not to be a parallel world to ours — on the identity half. It
+builds on **ERC-8004** for identity, which is a standard this codebase already
+reads and models. Their documentation also presents the escrow half as ERC-8183.
+**It is not**, and establishing that is most of what this module now does.
 
 Reading their published contract table produced a genuinely useful surprise:
 
@@ -15,21 +16,41 @@ before we had heard of AACP, because both of us followed ERC-8004 to the address
 it deploys at on BNB Chain. Their settlement token is `0x55d3...` — already
 `USDT_MAINNET` here, and token0 of the flagship pool.
 
-And `TermixEscrow` is a **deployed ERC-8183 job escrow on BSC mainnet**, which is
-exactly the address `registry/erc8183.py:JOB_ESCROW` deliberately does not have.
+That surprise held. The next one did not.
+
+`TermixEscrow` was recorded here as a **deployed ERC-8183 job escrow on BSC
+mainnet** — exactly the address `registry/erc8183.py:JOB_ESCROW` had deliberately
+never had — and it went into that mapping on the strength of it. Every check
+behind that entry was real and none of them was about ERC-8183: bytecode present,
+`settlementToken()` returning our own USDT, an identity registry byte-identical
+to ours, zero drift against their live config. The one check that would have
+settled it was the one the evidence itself recorded as missing: *nobody has read
+an ERC-8183 job back out of it.*
+
+Reading one settled it the other way. See `ESCROW_INTERFACE` below: the
+implementation implements **none** of the seven calls `erc8183.steps()` models,
+and is order-keyed by `bytes32` rather than job-keyed by `uint256`. So
+`JOB_ESCROW` no longer carries this escrow, this module holds what the contract actually is, and
+the reading that produced that conclusion is `read_order()` — reproducible, not
+recounted.
 
 ## What this module will and will not do
 
 `erc8183.py` refuses to carry an address it has not verified. That refusal is not
 retired by finding a plausible one in a vendor's documentation — a table on a
-website is a claim, not a verification. So:
+website is a claim, not a verification — and, as it turns out, it is not retired
+by verifying the address either. The address was real. So:
 
 - `verify(w3)` goes to chain and checks the escrow has **code**, that the
   identity registry is the contract we already read (`name()` == "AgentIdentity"),
   and that the settlement token matches what we already record. It returns
   evidence, not a boolean.
-- **Only a passing `verify()` should populate `JOB_ESCROW`**, and doing so is a
-  deliberate act with the evidence recorded — not an import-time side effect.
+- **A passing `verify()` is not sufficient to populate `JOB_ESCROW`.** It was
+  treated as sufficient once and that is the whole of P-18: those checks
+  establish that a contract exists and settles in a token we know, which is a
+  different proposition from "it implements this standard".
+  `implements_erc8183(w3, escrow)` is the check that was missing, it costs three
+  reverting `eth_call`s, and it must pass first.
 
 There is **no testnet**. TermiX documents chain 56 and Base 8453 only. Against a
 dry-run-by-default posture that matters: anything that writes must run on a fork
@@ -341,10 +362,25 @@ IDENTITY_ABI = json.loads(
 def verify(w3, chain_id: int = BSC_MAINNET) -> Evidence:
     """Check the recorded table against chain. Returns readings, not a verdict.
 
-    This is what has to pass before `erc8183.JOB_ESCROW` may be populated. A
-    vendor's documentation is a claim; bytecode at an address is a verification,
-    and the distinction is the reason that mapping was left empty in the first
-    place.
+    A vendor's documentation is a claim; bytecode at an address is a
+    verification, and the distinction is the reason `erc8183.JOB_ESCROW` was left
+    empty in the first place.
+
+    **This function used to say it was "what has to pass before JOB_ESCROW may be
+    populated", and it was not.** It checked that the escrow has code, that the
+    identity registry is the one we already read, that the registry answers, and
+    that the settlement token is ours. All four passed. All four are true. None
+    of them is about ERC-8183, and populating the mapping on their strength is
+    precisely how P-18 happened.
+
+    The decisive check is `implements_erc8183`, which costs three reverting
+    `eth_call`s and was written *as* the missing check — then left uncalled here
+    while the docstring above kept promising this function was sufficient. It is
+    recorded below, so `Evidence.ok` cannot be true for a contract that does not
+    implement the standard.
+
+    Still readings rather than a verdict: what a caller needs is what was found,
+    including the parts that failed.
     """
     evidence = Evidence(chain_id=chain_id)
     table = contracts(chain_id)
@@ -383,6 +419,24 @@ def verify(w3, chain_id: int = BSC_MAINNET) -> Evidence:
         table["SettlementToken_USDT"].lower() == USDT_MAINNET.lower(),
         f"{table['SettlementToken_USDT']}",
     )
+
+    # The check the other four are not a substitute for. Recorded last because it
+    # is the one that decides the answer: everything above establishes that a
+    # real contract settling in a token we know sits at this address, which is a
+    # different proposition from "it implements this standard".
+    try:
+        implements = implements_erc8183(w3, escrow)
+    except Exception as error:  # noqa: BLE001 — a failed read is a failed check
+        evidence.record("implements ERC-8183", False, f"read failed: {error}")
+    else:
+        evidence.record(
+            "implements ERC-8183",
+            implements,
+            "jobs(uint256)/nextJobId()/jobCount() answer"
+            if implements
+            else "all three of jobs(uint256), nextJobId() and jobCount() revert — "
+            "order-keyed escrow, not an ERC-8183 job escrow (P-18)",
+        )
     return evidence
 
 

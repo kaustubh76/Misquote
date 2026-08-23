@@ -393,6 +393,50 @@ that depends on direction, and it makes every such rule look like it passes.
 
 ## P — protocol and domain findings
 
+### V-14 · A Venus market must be one the Comptroller owns, not one that answers — **21 Aug 2026**
+
+Cited by `vetting/venus.py`'s `names the comptroller`, `is listed by the comptroller` and
+`symbol agrees` checks.
+
+A contract that answers `symbol()` and `comptroller()` is not thereby a market of that Comptroller —
+it is a contract that answers. The affirmative test is membership in `getAllMarkets()`, and it is
+the **only** one available here: Venus's Unitroller is an EIP-2535 diamond that dispatches per
+facet, so a revert proves nothing about what it implements. `supplyCaps(address)` reverts with
+`Diamond: Function does not exist` on a contract that plainly has supply caps.
+
+So the survey asks three things that must agree: the market names the Unitroller, the Unitroller
+lists the market, and the symbol matches what was recorded. Any single one of those can be produced
+by a plausible impostor; all three together require actually being the deployment.
+
+### V-15 · The underlying is the one this repository verified from the other direction — **21 Aug 2026**
+
+Cited by `underlying agrees with addresses.py`.
+
+`vUSDT.underlying()` returns `0x55d398326f99059fF775485246999027B3197955`, byte-identical to
+`USDT_MAINNET` in `chain/addresses.py` — an address verified months earlier, from the PancakeSwap
+side, as token0 of the flagship pool. Two chains of reasoning that started in different places
+landing on the same twenty bytes is a different quality of evidence from one chain repeated, and it
+is the same argument `registry/aacp.py` records for the ERC-8004 identity registry.
+
+### V-16 · A vToken's decimals are not its underlying's — **21 Aug 2026**
+
+Cited by `vToken decimals agree`.
+
+Venus vTokens are **8** decimals; BSC's USDT and USDC are **18**. `exchangeRateStored` is scaled by
+both, so conflating them misprices a position by ten orders of magnitude. Recorded per market and
+checked against chain rather than derived, for the same reason `PoolRef` records `dec0`/`dec1`
+rather than assuming Ethereum's six.
+
+### V-17 · A market that has never accrued, or holds nothing, is not routable — **21 Aug 2026**
+
+Cited by `has accrued interest` and `has cash to supply into`.
+
+`borrowIndex() == 0` is a market that has never accrued; `getCash() == 0` is one with nothing to
+supply into. Both answer every getter and would pass a shallower check. Measured on Venus's own
+list: `vBUSD` and `vSXP` return `supplyRatePerBlock() == 0`, so an argmax over an unfiltered
+whitelist routes into a deprecated market on a tie. Liveness is a gate on entering the whitelist,
+not an input to the policy.
+
 ### P-1 · PancakeSwap takes 34% of every fee, and the spec never mentions it
 
 Read from the target pool's `slot0` on 2026-08-13: `feeProtocol = 3400` in both directions.
@@ -448,6 +492,424 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-25 · Router's entire published behaviour was a statement about two constants nobody measured — **22 Aug 2026**
+
+`replay/allocation.SwitchCost` shipped as two bare literals:
+
+```python
+gas_quote: float = 0.30
+slippage_bps: float = 5.0
+```
+
+Neither had a source. `slippage_bps` was numerically identical to
+`replay/driver.CostModel.slippage_bps` — an estimate for a **WBNB/USDT** recentre — while its
+docstring claimed to be *"the full pool fee for swapping one underlying into the other"*. **There was
+no USDT/USDC pool anywhere in this repository**, so no fee tier was ever consulted. The constant
+simply wore the argument.
+
+PancakeSwap runs USDT/USDC at the **0.01% tier** — `0x92b7807bF19b7Dddf89b706143896d05228f3121`,
+verified three ways on 22 Aug 2026: 22,962 bytes of bytecode, `fee()` = 100, `tickSpacing()` = 1,
+and a `factory()` equal to the one `addresses.py` verified independently. **One basis point, not
+five**, and roughly ten times the depth of the 0.05% pool.
+
+`gas_quote = 0.30` was worse. `core/types.DEFAULT_GAS_QUOTE = 3.0e-5` exists, and
+`chain/live_source.py:278` derives it live as `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`. Neither
+was used. 250,000 gas units at BSC's measured 0.05 gwei, with BNB read from the indexed WBNB/USDT
+pool at $607.31, is **$0.0076** — about **forty times** less than the literal.
+
+**What those two numbers decided.** Everything — the hurdle, whether the agent ever supplied, and
+the published quote:
+
+| | before | after |
+|---|---|---|
+| round-trip hurdle | 5.84% | **1.06%** |
+| entries / switches | 0 / 0 | it supplies, and moves when the edge clears |
+| published quote | 0.00% – 0.00% | a real return on supplied capital |
+| vs parking | *"beats parking by 3.90pp"* | **indistinguishable** |
+
+The "after" column is deliberately unquantified beyond the hurdle. An earlier version of this table
+carried eight exact figures and **six of them were stale within a day** — the rate tape grew from
+seven days to sixteen, the venues changed leadership, and the annualisation gate added in the same
+round flipped the published quote between a period figure and an annual one. The live numbers are in
+`docs/FOR_JUDGES.md`'s derived block, regenerated by `make judges` from the card. A matrix entry is
+a record of *what was wrong and why*; it is not a second place to keep the current figures.
+
+The card said Router never supplied, and gave a 16-day break-even as the reason. Both were
+artefacts. The agent had been priced out of its own market by a fee copied from a different pair.
+
+**A third input compounded it.** `_move_cost` charged the full pool fee on *every* move, including
+`park_policy`'s single ENTER — and entering vUSDT from a dollar position that is already USDT swaps
+nothing. That phantom fee was 5.0 of the baseline's 5.6 total cost, so **roughly nine tenths of the
+advertised 3.90pp advantage was a charge the baseline would never have paid**.
+`replay/driver._move_cost` has carried the equivalent branch since P-18; this one had none.
+
+**Resolution.** `SwitchCost` has **no defaults** — constructing one without inputs raises, naming
+this finding. `SwitchCost.from_venue()` takes the fee from the verified pool's own `fee_pips`, gas
+from a unit count times a gas price, and a native-token price to bridge BNB into dollars; every
+result carries a `basis` string and a `derived` flag, and the card publishes both. `chain/costs.py`
+is the IO half that fetches them — gas price through the indexer's endpoint rotation, BNB/USD from
+the swap tape's last observation of the pool this project already verifies and indexes.
+
+**This is P-13 in a new venue, and the sentence P-13 ends with applies unchanged:** *"the quote it
+produced was a statement about this constant rather than about the strategy."* The lesson that did
+not transfer is that a cost model is not boilerplate to copy between agents — it is the thing being
+measured, and every field of it needs a reading behind it or a label saying there is not.
+
+*Related:* the same round found the driver sizing markets from `rows[-1]` — the **last** accrual on
+the tape — so a window replayed on day one was sized by a market measured on day seven. A
+look-ahead leak, in the project whose central claim is that look-ahead is structurally impossible.
+`tests/replay/test_allocation.py` now fails against that implementation.
+
+### P-24 · There was a verified ERC-8183 deployment the whole time, and nobody had looked — **21 Aug 2026**
+
+`registry/erc8183.py` kept `JOB_ESCROW` empty on the stated grounds that *"the EIP is Draft and
+lists no reference deployment addresses at all"*. Every word of that is true, and it was the wrong
+question. The EIP publishes none; **the ecosystem does**. `@altananetwork/sdk@0.8.0` ships an
+`ERC8183_ADDRESSES` table with a kernel, an EvaluatorRouter, an OptimisticPolicy, a registry and a
+payment token for BSC mainnet *and* testnet, and this repository had never read it.
+
+One field in that table was independently checkable and checked out immediately: the `registry`
+entry is byte-identical to `erc8004.IDENTITY_REGISTRY` on **both** chains — an address arrived at
+here from the PancakeSwap side, months earlier. That is a reason to look, not a reason to believe,
+so `scripts/verify_erc8183.py` looked, the same three ways `verify_venus.py` does.
+
+**Every check passed, on both chains.**
+
+| | chain 56 | chain 97 |
+|---|---|---|
+| kernel bytecode | 130 bytes (proxy) | 130 bytes |
+| EvaluatorRouter / OptimisticPolicy | 130 / 4,413 bytes | 130 / 4,413 |
+| payment token | 2,007 bytes | 2,007 |
+| `jobCounter()` | **56,632** | 581 |
+| `disputeWindow()` | 604,800s (7 days) | 86,400s (1 day) |
+| kernel's `paymentToken()` vs the table | agrees | agrees |
+| table's `registry` vs `erc8004.py` | byte-identical | byte-identical |
+
+**56,632 jobs** is the number that separates this from the previous candidate. P-18's finding stands
+without amendment — `TermixEscrow` is a real, USDT-settling escrow that implements none of ERC-8183
+— but the conclusion drawn *from* it, that no verified deployment existed anywhere, was a claim
+about our own search rather than about the chain.
+
+**Three corrections to `steps()`, which had modelled the EIP rather than a deployment:**
+
+1. **There is no `setProvider`.** The provider is an argument to `createJob`. This module's own
+   docstring had already deduced that from TermiX's bytecode and never followed it through to the
+   sequence. `steps(provider_known_at_creation=False)` now raises instead of pricing a shape the
+   deployment does not support.
+2. **Settlement is on a second contract.** `registerJob` and `settle` live on the EvaluatorRouter,
+   not the kernel. A client sending all seven transactions to one address reverts on the third.
+3. **The accessors are `jobCounter()` / `getJob(uint256)`**, not `nextJobId()` / `jobs(uint256)`.
+   P-18 probed for the second pair and found neither — right about the contract, and partly wrong
+   about the names.
+
+The published transaction count therefore moves from **six to seven**, five of them the client's,
+and it is still derived from `len(steps())` rather than written down.
+
+**What did not change.** Nothing here signs. The hire button still does not exist and the ledger
+entry still discloses it — escrowing a job means five signed transactions moving real USDT, which is
+the same gate that keeps `make warden` on the recording executor.
+
+*The lesson worth keeping:* the refusal was correct and the reason attached to it was not. "No
+verified deployment exists" and "we have not verified a deployment" are different sentences, and
+this file had been publishing the first while only the second was supported.
+
+### P-23 · The toxicity threshold was calibrated against a null that real flow violates, and it is why the agent loses — **21 Aug 2026**
+
+`docs/AGENT_ADVANTAGE.md` reports the Warden **losing** to a passive baseline on both tasks where
+the two differ: −64.29pp on Earn, −38.17pp on Protect. The proximate cause is visible in the card —
+the agent is in range **6.1%** of samples and makes 249 mints against 249 pulls. It opens a position
+and closes it again almost every step, and the costs of doing that are the loss.
+
+The question worth asking is *why the pull fires that often*, and the answer is a calibration
+mismatch rather than a coding defect.
+
+Spec §3.4's second arm is `|imb_t| > z_pull`, with `z_pull = 2.5` over `M = 50` swaps.
+`estimators/imbalance.py` computes `z = Σs / sqrt(Σs²)`, which is standardised **under a
+permutation null**: each swap's direction an independent fair coin, magnitudes held as observed.
+Under that null `|z| > 2.5` is a rare event, and 2.5 reads as a sensible threshold.
+
+**Measured on the 30-day chain tape — 252,874 samples with a ready estimator:**
+
+| statistic | value |
+|---|---|
+| median \|z\| | **2.179** |
+| p75 | 3.190 |
+| p90 | 3.905 |
+| p95 | 4.264 |
+| p99 | 4.801 |
+| ceiling, sqrt(M) | 7.071 |
+
+| threshold | fires on |
+|---|---|
+| \|z\| > 2.0 | 54.41% of samples |
+| **\|z\| > 2.5 (the spec's)** | **41.94%** |
+| \|z\| > 3.0 | 29.46% |
+| \|z\| > 3.5 | 17.68% |
+| \|z\| > 4.0 | 8.49% |
+| \|z\| > 5.0 | 0.51% |
+
+The median sample sits essentially **on** the threshold. Real AMM order flow is persistently
+one-way over fifty-swap windows — it trends — so the fair-coin null badly understates the variance
+of `Σs`, and a threshold chosen against that null classifies ordinary conditions as toxic. The rule
+intended to catch exceptional adverse selection fires on nearly half of all market conditions, the
+position spends 94% of its life withdrawn, and the re-entry cost is charged every time.
+
+**Resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec — *"if code and spec
+conflict, the spec wins; flag it"* — and `docs/FOR_JUDGES.md` states the stronger rule that moving a
+parameter because it produced an unflattering result is the fitting this project exists to refuse.
+So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the
+explanation rather than an excuse**: the loss is real, and its cause is a threshold whose null does
+not describe the data.
+
+What a calibrated threshold would look like is recorded here and **not** implemented: the table
+above says `|z| > 4.0` is the 8.5% tail and `|z| > 4.8` the 1% tail. Choosing between them is a spec
+change, which is a decision for the spec's owner and not for the run that noticed.
+
+*Related:* **V-11** — the same arm had never fired at all before Sentinel was built, because the
+engine passed a hardcoded `0.0`. It went from never firing to firing 42% of the time, and neither
+state was ever measured against the tape until now.
+
+### P-22 · The yield number every lending frontend quotes depends on a constant that is not on chain — **21 Aug 2026**
+
+Building Router's venue model meant reading a supply APR off Venus. The obvious source is
+`supplyRatePerBlock()`, which returns a per-block mantissa — and converting that to an annual figure
+needs blocks-per-year.
+
+**That constant is not readable from the chain.** Probed on vUSDT's own interest rate model
+(`0x2cf0E211c99dfD28892cF80d142Aa27a9042dbf4`): `blocksPerYear()`, `getBlocksPerYear()`,
+`blocksOrSecondsPerYear()` and `isTimeBased()` **all revert**. The Comptroller cannot answer either,
+and its reverts are not evidence — `supplyCaps(address)` fails with `Diamond: Function does not
+exist`, because the Unitroller is EIP-2535 and dispatches per facet.
+
+So the number is a choice, and the choice moves the answer by more than six-fold:
+
+| assumed blocks/year | implied supply APR (mantissa 308,220,494) |
+|---|---|
+| 10,512,000 — Venus's own documented 3-second blocks | **0.324%** |
+| 31,536,000 — one second | 0.972% |
+| 42,048,000 — 0.75 s | 1.296% |
+| 70,080,000 — 0.45 s | **2.160%** |
+
+**Resolution.** Do not read a rate; difference an accumulator. `borrowIndex` is monotone and every
+other input — `cashPrior`, `interestAccumulated`, `totalBorrows` — is inside the `AccrueInterest` log
+itself, so a realized rate can be recomputed from the tape with no constant at all and no chain state
+re-read. Implemented in `packages/misquote/estimators/apr.py`, published as **A12**.
+
+**And the two methods agree, which is what makes either one trustworthy.** Realized supply APR across
+four window widths on vUSDT: 2.1583% / 2.1599% / 2.1594% / 2.1590% — stable to 0.002pp across a
+tenfold change in window — against a measured **0.450 s/block**, consistent to three decimals across
+every window. The realized figure and the quoted-at-0.45s figure agree; Venus's documented 3-second
+constant understates the rate by 6.67×.
+
+Two decoding traps were met on the same reads and are recorded with it:
+
+- **`vBNB.underlying()` returns zero bytes, not `address(0)`.** The market holds native BNB and the
+  getter does not exist on it. A tolerant decoder maps it to the zero address and carries on.
+  `scripts/verify_venus.py::_decode` raises instead.
+- **Several `uint256` getters return 96 bytes, not 32.** `getCash()`, `supplyRatePerBlock()` and
+  `exchangeRateStored()` each returned three words where the ABI declares one, while `borrowIndex()`,
+  `totalBorrows()` and `reserveFactorMantissa()` returned one. The value is word 0 in every case,
+  cross-checked against the accrual logs. Asserting `len == 32` would refuse three live getters;
+  indexing by an unchecked position is **P-8** all over again.
+
+### P-21 · D1 was decided against a number nobody had read, and the survey that would have read it was gated on a key it did not need — **20 Aug 2026**
+
+The README carries an open decision item, D1:
+
+> ERC-8004 registry population counted on BscScan. Decision rule: **< ~15 real agents** →
+> third-party auto-cards demote immediately to a plain "registry view" and the narrative is
+> "day-one marketplace for a day-one ecosystem."
+
+Nobody counted. Measured on BSC mainnet by binary search on `ownerOf` — `totalSupply()` reverts,
+because the registry is a 130-byte proxy and not `ERC721Enumerable`:
+
+| | |
+|---|---|
+| agent ids the registry resolves | **272,322** |
+| what D1 was written around | < ~15 |
+| growth observed while working on this | ~1,100 per hour, across three measurements 70 minutes apart |
+
+The rule was not wrong to exist; it was never evaluated. A "day-one ecosystem" narrative was one
+unchecked assumption away from shipping beside a registry holding a quarter of a million
+registrations.
+
+**Two defects kept the number unread.**
+
+*The survey was gated on `BSC_RPC_URL`.* `registry_report.py` returned `surveyed: false` with the
+reason *"no BSC_RPC_URL configured — no registry read was attempted"* whenever the key was unset,
+which was always. The refusal was correct in shape and wrong in precondition: the survey reads
+`tokenURI` and `ownerOf`, which are `eth_call`, and every free BSC endpoint serves those. It is
+`eth_getLogs` the free endpoints ration — P-11 — and this makes none. So the registry went
+unsurveyed for the life of the project over a key it did not need, while `/registry` rendered an
+honest refusal that nobody had cause to question. It now falls back to `PUBLIC_RPCS`, the same list
+the indexer and the address verifier already walk.
+
+*The sample was drawn from the front of the registry.* `rng.sample(range(1, sample * 20), sample)`
+— at the documented `--sample 40`, ids **1 to 800**. Against a population of 272,322 that is the
+oldest **0.3%**, and the oldest registrations are exactly the ones most likely to differ: the
+deployer's own tests, and the earliest adopters. It would have reported a share about the registry
+that was a share about its first fortnight. The bound is measured first now
+(`erc8004.highest_agent_id`) and the draw spans it.
+
+**What the first survey found.** 40 ids spanning 19,659–266,043, at block 117,023,742:
+
+| | | |
+|---|---|---|
+| card resolves | 36 / 40 | 90% |
+| declares itself active | 36 / 40 | 90% |
+| card is on chain (`data:` URI) | 24 / 40 | 60% |
+| **describes a service** | **12 / 40** | **30%** |
+| **substantive** | **12 / 40** | **30%** |
+| looks like a placeholder | 0 / 40 | 0% |
+
+Nine in ten registrations resolve and declare themselves active. **Three in ten name an endpoint you
+could actually call.** The gap between those two numbers is the whole finding: `declares_active` is
+a self-report and costs nothing, and a registry that is 90% "active" and 30% callable is exactly the
+kind of number a marketplace would otherwise print as "270,000+ agents".
+
+`placeholders: 0` is not a clean bill of health — the heuristic catches repetition, and the junk
+here is not repetitive. Sampled agent 19,659 is named `"57560"` and its description is a 69-digit
+integer. `assess()` still refuses it, on the endpoint clause rather than the placeholder one, which
+is the right answer reached by a different route than expected.
+
+**What was built on it.** D1's rule says auto-cards are viable above ~15 agents and 272,322 clears
+it, so third-party agents are now listed on `/registry` — and the listing is deliberately not shaped
+like our own agent cards. Ours carry a P25–P75 range replayed from thirty days of chain history. A
+third party's cannot: we do not have its policy, so there is nothing to replay. Every listing says
+so on its face — *"No quote — we cannot replay a policy we do not have"* — and
+`tests/web/test_third_party_listings.py` asserts against the artifact that no field on a listing is
+performance-shaped, using a whitelist so a field nobody thought of is refused by default.
+
+That refusal is the point of the surface. The gap it leaves is where every other marketplace puts a
+star rating.
+
+### P-20 · The agent spends its whole daily budget leaving, and cannot afford to come back — **20 Aug 2026**
+
+The first Agent Advantage Report generated from real chain data, and the headline is that hiring the
+agent **loses 64 percentage points** to doing nothing:
+
+| task | DIY | agent | delta |
+|---|---|---|---|
+| Earn | +4.78% to +27.21% | −52.10% to −49.97% | **−64.29pp** |
+| Protect | +9.38% to +14.94% | −24.16% to −23.85% | **−38.17pp** |
+| Choose | −620.55% to −617.83% | identical | +0.00pp |
+
+Every number is real and none of them is a measurement of agents. From the artifact's own columns,
+Earn, on 1.0 of capital over 30.2 days:
+
+| | moves | in range | fees | costs |
+|---|---|---|---|---|
+| DIY (passive) | 1 | 6.6% | 0.0175 | **0.0008** |
+| Warden | **498** | 6.1% | 0.0099 | **0.0466** |
+
+The entire gap is transaction cost. **The first guess about why was wrong**, and instrumenting a
+replay rather than reasoning from the aggregate is what caught it.
+
+**The wrong answer.** P-17 established that the A-S half-width never escapes the anti-dust floor, so
+the band is `w_min = 4 × tick_spacing` = ±0.401% on the flagship. A band that narrow against 17%
+annualised volatility should be escaped constantly, forcing recentre after recentre — 498 moves in
+30 days looked like exactly that.
+
+**The measurement.** Seven days of the real tape, with the policy instrumented to record every
+decision's gate terms:
+
+    MINT 65 · PULL 65 · RECENTRE 0
+    16 actions/day steady state = 8 pull-and-re-mint cycles, exactly max_rebalances_per_day
+    re-entry blocked on 108,933 of 120,830 HOLD decisions = 90.2% of samples
+    in_range 5.18%   costs 0.0129 over 7d on capital 1.0   fees 0.21x costs
+
+**It never recentres. Not once in seven days.** The band width is not the mechanism, because the
+recentring path is never taken. When the agent *is* in market, R1, R2 and R3 each decline a recentre
+about 6,100 times apiece — drift, economics and budget all saying no.
+
+**What actually happens** is three documented behaviours composing into one they do not describe:
+
+1. **P-19** — §3.4's imbalance arm fires on **41.9%** of real samples, so the agent pulls constantly.
+2. **`decide()` gates re-entry and never exit**, deliberately, and says so: *"an agent forbidden to
+   exit because it had run out of budget would be held inside exactly the flow the rule exists to
+   escape, and that is the one outcome worse than churning."* Leaving is free and always permitted.
+3. **P-12** made the daily budget correctly persist across a pull — closing a real defect, where the
+   counter used to reset on every re-entry.
+
+Compose them and the day's eight actions are consumed entirely by *coming back*. Once spent, the
+agent cannot afford to re-enter and sits flat until tomorrow. It is out of market **90%** of the
+month, not because it is chasing price, but because it cannot pay to return. Gas alone is **67% of
+capital annualised** while fees cover **0.21×** of it.
+
+**None of the three is a bug, and that is the point.** P-12's fix was right; the asymmetric budget is
+right and the comment defending it is correct; P-19's firing rate is the frozen spec's own `z_pull`.
+The defect is in the composition, and it is invisible in any of the three read alone — which is why
+it took a real tape and an instrumented replay rather than a code review.
+
+**What was *not* done about it.** `z_pull` was not retuned and `max_rebalances_per_day` was not
+raised. Both are spec section 8's published values, the spec is frozen, and moving a parameter
+because it produced an unflattering number is the fitting this project exists to refuse. The report
+publishes the number **and derives it**, in a section computed from the comparison's own fields with
+no literals.
+
+**What the report now shows.** `moves` is decomposed into mint / recentre / pull, because 498 reads
+as a busy agent while 249 / 0 / 249 reads as an agent spending its budget on exits — different
+findings, and only the second is what the tape says. And `distinct_returns` is published for the
+first time: P-17 created it so a reader could see A5's ±25% (γ, κ) perturbation collapse when the
+floor discards both parameters, and the deliverable the track judges had never carried it.
+
+**Task 3 is a finding about a pool, not about an agent.** Its −620% band is A1's ceiling forcing the
+position to 0.0318 — the ceiling is `eps × pool_liquidity`, a property of the venue — while
+transaction costs stay fixed per action. At the largest size the 0.25% tier's own liquidity permits,
+fixed costs exceed plausible fee income by a factor of fifty. That is the due-diligence answer to
+*which pool should I provide liquidity to*: **not that one, at any size it can support.** Both
+columns share the capital, so the delta remains sound.
+
+### P-19 · On real flow, §3.4's imbalance screen does not separate two venues — **19 Aug 2026**
+
+Task 3 of the advantage report asks whether screening a pool before entering it beats picking the
+deepest one. Answering it on real data required a second real venue (WBNB/USDT 0.25%,
+`0x1401ff94…`), and the first thing the second venue produced was a measurement of the screen itself.
+
+**Section 3.4's imbalance arm, at the spec's own `z_pull = 2.5`, fires on:**
+
+| venue | median liquidity | imbalance fires on |
+|---|---|---|
+| WBNB/USDT 0.05% (flagship) | 1.29e24 | **41.9%** of samples |
+| WBNB/USDT 0.25% (wide) | 1.54e22 — **84× shallower** | **42.8%** of samples |
+
+Two pools that differ by two orders of magnitude in depth, on the same pair over the same 30 days,
+and the screen cannot tell them apart — 0.9 percentage points, in the direction that makes the
+*deeper* pool look marginally cleaner. So the agent's due-diligence rule picks the same pool the
+naive "more TVL is safer" heuristic picks, and task 3's honest answer is that screening bought
+nothing here.
+
+**This is P-7 again, on real flow rather than synthetic.** P-7 found the rule withdrawing roughly
+once every four hours on a driftless random walk — `|z| > 2.5` on 1.34% of 44,802 samples against
+≈1.24% predicted by the null — and concluded the threshold's suitability "depends on how much
+genuine toxic flow the real tape carries, which synthetic data cannot answer." The real tape answers
+it: **42%, on both venues.** A screen that fires on two samples in five is not selecting; it is
+describing BSC.
+
+**What was *not* done about it.** `z_pull` was not retuned. It is spec section 8's published value,
+the spec is frozen, and moving a threshold because it produced an uninteresting result is precisely
+the fitting this project exists to refuse. The number is published instead, on the task it affects.
+
+**What the report does with it.** Task 3 states that both rules chose the same venue, and the delta
+is exactly zero rather than a difference manufactured by handing the agent whichever pool depth did
+not take — which is what the code did before this, and which would have reported an advantage that
+was an artefact of the setup. The two columns are now each chosen by the rule that names them:
+depth by `venue_depth`, the screen by the same `ImbalanceEstimator` Sentinel withdraws on.
+
+**Two other things the second venue exposed**, both of which would have rendered a confident number:
+
+- **A1 refused it outright.** A1's ceiling is `eps x pool_liquidity` and therefore a property of the
+  *pool*. At the report's default capital the wide tier breached on **564 mints**, and A1 says such a
+  quote is *refused rather than rendered* — so task 3 would have published nothing at all. Both
+  columns now run at a capital derived from the binding venue's ceiling
+  (`core.liquidity.capital_for_liquidity_cap`, the exact inverse of the cap branch), and the report
+  records it **per task**: one report-level `capital_quote` described task 3 wrongly while looking
+  authoritative.
+- **The protocol fee differs again.** 3200 on the wide tier against 3400 on the flagship — P-8 a
+  third time, three tiers of one pair, three different cuts. Each venue carries its own `PoolMeta`,
+  because running both through one would credit the wide pool's liquidity providers with 66% of a
+  fee they keep 68% of.
+
 ### P-18 · The one ERC-8183 escrow we had verified does not implement ERC-8183 — **19 Aug 2026**
 
 `registry/erc8183.py` shipped with `JOB_ESCROW` deliberately empty: the EIP is Draft, publishes no
@@ -488,7 +950,7 @@ from their `PENDING_ACCEPT` ones — word 8 reads `4` on both — so this codeba
 an order's state, and `ORDER_STATE_IS_UNDECODED` asserts that rather than leaving it as a comment.
 21 of 65 selectors resolved; the other 44 are **counted, not guessed**.
 
-**Resolution.** `JOB_ESCROW` is empty again and `escrow_address(56)` raises again. The rule that
+**Resolution.** `JOB_ESCROW` was emptied and `escrow_address(56)` raised. It carries two entries again — a different contract entirely, verified three ways on both chains. See P-24. The rule that
 mapping states — *no entry without evidence* — is now applied to itself: it is for verified **ERC-8183**
 job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is
 not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a
@@ -505,9 +967,20 @@ book gets a confident, well-formed, entirely fictional order with a budget of ze
 
 **What this costs and what it buys.** The `/registry` page loses an escrow address, and the hire flow
 goes back to publishing a refusal. `steps()` is unaffected: it describes what ERC-8183 requires, and
-that description was never a claim about this contract. The six-transaction count still stands as the
+that description was never a claim about this contract. The transaction count still stands as the
 answer to every competitor's one-click Hire button — it is now, accurately, a statement about the
 standard rather than about a deployment.
+
+> **Superseded in part, 22 Aug 2026 — see P-24 and P-25.** Two things above are no longer current,
+> and the finding they rest on is. `TermixEscrow` still implements none of ERC-8183; that stands
+> without amendment. What changed is the conclusion drawn from it. A *different* contract — Altana's
+> AgenticCommerce kernel — passed the same three-way check on both BSC networks, so `/registry` does
+> not publish a refusal and `JOB_ESCROW` is not empty. And the count is **seven**, not six: checked
+> against a deployment rather than read off the Draft EIP, the flow has no `setProvider`, settles on
+> a separate EvaluatorRouter, and needs a `registerJob` nobody had modelled. This paragraph is left
+> as written because the reasoning was sound on the evidence it had, and deleting it would hide the
+> more useful lesson — *"no verified deployment exists"* and *"we have not verified one"* are
+> different sentences.
 
 ### P-17 · The Avellaneda–Stoikov half-width never reaches the anti-dust floor — **18 Aug 2026**
 
@@ -1149,7 +1622,7 @@ so cite Avellaneda–Stoikov 2008 Eqs. 29/30 directly; and arXiv:2106.12033 has 
 | ERC-8004 is an agent identity registry | **Correct but incomplete.** Draft EIP, live on BSC mainnet (`0x8004A169…`) and testnet (`0x8004A818…`). It is **three** registries; identity is an ERC-721 whose descriptive metadata lives **off-chain** at `agentURI`, so indexing yields IDs and URIs, not agent cards. Do not build on the Validation registry — still under active revision. |
 | ERC-8183 is a "hire interface" | **Mischaracterised.** It is **Agentic Commerce**: an escrowed job protocol, six states (`Open → Funded → Submitted → Completed \| Rejected \| Expired`). There is no `hire()`. See the corrected transaction count below. |
 | ~~ERC-8183 is "live on both BSC networks"~~ | **Wrong, and it was our own claim — corrected 15 Aug 2026.** BNB Chain's own announcement says BNBAgent SDK "is now live on BNB Chain **testnet**, where developers can experiment with the full workflow today", with "**mainnet coming soon**". The EIP is **Draft** (created Feb 2026) and lists **no reference deployment addresses at all**. Building against a mainnet address we had never seen would have been the exact failure this project is named after. Testnet only, and no address is published — so the hire flow ships dry-run and unsigned until one is verified. |
-| "Hiring is 3–4 transactions" | **Close, and now exact.** With the provider passed at creation (so `setProvider` is not needed), the client's path to escrowed is **four transactions**: ERC-20 `approve` → `createJob(provider, evaluator, expiredAt, description, hook)` → `setBudget(jobId, amount)` → `fund(jobId)`. Settlement adds the provider's `submit(jobId, deliverable)` and the evaluator's `complete(jobId)`, so **six transactions end to end**. `createJob` takes a **mandatory `evaluator`** which cannot be zero, and only that evaluator may `complete` or `reject`. ERC-2771 meta-transactions are an **optional extension, not core**, so nothing in the core interface batches these away. |
+| "Hiring is 3–4 transactions" | **Close, and now exact.** With the provider passed at creation (so `setProvider` is not needed), the client's path to escrowed is **four transactions**: ERC-20 `approve` → `createJob(provider, evaluator, expiredAt, description, hook)` → `setBudget(jobId, amount)` → `fund(jobId)`. Settlement adds the provider's `submit(jobId, deliverable)` and the evaluator's `settle(jobId, evidence)` — on the EvaluatorRouter, not the kernel — so **seven transactions end to end**. See P-24; this paragraph said six and `complete()` until the sequence was checked against a deployment rather than read off the Draft EIP. `createJob` takes a **mandatory `evaluator`** which cannot be zero, and only that evaluator may `complete` or `reject`. ERC-2771 meta-transactions are an **optional extension, not core**, so nothing in the core interface batches these away. |
 | "Who is the evaluator" is an open question | **Answered, two ways.** The EIP itself permits `evaluator = client` "when there is no third-party attester". BNB's SDK instead extends ERC-8183 with **UMA's Optimistic Oracle**: undisputed jobs settle fast, challenges escalate to UMA's Data Verification Mechanism. For Misquote the criterion should be **G-3's InRange% floor**, which §4.2 already requires to be binary and chain-checkable *without a counterfactual* — which is exactly the property an optimistic oracle needs to adjudicate a challenge cheaply. |
 | "<~15 real agents → demote to registry view" | **Wrong by four orders of magnitude, and the real finding is better.** BNB Chain has **266,191** ERC-8004 agents, more than any chain by 4×. But only about **4% expose a working endpoint**, and after removing Sybil-flagged feedback **77.9% of rated BSC agents had no valid feedback left** — 29,444 reviews from **76 unique reviewers** (arXiv:2606.26028). **Invert the rule**: resolve each `agentURI`, rank by what responds, and decline to display on-chain reputation credulously — saying why, on the card. That is this product's thesis with independent evidence attached. Agent0 subgraphs already index ERC-8004 on BNB Chain, so discovery is a query. |
 | `bnbagent==0.3.5` | **Stale.** Current is **0.4.2** under an explicit breaking-changes warning. Do not pin a June API for a September submission. |

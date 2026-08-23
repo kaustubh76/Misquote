@@ -311,6 +311,246 @@ def short(task: str) -> str:
     return task.split("—")[0].strip() or task
 
 
+def published_pools() -> dict[str, set[str]]:
+    """Pool addresses the site publishes, read from the fields that hold pools.
+
+    The README's promise is *"every pool a listed agent touches gets a
+    due-diligence badge"*, and "touches" was being approximated by a constant a
+    human maintains. It is observable instead — but only if it is read
+    precisely: an artifact is full of addresses, and a token, a router or a
+    registry is not a pool going unvetted. A regex over the whole file would
+    make this gate noise, and a gate that is noise gets ignored.
+
+    So each shape is read where pools actually live:
+
+        warden/grid/sentinel.json   "pool": "<label> · 0x…"
+        venue.json                  pools[].address
+        vetting.json                pools[].pool
+        advantage.json              tasks[].venue, once it names addresses
+
+    That difference is not academic. `TARGET_POOL_WIDE` was quoted by the Agent
+    Advantage Report's third task while absent from every pool list in the
+    repository, and a check written against those lists agreed with itself the
+    whole time.
+
+    Returns address -> the artifacts naming it, so a failure can say where.
+    """
+    import json
+    import re
+
+    found: dict[str, set[str]] = {}
+    address = re.compile(r"0x[0-9a-fA-F]{40}")
+    artifacts = REPO / "apps" / "web" / "public" / "artifacts"
+    if not artifacts.is_dir():
+        return found
+
+    def note(value: object, source: str) -> None:
+        """Record every address in a field known to name a pool."""
+        if isinstance(value, str):
+            for hit in address.findall(value):
+                found.setdefault(hit.lower(), set()).add(source)
+
+    for path in sorted(artifacts.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+
+        note(payload.get("pool"), path.name)
+        for entry in payload.get("pools") or []:
+            if isinstance(entry, dict):
+                note(entry.get("address"), path.name)
+                note(entry.get("pool"), path.name)
+        for entry in payload.get("tasks") or []:
+            if isinstance(entry, dict):
+                note(entry.get("venue"), path.name)
+
+    return found
+
+
+def check_rate_tape() -> Check:
+    """Does the Venus rate tape span enough *read* blocks for Router to quote?
+
+    `check_tape` makes this argument for swaps. It matters more here, and the
+    extra turn of the screw is worth stating: for a pool, a quiet window and an
+    unfetched window are indistinguishable in the rows. For a lending market
+    they are indistinguishable **and the quiet one is normal** — over the same
+    seven days vUSDT logged 159,178 accruals and vUSDC logged 778. "No rows" is
+    the healthy state of a thin market, so nothing in `accrue` can separate a
+    market that did not move from a request nobody made.
+
+    `venus_covered` can, and it is the only thing that can, so it is what this
+    reads. Unrecorded coverage is UNVERIFIED, never PASS — `vetting/badge.py`
+    sets that rule and it holds wherever "we cannot tell" and "it is fine" would
+    otherwise render the same.
+
+    The floor is the replay's own: `replay/allocation.py`'s `MIN_WINDOW_HOURS`
+    is 24h and the emitter cuts the tape into windows half its span, so a tape
+    shorter than 48 hours cannot produce a single quotable window.
+    """
+    db = Path(os.environ.get("DB_PATH", REPO / "data" / "misquote.db"))
+    if not db.exists():
+        return Check("Venus rate tape", UNVERIFIED, f"no database at {db}", "make venus")
+
+    try:
+        from misquote.chain.venus import markets_on
+        from misquote.indexer import store, venus
+    except Exception as error:  # noqa: BLE001
+        return Check("Venus rate tape", UNVERIFIED, f"could not import the reader: {error}")
+
+    markets = markets_on(56)
+    if not markets:
+        return Check("Venus rate tape", UNVERIFIED, "no verified Venus markets are recorded")
+
+    try:
+        conn = store.connect(str(db))
+    except Exception as error:  # noqa: BLE001
+        return Check("Venus rate tape", UNVERIFIED, f"could not open {db}: {error}")
+
+    unrecorded: list[str] = []
+    spans: list[tuple[str, float]] = []
+    for market in markets:
+        run = venus.covered_span(conn, market.key)
+        if run is None:
+            unrecorded.append(market.symbol)
+            continue
+        rows = venus.load_accruals(conn, market.key)
+        inside = [e for e in rows if run[0] <= e.block <= run[1]]
+        hours = (inside[-1].ts - inside[0].ts) / 3600 if len(inside) >= 2 else 0.0
+        spans.append((market.symbol, hours))
+
+    if unrecorded:
+        return Check(
+            "Venus rate tape",
+            UNVERIFIED,
+            f"no coverage recorded for {', '.join(unrecorded)} — an unfetched "
+            f"window and a market that did not accrue are the same empty list",
+            "make venus",
+        )
+
+    # Twice the replay's window floor, because the emitter cuts each window at
+    # half the tape's span — so a tape under 2 x MIN_WINDOW_HOURS yields no
+    # quotable window at all. Derived rather than restated: the docstring above
+    # already explained the arithmetic and then wrote 48.0 anyway.
+    from misquote.replay import allocation as _allocation  # noqa: PLC0415
+
+    floor = 2 * _allocation.MIN_WINDOW_HOURS
+    short = [f"{name} {hours:.1f}h" for name, hours in spans if hours < floor]
+    if short:
+        return Check(
+            "Venus rate tape",
+            UNVERIFIED,
+            f"below the {floor:.0f}h floor: {'; '.join(short)}",
+            "make venus VENUS_DAYS=7",
+        )
+
+    detail = ", ".join(f"{name} {hours / 24:.1f}d" for name, hours in spans)
+    return Check("Venus rate tape", PASS, f"{len(spans)} market(s) read unbroken: {detail}")
+
+
+def check_badge_coverage() -> Check:
+    """Two claims, and the second is the one a list cannot make for itself.
+
+    1. Every pool address a published artifact quotes is one we verified on
+       chain — we do not publish a number about a pool nobody read.
+    2. Every verified pool on this chain has a due-diligence badge on disk.
+
+    `make vet` writing badges satisfies (2) and says nothing about (1), which is
+    the direction the failure actually came from.
+
+    UNVERIFIED rather than FAIL: an unbadged or unrecognised pool is a check
+    nobody ran, and this module's rule is that unknown is amber, never green.
+    """
+    from misquote.chain.addresses import KNOWN_POOLS, known_pools_on
+
+    badges = REPO / "vetting" / "badges"
+    listed = known_pools_on(56)
+    if not listed:
+        return Check("badge coverage", FAIL, "no pools are listed for chain 56")
+
+    verified = {pool.address.lower() for pool in KNOWN_POOLS}
+
+    # (1) Published, but never verified on chain. `published_pools` reads only
+    # the fields that hold pools, so anything here is a pool the site is
+    # quoting — not a token or a router that happened to match a regex.
+    quoted = published_pools()
+    unrecognised = sorted(
+        f"{address[:10]} (in {', '.join(sorted(sources))})"
+        for address, sources in quoted.items()
+        if address not in verified
+    )
+    if unrecognised:
+        return Check(
+            "badge coverage",
+            UNVERIFIED,
+            f"published pool(s) not in KNOWN_POOLS: {'; '.join(unrecognised)}",
+            "verify the pool against chain and record it, or stop publishing it",
+        )
+
+    # (2) Verified, but never badged.
+    missing = [
+        pool.label for pool in listed if not (badges / f"{pool.address.lower()}.json").exists()
+    ]
+    if missing:
+        return Check(
+            "badge coverage",
+            UNVERIFIED,
+            f"{len(listed) - len(missing)}/{len(listed)} listed pools badged; "
+            f"missing: {', '.join(missing)}",
+            "make vet — a pool the marketplace lists but has not vetted is the "
+            "claim this layer exists to make good on",
+        )
+
+    published = sum(1 for address in quoted if address in verified)
+    return Check(
+        "badge coverage",
+        PASS,
+        f"all {len(listed)} listed pools badged; {published} quoted by artifacts, "
+        "all of them verified",
+    )
+
+
+def check_docs_current() -> Check:
+    """The document a judge is told to read first must agree with its artifacts.
+
+    `docs/FOR_JUDGES.md` carried **two contradictory tables of the same result**,
+    ninety lines apart, one of them a stale copy of a synthetic run — with an
+    entire narrative resting on it. Nobody typed a wrong number on purpose; the
+    artifact was regenerated and the prose was not, three times, which is what
+    `scripts/sync_docs.py` was written for and what its `--check` mode has been
+    able to detect for as long as it has existed while being wired to nothing.
+
+    UNVERIFIED rather than FAIL: prose behind its artifact is a step nobody ran,
+    not a check that failed, and `make judges` is the step.
+    """
+    script = REPO / "scripts" / "sync_docs.py"
+    if not script.exists():
+        return Check("judge document current", UNVERIFIED, "scripts/sync_docs.py is missing")
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--check"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return Check("judge document current", PASS, "every derived figure matches its artifact")
+
+    drifted = [
+        line.strip()
+        for line in (result.stdout + result.stderr).splitlines()
+        if line.strip() and not line.strip().startswith("->")
+    ]
+    return Check(
+        "judge document current",
+        UNVERIFIED,
+        "; ".join(drifted[:3]) or "sync_docs --check reported drift",
+        "make judges — the numbers a judge reads must be the numbers we published",
+    )
+
+
 def check_agent_advantage_report() -> Check:
     """The TermiX track's actual requirement, as a check that runs.
 
@@ -505,6 +745,9 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
         check_published_assumptions(),
         check_provisional_constants(),
         check_tape(),
+        check_rate_tape(),
+        check_badge_coverage(),
+        check_docs_current(),
         check_agent_advantage_report(),
         check_artifact_freshness(),
         check_burn_in(),
@@ -531,6 +774,10 @@ ENGINE_PATHS = (
     "packages/misquote/core/fees.py",
     "packages/misquote/core/types.py",
     "packages/misquote/core/liquidity.py",
+    # Router's half of the engine. `replay/` and `estimators/` above already
+    # cover its driver and its APR estimator; this is the types module whose
+    # refusals decide what a venue quote may say.
+    "packages/misquote/core/allocation.py",
 )
 
 # The artifacts whose numbers the replay engine produces. The others —
@@ -542,6 +789,11 @@ REPLAY_ARTIFACTS = (
     "warden.json",
     "grid.json",
     "sentinel.json",
+    # The fourth category. Added with the agent rather than after it: without
+    # this line Router's card would be the only published replay that could go
+    # stale against an engine change with nothing to notice, which is the exact
+    # question this check exists to ask.
+    "router.json",
     "advantage.json",
     "advantage_short.json",
 )

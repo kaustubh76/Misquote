@@ -157,7 +157,7 @@ export function AgentDetail({
   const e = d.estimators;
   const adv = d.advantage;
   const [poolLabel, poolAddress] = d.pool.split(" · ");
-  // Two of the three agents resolve to nothing here, and that is the correct
+  // Most agents resolve to nothing here, and that is the correct
   // answer rather than a lookup failure: the report has three tasks, one of
   // which is a choice between pools that nobody hired. See `lib/counterpart`.
   const counterpart = counterpartTask(d.agent, report);

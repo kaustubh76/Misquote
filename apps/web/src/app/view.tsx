@@ -7,6 +7,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
+import { RouterCard } from "@/components/RouterCard";
 import { AgentComparison } from "@/components/AgentComparison";
 import { Integrations } from "@/components/Integrations";
 import { NotBuiltCard } from "@/components/Ledger";
@@ -20,6 +21,7 @@ import {
   type BuildArtifact,
   type IndexArtifact,
   type Loaded,
+  type RouterArtifact,
 } from "@/lib/artifacts";
 
 type AgentSlot = {
@@ -121,13 +123,36 @@ export function OverviewView({
     agents && index?.ok
       ? agents.flatMap((slot) => {
           const ref = index.value.agents.find((a) => a.slug === slot.slug);
-          return ref && slot.result.ok ? [{ ref, data: slot.result.value }] : [];
+          if (!ref || !slot.result.ok) return [];
+          // Allocation agents are excluded, with the reason rendered below the
+          // table rather than left to inference. Their return is not
+          // commensurable with an LP's: there is no in-range fraction and no
+          // LVR, and a zero in either column would read as "never out of range,
+          // lost nothing to adverse selection" — the same argument that keeps a
+          // 404'd card out of this table instead of drawing it as a zero.
+          if ((slot.result.value as unknown as { kind?: string }).kind === "allocation") return [];
+          return [{ ref, data: slot.result.value }];
         })
       : [];
 
   // Read from the artifact, never typed — it is the threshold the in-range
   // verdict is called against, and `/methods` publishes it as one of the floors.
   const inRangeFloor = compared[0]?.data.floors?.in_range_floor;
+
+  // Agents kept off the comparison because their returns are not commensurable
+  // with an LP's. Named on the page rather than silently absent: a reader who
+  // counts four cards and three rows deserves to be told which one is missing
+  // and why, and "it is not on the table" is a claim that has to be defended.
+  const notCompared =
+    agents && index?.ok
+      ? agents.flatMap((slot) => {
+          const ref = index.value.agents.find((a) => a.slug === slot.slug);
+          if (!ref || !slot.result.ok) return [];
+          return (slot.result.value as unknown as { kind?: string }).kind === "allocation"
+            ? [ref.name]
+            : [];
+        })
+      : [];
 
   const venueSummary = venue?.ok ? venue.value : null;
   // Found by name rather than by index. `go_no_go.py` orders its checks and
@@ -215,6 +240,15 @@ export function OverviewView({
         {compared.length > 0 && (
           <div className="mb-8">
             <AgentComparison agents={compared} inRangeFloor={inRangeFloor} />
+            {notCompared.length > 0 && (
+              <p className="mt-3 mb-0 text-xs text-faint">
+                {notCompared.join(", ")} {notCompared.length === 1 ? "is" : "are"} not on this
+                table. {notCompared.length === 1 ? "It supplies" : "They supply"} to a lending
+                market rather than providing liquidity, so there is no in-range fraction and no
+                adverse-selection cost to compare — and a zero in those columns would read as a
+                claim rather than an absence.
+              </p>
+            )}
           </div>
         )}
 
@@ -227,19 +261,37 @@ export function OverviewView({
               // Per-card failure. One missing artifact costs one card — the
               // page this replaces used Promise.all, so a single 404 erased
               // every card and blamed it on the pipeline never having run.
-              return slot.result.ok ? (
+              if (!slot.result.ok) {
+                return (
+                  <ErrorNotice
+                    key={slot.slug}
+                    title={`${slot.name} card could not be loaded`}
+                    detail={slot.result.error.message}
+                    remedy="The other cards on this page are unaffected."
+                  />
+                );
+              }
+
+              // Allocation agents get their own card. Dispatching on the
+              // artifact's own `kind` rather than on the slug keeps the list of
+              // which agents are which in one place — the emitter — instead of
+              // two that have to agree.
+              if ((slot.result.value as unknown as { kind?: string }).kind === "allocation") {
+                return (
+                  <RouterCard
+                    key={slot.slug}
+                    ref_={ref_}
+                    data={slot.result.value as unknown as RouterArtifact}
+                  />
+                );
+              }
+
+              return (
                 <AgentCard
                   key={slot.slug}
                   ref_={ref_}
                   data={slot.result.value}
                   baseline={index.value.baseline}
-                />
-              ) : (
-                <ErrorNotice
-                  key={slot.slug}
-                  title={`${slot.name} card could not be loaded`}
-                  detail={slot.result.error.message}
-                  remedy="The other cards on this page are unaffected."
                 />
               );
             })}

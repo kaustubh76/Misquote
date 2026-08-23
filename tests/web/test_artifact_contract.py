@@ -157,7 +157,162 @@ AGENT_FIELDS: dict[str, str] = {
     "advantage.baseline.lvr_quote_upper_bound": "",
     "advantage.baseline.costs_quote": "AgentDetail.tsx",
     "advantage.baseline.moves": "AgentDetail.tsx",
+    # Per-card provenance. Not rendered by any view — it is read by
+    # `scripts/go_no_go.py`'s `check_artifact_freshness`, which asks whether a
+    # published card still describes the engine that exists and answers
+    # UNVERIFIED for any artifact recording no commit. Every card recorded none
+    # until this block was added: they were stamped by proxy through
+    # `build.json`, so the gate could not go green and its own stated remedy —
+    # regenerate them — could not clear it either.
+    "build.command": "",
+    "build.source": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
 }
+
+
+@pytest.fixture(scope="module")
+def router_artifact() -> dict:
+    path = ARTIFACTS / "router.json"
+    if not path.exists():
+        pytest.skip("no router card; run `make router-card`")
+    return json.loads(path.read_text())
+
+
+# Router's card, and the file expected to render each field.
+#
+# It shipped unguarded: `AGENT_FIELDS` above covers `warden.json` only, so the
+# newest emitter and the newest views could drift apart in either direction with
+# nothing to notice. This closes that, and it is a separate map rather than an
+# extension of `AGENT_FIELDS` because the two artifacts are deliberately
+# different shapes — see `RouterArtifact` in `lib/artifacts.ts`.
+ROUTER_FIELDS: dict[str, str] = {
+    "agent": "RouterDetail.tsx",
+    "kind": "app/view.tsx",  # the discriminator both surfaces dispatch on
+    "category": "RouterCard.tsx",
+    "venue": "RouterDetail.tsx",
+    "venues": "RouterDetail.tsx",
+    "source": "",  # carried for machine readers; the banner reads build.source
+    "counterfactual": "",
+    "badge": "RouterCard.tsx",
+    "quote_symbol": "",
+    "capital_quote": "",
+    "finding": "RouterCard.tsx",
+    "caveats": "RouterDetail.tsx",
+    "quote.p25": "RouterCard.tsx",
+    "quote.p50": "RouterCard.tsx",
+    "quote.p75": "RouterCard.tsx",
+    "quote.samples": "RouterDetail.tsx",
+    "quote.windows": "RouterDetail.tsx",
+    "quote.perturbations": "RouterDetail.tsx",
+    "quote.best_venue_p50": "",
+    "quote.switches_p50": "",
+    "quote.hours_per_window": "RouterDetail.tsx",
+    "quote.sufficient": "RouterCard.tsx",
+    "quote.note": "RouterCard.tsx",
+    "quote.annualised": "",
+    "quote.basis": "RouterCard.tsx",
+    "quote.net_positive": "RouterDetail.tsx",
+    "quote.returns": "",
+    "quote.max_edge_apr": "",
+    "quote.hurdle_apr": "",
+    "replay.samples": "RouterDetail.tsx",
+    "replay.hours": "",
+    "replay.entries": "RouterCard.tsx",
+    "replay.exits": "RouterCard.tsx",
+    "replay.switches": "RouterCard.tsx",
+    "replay.invested_fraction": "RouterDetail.tsx",
+    "replay.best_venue_fraction": "RouterDetail.tsx",
+    "replay.gross_yield_quote": "",
+    "replay.costs_quote": "",
+    "replay.net_quote": "",
+    "replay.max_edge_apr": "RouterDetail.tsx",
+    "replay.hurdle_apr_p50": "RouterCard.tsx",
+    "replay.best_apr_seen": "RouterCard.tsx",
+    "replay.breakeven_horizon_hours": "RouterDetail.tsx",
+    "params.horizon_hours": "",
+    "params.switch_cost_margin": "",
+    "params.persistence_samples": "",
+    "params.cooldown_s": "",
+    "params.max_switches_per_day": "",
+    "params.min_apr_samples": "",
+    "params.eps_market_share": "",
+    # The cost model, published because it decides the hurdle and therefore
+    # every other figure on this card. `basis` names each input's source and
+    # `derived` says whether any of them fell back — the distinction P-25 is
+    # about.
+    "cost_model.gas_quote": "RouterDetail.tsx",
+    "cost_model.slippage_bps": "RouterDetail.tsx",
+    "cost_model.derived": "RouterDetail.tsx",
+    "cost_model.basis": "RouterDetail.tsx",
+    # The comparison, in the same shape the LP cards carry it.
+    "advantage.delta_pp": "RouterCard.tsx",
+    "advantage.verdict": "RouterCard.tsx",
+    "advantage.material": "",
+    "advantage.ranges_overlap": "",
+    "advantage.separated": "",
+    "advantage.quotable": "",
+    "advantage.source": "",
+    "advantage.without_agent": "RouterDetail.tsx",
+    "advantage.baseline.p25": "RouterDetail.tsx",
+    "advantage.baseline.p50": "RouterDetail.tsx",
+    "advantage.baseline.p75": "RouterDetail.tsx",
+    "advantage.baseline.entries": "RouterDetail.tsx",
+    "advantage.baseline.switches": "RouterDetail.tsx",
+    "advantage.baseline.invested_fraction": "",
+    "advantage.baseline.gross_yield_quote": "",
+    "advantage.baseline.costs_quote": "RouterDetail.tsx",
+    "advantage.baseline.net_quote": "",
+    # Where the numbers came from. `make router` writes a journal and nothing
+    # read it, so Router was the only card with no provenance at all — in a repo
+    # where the Warden entrypoint argues that producing that journal is the
+    # point of having an entrypoint.
+    "provenance.journal": "RouterDetail.tsx",
+    "provenance.journal_rows": "RouterDetail.tsx",
+    "provenance.hours_covered": "RouterDetail.tsx",
+    "provenance.every_number_derived": "",
+    # Per-card provenance, read by `go_no_go.check_artifact_freshness`.
+    "build.command": "",
+    "build.source": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
+}
+
+
+def test_the_router_emitter_writes_exactly_the_contracted_fields(router_artifact: dict) -> None:
+    """Both directions, for the fourth card as for the first."""
+    actual = flatten(router_artifact)
+    declared = set(ROUTER_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the router emitter writes fields the contract does not declare — add "
+        f"them to ROUTER_FIELDS and render them, or stop emitting them: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        "the contract declares router fields the emitter no longer writes; a "
+        f"view is reading something that will be undefined: {sorted(undelivered)}"
+    )
+
+
+def test_every_contracted_router_field_is_read_by_the_named_view() -> None:
+    sources = _sources()
+    missing: list[str] = []
+    for path, renderer in ROUTER_FIELDS.items():
+        if not renderer:
+            continue
+        source = sources.get(renderer)
+        assert source is not None, f"{renderer} does not exist"
+        leaf = path.split(".")[-1]
+        if leaf not in strip_comments(source):
+            missing.append(f"{path} -> {renderer}")
+    assert not missing, (
+        f"contracted router fields are not read by the view named against them: {missing}"
+    )
 
 
 def test_emitter_writes_exactly_the_contracted_fields(agent_artifact: dict) -> None:
@@ -331,7 +486,22 @@ def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
         if isinstance(value, float):
             # Both renderings: `24.0` is written `24` by a page and `24.00` by
             # a formatter, and the old rule only ever built the second.
-            for text in (f"{value:.2f}", f"{value:g}"):
+            #
+            # The two-decimal form is only added when it is **lossless**. It was
+            # added unconditionally, so `0.0829` — a Router window return —
+            # entered the set as `"0.08"` and matched `Band.tsx`'s
+            # `pad = (hi - lo) * 0.08`, a layout constant that has nothing to do
+            # with any artifact. A *rounded* rendering is not the artifact's
+            # value: no page restates 0.0829 by writing 0.08, and treating a
+            # two-digit truncation as the thing itself produces a false
+            # accusation for every small decimal a card publishes.
+            #
+            # `24.0` still works, because `24.00` round-trips exactly.
+            renderings = [f"{value:g}"]
+            two_dp = f"{value:.2f}"
+            if float(two_dp) == value:
+                renderings.append(two_dp)
+            for text in renderings:
                 if text not in UNDISTINCTIVE and not _too_ambiguous(text):
                     literals.add(text)
         elif isinstance(value, int):

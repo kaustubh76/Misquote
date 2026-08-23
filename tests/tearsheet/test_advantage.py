@@ -304,8 +304,14 @@ def test_the_baseline_is_charged_the_same_cost_model_as_the_agent() -> None:
 def test_the_artifact_round_trips_and_carries_the_badge(comparisons) -> None:
     import json
 
-    payload = to_payload(comparisons, source="synthetic", capital=1000.0)
+    payload = to_payload(comparisons, source="synthetic", capital=1000.0, command="pytest")
     assert payload["source"] == "synthetic"
+    # Per-artifact provenance, not by proxy through build.json. `go_no_go`'s
+    # `check_artifact_freshness` answers UNVERIFIED for an artifact recording no
+    # commit, so an unstamped report could never clear that gate — and the
+    # gate's own stated remedy, regenerate it, could not clear it either.
+    assert payload["build"]["command"] == "pytest"
+    assert payload["build"]["source"] == "synthetic"
     assert payload["counterfactual"] is True
     assert "COUNTERFACTUAL" in payload["badge"]
     assert len(payload["tasks"]) >= 3
@@ -400,3 +406,266 @@ def test_a_quiet_venue_is_not_called_toxic_by_a_short_window() -> None:
     than an emergency computed from four swaps."""
     assert venue_toxicity(synthetic_events(5, seed=2), META) == 0.0
     assert venue_toxicity([], META) == 0.0
+
+
+def test_each_task_records_the_capital_it_actually_ran_at() -> None:
+    """A report-level capital would describe task 3 wrongly, and authoritatively.
+
+    Tasks 1 and 2 run at the report's figure. Task 3 cannot: A1's ceiling is a
+    property of the pool, and on the 0.25% tier the default breached it on 564
+    mints — A1 refuses such a quote rather than clamping it. The prose said so
+    already; a machine reading `capital_quote` off the artifact could not.
+    """
+    quote = Quote(
+        p25=1.0,
+        p50=2.0,
+        p75=3.0,
+        samples=40,
+        windows=20,
+        perturbations=3,
+        in_range_p50=0.8,
+        rebalances_p50=1.0,
+        hours_per_window=48.0,
+        sufficient=True,
+        note="",
+    )
+    tasks = [
+        compare(
+            task=f"t{i}",
+            category="trading",
+            venue="v",
+            metric="m",
+            without_agent=f"diy {i}",
+            with_agent="agent",
+            baseline_quote=quote,
+            agent_quote=quote,
+            source="chain",
+            capital_quote=cap,
+        )
+        for i, cap in enumerate((1.0, 1.0, 0.0318))
+    ]
+
+    payload = to_payload(tasks, source="chain", capital=1.0, command="pytest")
+    assert [t["capital_quote"] for t in payload["tasks"]] == [1.0, 1.0, 0.0318]
+    assert payload["capital_quote"] != 1.0, (
+        "one figure cannot describe a report whose tasks ran at two"
+    )
+    assert "per task" in str(payload["capital_quote"])
+
+
+def test_the_report_level_capital_survives_when_every_task_agrees() -> None:
+    """The disclosure must not fire when there is nothing to disclose."""
+    quote = Quote(
+        p25=1.0,
+        p50=2.0,
+        p75=3.0,
+        samples=40,
+        windows=20,
+        perturbations=3,
+        in_range_p50=0.8,
+        rebalances_p50=1.0,
+        hours_per_window=48.0,
+        sufficient=True,
+        note="",
+    )
+    tasks = [
+        compare(
+            task=f"t{i}",
+            category="trading",
+            venue="v",
+            metric="m",
+            without_agent=f"diy {i}",
+            with_agent="agent",
+            baseline_quote=quote,
+            agent_quote=quote,
+            source="chain",
+            capital_quote=1.0,
+        )
+        for i in range(3)
+    ]
+    assert to_payload(tasks, source="chain", capital=1.0, command="pytest")["capital_quote"] == 1.0
+
+
+def test_when_both_rules_pick_one_pool_the_delta_is_zero_not_a_finding() -> None:
+    """Measured on the real 30-day tapes: §3.4's imbalance arm fires on 41.9% of
+    samples on the flagship and 42.8% on the 0.25% tier — it does not separate
+    them, so the screen picks the pool depth already picked.
+
+    The honest report is that the two rules agreed. This pins the arithmetic of
+    that case: identical venue, identical capital, deterministic engine, so the
+    delta is exactly zero and lands below the materiality floor rather than
+    being dressed up as an agent result.
+    """
+    quote = Quote(
+        p25=1.0,
+        p50=2.0,
+        p75=3.0,
+        samples=40,
+        windows=20,
+        perturbations=3,
+        in_range_p50=0.8,
+        rebalances_p50=1.0,
+        hours_per_window=48.0,
+        sufficient=True,
+        note="",
+    )
+    same = compare(
+        task="Choose",
+        category="security",
+        venue="two venues — depth and the flow screen chose the same one",
+        metric="m",
+        without_agent="pick the deepest pool",
+        with_agent="pick by the flow screen — which is the pool depth chose too",
+        baseline_quote=quote,
+        agent_quote=quote,
+        source="chain",
+        capital_quote=0.0318,
+    )
+
+    assert same.delta == 0.0
+    assert not same.material, "zero cannot clear the materiality floor"
+    assert not same.separated
+    assert "indistinguishable" in same.verdict_line()
+
+
+# --- the evidence behind `moves` --------------------------------------------
+
+
+def test_the_move_parts_add_up_to_the_aggregate() -> None:
+    """`moves` is mints + recentres + pulls, and the parts are published.
+
+    The aggregate hides the mechanism. 498 moves reads as a busy agent; 249
+    mints beside 249 pulls and **zero recentres** reads as an agent that spent
+    its whole daily budget leaving and coming back. Only the second is what the
+    real tape showed, and only the second is a finding.
+    """
+    events = synthetic_events(600, seed=4, drift=0.4)
+    result = ReplayDriver(META, costs=CostModel(), capital_quote=1.0).run(MemoryTape(events))
+
+    c = task_earn(events, capital=1.0, venue="v", source="chain")
+    assert c.agent_mints + c.agent_recentres + c.agent_pulls == c.agent_moves
+    assert c.baseline_mints + c.baseline_recentres + c.baseline_pulls == c.baseline_moves
+    assert result.mints >= 0  # the driver is the source of those counters
+
+
+def test_distinct_returns_travels_with_the_quote() -> None:
+    """P-17 built this field so a reader can see the spread is hollow.
+
+    A5 counts each window three times under a +/-25% perturbation of (gamma,
+    kappa). When the anti-dust floor discards both, those three replays are one
+    replay — P-17 measured Warden at 23 distinct of 60. A band drawn from 20
+    results counted three times is narrower than the evidence supports, and this
+    report published nothing that would let anyone notice.
+
+    Tested against a constructed `Quote` rather than through the engine: the
+    contract added here is that `compare()` carries the field into the
+    comparison and the payload, and a 600-swap tape is legitimately withheld —
+    which would test the refusal path instead of this one.
+    """
+    quote = Quote(
+        p25=1.0,
+        p50=2.0,
+        p75=3.0,
+        samples=60,
+        windows=20,
+        perturbations=3,
+        in_range_p50=0.8,
+        rebalances_p50=1.0,
+        hours_per_window=48.0,
+        sufficient=True,
+        note="",
+        distinct_returns=23,
+    )
+    c = compare(
+        task="t",
+        category="trading",
+        venue="v",
+        metric="m",
+        without_agent="diy",
+        with_agent="agent",
+        baseline_quote=quote,
+        agent_quote=quote,
+        source="chain",
+    )
+
+    assert c.agent_distinct == 23
+    assert c.agent_distinct <= c.windows * 3, "cannot exceed the reported sample count"
+
+    payload = to_payload([c], source="chain", capital=1.0, command="pytest")
+    assert payload["tasks"][0]["agent"]["distinct_returns"] == 23
+    assert payload["tasks"][0]["baseline"]["distinct_returns"] == 23
+
+
+def test_a_withheld_quote_reports_no_distinct_results_rather_than_guessing() -> None:
+    """Nothing was measured, so the honest count is zero, not the sample count."""
+    withheld = Quote(
+        p25=0.0,
+        p50=0.0,
+        p75=0.0,
+        samples=0,
+        windows=20,
+        perturbations=3,
+        in_range_p50=0.0,
+        rebalances_p50=0.0,
+        hours_per_window=0.0,
+        sufficient=False,
+        note="0 usable replays",
+    )
+    c = compare(
+        task="t",
+        category="trading",
+        venue="v",
+        metric="m",
+        without_agent="diy",
+        with_agent="agent",
+        baseline_quote=withheld,
+        agent_quote=withheld,
+        source="chain",
+    )
+    assert not c.quotable
+    assert c.agent_distinct == 0
+
+
+def test_the_rate_divides_by_calendar_days_not_elapsed_span() -> None:
+    """ "Per day" has to mean what the budget means by it, or the report lies.
+
+    `core.position.rebalances_today` resets on the **UTC calendar day** of the
+    last move and says calendar days are what "per day" means to the operator
+    reading the parameter. Dividing by elapsed span instead put 32 cycles over a
+    2.6-day span at 12.3/day — against a cap of 8, which reads as the agent
+    breaching its own limit. Against the 4 calendar days it touched it is 8.0,
+    which is the cap being hit exactly.
+    """
+    events = synthetic_events(600, seed=4)
+    c = task_earn(events, capital=1.0, venue="v", source="chain")
+
+    first, last = events[0].ts, events[-1].ts
+    calendar = last // 86400 - first // 86400 + 1
+    elapsed = (last - first) / 86400.0
+
+    assert c.days == calendar
+    assert c.days >= elapsed, "calendar days can never be fewer than the span they cover"
+
+
+def test_every_venue_names_the_pool_by_address() -> None:
+    """The judged artifact was the one place a pool could not be resolved.
+
+    `warden.json`, `venue.json` and `vetting.json` all name their pools by
+    address; `advantage.json` named them by label alone. Two of the three
+    PancakeSwap tiers on WBNB/USDT carry the same pair name and different
+    protocol fees, so "PancakeSwap v3 WBNB/USDT 0.05%" is not something a reader
+    can check against chain without guessing.
+
+    It also makes the venue visible to `go_no_go.check_badge_coverage`, which
+    reads pool addresses out of published artifacts so that quoting a pool
+    nobody vetted fails the gate rather than a reader's attention.
+    """
+    import re
+
+    from advantage import venue_name
+    from misquote.chain.addresses import TARGET_POOL
+
+    named = venue_name(TARGET_POOL)
+    assert TARGET_POOL.address in named
+    assert TARGET_POOL.label in named
+    assert re.search(r"0x[0-9a-fA-F]{40}", named), "a venue must resolve to an address"

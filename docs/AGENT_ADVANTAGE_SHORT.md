@@ -38,7 +38,7 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 
 ### Earn — fees on a liquidity position
 
-- **Category:** trading · **Venue:** PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)
+- **Category:** trading · **Venue:** PancakeSwap v3 WBNB/USDT 0.05% · 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)
 - **Without an agent:** mint once at the same width, never touch it (passive_policy)
 - **With an agent:** Warden — Avellaneda–Stoikov recentring
 - **Metric:** net return on capital (fees − realized convexity cost − costs), P25–P75
@@ -47,7 +47,7 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 
 ### Protect — avoid being picked off by one-way flow
 
-- **Category:** security · **Venue:** PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)
+- **Category:** security · **Venue:** PancakeSwap v3 WBNB/USDT 0.05% · 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)
 - **Without an agent:** the same wide band, held through everything (withdrawal disabled)
 - **With an agent:** Sentinel — withdraw on §3.4 toxicity, re-enter after m_clear
 - **Metric:** net return on capital, P25–P75 (the cost of the withdrawals is charged in full)
@@ -56,19 +56,24 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 
 ### Choose — which pool to provide liquidity to
 
-- **Category:** security · **Venue:** two venues: deeper-but-one-way vs shallower-but-balanced
-- **Without an agent:** pick the deepest pool (the obvious heuristic: more TVL is safer)
-- **With an agent:** pick the pool whose flow is not one-way (§3.4 imbalance screen)
+- **Category:** security · **Venue:** two venues: a one-way venue (synthetic) vs a balanced venue (synthetic)
+- **Without an agent:** pick the deepest pool — a one-way venue (synthetic), 4.0x the median liquidity (the obvious heuristic: more TVL is safer)
+- **With an agent:** pick the pool whose flow is not one-way — a balanced venue (synthetic), where §3.4's imbalance arm fires on 0.7% of samples against 96.3% on the other
 - **Metric:** net return on capital of the same agent on the chosen venue, P25–P75
 
 **No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
 
 ## What would make this stronger
 
-- **A real tape.** These runs are labelled above. Free BSC endpoints refuse a
-  multi-day backfill — six hours of the target pool dies in 11 seconds with
-  `-32005 limit exceeded` — so the report needs a keyed `BSC_RPC_URL` before
-  the word *real* in the track's requirement is earned.
+- **A longer tape, and a second month.** Thirty days is one regime. The
+  caveat that used to sit here — that free BSC endpoints refuse a multi-day
+  backfill, so the word *real* had not been earned — is no longer true and
+  has been removed: both venues are indexed from chain over the same
+  5,802,928 blocks, and `make go-no-go` checks the coverage rather than the
+  span. What a keyed `BSC_RPC_URL` buys now is speed, not honesty.
+- **A verdict.** Three tasks is three observations, and `tearsheet.verdict`
+  refuses below thirty. The report says *no verdict* across all tasks and
+  means it; the per-task bands are what it will stand behind.
 - Every assumption behind these numbers is in [`ASSUMPTIONS.md`](ASSUMPTIONS.md);
   every deviation from the frozen spec, with its arithmetic, is in
   [`REQUIREMENTS_MATRIX.md`](REQUIREMENTS_MATRIX.md).

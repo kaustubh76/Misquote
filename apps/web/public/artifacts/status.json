@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-08-18T19:08:42+00:00",
+  "generated_at": "2026-08-23T08:14:02+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --fast --json",
     "source": "local checks",
-    "generated_at": "2026-08-18T19:08:42+00:00",
-    "git_sha": "fa185b4",
+    "generated_at": "2026-08-23T08:14:02+00:00",
+    "git_sha": "237c678",
     "git_dirty": true
   },
   "mainnet": false,
@@ -18,7 +18,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 118 deselected, 1 warning in 2.12s",
+      "detail": "7 passed, 163 deselected, 1 warning in 2.56s",
       "remedy": "",
       "blocking": false
     },
@@ -58,18 +58,39 @@
       "blocking": false
     },
     {
+      "name": "Venus rate tape",
+      "status": "PASS",
+      "detail": "2 market(s) read unbroken: vUSDT 16.0d, vUSDC 16.0d",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "badge coverage",
+      "status": "PASS",
+      "detail": "all 3 listed pools badged; 4 quoted by artifacts, all of them verified",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "judge document current",
+      "status": "PASS",
+      "detail": "every derived figure matches its artifact",
+      "remedy": "",
+      "blocking": false
+    },
+    {
       "name": "agent advantage report",
-      "status": "UNVERIFIED",
-      "detail": "0/3 tasks on chain data; not real: Earn, Protect, Choose",
-      "remedy": "the track says \"three real tasks\" \u2014 index every venue, then regenerate",
-      "blocking": true
+      "status": "PASS",
+      "detail": "4 tasks on a chain tape, all quotable",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "artifacts match the engine",
-      "status": "UNVERIFIED",
-      "detail": "build.json is 2 engine commit(s) behind bb1c644; warden.json records no commit; grid.json records no commit; sentinel.json records no commit; advantage.json records no commit; advantage_short.json records no commit",
-      "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
-      "blocking": true
+      "status": "PASS",
+      "detail": "7 replay artifacts, none generated before an engine change",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "24h testnet burn-in",
@@ -94,10 +115,10 @@
     }
   ],
   "summary": {
-    "pass": 6,
+    "pass": 11,
     "fail": 0,
-    "unverified": 5,
-    "total": 11
+    "unverified": 3,
+    "total": 14
   },
   "outcome": "NOT YET",
   "exit_code": 2

@@ -6,7 +6,7 @@ import type { NotBuiltEntry } from "@/lib/artifacts";
  * The things that were promised and do not exist.
  *
  * Rendered with the same weight as the things that do, because a marketplace
- * showing three agent cards and silently omitting the fourth category it
+ * showing fewer agent cards than it advertises categories and silently omitting the rest
  * advertises is misquoting by omission — which is the specific failure this
  * product is named after. `docs/FOR_JUDGES.md` leads with what is not proven;
  * this is that page's counterpart in the UI.

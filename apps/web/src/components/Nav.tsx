@@ -13,7 +13,7 @@ import { ROUTES } from "@/lib/routes";
  *
  * `/agent/warden` has no nav entry of its own, and the earlier rule — exact
  * match, plus a prefix match that `href === "/"` short-circuits out of —
- * returned nothing for it. So the three agent detail pages, which are a third
+ * returned nothing for it. So the agent detail pages, which are a large share
  * of the site's routes, highlighted **no nav item at all**, and a reader who
  * followed a card into one had nothing telling them where they had landed.
  * `scripts/check-pages.mjs` now fails on a page that marks nothing.

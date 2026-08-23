@@ -223,6 +223,100 @@ def assess(card: AgentCard) -> Assessment:
     )
 
 
+def wilson_interval(successes: int, trials: int, *, z: float = 1.96) -> tuple[float, float]:
+    """A 95% confidence interval for a share, by the Wilson score method.
+
+    ## Why an interval at all
+
+    The survey samples a few hundred of ~272,000 agents. "30% substantive" from
+    forty observations carries a 95% interval of roughly 18-46%, and a share
+    published without that is exactly the false precision this project is named
+    against — printed, of all places, on the card that criticises other
+    marketplaces for doing it.
+
+    ## Why Wilson and not the normal approximation
+
+    Because the normal interval is `p +/- z*sqrt(p(1-p)/n)`, which is **zero
+    wide** when `p` is 0 or 1. The placeholder rate in the first survey was
+    0 of 40, and the normal method would have reported that as certainty from
+    forty observations — a stronger claim than any amount of data of that size
+    can support. Wilson does not degenerate at the boundaries, and it is
+    well-behaved for the small samples this actually runs at.
+
+    Returns `(low, high)` clamped to [0, 1]. A sample of zero returns the whole
+    interval, which is the honest answer to a question nobody asked.
+    """
+    if trials <= 0:
+        return 0.0, 1.0
+
+    phat = successes / trials
+    denominator = 1.0 + z * z / trials
+    centre = (phat + z * z / (2 * trials)) / denominator
+    margin = (
+        z * ((phat * (1.0 - phat) / trials + z * z / (4.0 * trials * trials)) ** 0.5) / denominator
+    )
+    return max(0.0, centre - margin), min(1.0, centre + margin)
+
+
+def highest_agent_id(registry, *, ceiling: int = 2_000_000) -> int:
+    """The largest agent id the registry resolves, by binary search on `ownerOf`.
+
+    ## Why this is not `totalSupply()`
+
+    Because `totalSupply()` reverts on this contract — it is a 130-byte proxy and
+    not `ERC721Enumerable`, so the obvious read is unavailable and the population
+    has to be probed. `ownerOf` reverts for an unminted id and returns for a
+    minted one, which is exactly the predicate a binary search needs.
+
+    ## Why the population matters
+
+    The README's open D1 item says: *"ERC-8004 registry population counted on
+    BscScan. Decision rule: **< ~15 real agents** -> third-party auto-cards
+    demote immediately to a plain registry view."* Nobody had counted. Measured
+    on BSC mainnet, the answer is **270,765** — four orders of magnitude above
+    the number the rule was written around.
+
+    That figure is not recorded as a constant here on purpose. It moves every
+    time somebody registers an agent, and a constant would be a claim that goes
+    stale silently; a caller that wants the number reads it.
+
+    ## Why it is needed for sampling
+
+    `survey()` characterises the registry from a sample, and a sample is only
+    about the population it was drawn from. Drawing ids 1..800 out of 270,765
+    describes the oldest 0.3% of registrations — which are systematically the
+    ones most likely to differ — while reporting a share as though it were about
+    the registry. The bound is what makes an honest draw possible.
+
+    Assumes ids are contiguous from 1, which is what a mint-sequential ERC-721
+    gives. A registry with holes would make this a lower bound rather than the
+    maximum, and it is named for what it measures.
+    """
+
+    def exists(agent_id: int) -> bool:
+        try:
+            registry.owner(agent_id)
+        except Exception:  # noqa: BLE001 — a revert is the answer, not an error
+            return False
+        return True
+
+    if not exists(1):
+        return 0
+
+    low, high = 1, 1
+    while exists(high) and high < ceiling:
+        low, high = high, high * 4
+    high = min(high, ceiling)
+
+    while low + 1 < high:
+        mid = (low + high) // 2
+        if exists(mid):
+            low = mid
+        else:
+            high = mid
+    return low
+
+
 class IdentityRegistry:
     """Reads agent cards, resolving both URI shapes and refusing unsafe ones."""
 
@@ -338,6 +432,18 @@ class RegistrySurvey:
     declared_active: int
     on_chain_cards: int
 
+    # The agents themselves, not just how many of them there were.
+    #
+    # This aggregated and discarded the cards, which is all `/registry` needed
+    # while it rendered a single percentage. Listing third-party agents needs
+    # what each one actually says — and the listing is the more honest surface,
+    # because a share of 270,765 is a statistic and a card is a claim somebody
+    # made that a reader can go and check.
+    #
+    # Carried as (AgentCard, Assessment) pairs so the registration and our
+    # verdict on it travel together and cannot be recombined wrongly downstream.
+    agents: tuple[tuple[AgentCard, Assessment], ...] = ()
+
     @property
     def substantive_share(self) -> float:
         return self.substantive / self.sampled if self.sampled else 0.0
@@ -364,10 +470,12 @@ class RegistrySurvey:
 def survey(registry: IdentityRegistry, agent_ids) -> RegistrySurvey:
     """Assess a sample and report the aggregate, including the awkward parts."""
     sampled = resolvable = with_endpoint = placeholders = active = on_chain = substantive = 0
+    assessed: list[tuple[AgentCard, Assessment]] = []
 
     for agent_id in agent_ids:
         card = registry.card(agent_id)
         verdict = assess(card)
+        assessed.append((card, verdict))
         sampled += 1
         resolvable += verdict.resolvable
         with_endpoint += verdict.describes_a_service
@@ -384,6 +492,7 @@ def survey(registry: IdentityRegistry, agent_ids) -> RegistrySurvey:
         declared_active=active,
         on_chain_cards=on_chain,
         substantive=substantive,
+        agents=tuple(assessed),
     )
 
 

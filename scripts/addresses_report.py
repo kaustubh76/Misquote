@@ -43,14 +43,20 @@ NOTHING_RECORDED = (
 )
 
 
-def read_record(directory: Path, chain_id: int) -> dict[str, Any]:
-    """The record for one chain, with how old it is.
+def read_record(directory: Path, chain_id: int, prefix: str = "") -> dict[str, Any]:
+    """One recorded survey, with how old it is.
 
     The age is published; no freshness *verdict* is invented from it. How stale
     is too stale depends on what the reader is about to do with it, and a page
     that decided that for them would be asserting a policy nobody wrote down.
+
+    `prefix` selects which survey. This read `{chain_id}.json` and nothing else,
+    so `venus-56.json` and `erc8183-56.json` — written by `make venus-verify`
+    and `make erc8183-verify`, and **cited as the evidence** for two mainnet
+    escrow addresses and for the whole Yield category — were never republished
+    and carried no age anywhere. Evidence a reader cannot see is not evidence.
     """
-    path = directory / f"{chain_id}.json"
+    path = directory / f"{prefix}{chain_id}.json"
     if not path.is_file():
         return {"surveyed": False, "reason": NOTHING_RECORDED, "chain_id": chain_id, "checks": []}
 
@@ -81,6 +87,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     payload = read_record(Path(args.records), args.chain)
+    # The other two recorded surveys, published beside the PancakeSwap one and
+    # aged the same way. `verify_venus.py` gates the whole Yield category and
+    # `verify_erc8183.py` justifies two mainnet escrow addresses; both wrote
+    # their readings to this directory and nothing ever read them back, so the
+    # evidence strings in `registry/erc8183.py` pointed at files the site did
+    # not publish.
+    payload["venus"] = read_record(Path(args.records), args.chain, prefix="venus-")
+    payload["erc8183"] = {
+        str(chain): read_record(Path(args.records), chain, prefix="erc8183-") for chain in (56, 97)
+    }
     payload["build"] = provenance.build_stamp(
         f"python scripts/addresses_report.py --chain {args.chain}",
         source="chain reads recorded on disk",

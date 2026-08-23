@@ -345,6 +345,34 @@ DEFAULT_GAS_QUOTE = 3.0e-5
 DEFAULT_CAPITAL_QUOTE = 1.0
 
 
+#: The reserve factor to assume when the tape recorded no `NewReserveFactor`.
+#:
+#: `indexer/venus.reserve_factor_at` returns **None** rather than a default, and
+#: says why: *"Applying today's governance parameter to last month's history is
+#: the same class of error as reading a pool's protocol fee as a constant, which
+#: cost this repository a 1.515x overstatement (P-1)."* Every caller then wrote
+#: `else 0.1` — five copies of a bare literal, defeating the refusal the module
+#: had just made, and one of them (`scripts/advantage.py`) did not even record
+#: that it had substituted.
+#:
+#: One name, one basis, and the substitution stays disclosed: 0.1 is what both
+#: verified markets read at head block 117,226,038, and every card carries
+#: `reserve_factor_recorded` beside it so a reader can see whether the tape
+#: supported the figure or this constant did.
+DEFAULT_RESERVE_FACTOR = 0.1
+
+
+#: Seconds in a 365-day year. A definition rather than a measurement.
+#:
+#: It lives here because it had grown four spellings: `SECONDS_PER_YEAR` in both
+#: `estimators/apr.py` and `agents/router/policy.py`, a bare `8760.0` in
+#: `replay/allocation.py`, and `365 * 24` in `replay/ranges.py`. Four ways of
+#: writing one constant is three chances for them to stop agreeing, and the
+#: allocation module's copy of a *different* floor is what let it annualise an
+#: 84-hour window that `ranges.py` would have refused.
+SECONDS_PER_YEAR = 31_536_000
+
+
 # The notional of one swap on a synthetic tape, in **token0** — not token1, so
 # it does not carry the `_quote` suffix the rest of this file uses.
 #

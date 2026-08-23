@@ -6,7 +6,7 @@ import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { CheckList } from "@/components/CheckList";
-import { Section } from "@/components/Heading";
+import { Heading, Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
 import { Loadable } from "@/components/LoadingStatus";
 import { Pill } from "@/components/Pill";
@@ -35,6 +35,18 @@ export interface AddressArtifact {
   checks?: VettingCheck[];
   summary?: { checked: number; failed: number; unknown: number };
   build?: Build;
+  /**
+   * The other two recorded surveys, published beside the PancakeSwap one.
+   *
+   * `make venus-verify` gates the whole Yield category and `make erc8183-verify`
+   * justifies two mainnet escrow addresses. Both wrote their readings to
+   * `vetting/addresses/` and, for a while, `addresses_report.py` republished
+   * them into this artifact while nothing on this page read them — evidence a
+   * reader cannot see is not evidence, which is the exact sentence that
+   * emitter's own docstring uses.
+   */
+  venus?: AddressArtifact;
+  erc8183?: Record<string, AddressArtifact>;
 }
 
 interface VettingCheck {
@@ -414,6 +426,39 @@ export function VettingView({
                 names itself. Agreeing takes being the deployment.
               </p>
               <CheckList checks={narrow(addrs.value.checks)} />
+
+              {addrs.value.venus?.surveyed && (
+                <div className="mt-6 border-t border-line pt-4">
+                  <Heading className="mt-0 mb-1 text-sm font-semibold">
+                    Venus markets — the Yield category&rsquo;s gate
+                  </Heading>
+                  <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
+                    Router will not quote below two markets that pass all of these. The
+                    strong one is the same shape as above: a market&rsquo;s underlying
+                    matching a token this repository verified from the PancakeSwap side,
+                    months earlier and from the other direction.
+                  </p>
+                  <CheckList checks={narrow(addrs.value.venus.checks)} />
+                </div>
+              )}
+
+              {addrs.value.erc8183 &&
+                Object.entries(addrs.value.erc8183).map(([chain, record]) =>
+                  record?.surveyed ? (
+                    <div key={chain} className="mt-6 border-t border-line pt-4">
+                      <Heading className="mt-0 mb-1 text-sm font-semibold">
+                        ERC-8183 deployment, chain {chain}
+                      </Heading>
+                      <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
+                        These readings are why the hire flow has an address at all. The
+                        registry field in the vendor&rsquo;s table matches the one this
+                        repository verified independently, on both chains.
+                      </p>
+                      <CheckList checks={narrow(record.checks)} />
+                    </div>
+                  ) : null,
+                )}
+
               <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                 read {timestamp(addrs.value.read_at)}
                 {now !== null && <> · {hours(ageHours(addrs.value.read_at, now))} ago</>}

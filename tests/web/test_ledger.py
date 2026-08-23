@@ -150,11 +150,38 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
             "exists — update tearsheet/ledger.py"
         )
 
+    elif match := re.search(r"(\w+) is empty", raw_claim):
+        # "…/registry/erc8183.py — JOB_ESCROW is empty". The fifth form, added
+        # because two ledger entries turn on a *container* being empty rather
+        # than a file being absent, and the honest wording for those was outside
+        # the vocabulary. Wording it as a missing file would have been a claim
+        # about the wrong thing: `erc8183.py` is 300 lines of working code, and
+        # what is not built is the hire flow it cannot point anywhere.
+        #
+        # Imported and read rather than grepped, so the claim tracks the value
+        # the rest of the system sees. A regex would pass against a mapping
+        # populated further down the file.
+        #
+        # Matched on `raw_claim` for the same reason `does not import` is: the
+        # symbol is case-sensitive.
+        assert path.exists(), f"{path_text.strip()} no longer exists"
+        symbol = match.group(1)
+        module_name = (
+            path.relative_to(REPO / "packages").with_suffix("").as_posix().replace("/", ".")
+        )
+        module = importlib.import_module(module_name)
+        value = getattr(module, symbol, None)
+        assert value is not None, f"{module_name}.{symbol} no longer exists"
+        assert not value, (
+            f"{entry.name} is listed as blocked because {symbol} is empty, but "
+            f"{module_name}.{symbol} now holds {value!r} — update tearsheet/ledger.py"
+        )
+
     else:
         pytest.fail(
             f"{entry.name}'s evidence {entry.evidence!r} states no checkable claim. "
-            "Use 'empty directory', 'docstring only', 'no <file>.py', or "
-            "'does not import <Name>'."
+            "Use 'empty directory', 'docstring only', 'no <file>.py', "
+            "'does not import <Name>', or '<NAME> is empty'."
         )
 
 

@@ -259,7 +259,15 @@ export function Band({
 
             return (
               <div key={s.label}>
-                <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
+                {/* `flex-wrap`: the label and the range sit on one row until
+                    they cannot. Task 3's band reads "-620.55% – -617.83%" —
+                    twenty characters of tabular figures — and beside a label
+                    the row exceeded 390px and pushed the page 57px sideways.
+                    Wrapping is the right answer rather than truncating: the
+                    figures are the point, and an annualised short-window
+                    return is exactly the kind of number this project refuses
+                    to round away. */}
+                <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
                   <span className="flex items-center gap-1.5 text-dim">
                     <span
                       className={`inline-block h-2 w-2 rounded-full ${tone.dot}`}

@@ -100,15 +100,22 @@ def test_erc8183_carries_no_address_for_this_escrow() -> None:
     """The two modules agree, and what they agree on has changed.
 
     They used to hold the same address, and the test was that they had not
-    drifted. `erc8183.JOB_ESCROW` is empty now — the escrow is order-keyed by
-    bytes32 and implements none of the seven ERC-8183 calls — so the invariant
-    is the other way round: the address lives here, under the interface it
-    actually has, and must *not* reappear there without evidence of a different
-    kind than the one that was disproved.
+    drifted. Then `erc8183.JOB_ESCROW` was emptied — TermiX's escrow is
+    order-keyed by bytes32 and implements none of the seven ERC-8183 calls
+    (P-18) — and the invariant became "it must not reappear there".
+
+    It has still not reappeared. `JOB_ESCROW` is no longer empty, but what is in
+    it is a **different contract**: the AgenticCommerce kernel, which answers
+    `jobCounter()` and `paymentToken()` and carries 56,632 jobs. That is
+    evidence of exactly the different kind this test demanded, about a different
+    address — so the invariant is unchanged and now has something to bite on.
     """
     from misquote.registry.erc8183 import JOB_ESCROW
 
-    assert BSC_MAINNET not in JOB_ESCROW
+    termix = CONTRACTS[BSC_MAINNET]["TermixEscrow_USDT"]
+    assert JOB_ESCROW[BSC_MAINNET].lower() != termix.lower(), (
+        "the escrow disproved by P-18 is back in JOB_ESCROW"
+    )
     # Still recorded here, because the contract is real and the snapshot is what
     # `mismatches()` checks their live config against.
     assert CONTRACTS[BSC_MAINNET]["TermixEscrow_USDT"].startswith("0x")
@@ -228,3 +235,100 @@ def test_the_escrow_is_an_upgradeable_proxy_settling_in_our_usdt() -> None:
         ],
     )
     assert contract.functions.settlementToken().call().lower() == USDT_MAINNET.lower()
+
+
+# --- the check verify() was missing -----------------------------------------
+
+
+class _FakeEth:
+    """Enough chain to drive `verify()` without one.
+
+    `implements_erc8183` decides by whether three `eth_call`s revert, so a fake
+    that raises for all of them models a non-8183 escrow exactly, and one that
+    returns models the opposite.
+    """
+
+    def __init__(self, *, jobs_answer: bool) -> None:
+        self.jobs_answer = jobs_answer
+
+    def get_code(self, _address):
+        return b"\x60" * 200
+
+    def call(self, _tx):
+        if not self.jobs_answer:
+            raise ValueError("execution reverted")
+        return (0).to_bytes(32, "big")
+
+    def contract(self, **_kwargs):
+        class _Fn:
+            def name(self):
+                class _C:
+                    def call(self_inner):
+                        return "AgentIdentity"
+
+                return _C()
+
+        class _Contract:
+            functions = _Fn()
+
+        return _Contract()
+
+
+class _FakeW3:
+    def __init__(self, *, jobs_answer: bool) -> None:
+        self.eth = _FakeEth(jobs_answer=jobs_answer)
+
+    @staticmethod
+    def to_checksum_address(address):
+        return address
+
+    def contract(self, **kwargs):
+        return self.eth.contract(**kwargs)
+
+
+def _verify(*, jobs_answer: bool):
+    from misquote.registry import aacp
+
+    w3 = _FakeW3(jobs_answer=jobs_answer)
+    w3.eth.contract = w3.eth.contract  # noqa: PLW0127 — explicit, the fake is the point
+    return aacp.verify(w3, aacp.BSC_MAINNET)
+
+
+def test_verify_records_whether_the_escrow_implements_the_standard() -> None:
+    """The defect this test exists for is an omission, not a wrong value.
+
+    `verify()` checked four things — code present, identity registry is ours,
+    registry answers, settlement token is ours — and every one of them passed on
+    a contract that implements none of ERC-8183. The module's own instructions
+    said a passing `verify()` was what gated `JOB_ESCROW`, so following them
+    reproduced P-18. So this asserts the check is *present*, which is the
+    property that was missing.
+    """
+    evidence = _verify(jobs_answer=False)
+    names = [name for name, _, _ in evidence.checks]
+
+    assert "implements ERC-8183" in names, (
+        "verify() omits the one check that distinguishes a real escrow from an "
+        "ERC-8183 escrow — this is exactly the omission that caused P-18"
+    )
+
+
+def test_a_non_8183_escrow_cannot_produce_a_passing_verification() -> None:
+    """`Evidence.ok` is `all(...)`, so recording the check is enough to sink it.
+
+    Without this, the four true-but-irrelevant checks made `ok` true and the
+    caller was told to populate the mapping.
+    """
+    evidence = _verify(jobs_answer=False)
+
+    assert not evidence.ok
+    assert any("P-18" in detail for _, ok, detail in evidence.checks if not ok)
+
+
+def test_the_verification_can_still_pass_when_the_interface_is_there() -> None:
+    """A gate that can never go green says nothing. If an escrow ever does
+    answer the ERC-8183 accessors, `verify()` must be able to say so."""
+    evidence = _verify(jobs_answer=True)
+
+    assert evidence.ok, evidence.failures
+    assert ("implements ERC-8183", True) in [(n, ok) for n, ok, _ in evidence.checks]

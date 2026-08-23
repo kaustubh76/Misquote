@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { readArtifact } from "@/lib/build-artifact";
 import { AgentDetail } from "@/components/AgentDetail";
-import type { AdvantageArtifact, AgentArtifact } from "@/lib/artifacts";
+import { RouterDetail } from "@/components/RouterDetail";
+import type { AdvantageArtifact, AgentArtifact, RouterArtifact } from "@/lib/artifacts";
 
 
 /**
@@ -53,7 +54,7 @@ export function generateStaticParams() {
 
   // Never return an empty list: that would export zero agent pages and the
   // failure would look like a routing bug rather than a missing artifact.
-  return [{ slug: "warden" }, { slug: "grid" }, { slug: "sentinel" }];
+  return [{ slug: "warden" }, { slug: "grid" }, { slug: "sentinel" }, { slug: "router" }];
 }
 
 export default async function AgentPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -68,10 +69,18 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   // sign; the card names the other answer now, and it has to do so in the
   // static HTML rather than only after a fetch, because the no-JS export is
   // where a disclosure is least likely to be noticed missing.
+  // Dispatch on the artifact's own `kind` rather than on the slug. A slug check
+  // would be a second place that has to agree with the emitter about which
+  // agents are allocation agents; the artifact already says so.
+  const artifact = readArtifact<AgentArtifact & { kind?: string }>(`${slug}.json`);
+  if (artifact?.kind === "allocation") {
+    return <RouterDetail data={artifact as unknown as RouterArtifact} />;
+  }
+
   return (
     <AgentDetail
       slug={slug}
-      initial={readArtifact<AgentArtifact>(`${slug}.json`)}
+      initial={artifact}
       initialAdvantage={readArtifact<AdvantageArtifact>("advantage.json")}
     />
   );

@@ -43,6 +43,7 @@ from misquote.core.types import (
 )
 from misquote.ops.parallel import fork_map
 from misquote.replay.driver import CostModel, ReplayDriver
+from misquote.replay.ranges import DEFAULT_WINDOWS
 from misquote.replay.ranges import quote as compute_quote
 from misquote.replay.tape import MemoryTape
 from misquote.tearsheet import ledger, provenance
@@ -235,7 +236,7 @@ def run_agent(
         META,
         factory,
         capital_quote=capital,
-        windows=20,
+        windows=DEFAULT_WINDOWS,
         policy=policy,
         map_fn=fork_map(jobs) if jobs else None,
         on_progress=progress,
@@ -280,9 +281,21 @@ def emit(
     out_dir: Path,
     *,
     source: str,
+    command: str,
     baseline: dict | None = None,
 ) -> Path:
-    """Build the tearsheet and write the artifact, with the badge attached."""
+    """Build the tearsheet and write the artifact, with the badge attached.
+
+    `command` is stamped onto the card, and it is not decoration. `go_no_go`'s
+    `check_artifact_freshness` asks whether a published card still describes the
+    engine that exists, and it answers UNVERIFIED for any artifact that records
+    no commit — because "we cannot tell" and "it is current" are different
+    claims. Every card here recorded none: they were stamped by proxy through
+    `build.json`, which is one commit for five artifacts that are not
+    necessarily generated together. So the gate could never go green, and its
+    own stated remedy — regenerate them — could not clear it, because
+    regenerating wrote the same unstamped payload back.
+    """
     result = run["result"]
     quote = run["quote"]
     slug = run["name"].split()[0].lower()
@@ -378,6 +391,10 @@ def emit(
             },
         }
 
+    # Per-card, not by proxy. See the docstring: this is the field
+    # `check_artifact_freshness` reads, and it was absent from every card.
+    payload["build"] = provenance.build_stamp(command, source=source)
+
     path = out_dir / f"{slug}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -388,6 +405,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=str(REPO / "data" / "misquote.db"))
     parser.add_argument("--synthetic", type=int, default=0, help="use N synthetic swaps instead")
+    parser.add_argument(
+        "--fallback-synthetic",
+        type=int,
+        default=0,
+        help=(
+            "when the tape is empty, fall back to N labelled synthetic swaps "
+            "instead of refusing. The card still says `source: synthetic`."
+        ),
+    )
     parser.add_argument("--capital", type=float, default=DEFAULT_CAPITAL_QUOTE)
     parser.add_argument(
         "--jobs",
@@ -397,6 +423,12 @@ def main() -> int:
     )
     parser.add_argument("--out", default=str(REPO / "apps" / "web" / "public" / "artifacts"))
     args = parser.parse_args()
+
+    # One string, stamped onto every card and onto build.json, so a reader
+    # comparing two artifacts is comparing the same claim about the same run.
+    command = (
+        f"python scripts/showcase.py{f' --synthetic {args.synthetic}' if args.synthetic else ''}"
+    )
 
     tape_gaps: list[tuple[int, int]] | None = None
     if args.synthetic:
@@ -409,11 +441,29 @@ def main() -> int:
         source = "chain"
         if not events:
             print(f"no tape at {db}.")
-            print("  Run the backfill first, or pass --synthetic 4000 to see the pipeline work.")
-            print("  uv run python -m misquote.indexer.backfill --days 30")
-            print("  Free endpoints are enough: three of them serve eth_getLogs at 5,000")
-            print("  blocks a request, and a 30-day tape is about an hour. See P-11.")
-            return 1
+            if args.fallback_synthetic:
+                # One place decides.
+                #
+                # `showcase-auto` used to make this call itself with
+                # `[ -s "$(DB_PATH)" ]` — a **file size** test — and then invoke
+                # this script, which decides on **rows**. A database holding a
+                # schema and nothing else is non-empty on disk and empty as a
+                # tape, so the Makefile announced "tape found" and this printed
+                # "no tape" and exited 1, taking `make artifacts` with it.
+                #
+                # Two pieces of code answering one question in different units
+                # is the defect; moving the fallback here removes the second
+                # answer rather than correcting it.
+                print(f"  falling back to a labelled synthetic tape of {args.fallback_synthetic}.")
+                args.synthetic = args.fallback_synthetic
+                events = synthetic_events(args.synthetic)
+                source = "synthetic"
+            else:
+                print("  Run the backfill first, or pass --synthetic 4000 to see it work.")
+                print("  uv run python -m misquote.indexer.backfill --days 30")
+                print("  Free endpoints are enough: three of them serve eth_getLogs at 5,000")
+                print("  blocks a request, and a 30-day tape is about an hour. See P-11.")
+                return 1
 
         # The honest span is the blocks somebody *read*, not the distance between
         # the first event and the last. Those differ by exactly the size of any
@@ -471,7 +521,7 @@ def main() -> int:
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")
     for run in runs:
-        path = emit(run, journal_dir, out_dir, source=source, baseline=baseline)
+        path = emit(run, journal_dir, out_dir, source=source, command=command, baseline=baseline)
         result, quote = run["result"], run["quote"]
         print(f"  {run['name']}")
         print(f"    quote        {quote.render()}")
@@ -489,6 +539,25 @@ def main() -> int:
         print()
 
     index = out_dir / "index.json"
+
+    # Agents this script did not produce, preserved.
+    #
+    # This block used to be written wholesale, so every run deleted Router — an
+    # agent emitted by `scripts/router_showcase.py` — from the array that
+    # `/agent/[slug]` generates its routes from. The fourth category vanished
+    # from the site and no test noticed. Merging keeps the split between the two
+    # emitters without letting one of them silently un-publish the other.
+    kept: list[dict] = []
+    if index.exists():
+        try:
+            previous = json.loads(index.read_text()).get("agents", [])
+        except (OSError, json.JSONDecodeError):
+            previous = []
+        ours = {r["name"].split()[0].lower() for r in runs}
+        kept = [a for a in previous if a.get("slug") and a["slug"] not in ours]
+        if kept:
+            print(f"  keeping {', '.join(a['slug'] for a in kept)} from another emitter")
+
     index.write_text(
         json.dumps(
             {
@@ -505,7 +574,8 @@ def main() -> int:
                         "built": True,
                     }
                     for r in runs
-                ],
+                ]
+                + kept,
                 # The fourth category. Advertised in the README, absent from the
                 # code, and previously absent from the UI too — which made the
                 # omission invisible rather than disclosed.
@@ -532,7 +602,7 @@ def main() -> int:
     build.write_text(
         json.dumps(
             provenance.build_stamp(
-                f"python scripts/showcase.py{f' --synthetic {args.synthetic}' if args.synthetic else ''}",
+                command,
                 source=source,
                 events=len(events),
                 capital_quote=args.capital,

@@ -1,0 +1,123 @@
+{
+  "block": 117187851,
+  "chain_id": 56,
+  "checks": [
+    {
+      "detail": "1,508 bytes at 0xfD36E2c2a6789Db23113685031d7F16329158384",
+      "name": "comptroller has code",
+      "provenance": "A1",
+      "status": "PASS"
+    },
+    {
+      "detail": "getAllMarkets() returns 52 markets",
+      "name": "comptroller lists its markets",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "4,744 bytes at 0xfD5840Cd36d94D7229439859C0112a4185BC0255",
+      "name": "vUSDT has code",
+      "provenance": "A1",
+      "status": "PASS"
+    },
+    {
+      "detail": "market says 0xfd36e2c2a6789db23113685031d7f16329158384, config says 0xfD36E2c2a6789Db23113685031d7F16329158384",
+      "name": "vUSDT names the comptroller",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "vUSDT is in getAllMarkets()",
+      "name": "vUSDT is listed by the comptroller",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "underlying() returns 0x55d398326f99059ff775485246999027b3197955, which chain/addresses.py verified independently",
+      "name": "vUSDT underlying agrees with addresses.py",
+      "provenance": "V-15",
+      "status": "PASS"
+    },
+    {
+      "detail": "symbol() returns 'vUSDT', config says 'vUSDT'",
+      "name": "vUSDT symbol agrees",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "decimals() returns 8, config says 8 \u2014 the vToken's own, not the underlying's 18",
+      "name": "vUSDT vToken decimals agree",
+      "provenance": "V-16",
+      "status": "PASS"
+    },
+    {
+      "detail": "borrowIndex() is 1,501,211,336,155,601,162",
+      "name": "vUSDT has accrued interest",
+      "provenance": "V-17",
+      "status": "PASS"
+    },
+    {
+      "detail": "getCash() is 80,226,884 USDT",
+      "name": "vUSDT has cash to supply into",
+      "provenance": "V-17",
+      "status": "PASS"
+    },
+    {
+      "detail": "4,744 bytes at 0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8",
+      "name": "vUSDC has code",
+      "provenance": "A1",
+      "status": "PASS"
+    },
+    {
+      "detail": "market says 0xfd36e2c2a6789db23113685031d7f16329158384, config says 0xfD36E2c2a6789Db23113685031d7F16329158384",
+      "name": "vUSDC names the comptroller",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "vUSDC is in getAllMarkets()",
+      "name": "vUSDC is listed by the comptroller",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "underlying() returns 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d, which chain/addresses.py verified independently",
+      "name": "vUSDC underlying agrees with addresses.py",
+      "provenance": "V-15",
+      "status": "PASS"
+    },
+    {
+      "detail": "symbol() returns 'vUSDC', config says 'vUSDC'",
+      "name": "vUSDC symbol agrees",
+      "provenance": "V-14",
+      "status": "PASS"
+    },
+    {
+      "detail": "decimals() returns 8, config says 8 \u2014 the vToken's own, not the underlying's 18",
+      "name": "vUSDC vToken decimals agree",
+      "provenance": "V-16",
+      "status": "PASS"
+    },
+    {
+      "detail": "borrowIndex() is 1,515,551,898,793,208,835",
+      "name": "vUSDC has accrued interest",
+      "provenance": "V-17",
+      "status": "PASS"
+    },
+    {
+      "detail": "getCash() is 23,477,100 USDC",
+      "name": "vUSDC has cash to supply into",
+      "provenance": "V-17",
+      "status": "PASS"
+    }
+  ],
+  "markets_passing": 2,
+  "reason": "",
+  "summary": {
+    "checked": 18,
+    "failed": 0,
+    "unknown": 0
+  },
+  "surveyed": true,
+  "verdict": "PASS"
+}

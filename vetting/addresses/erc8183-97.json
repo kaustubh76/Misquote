@@ -1,0 +1,80 @@
+{
+  "chain_id": 97,
+  "checks": [
+    {
+      "detail": "130 bytes at 0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE",
+      "name": "commerce has code",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "130 bytes at 0xD7d36D66d2F1B608A0F943f722D27e3744f66F25",
+      "name": "router has code",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "4,413 bytes at 0x4F4678D4439feC812Ac7674Bb3Efb4C8f5Fb78A6",
+      "name": "policy has code",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "130 bytes at 0x8004A818BFB912233c491871b3d84c89A494BD9e",
+      "name": "registry has code",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "2,007 bytes at 0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+      "name": "paymentToken has code",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 596",
+      "name": "commerce.jobCounter() answers",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 0xc70b8741b8b07a6d61e54fd4b20f22fa648e5565",
+      "name": "commerce.paymentToken() answers",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 86400",
+      "name": "policy.disputeWindow() answers",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "SDK says 0x8004A818BFB912233c491871b3d84c89A494BD9e, we verified 0x8004A818BFB912233c491871b3d84c89A494BD9e",
+      "name": "registry agrees with erc8004.py",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "kernel returns 0xc70b8741b8b07a6d61e54fd4b20f22fa648e5565, table says 0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+      "name": "kernel names the table's payment token",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "jobCounter() is 596",
+      "name": "jobs created on this deployment",
+      "provenance": "P-24",
+      "status": "PASS"
+    }
+  ],
+  "reason": "",
+  "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
+  "summary": {
+    "checked": 11,
+    "failed": 0,
+    "unknown": 0
+  },
+  "surveyed": true,
+  "verdict": "PASS"
+}

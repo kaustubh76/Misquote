@@ -42,7 +42,12 @@ ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
 # publishes a delta should have to be added here deliberately, with whoever adds
 # it deciding what its span is.
 REPORTS = ("advantage.json", "advantage_short.json")
-CARDS = ("warden.json", "grid.json", "sentinel.json")
+# Router included: it is a card, it carries a `source`, and the whole point
+# of this file is that a card built from real flow and a card built from a
+# random walk must never be indistinguishable. Router reads a different tape
+# from the other three, which makes its disclosure more load-bearing rather
+# than less.
+CARDS = ("warden.json", "grid.json", "sentinel.json", "router.json")
 
 
 def _load(name: str) -> dict:
@@ -77,6 +82,12 @@ def test_every_published_advantage_records_its_tape(name: str) -> None:
     blob = _load(name)
     blocks = _deltas(blob)
 
+    quote = blob.get("quote")
+    if isinstance(quote, dict) and quote.get("sufficient") is False:
+        # Same reason: a refusing card compares nothing, and the refusal is
+        # what it is disclosing.
+        return
+
     assert blocks, (
         f"{name} publishes no delta_pp anywhere this test knows to look. Either "
         "it stopped comparing, or it grew a third shape for the comparison and "
@@ -110,11 +121,21 @@ def test_every_card_records_how_much_tape_it_read(name: str) -> None:
     band and a "bands do not overlap" separation on that basis.
     """
     blob = _load(name)
+
+    # A card that is *refusing* has no span to state, and that is the disclosure
+    # rather than a gap in it. Router publishes this shape when there is no rate
+    # tape — `make artifacts` must complete on a clean checkout, so the card
+    # withholds instead of the build aborting. Its note names the command that
+    # would fill it.
+    quote = blob.get("quote")
+    if isinstance(quote, dict) and quote.get("sufficient") is False:
+        assert quote.get("note"), f"{name} withholds its quote and does not say why"
+        return
+
     hours = blob.get("replay", {}).get("hours")
 
     assert isinstance(hours, (int, float)), (
-        f"{name} records no replay.hours, so the banner has no span to state "
-        "beside its source."
+        f"{name} records no replay.hours, so the banner has no span to state beside its source."
     )
     assert hours > 0, (
         f"{name} publishes a replay of {hours} hours. A band computed over no "
@@ -164,4 +185,75 @@ def test_the_disagreement_is_visible_rather_than_averaged() -> None:
         "cross-reference on those pages resolves to nothing. Either the report "
         "stopped naming agents in `with_agent`, or the cards stopped carrying "
         "`agent` — both would empty the banner without failing a page test."
+    )
+
+
+def test_a_synthetic_report_contains_no_chain_task() -> None:
+    """A report cannot be part constructed and part real without saying so.
+
+    `advantage.py`'s Route task reads the Venus rate tape from `--db`, which
+    defaults to the real database whatever `--synthetic` says. So
+    `make advantage-short` — the report whose whole purpose is *"the same three
+    tasks on too little history, which every one of them refuses to quote"* —
+    was about to gain a fourth task, from real chain data, that quotes fine.
+    The demonstration would have disproved itself.
+
+    `to_payload` already downgrades the report-level flag to `"mixed"` when the
+    tasks disagree, so the artifact would not have *lied*; it would have quietly
+    stopped being the thing it exists to be. This asserts the class rather than
+    the instance: whatever a report's own source says, no task may claim a
+    stronger one.
+    """
+    for name in REPORTS:
+        blob = _load(name)
+        report_source = blob.get("source")
+        if report_source != "synthetic":
+            continue
+        offenders = [
+            t.get("task", "<unnamed>") for t in blob.get("tasks", []) if t.get("source") == "chain"
+        ]
+        assert not offenders, (
+            f"{name} declares source={report_source!r} and carries chain-sourced "
+            f"task(s): {offenders}. A constructed report that reaches for a real "
+            f"tape is no longer the thing it was generated to demonstrate."
+        )
+
+
+def test_a_chain_report_carries_the_yield_task_when_a_rate_tape_exists() -> None:
+    """The category cannot go missing quietly.
+
+    `advantage.json` shipped with three tasks and `source: chain` while a Venus
+    rate tape sat on disk, because `task_route` caught an ImportError and
+    returned `None` — the same value it returns for "there is no tape". The
+    report was one category short and nothing said so.
+
+    The main track's stated requirement is all four categories at equal depth,
+    so a chain report that silently drops one is the failure this project is
+    named after, applied to its own deliverable.
+    """
+    blob = _load("advantage.json")
+    if blob.get("source") != "chain":
+        pytest.skip("the published report is not chain-sourced")
+
+    import sqlite3
+
+    db = REPO / "data" / "misquote.db"
+    if not db.exists():
+        pytest.skip("no database to check for a rate tape")
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        markets = conn.execute("SELECT count(DISTINCT market) FROM accrue").fetchone()[0]
+    except sqlite3.OperationalError:
+        pytest.skip("no accrue table")
+    finally:
+        conn.close()
+
+    if markets < 2:
+        pytest.skip(f"only {markets} market(s) on the rate tape — the task is legitimately absent")
+
+    names = [t.get("task", "") for t in blob.get("tasks", [])]
+    assert any(n.startswith("Route") for n in names), (
+        f"{markets} Venus markets have a rate tape and the chain report carries no "
+        f"Route task. Its tasks are {names}. A category that disappears without a "
+        f"stated reason is exactly what this report exists to argue against."
     )

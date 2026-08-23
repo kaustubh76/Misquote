@@ -13,6 +13,7 @@
       ],
       "cited_by": [
         "addresses.json",
+        "advantage.json",
         "vetting.json"
       ],
       "id": "A1",
@@ -117,7 +118,7 @@
       ],
       "id": "A6",
       "kind": "assumption",
-      "line": 165,
+      "line": 254,
       "source": "docs/ASSUMPTIONS.md",
       "title": "Showcase Mode is a labeled counterfactual"
     },
@@ -253,6 +254,159 @@
       "line": 149,
       "source": "docs/ASSUMPTIONS.md",
       "title": "Fees are prorated by how much of a swap happened inside the range"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Venus exposes `supplyRatePerBlock()`, a per-block mantissa. Turning it into an APR needs a blocks-per-year constant, and **that constant is not readable from chain**: the market's own `interestRateModel()` reverts on `blocksPerYear()`, `getBlocksPerYear()`, `blocksOrSecondsPerYear()` and `isTimeBased()` alike, and the Comptroller is an EIP-2535 diamond whose reverts prove nothing about what it implements.",
+          "type": "p"
+        },
+        {
+          "text": "Measured on vUSDT, 21 Aug 2026, mantissa 308,220,494:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "assumed blocks/year",
+            "implied supply APR"
+          ],
+          "rows": [
+            [
+              "10,512,000 \u2014 Venus's documented 3-second blocks",
+              "**0.324%**"
+            ],
+            [
+              "31,536,000 \u2014 one second",
+              "0.972%"
+            ],
+            [
+              "42,048,000 \u2014 0.75 s",
+              "1.296%"
+            ],
+            [
+              "70,080,000 \u2014 0.45 s",
+              "**2.160%**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "A **6.67\u00d7 spread**, entirely from a constant, landing on the number a yield router sorts by.",
+          "type": "p"
+        },
+        {
+          "text": "So Router does not read a rate. It differences the `borrowIndex` accumulator between two accruals, which needs no constant at all \u2014 only two block timestamps the indexer already fetches:",
+          "type": "p"
+        },
+        {
+          "text": "growth      = borrowIndex\u2081 / borrowIndex\u2080 \u2212 1\nutilisation = totalBorrowsPrior / (cashPrior + totalBorrowsPrior)\nsupply_apr  = growth \u00d7 utilisation \u00d7 (1 \u2212 reserveFactor) \u00d7 SECONDS_PER_YEAR / dt",
+          "type": "code"
+        },
+        {
+          "text": "**The two methods agree, and that is the check.** Realized supply APR measured across four window widths on vUSDT: 2.1583% (500 blocks), 2.1599% (2,000), 2.1594% (4,000), 2.1590% (4,999) \u2014 stable to within 0.002pp across a tenfold change in window, against a consistently measured **0.450 s/block**. The realized 2.159% and the quoted-at-0.45s 2.160% agree to three decimal places, which is what makes either trustworthy and which constant is right. `tests/estimators/test_apr.py` replays 172 real `AccrueInterest` logs and gets 2.1554%.",
+          "type": "p"
+        },
+        {
+          "text": "*What is assumed rather than measured:* that the trailing window is informative about the next interval. A rate is not a constant, and the estimate is backward-looking by construction.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "router.json"
+      ],
+      "id": "A12",
+      "kind": "assumption",
+      "line": 165,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Router quotes a realized rate, never a quoted one"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** The optimal boundary under a mean-reverting rate spread is strictly wider than break-even: paying to chase an edge that is about to close is a real loss, and the option to move later has value. Solving that free boundary needs a model of the spread this repository has not fitted and cannot fit honestly on a seven-day tape.",
+          "type": "p"
+        },
+        {
+          "text": "So Router compares the edge against `cost \u00d7 (1 + switch_cost_margin)`, annualised over a stated horizon, and additionally requires the edge to persist for `persistence_samples` consecutive samples. Both are a **stated approximation** of that widening, not a derivation of it \u2014 the same shape as A9, which records that equation (2) prices no adverse selection.",
+          "type": "p"
+        },
+        {
+          "text": "*The consequence, published rather than hidden \u2014 and corrected twice:*",
+          "type": "p"
+        },
+        {
+          "text": "This paragraph used to restate Router's result in prose, and was wrong within a day, twice. First it said the boundary was **never** crossed with a 16.4-day break-even \u2014 an artefact of two unmeasured cost constants (**P-25**). Then it said the agent enters once and never switches, which stopped being true the moment the rate tape grew from seven days to sixteen and the venues changed leadership.",
+          "type": "p"
+        },
+        {
+          "text": "So the numbers are no longer here. `docs/FOR_JUDGES.md` carries them in a block regenerated by `make judges` from the card itself, and the card is `apps/web/public/artifacts/router.json`. What this assumption is *about* does not move: the boundary is myopic break-even widened by a published margin, the edge must persist, and a move must clear a cooldown and a daily budget.",
+          "type": "p"
+        },
+        {
+          "text": "Lowering the margin until the agent trades would still be the fitting this project exists to refuse. Correcting a constant that was never measured is the opposite of that, and the direction it moved the result is not evidence either way.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "router.json"
+      ],
+      "id": "A13",
+      "kind": "assumption",
+      "line": 203,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The switching boundary is myopic break-even, widened by a stated margin"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Router's hurdle is `(2 x gas + notional x fee) x (1 + margin)`, annualised over the stated horizon. Every input is a reading or a labelled fallback:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "input",
+            "value",
+            "source"
+          ],
+          "rows": [
+            [
+              "swap fee",
+              "**1 bp**",
+              "`fee()` on the verified PancakeSwap USDT/USDC 0.01% pool, `0x92b7807b\u20263121`"
+            ],
+            [
+              "gas units",
+              "250,000",
+              "**stated**, not measured \u2014 a Compound-fork `mint`/`redeem` writes far less state than a v3 burn-collect-mint, and measuring it needs a transaction this project will not send"
+            ],
+            [
+              "gas price",
+              "0.05 gwei",
+              "`eth_gasPrice`, through the indexer's endpoint rotation; falls back to the measured prevailing rate and says so"
+            ],
+            [
+              "BNB in dollars",
+              "607.31",
+              "the swap tape's last observation of the verified WBNB/USDT pool \u2014 gas is priced in BNB and this agent's books are in dollars, and something has to bridge them"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The card carries the resulting `basis` string and a `derived` flag, so a reader can tell a measured cost from a fallback one. `SwitchCost` has **no default constructor**: the two defaults it used to have decided every figure Router published.",
+          "type": "p"
+        },
+        {
+          "text": "*What is assumed rather than measured:* the gas-unit count, and that a $10,000 swap on a pool holding 3.7e28 of liquidity moves the price by less than the fee \u2014 true by a wide margin here, and it would stop being true on a thin pair.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A14",
+      "kind": "assumption",
+      "line": 234,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "What a venue switch costs, and where each part of it comes from"
     },
     {
       "blocks": [
@@ -570,7 +724,7 @@
       ],
       "id": "G-1",
       "kind": "gap",
-      "line": 1168,
+      "line": 1641,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -605,7 +759,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 1169,
+      "line": 1642,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -642,7 +796,7 @@
       ],
       "id": "G-3",
       "kind": "gap",
-      "line": 1170,
+      "line": 1643,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -677,7 +831,7 @@
       "cited_by": [],
       "id": "G-4",
       "kind": "gap",
-      "line": 1171,
+      "line": 1644,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -694,6 +848,7 @@
       ],
       "cited_by": [
         "grid.json",
+        "router.json",
         "sentinel.json",
         "venue.json",
         "vetting.json",
@@ -701,7 +856,7 @@
       ],
       "id": "P-1",
       "kind": "correction",
-      "line": 396,
+      "line": 440,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "PancakeSwap takes 34% of every fee, and the spec never mentions it"
     },
@@ -715,7 +870,7 @@
       "cited_by": [],
       "id": "P-2",
       "kind": "correction",
-      "line": 410,
+      "line": 454,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Swap event amounts are gross of the fee"
     },
@@ -729,7 +884,7 @@
       "cited_by": [],
       "id": "P-3",
       "kind": "correction",
-      "line": 416,
+      "line": 460,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "LVR needs range clamping, worth up to 53\u00d7"
     },
@@ -747,7 +902,7 @@
       "cited_by": [],
       "id": "P-4",
       "kind": "correction",
-      "line": 424,
+      "line": 468,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) is an upper bound on LVR, not a model-free measurement"
     },
@@ -765,7 +920,7 @@
       "cited_by": [],
       "id": "P-5",
       "kind": "correction",
-      "line": 437,
+      "line": 481,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The isomorphism claim is stronger than the literature supports \u2014 **docs**"
     },
@@ -795,7 +950,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 1119,
+      "line": 1592,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -862,7 +1017,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 1074,
+      "line": 1547,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -976,7 +1131,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 1008,
+      "line": 1481,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1047,7 +1202,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 947,
+      "line": 1420,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1089,7 +1244,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 906,
+      "line": 1379,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1258,7 +1413,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 801,
+      "line": 1274,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1349,7 +1504,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 747,
+      "line": 1220,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1420,7 +1575,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 696,
+      "line": 1169,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -1479,7 +1634,7 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 656,
+      "line": 1129,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
@@ -1554,7 +1709,7 @@
       "cited_by": [],
       "id": "P-15",
       "kind": "correction",
-      "line": 612,
+      "line": 1085,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
@@ -1640,7 +1795,7 @@
       "cited_by": [],
       "id": "P-16",
       "kind": "correction",
-      "line": 564,
+      "line": 1037,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) clamps the holdings *and* the price; only one of those is right \u2014 **fixed 18 Aug 2026**"
     },
@@ -1742,7 +1897,7 @@
       "cited_by": [],
       "id": "P-17",
       "kind": "correction",
-      "line": 512,
+      "line": 985,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The Avellaneda\u2013Stoikov half-width never reaches the anti-dust floor \u2014 **18 Aug 2026**"
     },
@@ -1802,7 +1957,7 @@
           "type": "p"
         },
         {
-          "text": "**Resolution.** `JOB_ESCROW` is empty again and `escrow_address(56)` raises again. The rule that mapping states \u2014 *no entry without evidence* \u2014 is now applied to itself: it is for verified **ERC-8183** job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a result and deleting it would erase the correction along with the claim. What the contract *is* now lives in `registry/aacp.py:ESCROW_INTERFACE`, recorded as signature\u2192selector pairs so the naming can be re-derived rather than trusted.",
+          "text": "**Resolution.** `JOB_ESCROW` was emptied and `escrow_address(56)` raised. It carries two entries again \u2014 a different contract entirely, verified three ways on both chains. See P-24. The rule that mapping states \u2014 *no entry without evidence* \u2014 is now applied to itself: it is for verified **ERC-8183** job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a result and deleting it would erase the correction along with the claim. What the contract *is* now lives in `registry/aacp.py:ESCROW_INTERFACE`, recorded as signature\u2192selector pairs so the naming can be re-derived rather than trusted.",
           "type": "p"
         },
         {
@@ -1810,16 +1965,691 @@
           "type": "p"
         },
         {
-          "text": "**What this costs and what it buys.** The `/registry` page loses an escrow address, and the hire flow goes back to publishing a refusal. `steps()` is unaffected: it describes what ERC-8183 requires, and that description was never a claim about this contract. The six-transaction count still stands as the answer to every competitor's one-click Hire button \u2014 it is now, accurately, a statement about the standard rather than about a deployment.",
+          "text": "**What this costs and what it buys.** The `/registry` page loses an escrow address, and the hire flow goes back to publishing a refusal. `steps()` is unaffected: it describes what ERC-8183 requires, and that description was never a claim about this contract. The transaction count still stands as the answer to every competitor's one-click Hire button \u2014 it is now, accurately, a statement about the standard rather than about a deployment.",
+          "type": "p"
+        },
+        {
+          "text": "> **Superseded in part, 22 Aug 2026 \u2014 see P-24 and P-25.** Two things above are no longer current, > and the finding they rest on is. `TermixEscrow` still implements none of ERC-8183; that stands > without amendment. What changed is the conclusion drawn from it. A *different* contract \u2014 Altana's > AgenticCommerce kernel \u2014 passed the same three-way check on both BSC networks, so `/registry` does > not publish a refusal and `JOB_ESCROW` is not empty. And the count is **seven**, not six: checked > against a deployment rather than read off the Draft EIP, the flow has no `setProvider`, settles on > a separate EvaluatorRouter, and needs a `registerJob` nobody had modelled. This paragraph is left > as written because the reasoning was sound on the evidence it had, and deleting it would hide the > more useful lesson \u2014 *\"no verified deployment exists\"* and *\"we have not verified one\"* are > different sentences.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "index.json",
+        "registry.json"
+      ],
+      "id": "P-18",
+      "kind": "correction",
+      "line": 913,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The one ERC-8183 escrow we had verified does not implement ERC-8183 \u2014 **19 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Task 3 of the advantage report asks whether screening a pool before entering it beats picking the deepest one. Answering it on real data required a second real venue (WBNB/USDT 0.25%, `0x1401ff94\u2026`), and the first thing the second venue produced was a measurement of the screen itself.",
+          "type": "p"
+        },
+        {
+          "text": "**Section 3.4's imbalance arm, at the spec's own `z_pull = 2.5`, fires on:**",
+          "type": "p"
+        },
+        {
+          "head": [
+            "venue",
+            "median liquidity",
+            "imbalance fires on"
+          ],
+          "rows": [
+            [
+              "WBNB/USDT 0.05% (flagship)",
+              "1.29e24",
+              "**41.9%** of samples"
+            ],
+            [
+              "WBNB/USDT 0.25% (wide)",
+              "1.54e22 \u2014 **84\u00d7 shallower**",
+              "**42.8%** of samples"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Two pools that differ by two orders of magnitude in depth, on the same pair over the same 30 days, and the screen cannot tell them apart \u2014 0.9 percentage points, in the direction that makes the *deeper* pool look marginally cleaner. So the agent's due-diligence rule picks the same pool the naive \"more TVL is safer\" heuristic picks, and task 3's honest answer is that screening bought nothing here.",
+          "type": "p"
+        },
+        {
+          "text": "**This is P-7 again, on real flow rather than synthetic.** P-7 found the rule withdrawing roughly once every four hours on a driftless random walk \u2014 `|z| > 2.5` on 1.34% of 44,802 samples against \u22481.24% predicted by the null \u2014 and concluded the threshold's suitability \"depends on how much genuine toxic flow the real tape carries, which synthetic data cannot answer.\" The real tape answers it: **42%, on both venues.** A screen that fires on two samples in five is not selecting; it is describing BSC.",
+          "type": "p"
+        },
+        {
+          "text": "**What was *not* done about it.** `z_pull` was not retuned. It is spec section 8's published value, the spec is frozen, and moving a threshold because it produced an uninteresting result is precisely the fitting this project exists to refuse. The number is published instead, on the task it affects.",
+          "type": "p"
+        },
+        {
+          "text": "**What the report does with it.** Task 3 states that both rules chose the same venue, and the delta is exactly zero rather than a difference manufactured by handing the agent whichever pool depth did not take \u2014 which is what the code did before this, and which would have reported an advantage that was an artefact of the setup. The two columns are now each chosen by the rule that names them: depth by `venue_depth`, the screen by the same `ImbalanceEstimator` Sentinel withdraws on.",
+          "type": "p"
+        },
+        {
+          "text": "**Two other things the second venue exposed**, both of which would have rendered a confident number:",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**A1 refused it outright.** A1's ceiling is `eps x pool_liquidity` and therefore a property of the *pool*. At the report's default capital the wide tier breached on **564 mints**, and A1 says such a quote is *refused rather than rendered* \u2014 so task 3 would have published nothing at all. Both columns now run at a capital derived from the binding venue's ceiling (`core.liquidity.capital_for_liquidity_cap`, the exact inverse of the cap branch), and the report records it **per task**: one report-level `capital_quote` described task 3 wrongly while looking authoritative.",
+            "**The protocol fee differs again.** 3200 on the wide tier against 3400 on the flagship \u2014 P-8 a third time, three tiers of one pair, three different cuts. Each venue carries its own `PoolMeta`, because running both through one would credit the wide pool's liquidity providers with 66% of a fee they keep 68% of."
+          ],
+          "type": "ul"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-19",
+      "kind": "correction",
+      "line": 863,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "On real flow, \u00a73.4's imbalance screen does not separate two venues \u2014 **19 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "The first Agent Advantage Report generated from real chain data, and the headline is that hiring the agent **loses 64 percentage points** to doing nothing:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "task",
+            "DIY",
+            "agent",
+            "delta"
+          ],
+          "rows": [
+            [
+              "Earn",
+              "+4.78% to +27.21%",
+              "\u221252.10% to \u221249.97%",
+              "**\u221264.29pp**"
+            ],
+            [
+              "Protect",
+              "+9.38% to +14.94%",
+              "\u221224.16% to \u221223.85%",
+              "**\u221238.17pp**"
+            ],
+            [
+              "Choose",
+              "\u2212620.55% to \u2212617.83%",
+              "identical",
+              "+0.00pp"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Every number is real and none of them is a measurement of agents. From the artifact's own columns, Earn, on 1.0 of capital over 30.2 days:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "",
+            "moves",
+            "in range",
+            "fees",
+            "costs"
+          ],
+          "rows": [
+            [
+              "DIY (passive)",
+              "1",
+              "6.6%",
+              "0.0175",
+              "**0.0008**"
+            ],
+            [
+              "Warden",
+              "**498**",
+              "6.1%",
+              "0.0099",
+              "**0.0466**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The entire gap is transaction cost. **The first guess about why was wrong**, and instrumenting a replay rather than reasoning from the aggregate is what caught it.",
+          "type": "p"
+        },
+        {
+          "text": "**The wrong answer.** P-17 established that the A-S half-width never escapes the anti-dust floor, so the band is `w_min = 4 \u00d7 tick_spacing` = \u00b10.401% on the flagship. A band that narrow against 17% annualised volatility should be escaped constantly, forcing recentre after recentre \u2014 498 moves in 30 days looked like exactly that.",
+          "type": "p"
+        },
+        {
+          "text": "**The measurement.** Seven days of the real tape, with the policy instrumented to record every decision's gate terms:",
+          "type": "p"
+        },
+        {
+          "text": "MINT 65 \u00b7 PULL 65 \u00b7 RECENTRE 0 16 actions/day steady state = 8 pull-and-re-mint cycles, exactly max_rebalances_per_day re-entry blocked on 108,933 of 120,830 HOLD decisions = 90.2% of samples in_range 5.18%   costs 0.0129 over 7d on capital 1.0   fees 0.21x costs",
+          "type": "p"
+        },
+        {
+          "text": "**It never recentres. Not once in seven days.** The band width is not the mechanism, because the recentring path is never taken. When the agent *is* in market, R1, R2 and R3 each decline a recentre about 6,100 times apiece \u2014 drift, economics and budget all saying no.",
+          "type": "p"
+        },
+        {
+          "text": "**What actually happens** is three documented behaviours composing into one they do not describe:",
+          "type": "p"
+        },
+        {
+          "text": "1. **P-19** \u2014 \u00a73.4's imbalance arm fires on **41.9%** of real samples, so the agent pulls constantly. 2. **`decide()` gates re-entry and never exit**, deliberately, and says so: *\"an agent forbidden to exit because it had run out of budget would be held inside exactly the flow the rule exists to escape, and that is the one outcome worse than churning.\"* Leaving is free and always permitted. 3. **P-12** made the daily budget correctly persist across a pull \u2014 closing a real defect, where the counter used to reset on every re-entry.",
+          "type": "p"
+        },
+        {
+          "text": "Compose them and the day's eight actions are consumed entirely by *coming back*. Once spent, the agent cannot afford to re-enter and sits flat until tomorrow. It is out of market **90%** of the month, not because it is chasing price, but because it cannot pay to return. Gas alone is **67% of capital annualised** while fees cover **0.21\u00d7** of it.",
+          "type": "p"
+        },
+        {
+          "text": "**None of the three is a bug, and that is the point.** P-12's fix was right; the asymmetric budget is right and the comment defending it is correct; P-19's firing rate is the frozen spec's own `z_pull`. The defect is in the composition, and it is invisible in any of the three read alone \u2014 which is why it took a real tape and an instrumented replay rather than a code review.",
+          "type": "p"
+        },
+        {
+          "text": "**What was *not* done about it.** `z_pull` was not retuned and `max_rebalances_per_day` was not raised. Both are spec section 8's published values, the spec is frozen, and moving a parameter because it produced an unflattering number is the fitting this project exists to refuse. The report publishes the number **and derives it**, in a section computed from the comparison's own fields with no literals.",
+          "type": "p"
+        },
+        {
+          "text": "**What the report now shows.** `moves` is decomposed into mint / recentre / pull, because 498 reads as a busy agent while 249 / 0 / 249 reads as an agent spending its budget on exits \u2014 different findings, and only the second is what the tape says. And `distinct_returns` is published for the first time: P-17 created it so a reader could see A5's \u00b125% (\u03b3, \u03ba) perturbation collapse when the floor discards both parameters, and the deliverable the track judges had never carried it.",
+          "type": "p"
+        },
+        {
+          "text": "**Task 3 is a finding about a pool, not about an agent.** Its \u2212620% band is A1's ceiling forcing the position to 0.0318 \u2014 the ceiling is `eps \u00d7 pool_liquidity`, a property of the venue \u2014 while transaction costs stay fixed per action. At the largest size the 0.25% tier's own liquidity permits, fixed costs exceed plausible fee income by a factor of fifty. That is the due-diligence answer to *which pool should I provide liquidity to*: **not that one, at any size it can support.** Both columns share the capital, so the delta remains sound.",
           "type": "p"
         }
       ],
       "cited_by": [],
-      "id": "P-18",
+      "id": "P-20",
       "kind": "correction",
-      "line": 451,
+      "line": 786,
       "source": "docs/REQUIREMENTS_MATRIX.md",
-      "title": "The one ERC-8183 escrow we had verified does not implement ERC-8183 \u2014 **19 Aug 2026**"
+      "title": "The agent spends its whole daily budget leaving, and cannot afford to come back \u2014 **20 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "The README carries an open decision item, D1:",
+          "type": "p"
+        },
+        {
+          "text": "> ERC-8004 registry population counted on BscScan. Decision rule: **< ~15 real agents** \u2192 > third-party auto-cards demote immediately to a plain \"registry view\" and the narrative is > \"day-one marketplace for a day-one ecosystem.\"",
+          "type": "p"
+        },
+        {
+          "text": "Nobody counted. Measured on BSC mainnet by binary search on `ownerOf` \u2014 `totalSupply()` reverts, because the registry is a 130-byte proxy and not `ERC721Enumerable`:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "agent ids the registry resolves",
+            "**272,322**"
+          ],
+          "rows": [
+            [
+              "what D1 was written around",
+              "< ~15"
+            ],
+            [
+              "growth observed while working on this",
+              "~1,100 per hour, across three measurements 70 minutes apart"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The rule was not wrong to exist; it was never evaluated. A \"day-one ecosystem\" narrative was one unchecked assumption away from shipping beside a registry holding a quarter of a million registrations.",
+          "type": "p"
+        },
+        {
+          "text": "**Two defects kept the number unread.**",
+          "type": "p"
+        },
+        {
+          "text": "*The survey was gated on `BSC_RPC_URL`.* `registry_report.py` returned `surveyed: false` with the reason *\"no BSC_RPC_URL configured \u2014 no registry read was attempted\"* whenever the key was unset, which was always. The refusal was correct in shape and wrong in precondition: the survey reads `tokenURI` and `ownerOf`, which are `eth_call`, and every free BSC endpoint serves those. It is `eth_getLogs` the free endpoints ration \u2014 P-11 \u2014 and this makes none. So the registry went unsurveyed for the life of the project over a key it did not need, while `/registry` rendered an honest refusal that nobody had cause to question. It now falls back to `PUBLIC_RPCS`, the same list the indexer and the address verifier already walk.",
+          "type": "p"
+        },
+        {
+          "text": "*The sample was drawn from the front of the registry.* `rng.sample(range(1, sample * 20), sample)` \u2014 at the documented `--sample 40`, ids **1 to 800**. Against a population of 272,322 that is the oldest **0.3%**, and the oldest registrations are exactly the ones most likely to differ: the deployer's own tests, and the earliest adopters. It would have reported a share about the registry that was a share about its first fortnight. The bound is measured first now (`erc8004.highest_agent_id`) and the draw spans it.",
+          "type": "p"
+        },
+        {
+          "text": "**What the first survey found.** 40 ids spanning 19,659\u2013266,043, at block 117,023,742:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "card resolves",
+            "36 / 40",
+            "90%"
+          ],
+          "rows": [
+            [
+              "declares itself active",
+              "36 / 40",
+              "90%"
+            ],
+            [
+              "card is on chain (`data:` URI)",
+              "24 / 40",
+              "60%"
+            ],
+            [
+              "**describes a service**",
+              "**12 / 40**",
+              "**30%**"
+            ],
+            [
+              "**substantive**",
+              "**12 / 40**",
+              "**30%**"
+            ],
+            [
+              "looks like a placeholder",
+              "0 / 40",
+              "0%"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "Nine in ten registrations resolve and declare themselves active. **Three in ten name an endpoint you could actually call.** The gap between those two numbers is the whole finding: `declares_active` is a self-report and costs nothing, and a registry that is 90% \"active\" and 30% callable is exactly the kind of number a marketplace would otherwise print as \"270,000+ agents\".",
+          "type": "p"
+        },
+        {
+          "text": "`placeholders: 0` is not a clean bill of health \u2014 the heuristic catches repetition, and the junk here is not repetitive. Sampled agent 19,659 is named `\"57560\"` and its description is a 69-digit integer. `assess()` still refuses it, on the endpoint clause rather than the placeholder one, which is the right answer reached by a different route than expected.",
+          "type": "p"
+        },
+        {
+          "text": "**What was built on it.** D1's rule says auto-cards are viable above ~15 agents and 272,322 clears it, so third-party agents are now listed on `/registry` \u2014 and the listing is deliberately not shaped like our own agent cards. Ours carry a P25\u2013P75 range replayed from thirty days of chain history. A third party's cannot: we do not have its policy, so there is nothing to replay. Every listing says so on its face \u2014 *\"No quote \u2014 we cannot replay a policy we do not have\"* \u2014 and `tests/web/test_third_party_listings.py` asserts against the artifact that no field on a listing is performance-shaped, using a whitelist so a field nobody thought of is refused by default.",
+          "type": "p"
+        },
+        {
+          "text": "That refusal is the point of the surface. The gap it leaves is where every other marketplace puts a star rating.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-21",
+      "kind": "correction",
+      "line": 715,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "D1 was decided against a number nobody had read, and the survey that would have read it was gated on a key it did not need \u2014 **20 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Building Router's venue model meant reading a supply APR off Venus. The obvious source is `supplyRatePerBlock()`, which returns a per-block mantissa \u2014 and converting that to an annual figure needs blocks-per-year.",
+          "type": "p"
+        },
+        {
+          "text": "**That constant is not readable from the chain.** Probed on vUSDT's own interest rate model (`0x2cf0E211c99dfD28892cF80d142Aa27a9042dbf4`): `blocksPerYear()`, `getBlocksPerYear()`, `blocksOrSecondsPerYear()` and `isTimeBased()` **all revert**. The Comptroller cannot answer either, and its reverts are not evidence \u2014 `supplyCaps(address)` fails with `Diamond: Function does not exist`, because the Unitroller is EIP-2535 and dispatches per facet.",
+          "type": "p"
+        },
+        {
+          "text": "So the number is a choice, and the choice moves the answer by more than six-fold:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "assumed blocks/year",
+            "implied supply APR (mantissa 308,220,494)"
+          ],
+          "rows": [
+            [
+              "10,512,000 \u2014 Venus's own documented 3-second blocks",
+              "**0.324%**"
+            ],
+            [
+              "31,536,000 \u2014 one second",
+              "0.972%"
+            ],
+            [
+              "42,048,000 \u2014 0.75 s",
+              "1.296%"
+            ],
+            [
+              "70,080,000 \u2014 0.45 s",
+              "**2.160%**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**Resolution.** Do not read a rate; difference an accumulator. `borrowIndex` is monotone and every other input \u2014 `cashPrior`, `interestAccumulated`, `totalBorrows` \u2014 is inside the `AccrueInterest` log itself, so a realized rate can be recomputed from the tape with no constant at all and no chain state re-read. Implemented in `packages/misquote/estimators/apr.py`, published as **A12**.",
+          "type": "p"
+        },
+        {
+          "text": "**And the two methods agree, which is what makes either one trustworthy.** Realized supply APR across four window widths on vUSDT: 2.1583% / 2.1599% / 2.1594% / 2.1590% \u2014 stable to 0.002pp across a tenfold change in window \u2014 against a measured **0.450 s/block**, consistent to three decimals across every window. The realized figure and the quoted-at-0.45s figure agree; Venus's documented 3-second constant understates the rate by 6.67\u00d7.",
+          "type": "p"
+        },
+        {
+          "text": "Two decoding traps were met on the same reads and are recorded with it:",
+          "type": "p"
+        },
+        {
+          "items": [
+            "**`vBNB.underlying()` returns zero bytes, not `address(0)`.** The market holds native BNB and the getter does not exist on it. A tolerant decoder maps it to the zero address and carries on. `scripts/verify_venus.py::_decode` raises instead.",
+            "**Several `uint256` getters return 96 bytes, not 32.** `getCash()`, `supplyRatePerBlock()` and `exchangeRateStored()` each returned three words where the ABI declares one, while `borrowIndex()`, `totalBorrows()` and `reserveFactorMantissa()` returned one. The value is word 0 in every case, cross-checked against the accrual logs. Asserting `len == 32` would refuse three live getters; indexing by an unchecked position is **P-8** all over again."
+          ],
+          "type": "ul"
+        }
+      ],
+      "cited_by": [
+        "router.json"
+      ],
+      "id": "P-22",
+      "kind": "correction",
+      "line": 672,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The yield number every lending frontend quotes depends on a constant that is not on chain \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`docs/AGENT_ADVANTAGE.md` reports the Warden **losing** to a passive baseline on both tasks where the two differ: \u221264.29pp on Earn, \u221238.17pp on Protect. The proximate cause is visible in the card \u2014 the agent is in range **6.1%** of samples and makes 249 mints against 249 pulls. It opens a position and closes it again almost every step, and the costs of doing that are the loss.",
+          "type": "p"
+        },
+        {
+          "text": "The question worth asking is *why the pull fires that often*, and the answer is a calibration mismatch rather than a coding defect.",
+          "type": "p"
+        },
+        {
+          "text": "Spec \u00a73.4's second arm is `|imb_t| > z_pull`, with `z_pull = 2.5` over `M = 50` swaps. `estimators/imbalance.py` computes `z = \u03a3s / sqrt(\u03a3s\u00b2)`, which is standardised **under a permutation null**: each swap's direction an independent fair coin, magnitudes held as observed. Under that null `|z| > 2.5` is a rare event, and 2.5 reads as a sensible threshold.",
+          "type": "p"
+        },
+        {
+          "text": "**Measured on the 30-day chain tape \u2014 252,874 samples with a ready estimator:**",
+          "type": "p"
+        },
+        {
+          "head": [
+            "statistic",
+            "value"
+          ],
+          "rows": [
+            [
+              "median \\",
+              "z\\",
+              "",
+              "**2.179**"
+            ],
+            [
+              "p75",
+              "3.190"
+            ],
+            [
+              "p90",
+              "3.905"
+            ],
+            [
+              "p95",
+              "4.264"
+            ],
+            [
+              "p99",
+              "4.801"
+            ],
+            [
+              "ceiling, sqrt(M)",
+              "7.071"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "head": [
+            "threshold",
+            "fires on"
+          ],
+          "rows": [
+            [
+              "\\",
+              "z\\",
+              "> 2.0",
+              "54.41% of samples"
+            ],
+            [
+              "**\\",
+              "z\\",
+              "> 2.5 (the spec's)**",
+              "**41.94%**"
+            ],
+            [
+              "\\",
+              "z\\",
+              "> 3.0",
+              "29.46%"
+            ],
+            [
+              "\\",
+              "z\\",
+              "> 3.5",
+              "17.68%"
+            ],
+            [
+              "\\",
+              "z\\",
+              "> 4.0",
+              "8.49%"
+            ],
+            [
+              "\\",
+              "z\\",
+              "> 5.0",
+              "0.51%"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The median sample sits essentially **on** the threshold. Real AMM order flow is persistently one-way over fifty-swap windows \u2014 it trends \u2014 so the fair-coin null badly understates the variance of `\u03a3s`, and a threshold chosen against that null classifies ordinary conditions as toxic. The rule intended to catch exceptional adverse selection fires on nearly half of all market conditions, the position spends 94% of its life withdrawn, and the re-entry cost is charged every time.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec \u2014 *\"if code and spec conflict, the spec wins; flag it\"* \u2014 and `docs/FOR_JUDGES.md` states the stronger rule that moving a parameter because it produced an unflattering result is the fitting this project exists to refuse. So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the explanation rather than an excuse**: the loss is real, and its cause is a threshold whose null does not describe the data.",
+          "type": "p"
+        },
+        {
+          "text": "What a calibrated threshold would look like is recorded here and **not** implemented: the table above says `|z| > 4.0` is the 8.5% tail and `|z| > 4.8` the 1% tail. Choosing between them is a spec change, which is a decision for the spec's owner and not for the run that noticed.",
+          "type": "p"
+        },
+        {
+          "text": "*Related:* **V-11** \u2014 the same arm had never fired at all before Sentinel was built, because the engine passed a hardcoded `0.0`. It went from never firing to firing 42% of the time, and neither state was ever measured against the tape until now.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-23",
+      "kind": "correction",
+      "line": 616,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The toxicity threshold was calibrated against a null that real flow violates, and it is why the agent loses \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`registry/erc8183.py` kept `JOB_ESCROW` empty on the stated grounds that *\"the EIP is Draft and lists no reference deployment addresses at all\"*. Every word of that is true, and it was the wrong question. The EIP publishes none; **the ecosystem does**. `@altananetwork/sdk@0.8.0` ships an `ERC8183_ADDRESSES` table with a kernel, an EvaluatorRouter, an OptimisticPolicy, a registry and a payment token for BSC mainnet *and* testnet, and this repository had never read it.",
+          "type": "p"
+        },
+        {
+          "text": "One field in that table was independently checkable and checked out immediately: the `registry` entry is byte-identical to `erc8004.IDENTITY_REGISTRY` on **both** chains \u2014 an address arrived at here from the PancakeSwap side, months earlier. That is a reason to look, not a reason to believe, so `scripts/verify_erc8183.py` looked, the same three ways `verify_venus.py` does.",
+          "type": "p"
+        },
+        {
+          "text": "**Every check passed, on both chains.**",
+          "type": "p"
+        },
+        {
+          "head": [
+            "",
+            "chain 56",
+            "chain 97"
+          ],
+          "rows": [
+            [
+              "kernel bytecode",
+              "130 bytes (proxy)",
+              "130 bytes"
+            ],
+            [
+              "EvaluatorRouter / OptimisticPolicy",
+              "130 / 4,413 bytes",
+              "130 / 4,413"
+            ],
+            [
+              "payment token",
+              "2,007 bytes",
+              "2,007"
+            ],
+            [
+              "`jobCounter()`",
+              "**56,632**",
+              "581"
+            ],
+            [
+              "`disputeWindow()`",
+              "604,800s (7 days)",
+              "86,400s (1 day)"
+            ],
+            [
+              "kernel's `paymentToken()` vs the table",
+              "agrees",
+              "agrees"
+            ],
+            [
+              "table's `registry` vs `erc8004.py`",
+              "byte-identical",
+              "byte-identical"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**56,632 jobs** is the number that separates this from the previous candidate. P-18's finding stands without amendment \u2014 `TermixEscrow` is a real, USDT-settling escrow that implements none of ERC-8183 \u2014 but the conclusion drawn *from* it, that no verified deployment existed anywhere, was a claim about our own search rather than about the chain.",
+          "type": "p"
+        },
+        {
+          "text": "**Three corrections to `steps()`, which had modelled the EIP rather than a deployment:**",
+          "type": "p"
+        },
+        {
+          "text": "1. **There is no `setProvider`.** The provider is an argument to `createJob`. This module's own docstring had already deduced that from TermiX's bytecode and never followed it through to the sequence. `steps(provider_known_at_creation=False)` now raises instead of pricing a shape the deployment does not support. 2. **Settlement is on a second contract.** `registerJob` and `settle` live on the EvaluatorRouter, not the kernel. A client sending all seven transactions to one address reverts on the third. 3. **The accessors are `jobCounter()` / `getJob(uint256)`**, not `nextJobId()` / `jobs(uint256)`. P-18 probed for the second pair and found neither \u2014 right about the contract, and partly wrong about the names.",
+          "type": "p"
+        },
+        {
+          "text": "The published transaction count therefore moves from **six to seven**, five of them the client's, and it is still derived from `len(steps())` rather than written down.",
+          "type": "p"
+        },
+        {
+          "text": "**What did not change.** Nothing here signs. The hire button still does not exist and the ledger entry still discloses it \u2014 escrowing a job means five signed transactions moving real USDT, which is the same gate that keeps `make warden` on the recording executor.",
+          "type": "p"
+        },
+        {
+          "text": "*The lesson worth keeping:* the refusal was correct and the reason attached to it was not. \"No verified deployment exists\" and \"we have not verified a deployment\" are different sentences, and this file had been publishing the first while only the second was supported.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "addresses.json",
+        "index.json"
+      ],
+      "id": "P-24",
+      "kind": "correction",
+      "line": 563,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "There was a verified ERC-8183 deployment the whole time, and nobody had looked \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "`replay/allocation.SwitchCost` shipped as two bare literals:",
+          "type": "p"
+        },
+        {
+          "text": "gas_quote: float = 0.30\nslippage_bps: float = 5.0",
+          "type": "code"
+        },
+        {
+          "text": "Neither had a source. `slippage_bps` was numerically identical to `replay/driver.CostModel.slippage_bps` \u2014 an estimate for a **WBNB/USDT** recentre \u2014 while its docstring claimed to be *\"the full pool fee for swapping one underlying into the other\"*. **There was no USDT/USDC pool anywhere in this repository**, so no fee tier was ever consulted. The constant simply wore the argument.",
+          "type": "p"
+        },
+        {
+          "text": "PancakeSwap runs USDT/USDC at the **0.01% tier** \u2014 `0x92b7807bF19b7Dddf89b706143896d05228f3121`, verified three ways on 22 Aug 2026: 22,962 bytes of bytecode, `fee()` = 100, `tickSpacing()` = 1, and a `factory()` equal to the one `addresses.py` verified independently. **One basis point, not five**, and roughly ten times the depth of the 0.05% pool.",
+          "type": "p"
+        },
+        {
+          "text": "`gas_quote = 0.30` was worse. `core/types.DEFAULT_GAS_QUOTE = 3.0e-5` exists, and `chain/live_source.py:278` derives it live as `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`. Neither was used. 250,000 gas units at BSC's measured 0.05 gwei, with BNB read from the indexed WBNB/USDT pool at $607.31, is **$0.0076** \u2014 about **forty times** less than the literal.",
+          "type": "p"
+        },
+        {
+          "text": "**What those two numbers decided.** Everything \u2014 the hurdle, whether the agent ever supplied, and the published quote:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "",
+            "before",
+            "after"
+          ],
+          "rows": [
+            [
+              "round-trip hurdle",
+              "5.84%",
+              "**1.06%**"
+            ],
+            [
+              "entries / switches",
+              "0 / 0",
+              "it supplies, and moves when the edge clears"
+            ],
+            [
+              "published quote",
+              "0.00% \u2013 0.00%",
+              "a real return on supplied capital"
+            ],
+            [
+              "vs parking",
+              "*\"beats parking by 3.90pp\"*",
+              "**indistinguishable**"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "The \"after\" column is deliberately unquantified beyond the hurdle. An earlier version of this table carried eight exact figures and **six of them were stale within a day** \u2014 the rate tape grew from seven days to sixteen, the venues changed leadership, and the annualisation gate added in the same round flipped the published quote between a period figure and an annual one. The live numbers are in `docs/FOR_JUDGES.md`'s derived block, regenerated by `make judges` from the card. A matrix entry is a record of *what was wrong and why*; it is not a second place to keep the current figures.",
+          "type": "p"
+        },
+        {
+          "text": "The card said Router never supplied, and gave a 16-day break-even as the reason. Both were artefacts. The agent had been priced out of its own market by a fee copied from a different pair.",
+          "type": "p"
+        },
+        {
+          "text": "**A third input compounded it.** `_move_cost` charged the full pool fee on *every* move, including `park_policy`'s single ENTER \u2014 and entering vUSDT from a dollar position that is already USDT swaps nothing. That phantom fee was 5.0 of the baseline's 5.6 total cost, so **roughly nine tenths of the advertised 3.90pp advantage was a charge the baseline would never have paid**. `replay/driver._move_cost` has carried the equivalent branch since P-18; this one had none.",
+          "type": "p"
+        },
+        {
+          "text": "**Resolution.** `SwitchCost` has **no defaults** \u2014 constructing one without inputs raises, naming this finding. `SwitchCost.from_venue()` takes the fee from the verified pool's own `fee_pips`, gas from a unit count times a gas price, and a native-token price to bridge BNB into dollars; every result carries a `basis` string and a `derived` flag, and the card publishes both. `chain/costs.py` is the IO half that fetches them \u2014 gas price through the indexer's endpoint rotation, BNB/USD from the swap tape's last observation of the pool this project already verifies and indexes.",
+          "type": "p"
+        },
+        {
+          "text": "**This is P-13 in a new venue, and the sentence P-13 ends with applies unchanged:** *\"the quote it produced was a statement about this constant rather than about the strategy.\"* The lesson that did not transfer is that a cost model is not boilerplate to copy between agents \u2014 it is the thing being measured, and every field of it needs a reading behind it or a label saying there is not.",
+          "type": "p"
+        },
+        {
+          "text": "*Related:* the same round found the driver sizing markets from `rows[-1]` \u2014 the **last** accrual on the tape \u2014 so a window replayed on day one was sized by a market measured on day seven. A look-ahead leak, in the project whose central claim is that look-ahead is structurally impossible. `tests/replay/test_allocation.py` now fails against that implementation.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "P-25",
+      "kind": "correction",
+      "line": 495,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Router's entire published behaviour was a statement about two constants nobody measured \u2014 **22 Aug 2026**"
     },
     {
       "blocks": [
@@ -2086,6 +2916,90 @@
       "line": 367,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The synthetic tape was not a possible history"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Cited by `vetting/venus.py`'s `names the comptroller`, `is listed by the comptroller` and `symbol agrees` checks.",
+          "type": "p"
+        },
+        {
+          "text": "A contract that answers `symbol()` and `comptroller()` is not thereby a market of that Comptroller \u2014 it is a contract that answers. The affirmative test is membership in `getAllMarkets()`, and it is the **only** one available here: Venus's Unitroller is an EIP-2535 diamond that dispatches per facet, so a revert proves nothing about what it implements. `supplyCaps(address)` reverts with `Diamond: Function does not exist` on a contract that plainly has supply caps.",
+          "type": "p"
+        },
+        {
+          "text": "So the survey asks three things that must agree: the market names the Unitroller, the Unitroller lists the market, and the symbol matches what was recorded. Any single one of those can be produced by a plausible impostor; all three together require actually being the deployment.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "addresses.json"
+      ],
+      "id": "V-14",
+      "kind": "defect",
+      "line": 396,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "A Venus market must be one the Comptroller owns, not one that answers \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Cited by `underlying agrees with addresses.py`.",
+          "type": "p"
+        },
+        {
+          "text": "`vUSDT.underlying()` returns `0x55d398326f99059fF775485246999027B3197955`, byte-identical to `USDT_MAINNET` in `chain/addresses.py` \u2014 an address verified months earlier, from the PancakeSwap side, as token0 of the flagship pool. Two chains of reasoning that started in different places landing on the same twenty bytes is a different quality of evidence from one chain repeated, and it is the same argument `registry/aacp.py` records for the ERC-8004 identity registry.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "addresses.json"
+      ],
+      "id": "V-15",
+      "kind": "defect",
+      "line": 411,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "The underlying is the one this repository verified from the other direction \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Cited by `vToken decimals agree`.",
+          "type": "p"
+        },
+        {
+          "text": "Venus vTokens are **8** decimals; BSC's USDT and USDC are **18**. `exchangeRateStored` is scaled by both, so conflating them misprices a position by ten orders of magnitude. Recorded per market and checked against chain rather than derived, for the same reason `PoolRef` records `dec0`/`dec1` rather than assuming Ethereum's six.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "addresses.json"
+      ],
+      "id": "V-16",
+      "kind": "defect",
+      "line": 421,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "A vToken's decimals are not its underlying's \u2014 **21 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Cited by `has accrued interest` and `has cash to supply into`.",
+          "type": "p"
+        },
+        {
+          "text": "`borrowIndex() == 0` is a market that has never accrued; `getCash() == 0` is one with nothing to supply into. Both answer every getter and would pass a shallower check. Measured on Venus's own list: `vBUSD` and `vSXP` return `supplyRatePerBlock() == 0`, so an argmax over an unfiltered whitelist routes into a deprecated market on a tie. Liveness is a gate on entering the whitelist, not an input to the policy.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "addresses.json"
+      ],
+      "id": "V-17",
+      "kind": "defect",
+      "line": 430,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "A market that has never accrued, or holds nothing, is not routable \u2014 **21 Aug 2026**"
     }
   ],
   "sections": {
@@ -2215,6 +3129,106 @@
             "\u2014",
             "**r\u00b2 < 0.5** \u2192 \u03ba_default, **labeled on the card**",
             "spec \u00a75.2"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "text": "*A note on `arb_cost_bps`.* It is the **arbitrageur's** round-trip cost in \u00a73.4's toxicity test, and it is numerically the same 5.0 that P-25 removed from Router's cost model. The two are unrelated: one is what an arbitrageur pays to pick off a range, the other was a swap fee copied from the wrong pool. Router's fee is **1 bp**, read from the pool it actually swaps through.",
+        "type": "p"
+      },
+      {
+        "text": "### Router's parameters",
+        "type": "p"
+      },
+      {
+        "text": "Published for the same reason the table above is: `router.json` renders every one of these, and rule 6 says a displayed number must trace to a chain query or to an entry on this sheet. It did not, for a whole round.",
+        "type": "p"
+      },
+      {
+        "head": [
+          "Parameter",
+          "Field",
+          "Default",
+          "Source"
+        ],
+        "rows": [
+          [
+            "Horizon \u2605",
+            "`horizon_hours`",
+            "**168h**",
+            "how long capital is committed; the hurdle is amortised over it"
+          ],
+          [
+            "Cost margin",
+            "`switch_cost_margin`",
+            "**1.0**",
+            "**A13** \u2014 the stated stand-in for a free-boundary solve"
+          ],
+          [
+            "Persistence",
+            "`persistence_samples`",
+            "**3**",
+            "**A13**; mirrors `m_toxic`'s streak shape"
+          ],
+          [
+            "Switch cooldown",
+            "`cooldown_s`",
+            "**21,600** (6h)",
+            "anti-churn \u2014 and **not** the 2h `\u03c4_cool` above"
+          ],
+          [
+            "Max switches/day",
+            "`max_switches_per_day`",
+            "**4**",
+            "gas discipline \u2014 and **not** the 8 above"
+          ],
+          [
+            "Rate sample floor",
+            "`min_apr_samples`",
+            "**30**",
+            "the same floor `verdict(min_n=30)` sets"
+          ],
+          [
+            "Market share cap",
+            "`eps_market_share`",
+            "**1%**",
+            "**A1**'s analogue, on supplied base"
+          ]
+        ],
+        "type": "table"
+      },
+      {
+        "head": [
+          "Cost input",
+          "Field",
+          "Value",
+          "Source"
+        ],
+        "rows": [
+          [
+            "Swap fee",
+            "`slippage_bps`",
+            "**1 bp**",
+            "**A14** \u2014 `fee()` on the verified USDT/USDC 0.01% pool"
+          ],
+          [
+            "Gas per transaction",
+            "`gas_quote`",
+            "derived",
+            "**A14** \u2014 gas units \u00d7 `eth_gasPrice` \u00d7 BNB/USD"
+          ],
+          [
+            "Gas units",
+            "\u2014",
+            "**250,000**",
+            "**A14**, stated not measured \u2014 measuring needs a transaction nothing here will send"
+          ],
+          [
+            "Fell back?",
+            "`derived`",
+            "on the card",
+            "**A14** \u2014 a fallback says so rather than passing as a reading"
           ]
         ],
         "type": "table"

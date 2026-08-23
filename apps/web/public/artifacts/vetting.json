@@ -2,15 +2,15 @@
   "badge_dir": "vetting/badges",
   "build": {
     "command": "python scripts/vetting_report.py --chain 56",
-    "generated_at": "2026-08-20T10:31:19+00:00",
+    "generated_at": "2026-08-21T19:57:13+00:00",
     "git_dirty": true,
-    "git_sha": "82e0f91",
+    "git_sha": "eb040ed",
     "source": "chain-read badges on disk"
   },
   "chain_id": 56,
   "pools": [
     {
-      "age_hours": 0.0,
+      "age_hours": 32.1,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -23,7 +23,7 @@
         {
           "detail": "0.05% -> spacing 10",
           "name": "tick spacing matches tier",
-          "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
@@ -39,19 +39,19 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -64669",
+          "detail": "tick -64752",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=40, [-64710, -64630]",
+          "detail": "w_min=40, [-64800, -64720]",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "3,223,803,941,502,167,396,426,305 \u2014 a 1% share is 32,238,039,415,021,675,479,040",
+          "detail": "3,233,876,951,067,468,072,845,826 \u2014 a 1% share is 32,338,769,510,674,680,774,656",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
           "status": "PASS"
@@ -72,12 +72,12 @@
       "label": "PancakeSwap v3 WBNB/USDT 0.05%",
       "path": "vetting/badges/0x36696169c63e42cd08ce11f5deebbcebae652050.json",
       "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
-      "read_at": "2026-08-20T10:29:49+00:00",
+      "read_at": "2026-08-20T11:50:02+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 0.0,
+      "age_hours": 32.1,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -90,7 +90,7 @@
         {
           "detail": "0.25% -> spacing 50",
           "name": "tick spacing matches tier",
-          "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
@@ -106,19 +106,19 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -64689",
+          "detail": "tick -64755",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-64900, -64500]",
+          "detail": "w_min=200, [-65000, -64600]",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "9,887,725,552,973,490,939,014 \u2014 a 1% share is 98,877,255,529,734,914,048",
+          "detail": "8,350,504,034,261,124,099,708 \u2014 a 1% share is 83,505,040,342,611,247,104",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
           "status": "PASS"
@@ -139,12 +139,12 @@
       "label": "PancakeSwap v3 WBNB/USDT 0.25%",
       "path": "vetting/badges/0x1401ff943d08a7e098328c1d3a9d388923b115d2.json",
       "pool": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
-      "read_at": "2026-08-20T10:30:01+00:00",
+      "read_at": "2026-08-20T11:50:11+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 0.0,
+      "age_hours": 32.1,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -157,7 +157,7 @@
         {
           "detail": "0.25% -> spacing 50",
           "name": "tick spacing matches tier",
-          "provenance": "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
@@ -173,13 +173,13 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -61862",
+          "detail": "tick -58679",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-62100, -61700]",
+          "detail": "w_min=200, [-58900, -58500]",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
@@ -206,7 +206,7 @@
       "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
       "path": "vetting/badges/0x5e12d6edb2b7d5330e474ea2d2694a3b3e35d492.json",
       "pool": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
-      "read_at": "2026-08-20T10:30:13+00:00",
+      "read_at": "2026-08-20T11:50:21+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     }

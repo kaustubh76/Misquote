@@ -17,6 +17,12 @@
       "category": "Health",
       "name": "Sentinel",
       "slug": "sentinel"
+    },
+    {
+      "built": true,
+      "category": "Yield",
+      "name": "Router",
+      "slug": "router"
     }
   ],
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
@@ -28,10 +34,10 @@
   "not_built": [
     {
       "category": "Yield",
-      "evidence": "agents/router/ \u2014 empty directory",
-      "name": "Router",
-      "what": "A whitelist APR router with an optimal-switching boundary \u2014 move only when the yield delta exceeds gas plus slippage \u2014 deployed through the BNB Agent Studio CLI as the native-citizenship proof.",
-      "why": "Never started. The three agents that exist share one replay engine and one cost model; Router is the only one of the four that would have needed a second venue model, and it was cut rather than faked."
+      "evidence": "packages/misquote/agents/router/ \u2014 no studio.py",
+      "name": "Agent Studio deployment",
+      "what": "Router registered and deployed through the BNB Agent Studio CLI, as the native-citizenship proof \u2014 an ERC-8004 identity of its own, an ERC-8183 task interface, and x402 self-funding.",
+      "why": "The agent is built and replays on a chain tape; the deployment is not, and it needs a funded wallet. Registration writes an identity on chain and the x402 path funds it, neither of which this repository will do from an unfunded posture \u2014 the same gate that keeps `make warden` on the recording executor. Two of the vendor's own links are also dead: `studio.bnbchain.org` does not resolve, and the npm package's declared repository, github.com/bnb-chain/bnbagent-studio, returns 404. The artifact is real and signed; its source is not readable."
     },
     {
       "category": "Activation",
@@ -53,6 +59,20 @@
       "name": "Signing on a live chain",
       "what": "`make warden` broadcasting the decisions it already makes correctly, against chapel or mainnet, rather than recording them.",
       "why": "The executor now exists and is proven. `chain/executor.py` mints, recentres and withdraws through the verified NonfungiblePositionManager, and nine tests exercise it against a forked BSC with real transactions \u2014 including that a recentre which cannot open leaves the wallet flat rather than stranded, and that a withdrawal reaches the wallet rather than stopping at `tokensOwed`. The agent also now reconciles against the chain on boot, so a restart adopts the position the wallet really holds instead of minting a second one over the top of it \u2014 which is what made an unattended run unsafe. What is missing is a funded wallet and the decision to use one: `make warden` is still wired to the recording executor, and the go/no-go is the gate for changing that."
+    },
+    {
+      "category": "Registry",
+      "evidence": "packages/misquote/registry/ \u2014 no authenticate.py",
+      "name": "TermiX authenticated API",
+      "what": "Listing our agents on TermiX's own platform, and any authenticated read of their order book \u2014 the half of their API that is not public.",
+      "why": "Blocked on a wallet-signed nonce exchanged for a session JWT, which is the same signing path the 24h burn-in needs and which does not exist yet. Deliberately not half-built: an auth module that cannot complete the exchange would look present on this page while doing nothing. The public half does work and carries the finding that matters \u2014 `/api/v1/explorer/jobs` needs no credentials and is what let a real order be read back and decoded (P-18)."
+    },
+    {
+      "category": "Registry",
+      "evidence": "packages/misquote/registry/ \u2014 no signer.py",
+      "name": "ERC-8183 hire flow",
+      "what": "A Hire button that escrows a job against a deployed ERC-8183 contract, in the seven transactions `erc8183.steps()` prices.",
+      "why": "The blocker moved, and it is worth being exact about which half closed. It used to be that **no verified deployment existed** \u2014 the EIP is Draft and publishes no reference addresses, and TermiX's `TermixEscrow` was carried as one and removed because its bytecode implements none of the calls (P-18). That is no longer the situation: `scripts/verify_erc8183.py` checked Altana's published AgenticCommerce kernel three ways on both BSC networks and every check passed \u2014 56,632 jobs on mainnet, 581 on chapel, and a registry field byte-identical to the one this repository verified independently from the PancakeSwap side. `JOB_ESCROW` now carries both addresses with their readings (P-24). What is still missing is the **button**: escrowing a job means signing five client transactions and moving real USDT, and nothing here can sign. That is the same gate that keeps `make warden` on the recording executor, and it has not moved."
     },
     {
       "category": "Operations",

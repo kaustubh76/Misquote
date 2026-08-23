@@ -37,7 +37,7 @@ def replayed():
 def test_the_artifact_is_badged_counterfactual(replayed, tmp_path) -> None:
     """A replay presented as a record is precisely the failure this project is
     named after, so the badge is structural rather than editorial."""
-    path = emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic")
+    path = emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic", command="pytest")
     payload = json.loads(path.read_text())
 
     assert payload["counterfactual"] is True
@@ -49,8 +49,12 @@ def test_the_artifact_is_badged_counterfactual(replayed, tmp_path) -> None:
 def test_a_synthetic_tape_is_labelled_as_one(replayed, tmp_path) -> None:
     """A card built from generated data must never be mistakable for one built
     from chain data. `source` says which, on the artifact itself."""
-    synthetic = json.loads(emit(replayed, tmp_path, tmp_path / "a", source="synthetic").read_text())
-    from_chain = json.loads(emit(replayed, tmp_path, tmp_path / "b", source="chain").read_text())
+    synthetic = json.loads(
+        emit(replayed, tmp_path, tmp_path / "a", source="synthetic", command="pytest").read_text()
+    )
+    from_chain = json.loads(
+        emit(replayed, tmp_path, tmp_path / "b", source="chain", command="pytest").read_text()
+    )
 
     assert synthetic["source"] == "synthetic"
     assert from_chain["source"] == "chain"
@@ -58,7 +62,9 @@ def test_a_synthetic_tape_is_labelled_as_one(replayed, tmp_path) -> None:
 
 def test_the_artifact_carries_the_replay_numbers_it_claims(replayed, tmp_path) -> None:
     payload = json.loads(
-        emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic").read_text()
+        emit(
+            replayed, tmp_path, tmp_path / "artifacts", source="synthetic", command="pytest"
+        ).read_text()
     )
     replay = payload["replay"]
 
@@ -74,7 +80,9 @@ def test_adverse_selection_is_named_as_an_upper_bound_in_the_artifact(replayed, 
     """`lvr_quote` would be a claim the measure cannot support. The field name
     itself carries assumption A10."""
     payload = json.loads(
-        emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic").read_text()
+        emit(
+            replayed, tmp_path, tmp_path / "artifacts", source="synthetic", command="pytest"
+        ).read_text()
     )
     assert "lvr_quote_upper_bound" in payload["replay"]
     assert "lvr_quote" not in payload["replay"]
@@ -83,7 +91,7 @@ def test_adverse_selection_is_named_as_an_upper_bound_in_the_artifact(replayed, 
 def test_the_artifact_is_plain_json_with_no_python_needed(replayed, tmp_path) -> None:
     """The web app reads these files directly, so the site survives every backend
     process being down — which is the state a demo is most likely to find them."""
-    path = emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic")
+    path = emit(replayed, tmp_path, tmp_path / "artifacts", source="synthetic", command="pytest")
     reparsed = json.loads(path.read_text())
     assert json.loads(json.dumps(reparsed)) == reparsed
 
@@ -101,8 +109,8 @@ def test_two_agents_produce_two_separate_artifacts(tmp_path) -> None:
     )
 
     out = tmp_path / "artifacts"
-    warden_path = emit(warden, tmp_path, out, source="synthetic")
-    grid_path = emit(grid, tmp_path, out, source="synthetic")
+    warden_path = emit(warden, tmp_path, out, source="synthetic", command="pytest")
+    grid_path = emit(grid, tmp_path, out, source="synthetic", command="pytest")
 
     assert warden_path.name == "warden.json"
     assert grid_path.name == "grid.json"

@@ -363,6 +363,123 @@ export interface AgentArtifact {
   quote_symbol?: string;
 }
 
+/**
+ * Router's card. A sibling of `AgentArtifact`, not a variant of it.
+ *
+ * The LP card carries `verdicts.in_range`, `quote_detail.rebalances_p50`, and a
+ * replay block with fees and an LVR upper bound. None of those exist for an
+ * agent that supplies to a lending market: there is no range to be in, nothing
+ * to rebalance, and no arbitrageur to be picked off by. Rendering them as zeros
+ * would read as "never out of range, lost nothing to adverse selection" — two
+ * claims this agent is not entitled to make, and the same argument `view.tsx`
+ * makes about drawing a 404'd card as a zero.
+ *
+ * `kind` is the discriminator. The Python emitter writes `"allocation"` here and
+ * `"lp_range"` on the other three.
+ */
+export interface RouterArtifact {
+  agent: string;
+  kind: "allocation";
+  category: string;
+  venue: string;
+  venues: {
+    venue_id: string;
+    symbol: string;
+    /**
+     * The market's size at the **end** of the tape, descriptive only.
+     *
+     * Named for when it was measured because the replay does not use it: the
+     * driver derives size per sample from the accrual it has seen. Passing one
+     * fixed figure in was a look-ahead leak — a window replayed on day one was
+     * sized by a market measured on day seven.
+     */
+    supplied_base_at_tape_end: number;
+    reserve_factor: number;
+    reserve_factor_recorded: boolean;
+  }[];
+  source: string;
+  counterfactual: boolean;
+  badge: string;
+  quote_symbol?: string;
+  capital_quote: number;
+  quote: {
+    p25: number;
+    p50: number;
+    p75: number;
+    samples: number;
+    windows: number;
+    perturbations: number;
+    best_venue_p50: number;
+    switches_p50: number;
+    hours_per_window: number;
+    sufficient: boolean;
+    note: string;
+    annualised: boolean;
+    basis: string;
+    net_positive: number;
+    returns: number[];
+    max_edge_apr: number;
+    hurdle_apr: number;
+  };
+  replay: {
+    samples: number;
+    hours: number;
+    entries: number;
+    switches: number;
+    exits: number;
+    invested_fraction: number;
+    best_venue_fraction: number;
+    gross_yield_quote: number;
+    costs_quote: number;
+    net_quote: number;
+    max_edge_apr: number;
+    hurdle_apr_p50: number;
+    best_apr_seen: number;
+    breakeven_horizon_hours: number;
+  };
+  params: Record<string, number>;
+  caveats: string[];
+  /** Present when the agent never moved: why that is the answer, in words. */
+  finding?: string;
+  /** Where the numbers came from: the journal `make router` writes. */
+  provenance?: {
+    journal: string;
+    journal_rows: number;
+    hours_covered: number;
+    every_number_derived: boolean;
+  };
+  /** The cost inputs behind the hurdle, and whether each was read (P-25). */
+  cost_model?: {
+    gas_quote: number;
+    slippage_bps: number;
+    derived: boolean;
+    basis: string;
+  };
+  /** The same question the LP cards answer: does hiring it beat doing it yourself? */
+  advantage?: {
+    delta_pp: number;
+    verdict: string;
+    material: boolean;
+    ranges_overlap: boolean;
+    separated: boolean;
+    quotable: boolean;
+    source: string;
+    without_agent: string;
+    baseline: {
+      p25: number;
+      p50: number;
+      p75: number;
+      entries: number;
+      switches: number;
+      invested_fraction: number;
+      gross_yield_quote: number;
+      costs_quote: number;
+      net_quote: number;
+    };
+  };
+  build?: { command: string; source: string; generated_at: string; git_sha: string | null };
+}
+
 export interface AdvantageTask {
   task: string;
   category: string;

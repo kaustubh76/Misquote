@@ -1,0 +1,39 @@
+{
+  "population": {
+    "available": true,
+    "chain_id": 56,
+    "contract_address": "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
+    "population": 270245
+  },
+  "reconciliation": {
+    "difference": 10042,
+    "difference_pct": 3.583,
+    "note": "Two counts of the same registry by different methods. They are published together and the gap is not resolved: nothing here can say which is right, and picking the larger would be the misquote this project is named after. What is checked is that both are counting the same contract \u2014 if they were not, the comparison would be meaningless rather than merely unresolved.",
+    "ours": 280287,
+    "ours_method": "binary search on ownerOf \u2014 totalSupply() reverts on this proxy",
+    "same_contract": true,
+    "theirs": 270245,
+    "theirs_method": "8004scan's indexer"
+  },
+  "sample": {
+    "available": true,
+    "chain_id": 56,
+    "described": 100,
+    "distinct_descriptions": 18,
+    "ordering": "8004scan's default, which is newest first",
+    "sampled": 100,
+    "starred": 0,
+    "verified": 0,
+    "with_feedback": 0,
+    "with_score": 0,
+    "x402_supported": 1
+  },
+  "source": "8004scan.io/api/v1/public",
+  "stats": {
+    "available": true,
+    "average_feedback_score": 80.99325937317033,
+    "daily_new_agents_all_chains": 12297,
+    "total_agents_all_chains": 750353,
+    "total_feedbacks_all_chains": 3567019
+  }
+}

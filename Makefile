@@ -1,11 +1,27 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
 ENV    ?= testnet
 N      ?= 2000
 CHAIN  ?= 56
+# How many registry ids `make registry-survey` reads. See the target.
+SAMPLE ?= 400
+# The indexed tape. `showcase-auto` uses it when it exists and falls back to the
+# labelled synthetic path when it does not; the scripts default to the same file.
+DB_PATH ?= data/misquote.db
+# ...and it is passed to the scripts, not only tested by the branches above.
+#
+# `showcase-auto` and `advantage-auto` decide which branch to take by testing
+# `DB_PATH`, and then invoked scripts that read their own `--db` default. So the
+# variable chose a branch and the branch read a different file: point DB_PATH at
+# an empty database and `showcase-auto` correctly says "no tape", then runs a
+# full replay of the real one. A knob that appears to configure something and
+# does not is worse than no knob.
+# Forked workers for the replay pools. Deliberately below cpu_count — see the
+# `showcase` target for what the default cost.
+JOBS ?= 3
 FOLLOW_S ?= 3600
 # Where `web-check` builds and serves from. Not `.next`, which `make web`
 # is serving, and not `out/`, which `make web-build` writes.
@@ -28,6 +44,11 @@ ADV_N  ?= 9000
 # every one of them refuses to quote. Proof that the refusal is live machinery
 # and not a story told about it.
 ADV_SHORT_N ?= 2000
+# How much Venus history `make venus` reads. Seven days is 269 chunks and about
+# half an hour; the rate tape's binding constraint is the 24h window floor in
+# replay/allocation.py, which seven days clears with margin.
+VENUS_DAYS ?= 7
+ROUTER_CAPITAL ?= 10000
 
 help:  ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -106,16 +127,84 @@ go-no-go-fast:  ## same, without the test suites
 	$(UV) run python scripts/go_no_go.py --fast
 
 showcase:  ## replay the agents on the indexed tape and write the web artifacts
-	$(UV) run python -u scripts/showcase.py
+	# `--jobs` defaults to cpu_count inside the script, and that default killed
+	# two four-hour runs on a 16GB machine: the 252,923-event tape is ~165MB
+	# resident, eight forked workers hold ~1.4GB between them because Python's
+	# refcounting defeats copy-on-write, and with a node toolchain already
+	# resident this was simply the largest new allocator when the kernel went
+	# looking. Both runs died at the last agent, before any card was written.
+	#
+	# Three workers cost ~0.6GB and still deliver most of the speedup — the pool
+	# is memory-bandwidth bound rather than core bound, so eight were buying
+	# about 3x anyway. `nice` so it yields rather than competes.
+	$(UV) run nice -n 10 python -u scripts/showcase.py --jobs $(JOBS) --db $(DB_PATH)
 
 showcase-demo:  ## same, on a clearly-labelled synthetic tape (no chain data needed)
 	$(UV) run python -u scripts/showcase.py --synthetic 9000
 
+showcase-auto:  ## the cards from the indexed tape when there is one, the labelled synthetic tape when there is not
+	# One decision, made by the thing that can actually make it.
+	#
+	# This used to be a shell `if [ -s "$(DB_PATH)" ]` picking between two
+	# targets. That is a **file size** test standing in for "is there a tape",
+	# and the two answers diverge: a database holding a schema and no rows is
+	# non-empty on disk and empty as a tape, so the branch announced "tape
+	# found", ran the chain path, and `showcase.py` exited 1 — taking every
+	# downstream artifact with it.
+	#
+	# The fallback is not a nicety. A card built from real flow and a card built
+	# from a random walk must never be indistinguishable, so the synthetic path
+	# stays, stays labelled, and stays the answer when there is no tape.
+	$(UV) run nice -n 10 python -u scripts/showcase.py --jobs $(JOBS) --db $(DB_PATH) \
+		--fallback-synthetic 9000
+
 advantage:  ## hired agent vs doing it yourself, on the indexed tape
-	$(UV) run python -u scripts/advantage.py
+	$(UV) run python -u scripts/advantage.py --db $(DB_PATH)
 
 advantage-demo:  ## same, on a synthetic tape long enough to clear the 24h window floor
 	$(UV) run python -u scripts/advantage.py --synthetic $(ADV_N)
+
+erc8183-verify:  ## check the published ERC-8183 deployment against chain, three ways
+	# The sibling of `venus-verify`, and it had no target at all — the script
+	# existed, five prose references pointed at it, and nothing ran it. Its
+	# readings justify two mainnet escrow addresses, so they are worth being
+	# reproducible by a command rather than by a path somebody remembers.
+	$(UV) run python scripts/verify_erc8183.py --chain $(CHAIN) --out
+
+venus-verify:  ## check every Venus market against chain, three ways, and record it
+	# The gate for the whole Yield category. Exits non-zero below two verified
+	# markets, because a router with one venue has nothing to choose between —
+	# every decision would be "stay" and the switching boundary would never be
+	# consulted. Router publishes a withheld card until this exits zero.
+	$(UV) run python scripts/verify_venus.py --chain $(CHAIN) --out
+
+venus:  ## backfill the Venus rate tape (every market in one request per chunk)
+	# `eth_getLogs` takes an address array, so the whole whitelist is one round
+	# trip per chunk rather than one per market. Measured: 159,956 accruals over
+	# seven days in 269 chunks, 29.6 minutes, on free endpoints, no key.
+	$(UV) run python -u -m misquote.indexer.venus_backfill --days $(VENUS_DAYS)
+
+router:  ## run Router against the recorded rate tape. It records rather than signs, by choice.
+	$(UV) run python -m misquote.agents.router --capital $(ROUTER_CAPITAL)
+
+router-card:  ## replay Router and write the card the site reads
+	# Its own emitter rather than a fourth entry in `showcase.py`: Router
+	# replays a *rate* tape with a different driver and a different quote type,
+	# and folding it in would make sixty LP window replays — hours — a
+	# prerequisite for regenerating a card that takes under a second.
+	$(UV) run python -u scripts/router_showcase.py --capital $(ROUTER_CAPITAL) --db $(DB_PATH)
+
+advantage-auto:  ## the report from the indexed tape when there is one, the labelled synthetic tape when there is not
+	# `artifacts` depended on `advantage-demo`, which is `--synthetic $(ADV_N)`
+	# writing the *default* --out and --artifact. Those are the same two paths
+	# the chain run writes. So the judged deliverable — tasks run both ways on
+	# real BSC flow — was overwritten by a random walk every time anybody ran
+	# `make artifacts`, and the report said `synthetic` honestly while sitting
+	# where the chain one had been.
+	#
+	# The branch that replaced it tested `[ -s "$(DB_PATH)" ]` — a file size —
+	# to decide something only the script can see. It now asks the script.
+	$(UV) run python -u scripts/advantage.py --db $(DB_PATH) --fallback-synthetic $(ADV_N)
 
 advantage-short:  ## the same report on too little history — every task withheld
 	$(UV) run python -u scripts/advantage.py --synthetic $(ADV_SHORT_N) \
@@ -124,6 +213,15 @@ advantage-short:  ## the same report on too little history — every task withhe
 
 judges:  ## re-derive the measurable numbers in docs/FOR_JUDGES.md
 	$(UV) run python scripts/sync_docs.py
+
+diagram:  ## the whole system on one canvas -> MISQUOTE_FLOW.excalidraw
+	# Reads no chain and no database. The layout is authored; every list and
+	# every floor on the canvas is read out of the repo at generation time, so
+	# the map cannot drift from the code the way a drawing does. Deterministic:
+	# re-running with nothing changed rewrites the same bytes, and it refuses to
+	# write at all if two nodes overlap or an arrow crosses a box it does not
+	# touch.
+	$(UV) run python scripts/gen_flow_diagram.py
 
 assumptions:  ## docs/ASSUMPTIONS.md + REQUIREMENTS_MATRIX.md -> the linkable sheet
 	$(UV) run python scripts/assumptions.py
@@ -157,8 +255,31 @@ vectors-report:  ## publish the vector corpus, and whatever replay was recorded
 	# is what lets it sit inside `make artifacts`.
 	$(UV) run python scripts/vectors_report.py
 
-registry:  ## ERC-8004 / ERC-8183 / AACP -> the registry artifact (offline by default)
+registry:  ## republish the recorded registry survey as the site's artifact
+	# Reads no chain. `make registry-survey` does the reading; this publishes
+	# what it left behind — the same split as `make vet` / `make vetting`.
+	#
+	# It used to run with no --sample, which defaults to 0, which means "survey
+	# not requested" — so `make artifacts` overwrote a real survey with a
+	# refusal and took the third-party listings with it.
 	$(UV) run python scripts/registry_report.py
+
+registry-scan:  ## read 8004scan and record a second, independent count of the same registry
+	# Alongside our own on-chain count, never instead of it. Ours comes from
+	# binary search on `ownerOf` because `totalSupply()` reverts on the proxy;
+	# theirs from an indexer. They disagree by about 3.6%, both are published
+	# with the method named, and the gap is not resolved — nothing here can say
+	# which is right, and picking the larger is the misquote.
+	#
+	# The API needs no key at 10 requests a minute. Like `--sample`, this splits
+	# reading from publishing: `make registry` republishes what this recorded.
+	$(UV) run python scripts/registry_report.py --scan
+
+registry-survey:  ## read the ERC-8004 registry and record a sample. usage: make registry-survey SAMPLE=400
+	# ~2.2s per agent against free endpoints: 400 ids is about fifteen minutes,
+	# once, and it buys an interval worth publishing — at n=40 a 30% share spans
+	# 18-46%, which is a different claim from "30%".
+	$(UV) run python -u scripts/registry_report.py --sample $(SAMPLE)
 
 venue:  ## PancakeSwap as an integration: where the fork is not the original (offline)
 	$(UV) run python scripts/venue_report.py
@@ -170,7 +291,18 @@ venue:  ## PancakeSwap as an integration: where the fork is not the original (of
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-demo advantage-demo advantage-short registry venue vetting addresses vectors-report assumptions status  ## every artifact the site reads
+artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report assumptions judges status  ## every artifact the site reads
+	# `judges` sits second-to-last on purpose: it derives its blocks from the
+	# artifacts above it, and `status` runs the go/no-go gate — which now
+	# checks the document is current, so it has to see the synced version.
+
+api:  ## the artifact API in dev mode, http://localhost:8000
+	# The one command that runs the service had never been in this file: it
+	# existed only in `service.py`'s docstring and in `render.yaml`'s
+	# `startCommand`, so the deployed spelling was the only spelling anything
+	# checked. `tests/api/test_app.py` asserts the module path here matches the
+	# one Render runs.
+	$(UV) run uvicorn misquote.api.service:app --reload --port 8000
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev

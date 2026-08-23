@@ -270,3 +270,112 @@ def test_the_registry_really_does_contain_placeholders() -> None:
     verdict = assess(registry.card(100))
     assert verdict.looks_like_a_placeholder
     assert not verdict.substantive
+
+
+# --- the population bound ----------------------------------------------------
+
+
+class _FakeRegistry:
+    """A registry with `population` contiguous ids, and nothing else."""
+
+    def __init__(self, population: int) -> None:
+        self.population = population
+        self.reads = 0
+
+    def owner(self, agent_id: int) -> str:
+        self.reads += 1
+        if 1 <= agent_id <= self.population:
+            return "0x" + "11" * 20
+        raise ValueError("execution reverted: ERC721: invalid token ID")
+
+
+def test_the_bound_is_found_by_search_not_by_totalsupply() -> None:
+    """`totalSupply()` reverts on this registry — it is a proxy, not Enumerable —
+    so the population has to be probed with the predicate that does work."""
+    from misquote.registry.erc8004 import highest_agent_id
+
+    for population in (1, 2, 15, 800, 270_765):
+        registry = _FakeRegistry(population)
+        assert highest_agent_id(registry) == population, population
+
+
+def test_an_empty_registry_reports_zero_rather_than_one() -> None:
+    """The search brackets upward from id 1, so id 1 must be checked first or an
+    empty registry reports a population of one."""
+    from misquote.registry.erc8004 import highest_agent_id
+
+    assert highest_agent_id(_FakeRegistry(0)) == 0
+
+
+def test_the_search_is_logarithmic_and_therefore_affordable() -> None:
+    """It runs against a public endpoint one `eth_call` at a time. Linear
+    probing over 270,765 ids would be a quarter of a million requests."""
+    from misquote.registry.erc8004 import highest_agent_id
+
+    registry = _FakeRegistry(270_765)
+    highest_agent_id(registry)
+
+    assert registry.reads < 60, f"{registry.reads} reads is not a binary search"
+
+
+# --- the interval a share is worth -------------------------------------------
+
+
+def test_a_share_from_forty_observations_is_not_a_point() -> None:
+    """The reason this exists. "30% substantive" from n=40 spans 18-46%, and
+    publishing the point alone is the false precision this project is named
+    against — on the card that criticises other marketplaces for it."""
+    from misquote.registry.erc8004 import wilson_interval
+
+    low, high = wilson_interval(12, 40)
+    assert low == pytest.approx(0.181, abs=0.005)
+    assert high == pytest.approx(0.454, abs=0.005)
+
+
+def test_more_observations_narrow_it() -> None:
+    """The same share at ten times the sample must say more, or the sample cost
+    bought nothing."""
+    from misquote.registry.erc8004 import wilson_interval
+
+    small = wilson_interval(12, 40)
+    large = wilson_interval(120, 400)
+
+    assert (large[1] - large[0]) < (small[1] - small[0]) / 2
+
+
+def test_a_zero_count_is_not_certainty() -> None:
+    """Why Wilson and not the normal approximation.
+
+    The normal interval is `p ± z·sqrt(p(1-p)/n)`, which is **exactly zero wide**
+    at p=0. The first survey found 0 placeholders in 40, and reporting that as
+    certainty would be a stronger claim than forty observations can support in
+    principle.
+    """
+    from misquote.registry.erc8004 import wilson_interval
+
+    low, high = wilson_interval(0, 40)
+    assert low == 0.0
+    assert high > 0.05, "zero of forty cannot bound the rate below five percent"
+
+
+def test_a_full_count_is_not_certainty_either() -> None:
+    from misquote.registry.erc8004 import wilson_interval
+
+    low, high = wilson_interval(40, 40)
+    assert high == 1.0
+    assert low < 0.95
+
+
+def test_an_empty_sample_admits_everything() -> None:
+    """Nothing was measured, so nothing is excluded."""
+    from misquote.registry.erc8004 import wilson_interval
+
+    assert wilson_interval(0, 0) == (0.0, 1.0)
+
+
+def test_the_interval_always_contains_the_point() -> None:
+    from misquote.registry.erc8004 import wilson_interval
+
+    for successes in range(0, 41):
+        low, high = wilson_interval(successes, 40)
+        assert low <= successes / 40 <= high, successes

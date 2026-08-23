@@ -99,6 +99,15 @@ class Quote:
 
 # Assumption A5's floor. Below this the spread describes the sample, not the
 # strategy.
+#: How many overlapping sub-windows a quote is built from.
+#:
+#: The same number as `MIN_SAMPLES` and not the same *thing*: this is what the
+#: emitters ask for, that is the floor below which a quote is refused. They were
+#: three unnamed literals — `windows=20` inline in `showcase.py`, `WINDOWS = 20`
+#: in `router_showcase.py`, `ROUTE_WINDOWS = 20` in `advantage.py` — so a change
+#: to one would have quietly produced two agents quoted on different evidence.
+DEFAULT_WINDOWS = 20
+
 MIN_SAMPLES = 20
 
 # A window shorter than the policy's own horizon never completes a decision

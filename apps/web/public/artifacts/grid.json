@@ -32,6 +32,13 @@
   },
   "agent": "Grid",
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
+  "build": {
+    "command": "python scripts/showcase.py",
+    "generated_at": "2026-08-21T19:53:28+00:00",
+    "git_dirty": true,
+    "git_sha": "eb040ed",
+    "source": "chain"
+  },
   "caveats": [
     "This is a replay, not a record. The policy was run over this pool's real trade history; no capital was deployed and no position existed. Published as assumption A6.",
     "Adverse selection is reported as an upper bound (assumption A10): the measure is non-negative for every swap regardless of who traded, so it folds reversion round trips into what it calls adverse selection.",

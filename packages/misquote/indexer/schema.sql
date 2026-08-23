@@ -154,3 +154,72 @@ CREATE TABLE IF NOT EXISTS covered (
     PRIMARY KEY (pool, from_block)
 );
 CREATE INDEX IF NOT EXISTS covered_pool_range ON covered (pool, to_block);
+
+-- --------------------------------------------------------------------------
+-- The rate tape: Venus Core Pool accruals.
+--
+-- Same three rules as the pool tape above, and the first one bites harder here.
+-- `borrow_index` is ~1.5e18 and `total_borrows` ~1.2e26; both overflow SQLite's
+-- signed 64-bit INTEGER silently, and a borrow index off by a factor is a rate
+-- off by a factor with nothing to notice it. TEXT, like everything else here.
+--
+-- Keyed on (tx, log_index) with INSERT OR IGNORE, so a re-run is a no-op.
+
+CREATE TABLE IF NOT EXISTS venus_market (
+    address      TEXT PRIMARY KEY,
+    chain_id     INTEGER NOT NULL,
+    symbol       TEXT NOT NULL,
+    underlying   TEXT NOT NULL,
+    underlying_decimals INTEGER NOT NULL,
+    v_decimals   INTEGER NOT NULL,
+    comptroller  TEXT NOT NULL
+);
+
+-- One AccrueInterest log. Every input the supply-rate formula needs is here
+-- except the reserve factor, which is governance-settable and lives below —
+-- so a rate can be recomputed from this table alone, without re-reading chain
+-- state that has since moved.
+CREATE TABLE IF NOT EXISTS accrue (
+    market               TEXT NOT NULL,
+    block                INTEGER NOT NULL,
+    log_index            INTEGER NOT NULL,
+    tx                   TEXT NOT NULL,
+    ts                   INTEGER NOT NULL,
+    cash_prior           TEXT NOT NULL,
+    interest_accumulated TEXT NOT NULL,
+    borrow_index         TEXT NOT NULL,
+    total_borrows        TEXT NOT NULL,
+    PRIMARY KEY (tx, log_index)
+);
+CREATE INDEX IF NOT EXISTS accrue_market_time ON accrue (market, ts, block, log_index);
+
+-- The reserve factor as of a block, not as of now.
+--
+-- Kept as a series for the same reason `pool_state` keeps `fee_protocol` as one:
+-- it is governance-settable, and a replay of last month's history must use last
+-- month's value. Reading today's and applying it backwards would silently
+-- misprice every earlier window.
+CREATE TABLE IF NOT EXISTS reserve_factor (
+    market   TEXT NOT NULL,
+    block    INTEGER NOT NULL,
+    ts       INTEGER NOT NULL,
+    mantissa TEXT NOT NULL,
+    PRIMARY KEY (market, block)
+);
+
+-- Which block ranges were actually read, per market.
+--
+-- Separate from `covered` rather than sharing it, because the pool tape and the
+-- rate tape are backfilled independently and a shared table would let one
+-- market's coverage claim another's. The distinction it encodes matters more
+-- here than for swaps: a market that did not accrue and a market nobody fetched
+-- both produce zero rows, and for the thin markets the first is *common* —
+-- vUSDC accrues about twice per 5,000 blocks. Coverage is the only thing that
+-- can tell them apart.
+CREATE TABLE IF NOT EXISTS venus_covered (
+    market     TEXT NOT NULL,
+    from_block INTEGER NOT NULL,
+    to_block   INTEGER NOT NULL,
+    PRIMARY KEY (market, from_block)
+);
+CREATE INDEX IF NOT EXISTS venus_covered_range ON venus_covered (market, to_block);

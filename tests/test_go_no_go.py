@@ -399,3 +399,91 @@ def test_a_report_predating_the_field_is_unknown_not_real(tmp_path, monkeypatch)
 
     check = gng.check_agent_advantage_report()
     assert check.status == gng.UNVERIFIED, check.detail
+
+
+# --- badge coverage, derived from what is published --------------------------
+#
+# The gate this replaced compared one hand-maintained list against disk, so it
+# agreed with itself while `TARGET_POOL_WIDE` was quoted by the advantage
+# report's third task and named in no pool list in the repository.
+
+
+def _coverage_fixture(tmp_path, monkeypatch, payloads: dict[str, dict], badges: list[str]):
+    import json
+
+    root = tmp_path / "apps" / "web" / "public" / "artifacts"
+    root.mkdir(parents=True, exist_ok=True)
+    for name, payload in payloads.items():
+        (root / name).write_text(json.dumps(payload))
+
+    badge_dir = tmp_path / "vetting" / "badges"
+    badge_dir.mkdir(parents=True, exist_ok=True)
+    for address in badges:
+        (badge_dir / f"{address.lower()}.json").write_text("{}")
+
+    monkeypatch.setattr(gng, "REPO", tmp_path)
+
+
+def test_pool_addresses_are_read_from_pool_fields_only(tmp_path, monkeypatch) -> None:
+    """An artifact is full of addresses. A token, a router or a registry is not
+    a pool going unvetted, and counting one would make this gate noise."""
+    _coverage_fixture(
+        tmp_path,
+        monkeypatch,
+        {
+            "warden.json": {
+                "pool": "PancakeSwap v3 WBNB/USDT 0.05% · 0xAAAA000000000000000000000000000000000001",
+                "settlement_token": "0xBBBB000000000000000000000000000000000002",
+            }
+        },
+        badges=[],
+    )
+
+    found = gng.published_pools()
+    assert set(found) == {"0xaaaa000000000000000000000000000000000001"}
+    assert "warden.json" in found["0xaaaa000000000000000000000000000000000001"]
+
+
+def test_a_pool_the_site_quotes_but_nobody_verified_is_amber(tmp_path, monkeypatch) -> None:
+    """The direction the real failure came from, and the one a list cannot
+    catch: publishing a number about a pool that was never read from chain."""
+    _coverage_fixture(
+        tmp_path,
+        monkeypatch,
+        {"warden.json": {"pool": "some pool · 0xDEAD000000000000000000000000000000000001"}},
+        badges=[],
+    )
+
+    check = gng.check_badge_coverage()
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert "not in KNOWN_POOLS" in check.detail
+    assert "warden.json" in check.detail, "the amber must name where it is published"
+
+
+def test_a_verified_pool_with_no_badge_is_amber(tmp_path, monkeypatch) -> None:
+    """The other half, which `make vet` satisfies and which is not sufficient
+    on its own."""
+    from misquote.chain.addresses import known_pools_on
+
+    listed = known_pools_on(56)
+    _coverage_fixture(tmp_path, monkeypatch, {}, badges=[p.address for p in listed[:-1]])
+
+    check = gng.check_badge_coverage()
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert listed[-1].label in check.detail
+
+
+def test_the_gate_is_reachable_when_everything_lines_up(tmp_path, monkeypatch) -> None:
+    """A gate that can never go green says nothing."""
+    from misquote.chain.addresses import known_pools_on
+
+    listed = known_pools_on(56)
+    _coverage_fixture(
+        tmp_path,
+        monkeypatch,
+        {"warden.json": {"pool": f"flagship · {listed[0].address}"}},
+        badges=[p.address for p in listed],
+    )
+
+    check = gng.check_badge_coverage()
+    assert check.status == gng.PASS, check.detail

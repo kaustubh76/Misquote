@@ -1,5 +1,12 @@
 {
   "report": "Agent Advantage",
+  "build": {
+    "command": "python scripts/advantage.py --synthetic 2000 --out docs/AGENT_ADVANTAGE_SHORT.md --artifact apps/web/public/artifacts/advantage_short.json",
+    "source": "synthetic",
+    "generated_at": "2026-08-21T09:08:15+00:00",
+    "git_sha": "eb040ed",
+    "git_dirty": true
+  },
   "question": "Does hiring an agent on your marketplace beat doing the job yourself, and can you prove it?",
   "counterfactual": true,
   "badge": "COUNTERFACTUAL \u2014 neither position was held",
@@ -20,8 +27,8 @@
       "trading"
     ],
     "venues": [
-      "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
-      "two venues: deeper-but-one-way vs shallower-but-balanced"
+      "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)",
+      "two venues: a one-way venue (synthetic) vs a balanced venue (synthetic)"
     ]
   },
   "overall": {
@@ -32,7 +39,9 @@
     {
       "task": "Earn \u2014 fees on a liquidity position",
       "category": "trading",
-      "venue": "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
+      "venue": "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)",
+      "source": "synthetic",
+      "capital_quote": 1.0,
       "metric": "net return on capital (fees \u2212 realized convexity cost \u2212 costs), P25\u2013P75",
       "without_agent": "mint once at the same width, never touch it (passive_policy)",
       "with_agent": "Warden \u2014 Avellaneda\u2013Stoikov recentring",
@@ -44,9 +53,13 @@
         "p75": 0.0,
         "in_range": 0.088,
         "fees": 0.00050812,
-        "lvr_upper_bound": 0.00400965,
+        "lvr_upper_bound": 0.00410202,
         "costs": 0.00078,
-        "moves": 1
+        "moves": 1,
+        "mints": 1,
+        "pulls": 0,
+        "recentres": 0,
+        "distinct_returns": 0
       },
       "agent": {
         "p25": 0.0,
@@ -54,10 +67,15 @@
         "p75": 0.0,
         "in_range": 0.2346,
         "fees": 0.00139544,
-        "lvr_upper_bound": 0.01054516,
-        "costs": 0.01248,
-        "moves": 32
+        "lvr_upper_bound": 0.01069995,
+        "costs": 0.00868195,
+        "moves": 32,
+        "mints": 16,
+        "pulls": 16,
+        "recentres": 0,
+        "distinct_returns": 0
       },
+      "replay_days": 2.0,
       "delta_pp": 0.0,
       "ranges_overlap": true,
       "material": false,
@@ -67,7 +85,9 @@
     {
       "task": "Protect \u2014 avoid being picked off by one-way flow",
       "category": "security",
-      "venue": "PancakeSwap v3 WBNB/USDT 0.05% (synthetic tape)",
+      "venue": "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)",
+      "source": "synthetic",
+      "capital_quote": 1.0,
       "metric": "net return on capital, P25\u2013P75 (the cost of the withdrawals is charged in full)",
       "without_agent": "the same wide band, held through everything (withdrawal disabled)",
       "with_agent": "Sentinel \u2014 withdraw on \u00a73.4 toxicity, re-enter after m_clear",
@@ -79,9 +99,13 @@
         "p75": 0.0,
         "in_range": 0.8232,
         "fees": 0.00040517,
-        "lvr_upper_bound": 0.00315228,
+        "lvr_upper_bound": 0.0031666,
         "costs": 0.00078,
-        "moves": 1
+        "moves": 1,
+        "mints": 1,
+        "pulls": 0,
+        "recentres": 0,
+        "distinct_returns": 0
       },
       "agent": {
         "p25": 0.0,
@@ -90,9 +114,14 @@
         "in_range": 0.2541,
         "fees": 0.00012326,
         "lvr_upper_bound": 0.00094211,
-        "costs": 0.01248,
-        "moves": 32
+        "costs": 0.00236169,
+        "moves": 32,
+        "mints": 16,
+        "pulls": 16,
+        "recentres": 0,
+        "distinct_returns": 0
       },
+      "replay_days": 2.0,
       "delta_pp": 0.0,
       "ranges_overlap": true,
       "material": false,
@@ -102,10 +131,12 @@
     {
       "task": "Choose \u2014 which pool to provide liquidity to",
       "category": "security",
-      "venue": "two venues: deeper-but-one-way vs shallower-but-balanced",
+      "venue": "two venues: a one-way venue (synthetic) vs a balanced venue (synthetic)",
+      "source": "synthetic",
+      "capital_quote": 1.0,
       "metric": "net return on capital of the same agent on the chosen venue, P25\u2013P75",
-      "without_agent": "pick the deepest pool (the obvious heuristic: more TVL is safer)",
-      "with_agent": "pick the pool whose flow is not one-way (\u00a73.4 imbalance screen)",
+      "without_agent": "pick the deepest pool \u2014 a one-way venue (synthetic), 4.0x the median liquidity (the obvious heuristic: more TVL is safer)",
+      "with_agent": "pick the pool whose flow is not one-way \u2014 a balanced venue (synthetic), where \u00a73.4's imbalance arm fires on 0.7% of samples against 96.3% on the other",
       "quotable": false,
       "note": "baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon",
       "baseline": {
@@ -114,9 +145,13 @@
         "p75": 0.0,
         "in_range": 0.0341,
         "fees": 5.214e-05,
-        "lvr_upper_bound": 0.00186662,
-        "costs": 0.00624,
-        "moves": 16
+        "lvr_upper_bound": 0.00189798,
+        "costs": 0.00512645,
+        "moves": 16,
+        "mints": 8,
+        "pulls": 8,
+        "recentres": 0,
+        "distinct_returns": 0
       },
       "agent": {
         "p25": 0.0,
@@ -124,10 +159,15 @@
         "p75": 0.0,
         "in_range": 0.2341,
         "fees": 0.00137691,
-        "lvr_upper_bound": 0.01120082,
-        "costs": 0.01248,
-        "moves": 32
+        "lvr_upper_bound": 0.01134728,
+        "costs": 0.00855055,
+        "moves": 32,
+        "mints": 16,
+        "pulls": 16,
+        "recentres": 0,
+        "distinct_returns": 0
       },
+      "replay_days": 2.0,
       "delta_pp": 0.0,
       "ranges_overlap": true,
       "material": false,

@@ -299,10 +299,25 @@ function TaskCard({
   const basis = task.capital_quote ?? capital;
 
   return (
-    <Card as="article">
+    // `min-w-0`: this card is a grid item, and a grid item defaults to
+    // `min-width: auto` — it refuses to shrink below its own min-content width.
+    // The regenerated report puts a 42-character pool address in `task.venue`,
+    // which has no break opportunity, so the card grew to 465px inside a 350px
+    // column and pushed the page 95px sideways at 390px.
+    //
+    // `AgentCard.tsx` carries this same fix and the same reasoning; this card
+    // never needed it while the committed artifact had no addresses in those
+    // strings. Caught by `make web-check`, invisible at 1280 and to jsdom.
+    <Card as="article" className="min-w-0">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="mb-1 font-mono text-xs tracking-wide text-faint uppercase">
+          {/* `break-words`: the venue string carries a pool address, and a
+              42-character unbroken token cannot wrap. At 390px it pushed the
+              page 95px sideways — caught by `make web-check`, invisible at
+              1280 and invisible to jsdom. The stale artifact had been hiding
+              it: the addresses only entered these strings when the report was
+              regenerated from chain. */}
+          <div className="mb-1 font-mono text-xs tracking-wide break-all text-faint uppercase">
             {task.category} · {task.venue}
           </div>
           <Heading className="m-0 text-md font-semibold">{task.task}</Heading>
@@ -315,11 +330,11 @@ function TaskCard({
       </div>
 
       <dl className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
-        <div className="rounded-sm border border-line bg-panel-2 p-3">
+        <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">Without an agent</dt>
-          <dd className="m-0 mt-1 text-dim">{task.without_agent}</dd>
+          <dd className="m-0 mt-1 break-all text-dim">{task.without_agent}</dd>
         </div>
-        <div className="rounded-sm border border-line bg-panel-2 p-3">
+        <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">With an agent</dt>
           {/* The agent's own card answers this same task from its own run, and
               the two have disagreed by as much as a sign. This sentence named
@@ -408,7 +423,7 @@ function TaskCard({
                 moves: task.baseline.moves,
               }}
             />
-            <p className="mt-3 mb-0 text-xs text-faint">
+            <p className="mt-3 mb-0 text-xs break-all text-faint">
               {task.metric} · on {money(basis, unit)} of capital · {task.note}
             </p>
           </div>

@@ -1,9 +1,9 @@
 {
   "build": {
     "command": "python scripts/venue_report.py",
-    "generated_at": "2026-08-20T10:29:08+00:00",
+    "generated_at": "2026-08-21T19:57:13+00:00",
     "git_dirty": true,
-    "git_sha": "82e0f91",
+    "git_sha": "eb040ed",
     "source": "offline"
   },
   "divergences": [

@@ -31,12 +31,20 @@ identified by a `bytes32` order id, not the EIP's `uint256` jobId, which is why
 `nextJobId()`, `jobCount()` and `jobs(uint256)` all reverted — they were never
 the wrong *call*, they were the wrong *interface*.
 
-So `JOB_ESCROW` is empty again, and `escrow_address()` raises again. That is the
-module's own rule applied to itself rather than around itself: this mapping is
-for **verified ERC-8183 job escrows**, a real escrow that does not implement
-ERC-8183 is not one, and a mapping whose name overstates its contents is the
-misquote wearing our own logo. What the contract *is* is recorded in
-`registry/aacp.py`, under its real interface, with the readings.
+So TermiX's escrow left `JOB_ESCROW`, and for a while the mapping was empty and
+`escrow_address()` raised. That was the module's own rule applied to itself
+rather than around itself: this mapping is for **verified ERC-8183 job
+escrows**, a real escrow that does not implement ERC-8183 is not one, and a
+mapping whose name overstates its contents is the misquote wearing our own logo.
+What that contract *is* is recorded in `registry/aacp.py`, under its real
+interface, with the readings.
+
+**It is not empty now, and the reason is not a relaxation of that rule.** The
+claim "the EIP publishes no reference deployments" was true and was the wrong
+question: Altana ships `ERC8183_ADDRESSES` for both BSC networks, and nobody
+here had looked. `scripts/verify_erc8183.py` looked, three ways, and every check
+passed on both chains — 56,632 jobs on mainnet against a kernel that answers
+`jobCounter()` and `paymentToken()`. The entries carry those readings. See P-24.
 
 The rule is **no entry without evidence**, and a test enforces it.
 
@@ -45,24 +53,31 @@ signer, no web3, and deliberately no code path that could acquire one.
 
 ## The count, derived rather than asserted
 
-With the provider named at creation — so `setProvider` is unnecessary — the
-client's path to escrowed funds is **four transactions**:
+The provider is an argument to `createJob` and there is no setter for it, so the
+client's path to escrowed funds is **five transactions**:
 
-    approve(escrow, amount)                              ERC-20, not ERC-8183
+    approve(kernel, amount)                              ERC-20, not ERC-8183
     createJob(provider, evaluator, expiredAt, ...)  -> jobId
-    setBudget(jobId, amount)
-    fund(jobId)                                          Open -> Funded
+    registerJob(jobId, policy)                           EvaluatorRouter, not the kernel
+    setBudget(jobId, amount, optParams)
+    fund(jobId, expectedBudget, optParams)               Open -> Funded
 
 Settlement adds two more, by two other parties:
 
     submit(jobId, deliverable)                           provider only
-    complete(jobId) | reject(jobId)                      evaluator only
+    settle(jobId, evidence)                              EvaluatorRouter, evaluator only
 
-**Six transactions end to end.** `steps()` returns that list and `len()` is the
+**Seven transactions end to end.** `steps()` returns that list and `len()` is the
 count, so the number on the card is computed from the sequence it describes. A
-hardcoded "6" would be a claim; this is a consequence. Our earlier "3-4
+hardcoded "7" would be a claim; this is a consequence. Our earlier "3-4
 transactions" was a guess in the right neighbourhood, which is how the wrong
 number survives — it looks careful.
+
+The count was **six** until 21 Aug 2026, when the sequence was checked against a
+deployed kernel rather than read off the Draft EIP. `registerJob` is the extra
+one, and it goes to a second contract — which is the more useful half of the
+correction: a client that sent all seven to one address would revert on the
+third.
 
 ERC-2771 meta-transactions are an **optional extension, not core**, so nothing in
 the core interface batches these away. If a facilitator implements it, the client
@@ -102,24 +117,46 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# The EIP is Draft and publishes no reference deployments, and BNB's own SDK is
-# testnet-only. This mapping was empty for exactly that reason.
+# The AgenticCommerce kernel, verified on chain rather than taken from a table.
 #
-# It held one entry for a while — TermiX's `TermixEscrow` — and giving it up was
-# the point. The rule governing this mapping is stricter than "we found an
-# address somewhere" and stricter than "the address is real": **no entry without
-# evidence that it implements this standard**, enforced by a test. A table on a
-# vendor's website is a claim; bytecode at an address is a verification; and
-# bytecode that verifies a *different* interface is a verification of something
-# else. See `registry/aacp.py:ESCROW_INTERFACE` for what was found instead.
-JOB_ESCROW: dict[int, str] = {}
+# This was empty, and the reason given was that the EIP is Draft and "lists no
+# reference deployment addresses at all". That is still true of the EIP. It was
+# never true of the ecosystem: `@altananetwork/sdk@0.8.0` publishes
+# `ERC8183_ADDRESSES` for both BSC networks, and nobody here had looked.
+#
+# `scripts/verify_erc8183.py` looked, the same three ways `verify_venus.py` does,
+# and every check passed on both chains — see `JOB_ESCROW_EVIDENCE`. The entry
+# exists because of those readings, not because a table said so; that is the
+# rule this module set for itself and it is being followed rather than waived.
+JOB_ESCROW: dict[int, str] = {
+    56: "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
+    97: "0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE",
+}
+
+#: The rest of the deployment, carried because a kernel alone cannot settle.
+#: `registerJob` and `settle` live on the EvaluatorRouter and the dispute window
+#: on the OptimisticPolicy — three contracts, which is itself a correction to
+#: the single-escrow shape `steps()` originally modelled.
+EVALUATOR_ROUTER: dict[int, str] = {
+    56: "0x51895229E12F9876011789B04f8698af06cCD6DA",
+    97: "0xD7d36D66d2F1B608A0F943f722D27e3744f66F25",
+}
+OPTIMISTIC_POLICY: dict[int, str] = {
+    56: "0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5",
+    97: "0x4F4678D4439feC812Ac7674Bb3Efb4C8f5Fb78A6",
+}
+#: What a job is denominated in. Read from the kernel itself, not from the table.
+PAYMENT_TOKEN: dict[int, str] = {
+    56: "0xcE24439F2D9C6a2289F741120FE202248B666666",
+    97: "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+}
 
 # What was actually checked, and — more importantly — what was not.
 #
-# Kept as a record even though `JOB_ESCROW` is empty, because the readings are
-# the interesting output and deleting them would erase the correction along with
-# the claim. Keyed by address rather than by chain: it is evidence about a
-# contract, and that contract is no longer this module's escrow.
+# Kept as a record because the readings are the interesting output, and
+# deleting them would erase the correction along with the claim. Keyed by
+# address rather than by chain: it is evidence about a contract, and that
+# contract is not this module's escrow — a different one is.
 #
 # The last line is the one that moved. It used to say the job interface had not
 # been exercised. It has been now, and it is not there.
@@ -152,9 +189,58 @@ FORMER_CANDIDATE_EVIDENCE: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: Addresses that were considered and rejected, and why in one line. Published
-#: rather than dropped: a rejected candidate is a result.
-JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {}
+#: What was read to justify each entry in `JOB_ESCROW`, and — the half that
+#: matters more — what those readings do not establish.
+#:
+#: This header used to say "addresses that were considered and rejected", which
+#: belongs to `FORMER_CANDIDATE_EVIDENCE` below. The two dicts had each other's
+#: descriptions: the accepted deployment was labelled as a rejection and the
+#: rejection as a record of what was checked.
+JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
+    56: (
+        "Bytecode present at all five addresses: kernel 130 bytes (proxy), "
+        "EvaluatorRouter 130, OptimisticPolicy 4,413, registry 130, payment "
+        "token 2,007. Read 21 Aug 2026 at block 117,226,038.",
+        "The interface answers: `jobCounter()` returns **56,632**, "
+        "`paymentToken()` returns 0xce24439f...666666, and the policy's "
+        "`disputeWindow()` returns 604,800 (seven days).",
+        "The answers agree. The kernel's own `paymentToken()` equals the "
+        "published table's entry, and the table's `registry` field is "
+        "byte-identical to `erc8004.IDENTITY_REGISTRY[56]` — an address this "
+        "repository verified independently, from the PancakeSwap side, long "
+        "before it read this table.",
+        "56,632 jobs is the number that distinguishes this from the previous "
+        "candidate. `TermixEscrow` was a real escrow that implemented none of "
+        "ERC-8183 (P-18). This one answers the EIP's own accessors and has been "
+        "used at scale.",
+        "Recorded in vetting/addresses/erc8183-56.json.",
+        "NOT VERIFIED: nobody here has created, funded, submitted or settled a "
+        "job on this deployment. Every reading above is an `eth_call` or an "
+        "`eth_getCode`; the write path has never been exercised because nothing "
+        "in this repository can sign. A contract that answers `jobCounter()` "
+        "and a contract that will accept *our* job are different claims, and "
+        "only the first is supported — which is the same distinction P-18 was "
+        "about, pointed at ourselves this time.",
+        "SECURITY: the kernel, the EvaluatorRouter and the registry are 130-byte "
+        "proxies, so the code that would hold escrowed funds is upgradeable by "
+        "its owner. What was verified is what those addresses delegate to "
+        "today. Nothing here checks who may change that, and a reader routing "
+        "real money should.",
+    ),
+    97: (
+        "Same five checks, same shapes, chapel testnet. `jobCounter()` returns "
+        "581 and `disputeWindow()` returns 86,400 (one day, shorter than "
+        "mainnet's seven).",
+        "The table's `registry` equals `erc8004.IDENTITY_REGISTRY[97]`, again byte-identical.",
+        "Recorded in vetting/addresses/erc8183-97.json.",
+        "NOT VERIFIED: the write path is unexercised here too — same reason, "
+        "same absence of a signer. Chapel would be the honest place to exercise "
+        "it, and that has not been done.",
+        "SECURITY: proxies again, and a one-day dispute window against "
+        "mainnet's seven. A flow rehearsed on chapel is not rehearsing "
+        "mainnet's timing.",
+    ),
+}
 
 # Six states, per the EIP. Terminal states are the last three.
 STATES = ("Open", "Funded", "Submitted", "Completed", "Rejected", "Expired")
@@ -176,7 +262,7 @@ class Step:
 
     call: str
     sender: str  # "client" | "provider" | "evaluator"
-    contract: str  # "escrow" | "erc20"
+    contract: str  # "kernel" | "router" | "erc20"
     why: str
 
     @property
@@ -186,47 +272,111 @@ class Step:
         Worth distinguishing, because "ERC-8183 needs four transactions" and
         "hiring needs four transactions" are different claims and only the second
         is true.
+
+        Two contracts count, not one. The deployed standard splits creation and
+        funding (the AgenticCommerce kernel) from binding and settlement (the
+        EvaluatorRouter) — a shape the single-`escrow` version of this property
+        could not express, and which is exactly what a caller sending everything
+        to one address would discover halfway through.
         """
-        return self.contract == "escrow"
+        return self.contract in ("kernel", "router")
+
+
+def contracts_for(chain_id: int) -> dict[str, str]:
+    """Every address a hire touches on one chain, by the role `steps()` names.
+
+    `steps()` built its sequence with the string literals `"kernel"` and
+    `"router"` while `EVALUATOR_ROUTER`, `OPTIMISTIC_POLICY` and `PAYMENT_TOKEN`
+    sat verified and unread three screens above. The module checked three
+    addresses, wrote them down, and then priced a flow against two words — so
+    nothing could have caught the roles pointing at the wrong contracts.
+
+    Raises for a chain with no verified deployment, exactly as `escrow_address`
+    does, rather than returning a partial map.
+    """
+    if chain_id not in JOB_ESCROW:
+        raise NoVerifiedDeployment(
+            f"no verified ERC-8183 deployment for chain {chain_id}. "
+            f"Verify one with scripts/verify_erc8183.py before pricing a flow against it."
+        )
+    return {
+        "kernel": JOB_ESCROW[chain_id],
+        "router": EVALUATOR_ROUTER[chain_id],
+        "policy": OPTIMISTIC_POLICY[chain_id],
+        "erc20": PAYMENT_TOKEN[chain_id],
+    }
 
 
 def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
     """The full sequence, in order. `len()` is the transaction count.
 
-    `provider_known_at_creation` is the ordinary case for a marketplace: the
-    client is hiring a *particular* agent, so the provider goes in at creation
-    and `setProvider` is never needed. Passing `False` models an open call for
-    bids, which costs one more transaction.
+    ## Corrected against the deployed kernel, 21 Aug 2026
+
+    This modelled seven calls on a single escrow: `createJob`, `setProvider`,
+    `setBudget`, `fund`, `submit`, `complete`, `reject`. That was a reading of
+    the EIP, and the EIP is Draft. The deployment differs in three ways, all
+    confirmed against the AgenticCommerce kernel's own ABI:
+
+    - **There is no `setProvider`.** The provider is an argument to `createJob`,
+      which this module's own docstring had already deduced from TermiX's
+      bytecode without following through to the sequence. So
+      `provider_known_at_creation=False` no longer costs an extra transaction —
+      it is not a supported shape at all, and passing it now says so.
+    - **Settlement is on a different contract.** `registerJob` binds a dispute
+      policy and `settle` releases, and both live on the **EvaluatorRouter**,
+      not the kernel. A sequence that sent everything to one address would
+      revert halfway through.
+    - **The accessors are `jobCounter()` and `getJob(uint256)`**, not
+      `nextJobId()` / `jobs(uint256)`. P-18 probed for the second pair on
+      TermiX's escrow and found neither, and recorded that as the wrong
+      *interface* — which was right about the contract and, it turns out,
+      partly wrong about the names.
+
+    P-18's conclusion stands: `TermixEscrow` implements none of this. What
+    changes is that the sequence below now describes a contract that exists.
     """
-    out = [
+    if not provider_known_at_creation:
+        raise ValueError(
+            "the deployed AgenticCommerce kernel takes the provider as an argument "
+            "to createJob and has no setProvider. An open call for bids is not a "
+            "shape this deployment supports, so pricing it would be fiction."
+        )
+
+    return (
         Step(
             "approve",
             "client",
             "erc20",
-            "the escrow pulls the budget on fund(); without this it reverts",
+            "the kernel pulls the budget on fund(); without this it reverts",
         ),
         Step(
             "createJob",
             "client",
-            "escrow",
-            "provider, evaluator, expiry, description, optional hook -> jobId",
+            "kernel",
+            "provider, evaluator, expiredAt, description, hook -> jobId",
         ),
-    ]
-    if not provider_known_at_creation:
-        out.append(Step("setProvider", "client", "escrow", "only when createJob passed address(0)"))
-    out += [
-        Step("setBudget", "client", "escrow", "either party may set it, so a price can be agreed"),
-        Step("fund", "client", "escrow", "Open -> Funded; the money is now escrowed"),
-        Step("submit", "provider", "escrow", "Funded -> Submitted; the deliverable is a bytes32"),
         Step(
-            "complete",
-            "evaluator",
-            "escrow",
-            "Submitted -> Completed, releasing funds. Only the evaluator may. "
-            "reject() refunds the client instead",
+            "registerJob",
+            "client",
+            "router",
+            "binds the dispute policy on the EvaluatorRouter — a second contract",
         ),
-    ]
-    return tuple(out)
+        Step(
+            "setBudget",
+            "client",
+            "kernel",
+            "either party may set it, so a price can be agreed",
+        ),
+        Step("fund", "client", "kernel", "Open -> Funded; the money is now escrowed"),
+        Step("submit", "provider", "kernel", "Funded -> Submitted; the deliverable is a bytes32"),
+        Step(
+            "settle",
+            "evaluator",
+            "router",
+            "releases escrow or opens a dispute, on the EvaluatorRouter. The "
+            "OptimisticPolicy's disputeWindow() is 604,800s on mainnet",
+        ),
+    )
 
 
 def transaction_count(*, provider_known_at_creation: bool = True) -> int:
@@ -266,8 +416,10 @@ def success_criterion(in_range_floor: float) -> str:
 def escrow_address(chain_id: int) -> str:
     """The job escrow, or a refusal.
 
-    There is no fallback and no default. The whole point of this module is that
-    we do not have this address.
+    There is no fallback and no default: a chain without a verified deployment
+    raises rather than returning a plausible address. Two chains have one now,
+    and each carries the readings that put it there — see `JOB_ESCROW_EVIDENCE`,
+    including the two things those readings do **not** establish.
     """
     address = JOB_ESCROW.get(chain_id)
     if address is None:

@@ -20,7 +20,13 @@ PKG = Path(__file__).resolve().parents[1] / "packages" / "misquote"
 
 PURE_LAYERS = ("core", "estimators", "lvr", "replay")
 IO_LAYERS = ("chain", "indexer")
-DRIVER_LAYERS = ("agents", "ops", "registry", "sessions", "tearsheet")
+# `api` belongs here, and its absence was a hole rather than a decision. The
+# layer list is what `test_pure_layer_does_not_import_impure_layers` forbids a
+# pure layer from reaching, and a package missing from every list is fenced by
+# nothing: until this line named it, `replay/ranges.py` could have imported
+# `misquote.api` and no test would have said a word. Named before the service
+# grows a surface worth importing.
+DRIVER_LAYERS = ("agents", "api", "ops", "registry", "sessions", "tearsheet")
 
 BANNED_STDLIB = frozenset(
     {

@@ -160,3 +160,44 @@ def test_listed_pools_are_all_on_the_chain_asked_for(chain: int) -> None:
     for address, label in report.listed_pools(chain):
         assert address == address.lower()
         assert label
+
+
+# --- the pool list must not fork again ---------------------------------------
+
+
+def test_the_vetting_layer_lists_every_verified_pool_on_the_chain() -> None:
+    """One derived list, because four hand-maintained ones diverged.
+
+    `recorded_for`, `_known_pools`, `vetting_report.listed_pools` and
+    `venue_report` each grew their own answer to "the pools we care about on
+    this chain", and `TARGET_POOL_WIDE` was in none of them — so the advantage
+    report's third task quoted on a pool the vetting layer had never heard of,
+    while the README promises a badge for every pool a listed agent touches.
+
+    Asserted against `known_pools_on` rather than a literal: a test that repeats
+    the list is a fifth copy of the thing that broke.
+    """
+    from misquote.chain.addresses import known_pools_on
+    from misquote.vetting.read import _known_pools
+
+    for chain_id in (56, 97):
+        assert [p.address for p in _known_pools(chain_id)] == [
+            p.address for p in known_pools_on(chain_id)
+        ], f"the vetting entrypoint's pool list has forked from KNOWN_POOLS on chain {chain_id}"
+
+
+def test_every_listed_pool_can_have_its_recorded_values_compared() -> None:
+    """`recorded_for` returning None silently drops the repo-versus-chain check.
+
+    It does not fail — the badge simply stops comparing what we recorded against
+    what the pool says, for exactly the pool whose `fee_protocol` differs from
+    the flagship's. That is the comparison P-8 exists because of.
+    """
+    from misquote.chain.addresses import known_pools_on
+    from misquote.vetting.read import recorded_for
+
+    for pool in known_pools_on(56):
+        recorded = recorded_for(pool.address)
+        assert recorded is not None, f"{pool.label} has no recorded values to compare"
+        assert recorded["fee_protocol"] == pool.fee_protocol
+        assert recorded["tick_spacing"] == pool.tick_spacing

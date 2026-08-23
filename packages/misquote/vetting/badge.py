@@ -36,9 +36,17 @@ from typing import Any
 
 PASS, WARN, FAIL, UNKNOWN = "PASS", "WARN", "FAIL", "UNKNOWN"
 
-# Pancake's factory constructor, verified against the deployed bytecode (P-6).
-# Note the absence of 3000 -> 60: Uniswap has that tier and Pancake does not, so
-# a pool claiming it is not a Pancake v3 pool.
+# What Pancake's factory returned when this was recorded, kept as a **cross-check
+# against chain** rather than as the source — the same posture `chain/addresses.py`
+# takes with `fee_protocol`, and for the same reason.
+#
+# The factory answers `feeAmountTickSpacing(fee)` directly, and returns **0** for
+# a tier it does not enable. So the fact this comment used to assert — that
+# Uniswap has a 3000 tier and Pancake does not, so a pool claiming one is not a
+# Pancake pool — is a reading, not a constant. Tiers are settable: governance can
+# `enableFeeAmount` a new one, and on that day a hardcoded map would fail a pool
+# that had just become legitimate, with a badge reading "not a tier PancakeSwap
+# deploys". Chain decides; a disagreement with the line below is itself reported.
 FEE_TIER_SPACING: dict[int, int] = {100: 1, 500: 10, 2500: 50, 10000: 200}
 
 # v3's representable tick range. `MIN_TICK % 10 == 2`, which is why clamping a
@@ -161,6 +169,9 @@ class PoolReadings:
     # rather than merely reporting the chain and trusting the constants.
     recorded: dict[str, int] | None = None
     resolved_by_factory: str | None = None
+    # What the factory enables for this pool's fee tier, and 0 for a tier it
+    # does not. Read rather than looked up — see `FEE_TIER_SPACING`.
+    factory_tick_spacing: int | None = None
     fee_pips: int | None = None
     tick_spacing: int | None = None
     fee_protocol: int | None = None
@@ -267,23 +278,66 @@ def _check_factory(badge: Badge, r: PoolReadings) -> None:
 
 
 def _check_fee_tier(badge: Badge, r: PoolReadings) -> None:
-    provenance = "P-6: 100/500/2500/10000 -> 1/10/50/200, and no 3000 tier"
+    """Does the pool's tick spacing match what the factory enables for its tier?
+
+    Read from `factory.feeAmountTickSpacing(fee)` rather than looked up in a
+    constant. A tier the factory does not enable returns **0**, which is the
+    factory saying the tier does not exist — the check the recorded map used to
+    make by omission.
+    """
+    provenance = "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable"
     if r.fee_pips is None or r.tick_spacing is None:
         badge.add("tick spacing matches tier", UNKNOWN, "could not read the tier", provenance)
         return
-    expected = FEE_TIER_SPACING.get(r.fee_pips)
-    if expected is None:
+
+    if r.factory_tick_spacing is None:
+        # Unknown, not a pass. Falling back to the constant here would quietly
+        # restore exactly the behaviour this check was changed to avoid.
         badge.add(
             "tick spacing matches tier",
-            FAIL,
-            f"fee tier {r.fee_pips} is not one PancakeSwap v3 deploys",
+            UNKNOWN,
+            "the factory did not answer feeAmountTickSpacing()",
             provenance,
         )
-    elif expected != r.tick_spacing:
+        return
+
+    if r.factory_tick_spacing == 0:
         badge.add(
             "tick spacing matches tier",
             FAIL,
-            f"tier {r.fee_pips} implies spacing {expected}, pool reports {r.tick_spacing}",
+            f"the factory does not enable fee tier {r.fee_pips}",
+            provenance,
+        )
+        return
+
+    if r.factory_tick_spacing != r.tick_spacing:
+        badge.add(
+            "tick spacing matches tier",
+            FAIL,
+            f"the factory enables spacing {r.factory_tick_spacing} for tier "
+            f"{r.fee_pips}, pool reports {r.tick_spacing}",
+            provenance,
+        )
+        return
+
+    # Agreement with chain. Now say whether the value we recorded still matches
+    # it — a new tier is not a defect, but it is something this repository has
+    # not seen, and silence would be indistinguishable from having checked.
+    recorded = FEE_TIER_SPACING.get(r.fee_pips)
+    if recorded is None:
+        badge.add(
+            "tick spacing matches tier",
+            WARN,
+            f"{r.fee_pips / 10_000:.2f}% -> spacing {r.tick_spacing}, enabled on chain but "
+            "not among the tiers this repository recorded",
+            provenance,
+        )
+    elif recorded != r.factory_tick_spacing:
+        badge.add(
+            "tick spacing matches tier",
+            WARN,
+            f"tier {r.fee_pips} now spaces {r.factory_tick_spacing} on chain; "
+            f"we recorded {recorded}",
             provenance,
         )
     else:

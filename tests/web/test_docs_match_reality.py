@@ -131,3 +131,94 @@ def test_documented_line_counts_are_the_real_ones(judges: str) -> None:
             wrong.append(f"{row.group(3)}: documented {claimed} lines, actually {actual}")
 
     assert not wrong, "\n".join([*wrong, "Run `make judges`."])
+
+
+# --- derived blocks ----------------------------------------------------------
+#
+# The document carried two contradictory tables of the same result, ninety lines
+# apart, one a stale copy of a synthetic run with a narrative resting on it.
+# Nobody typed a wrong number on purpose: the artifact was regenerated and the
+# prose was not. These assert the blocks agree with the artifacts they derive
+# from, rather than merely that regenerating them is idempotent.
+
+
+def _sync():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "misquote_sync_docs", REPO / "scripts" / "sync_docs.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_derived_block_is_closed_and_present(judges: str) -> None:
+    """An unterminated marker silently swallows the rest of the document."""
+    sync = _sync()
+    for name in sync.BLOCKS:
+        start = sync.BLOCK.format(name=name)
+        end = sync.BLOCK_END.format(name=name)
+        assert judges.count(start) == 1, f"{name}: opening marker missing or duplicated"
+        assert judges.count(end) == 1, f"{name}: closing marker missing or duplicated"
+        assert judges.index(start) < judges.index(end), f"{name}: markers are inverted"
+
+
+def test_the_advantage_table_matches_the_artifact(judges: str) -> None:
+    """The specific failure this replaced: a Δ column disagreeing with the
+    artifact it claims to summarise, by 92 percentage points."""
+    import json
+
+    artifact = REPO / "apps" / "web" / "public" / "artifacts" / "advantage.json"
+    if not artifact.exists():
+        pytest.skip("advantage.json has not been generated")
+
+    sync = _sync()
+    block = judges.split(sync.BLOCK.format(name="advantage"))[1].split(
+        sync.BLOCK_END.format(name="advantage")
+    )[0]
+
+    for task in json.loads(artifact.read_text())["tasks"]:
+        if not task.get("quotable", True):
+            continue
+        assert f"{task['delta_pp']:+.2f}pp" in block, (
+            f"{task['task']} reports {task['delta_pp']:+.2f}pp in the artifact and "
+            "the judge's table does not say so"
+        )
+
+
+def test_the_dated_logs_are_never_rewritten() -> None:
+    """`make judges` must not touch the matrix or the assumption sheet.
+
+    They are dated records. P-7's "16 times in 62 hours" and P-12's "2,585
+    mints" are what was measured on a day, and re-deriving them would destroy
+    the evidence rather than refresh it. Only documents making present-tense
+    claims are derived.
+    """
+    sync = _sync()
+    before = {
+        path: (REPO / "docs" / path).read_bytes()
+        for path in ("REQUIREMENTS_MATRIX.md", "ASSUMPTIONS.md")
+    }
+
+    sync.rewrite((REPO / "docs" / "FOR_JUDGES.md").read_text())
+
+    for path, content in before.items():
+        assert (REPO / "docs" / path).read_bytes() == content, f"{path} was modified"
+
+
+def test_a_block_whose_artifact_is_missing_is_left_alone(tmp_path, monkeypatch) -> None:
+    """Blanking a block because a file is absent would delete a true statement
+    over a missing artifact — a worse failure than the staleness this guards."""
+    sync = _sync()
+    monkeypatch.setattr(sync, "BLOCKS", {"nope": lambda: None})
+
+    start = sync.BLOCK.format(name="nope")
+    end = sync.BLOCK_END.format(name="nope")
+    text = f"{start}\nkeep me\n{end}"
+
+    updated, changes = sync.fill_blocks(text)
+    assert "keep me" in updated
+    assert any(c.startswith("!!") for c in changes)

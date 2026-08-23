@@ -3,7 +3,7 @@ import type { AdvantageArtifact, AdvantageTask } from "@/lib/artifacts";
 /**
  * Two artifacts, one question, and the join between them.
  *
- * `advantage.json` and the three agent cards answer the same thing — did the
+ * `advantage.json` and the agent cards answer the same thing — did the
  * agent beat doing it yourself — from different runs, and for a while they
  * disagreed in public with nothing between them saying so:
  *
@@ -84,7 +84,7 @@ function namesAgent(withAgent: string, agent: string): boolean {
  * The advantage report's answer for one agent, if it has one.
  *
  * `undefined` is a real and common result, not a failure: the report has three
- * tasks and the site has three agents, and they do not line up. Grid appears in
+ * tasks and the site has four agents, and they do not line up. Grid appears in
  * neither of the two agent-shaped tasks, and the third task is a choice between
  * pools rather than a policy anybody hired. So two of the pairings resolve to
  * nothing, and the caller must render nothing rather than an empty box — which

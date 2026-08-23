@@ -72,6 +72,7 @@ TermiX podium, PancakeSwap, Altana XP (passive via caps subset).
 ```
 misquote/
 ├── README.md                     # this file — the working brief
+├── MISQUOTE_FLOW.excalidraw      # the whole system on one canvas (`make diagram`)
 ├── docs/
 │   ├── WARDEN_SPEC_v1.0_FROZEN.md
 │   ├── REQUIREMENTS_MATRIX.md    # every review complaint → status
@@ -90,7 +91,7 @@ misquote/
 │   ├── warden/                   # flagship (spec-governed)
 │   ├── grid/
 │   ├── sentinel/
-│   └── router/                   # Agent Studio CLI project (separate deploy)
+│   └── router/                   # Yield: allocation policy + dry entrypoint
 ├── apps/
 │   └── web/                      # Next.js front-end (landing/cards/quotes/panel)
 ├── vetting/                      # fork-lab checks + badge generator
@@ -136,7 +137,8 @@ written into `docs/REQUIREMENTS_MATRIX.md`.
 7. `packages/lvr` + `packages/replay` — **the week's protected item.** T1–T4
    as pytest before feature work counts. Showcase quotes precomputed from my
    historical positions.
-8. `agents/router` — 2-day version, deployed via Agent Studio CLI.
+8. `agents/router` — **built.** Venus venue, realized-APR estimator, switching
+   boundary. The Agent Studio *deployment* is separate and is on the ledger.
 9. `agents/sentinel` — threshold mode + alerting. **Built** (threshold mode; no
    alerting yet). It paid for itself immediately: its primary signal is §3.4's
    swap-imbalance z-score, which the engine had been passing as a hardcoded
@@ -188,13 +190,26 @@ caps · the tearsheet.
 ## 8. D1 checklist (open items — answer before Phase 1)
 
 - [ ] Prize split verified in BNB Discord (page says $30K = total pool).
-- [ ] ERC-8004 registry population counted on BscScan. Decision rule: **< ~15
-      real agents → third-party auto-cards demote immediately to a plain
-      "registry view"** and the narrative is "day-one marketplace for a day-one
-      ecosystem."
+- [x] ERC-8004 registry population counted — **on chain, not on BscScan**, by
+      binary search on `ownerOf` because `totalSupply()` reverts on this proxy.
+      **272,322 agent ids resolve**, growing ~1,100/hour, against the `< ~15`
+      the decision rule was written around. The rule therefore resolves the
+      other way: auto-cards are viable, and third-party agents are listed on
+      `/registry`. What the count does *not* say is how many are real — the
+      first survey puts **90% resolvable and declaring themselves active, and
+      30% naming an endpoint you could call**. See **P-21**.
+- [x] ERC-8183 hire call **not** invoked. `TermixEscrow` implements none of the
+      calls, across 5,894 candidate signatures (**P-18**) — but a different
+      contract does: Altana's AgenticCommerce kernel passed the same three-way
+      check on both BSC networks, with 56,632 jobs on mainnet, so `JOB_ESCROW`
+      now carries two verified addresses and `escrow_address()` returns them
+      (**P-24**). What is still not invoked is the **write** path, which needs a
+      signer.
 - [ ] ERC-8183 hire call invoked from an external script successfully (no
       permissioning surprises).
-- [ ] Agent Studio CLI hello-world deployed (answers the router path).
+- [ ] Agent Studio CLI hello-world deployed. The router *path* is answered by
+      `agents/router/policy.py`; only the deployment is open, and it needs a
+      funded wallet.
 - [ ] Mission Control micropayment discrepancy (49 vs 75) resolved; correct
       number recorded in `docs/REQUIREMENTS_MATRIX.md` before any card renders.
 

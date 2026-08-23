@@ -87,11 +87,21 @@ describe("Overview leads with the comparison", () => {
 
     const caption = screen.getByText(/longest bar is the largest/);
     const panel = caption.closest("div")!;
-    for (const agent of index.agents) {
+    // Every agent whose return is *comparable*. Allocation agents supply to a
+    // lending market and have neither an in-range fraction nor an LVR, so they
+    // are excluded — and the page says which and why rather than leaving a
+    // reader to notice four cards above three rows.
+    const comparable = index.agents.filter((a) => a.slug !== "router");
+    for (const agent of comparable) {
       expect(within(panel).getByRole("link", { name: agent.name })).toHaveAttribute(
         "href",
         `/agent/${agent.slug}`,
       );
+    }
+    const excluded = index.agents.filter((a) => a.slug === "router");
+    for (const agent of excluded) {
+      expect(within(panel).queryByRole("link", { name: agent.name })).toBeNull();
+      expect(screen.getByText(new RegExp(`${agent.name}.*not on this table`, "s"))).toBeTruthy();
     }
   });
 
@@ -126,8 +136,12 @@ describe("Overview leads with the comparison", () => {
     // bar belongs to which agent as well as how long it is. Sorting both sides
     // first would pass on a component that drew the right three lengths against
     // the wrong three names.
+    // Allocation agents are not on this table and have no `replay.net_quote` to
+    // scale — see the comparability note the page renders beneath it.
     const bySlug: Record<string, AgentArtifact> = { warden, grid, sentinel };
-    const nets = index.agents.map((a) => Math.abs(bySlug[a.slug]!.replay.net_quote));
+    const nets = index.agents
+      .filter((a) => bySlug[a.slug])
+      .map((a) => Math.abs(bySlug[a.slug]!.replay.net_quote));
     const worst = Math.max(...nets);
 
     expect(Math.max(...bars)).toBe(100);
@@ -313,8 +327,19 @@ describe("Advantage", () => {
 
   it("publishes a task where the agent lost", async () => {
     // Sentinel loses to DIY on the Protect task. Nothing may reorder or hide it.
+    //
+    // Filtered on the emitter's own verdict, not on `delta_pp < 0`. The sign of
+    // the float is not the rule: `Comparison.verdict_line` says "loses to DIY"
+    // only above `MATERIAL_PP`, and below it says "indistinguishable" instead.
+    // The Route task lands at -0.01pp — negative, immaterial, and correctly
+    // never described as a loss — so the arithmetic filter had this test
+    // demanding a sentence the emitter is right not to write. Re-deriving the
+    // materiality rule here would be a second implementation of it one
+    // screen-inch from the one Python wrote, which is the thing this codebase
+    // refuses to do in `Band.tsx`.
     const d = readArtifact<AdvantageArtifact>("advantage.json");
-    const losing = d.tasks.filter((t) => t.quotable && t.delta_pp < 0);
+    const losing = d.tasks.filter((t) => t.quotable && t.verdict.includes("loses to"));
+    expect(losing.length).toBeGreaterThan(0);
     render(<AdvantagePage />);
 
     for (const task of losing) {
@@ -423,7 +448,7 @@ describe("Registry: the escrow claims only what was recorded", () => {
     hire_flow: {
       escrow: { available: boolean; address?: string; reason?: string; evidence?: string[] };
     };
-    identity: { surveyed: boolean };
+    identity: { surveyed: boolean; agents?: { agent_id: number }[] };
   }
 
   const CAVEAT = /^(NOT VERIFIED|SECURITY|NO TESTNET)\b/;
@@ -509,15 +534,44 @@ describe("Registry: the escrow claims only what was recorded", () => {
 });
 
 describe("Registry", () => {
+  interface Reg {
+    identity: { surveyed: boolean; agents?: { agent_id: number }[] };
+  }
+
   it("leads with the number of transactions the client signs", async () => {
     render(<RegistryPage />);
     expect(await screen.findByText("Signed by the client")).toBeInTheDocument();
     expect(screen.getByText("Transactions end to end")).toBeInTheDocument();
   });
 
-  it("states plainly that the registry was not surveyed without an RPC", async () => {
+  it("reports the registry survey as the artifact actually found it", async () => {
+    // This asserted the refusal unconditionally — "the registry was not
+    // surveyed" — which was true for as long as the survey was gated on a
+    // `BSC_RPC_URL` it did not need. The reads are `eth_call`, every free
+    // endpoint serves them, and the survey runs now. A test that pins a
+    // limitation passes until the limitation is fixed and then fails for the
+    // best possible reason, so it tracks the artifact instead.
+    const reg = readArtifact<Reg>("registry.json");
     render(<RegistryPage />);
-    expect(await screen.findByText(/registry was not surveyed/i)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "ERC-8004 identity registry" });
+
+    if (reg.identity.surveyed) {
+      expect(await screen.findByText(/substantive agent cards/i)).toBeInTheDocument();
+    } else {
+      expect(await screen.findByText(/registry was not surveyed/i)).toBeInTheDocument();
+    }
+  });
+
+  it("never quotes a third-party agent", async () => {
+    // The one thing this surface may not do. Our agents are quoted because
+    // their policies replay on real history; a registry listing cannot be, so
+    // the card says so rather than borrowing a rating from somewhere.
+    const reg = readArtifact<Reg>("registry.json");
+    if (!reg.identity.surveyed || !(reg.identity.agents ?? []).length) return;
+
+    render(<RegistryPage />);
+    const notes = await screen.findAllByText(/cannot replay a policy we do not have/i);
+    expect(notes.length).toBe((reg.identity.agents ?? []).length);
   });
 });
 
@@ -655,8 +709,16 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     });
     const section = heading.closest("[data-heading-scope]") as HTMLElement;
 
-    expect(within(section).getByText(/were not verified/)).toBeInTheDocument();
-    expect(within(section).getByText(/no address verification has been recorded/)).toBeInTheDocument();
+    // Awaited, not asserted synchronously. The heading belongs to `vetting.json`
+    // and the refusal to `addresses.json`, which are two fetches — so finding
+    // the heading says nothing about whether the second has resolved, and the
+    // skeleton is what renders until it does. This passed only because the
+    // second fetch happened to win, and stopped when `vetting.json` grew from
+    // two badged pools to three.
+    expect(await within(section).findByText(/were not verified/)).toBeInTheDocument();
+    expect(
+      within(section).getByText(/no address verification has been recorded/),
+    ).toBeInTheDocument();
     // A refusal, not an error. Nothing broke.
     expect(within(section).queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -714,8 +776,12 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     const heading = await screen.findByRole("heading", {
       name: /addresses the signer is pointed at/i,
     });
+    // Awaited, like its sibling above and for the same reason: the heading
+    // belongs to `vetting.json` and this refusal to `addresses.json`, so
+    // finding the heading says nothing about whether the second fetch has
+    // resolved. It passed only while that fetch happened to win the race.
     expect(
-      within(heading.closest("[data-heading-scope]") as HTMLElement).getByText(
+      await within(heading.closest("[data-heading-scope]") as HTMLElement).findByText(
         // Was `/has not been generated/`, which the page said about a file it
         // had merely not fetched yet. It now reports what it knows: the read
         // failed, and why.
@@ -1013,7 +1079,8 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
   interface Reg {
     aacp: { available: boolean; chain_id: number; reason?: string };
     hire_flow: { steps: { call: string; contract: string }[] };
-    build: { source?: string };
+    build: { source?: string; git_sha?: string };
+    identity: { surveyed: boolean; agents?: { agent_id: number }[] };
   }
 
   it("puts the judged deliverable above the hire flow", async () => {
@@ -1041,11 +1108,20 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
   it("shows what the artifact was built from", async () => {
     // The page removed a green "Verified" pill *citing* `source: offline` and
     // then never showed it, so the reader had to take the removal on trust.
+    //
+    // Scoped to the build stamp, for the reason the TermiX test below gives.
+    // `source` was "offline" when this was written and is "chain" now that the
+    // registry is surveyed, and "chain" also appears in the third-party
+    // listings ("card is on chain") — so the unscoped match found several and
+    // would have passed on whichever came first.
     const reg = readArtifact<Reg>("registry.json");
     render(<RegistryPage />);
     await screen.findByRole("heading", { name: "The judged deliverable" });
 
-    expect(screen.getByText(new RegExp(reg.build.source!))).toBeInTheDocument();
+    const stamp = screen
+      .getByText(new RegExp(reg.build.git_sha!))
+      .closest("p, div") as HTMLElement;
+    expect(within(stamp).getByText(new RegExp(reg.build.source!))).toBeInTheDocument();
   });
 
   it("names the chain the TermiX table belongs to", async () => {
@@ -1077,7 +1153,10 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     render(<RegistryPage />);
     await screen.findByRole("heading", { name: "TermiX AACP" });
 
-    expect(screen.getByText(/no deployment for chain 97/)).toBeInTheDocument();
+    // Awaited: the heading and the refusal come from the same fetch but not the
+    // same paint, and this page grew a list of third-party agent cards between
+    // them. A synchronous assertion here was passing on render timing.
+    expect(await screen.findByText(/no deployment for chain 97/)).toBeInTheDocument();
   });
 
   it("names the contract each call goes to", async () => {

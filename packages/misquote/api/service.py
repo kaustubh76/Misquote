@@ -61,7 +61,11 @@ REMEDIES: dict[str, str] = {
     "warden": "make showcase-demo",
     "grid": "make showcase-demo",
     "sentinel": "make showcase-demo",
-    "router": "make showcase-demo",
+    # `make router-card`, not `make showcase-demo`. The allocation card is
+    # written by `scripts/router_showcase.py`, which `showcase.py` does not
+    # call — so this line answered a reader's "how do I generate this?" with a
+    # command that would run, succeed, and not produce the file.
+    "router": "make router-card",
     "advantage": "make advantage",
     "advantage_short": "make advantage-short",
     "assumptions": "make assumptions",

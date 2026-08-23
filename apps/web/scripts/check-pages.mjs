@@ -41,6 +41,12 @@ const ROUTES = [
   ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
+  // The fourth category, and a different component tree from the three LP
+  // cards — `RouterDetail` rather than `AgentDetail`. It was rendering only
+  // under tsc and jsdom until this line existed, and "every route clean" meant
+  // every route in this list, which is exactly the shape of claim this file
+  // exists to stop being made.
+  ["agent-router", "/agent/router/"],
   ["methods", "/methods/"],
   ["vectors", "/vectors/"],
   ["assumptions", "/assumptions/"],
@@ -205,6 +211,8 @@ const NO_JS = [
   ["/vetting/", 3500, "factory resolves it"],
   ["/status/", 3000, "kill switch"],
   ["/agent/warden/", 2000, "in range"],
+  // Router has no in-range fraction; its page leads with the boundary.
+  ["/agent/router/", 1200, "hurdle"],
 ];
 
 const noJs = await browser.newContext({ javaScriptEnabled: false });
