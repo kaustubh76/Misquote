@@ -1018,6 +1018,87 @@
     );
   }
 
+  /* The band as a rule. See src/components/TickRule.tsx. */
+  .tick-rule {
+    --tick-h: 3px;
+    --tick-end: var(--line);
+    --tick-over: 5px;
+    position: relative;
+    background: linear-gradient(
+      90deg,
+      var(--tick-end) 0 25%,
+      var(--brand) 25% 75%,
+      var(--tick-end) 75% 100%
+    );
+    border-radius: var(--r-full);
+    height: var(--tick-h);
+  }
+  .tick-rule::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2px;
+    height: calc(var(--tick-h) + var(--tick-over));
+    translate: -1px -50%;
+    background: var(--brand);
+    border-radius: var(--r-full);
+  }
+
+  /* The inline size took two corrections and both were proportion, not colour.
+     At 22px wide with a 10px tick it read as a dagger — the mark was taller
+     than the interval was long, so the median dominated the thing it is
+     supposed to mark the middle of. And the ends were `--line`, which is
+     invisible against a dark panel, so only the brand middle rendered and the
+     figure had no extent at all. It is 34px with a 3px overhang now, and its
+     ends are drawn in the brand's own line colour so all three parts are
+     legible at 3px tall. */
+  .tick-rule--lead {
+    --tick-end: var(--brand-line);
+    --tick-over: 3px;
+    display: inline-block;
+    width: 34px;
+    margin-right: 0.65em;
+    vertical-align: 0.32em;
+  }
+  .tick-rule--full {
+    --tick-h: 2px;
+    --tick-over: 6px;
+    display: block;
+    width: 100%;
+  }
+
+  /* A panel with something behind it.
+   *
+   * `--glass` is `--panel` at 85%, so the tape reads through every card instead
+   * of every card being a lid on it. The inset hairline is what stops a
+   * translucent surface from looking unfinished: it gives the top edge a lit
+   * side, which an opaque panel got from its border alone. */
+  .surface {
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-hi),
+      var(--elev-1);
+  }
+
+  /* Reserved for surfaces that are a link to somewhere. A 1px lift and a
+     brand edge — no scale, which would resample the text under the cursor.
+     `@media (hover: hover)` so a touch device does not latch it on tap. */
+  @media (hover: hover) {
+    .surface-hover {
+      transition:
+        border-color var(--dur-2) var(--motion-quick),
+        box-shadow var(--dur-2) var(--motion-quick),
+        transform var(--dur-2) var(--motion-quick);
+    }
+    .surface-hover:hover {
+      border-color: var(--brand-line);
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 0 var(--glass-hi),
+        var(--elev-2);
+    }
+  }
+
   /* Skip link: off-screen until focused, then pinned top-left. */
   .skip-link {
     position: absolute;

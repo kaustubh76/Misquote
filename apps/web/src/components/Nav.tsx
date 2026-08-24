@@ -152,13 +152,13 @@ function Band({
       {start && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-bg to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-glass to-transparent"
         />
       )}
       {end && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-bg to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-glass to-transparent"
         />
       )}
       {/* `overflow-x: auto` computes overflow-y to auto as well, so the box
@@ -221,7 +221,7 @@ export function Nav() {
   const pathname = usePathname() ?? "/";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-glass-line bg-glass backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pt-3">
         {/* A mark, not just a word. The wordmark was one of nine grey items in
             a horizontal strip and did not read as the way home. The glyph is
@@ -235,7 +235,13 @@ export function Nav() {
             aria-hidden="true"
             className="relative inline-block h-4 w-6 rounded-sm bg-brand/25 ring-1 ring-brand-line"
           >
+            {/* The median. */}
             <span className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-brand" />
+            {/* P25 and P75. The glyph is a band and a band has ends; without
+                these it was a box with a line in it, which is a different
+                figure. Matches app/icon.svg. */}
+            <span className="absolute top-0.5 bottom-0.5 left-0 w-px bg-brand-line" />
+            <span className="absolute top-0.5 right-0 bottom-0.5 w-px bg-brand-line" />
           </span>
           Misquote
         </Link>

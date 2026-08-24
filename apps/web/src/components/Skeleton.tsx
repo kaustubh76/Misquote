@@ -1,51 +1,44 @@
-/**
- * Placeholder geometry matching what is about to arrive.
+/*
+ * A loading state that says what is missing.
  *
- * `aria-hidden` throughout: a screen reader reading out a dozen empty boxes is
- * worse than silence, and the wait is announced in words instead — by the
- * `role="status"` region in `LoadingStatus.tsx`, which `Loadable` places as a
- * *sibling* of the `aria-busy` container rather than a child of it.
+ * These were grey `animate-pulse` rectangles — the generic shape, which on this
+ * site is also the wrong shape. Every card here resolves to a band: a P25–P75
+ * interval with a median tick. So the skeleton is that figure with the parts
+ * that are not known yet left out — a hatched interval, no tick, no edges.
  *
- * That sibling relationship is the whole trick, and it is why `Loadable` owns
- * both halves: `aria-busy="true"` tells assistive tech to defer changes inside
- * the subtree, so a status region nested within it would say nothing until the
- * load it describes had already finished.
+ * The hatch is not decoration. It is the site's texture for "there is
+ * deliberately nothing here", at 135° wherever it appears — a withheld band, a
+ * not-built card, an empty cost track — so a reader who has seen one has seen
+ * all of them. A skeleton is the same claim with "yet" on the end.
  *
- * This comment previously named a view wrapper that did not exist, and the
- * announcement it promised had not been built — so the skeletons were hidden
- * and nothing was said in their place.
- *
- * The pulse is disabled under `prefers-reduced-motion` by the global rule in
- * `globals.css`.
+ * `aria-hidden` throughout, and deliberately: `src/components/LoadingStatus.tsx`
+ * is what says "loading" to a screen reader, in words, in a live region. A
+ * shimmering rectangle is not an announcement.
  */
-/**
- * Deliberately not exported.
- *
- * A lone grey box is not a loading state — it is a rectangle. What makes it one
- * is the *shape* of what is arriving, which is `CardSkeleton`'s job, plus the
- * spoken announcement `Loadable` places beside it. Exporting the primitive
- * invites a caller to reach past both and hang one bar somewhere with nothing
- * saying what it stands for. It had no importers; this keeps it that way.
- */
-function Skeleton({ className = "" }: { className?: string }) {
+function Bar({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-sm bg-neutral-bg ${className}`}
+      className={`hatched rounded-sm border border-glass-line ${className}`}
     />
   );
 }
 
 export function CardSkeleton() {
   return (
-    <div className="rounded-lg border border-line bg-panel p-6" aria-hidden="true">
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="mt-3 h-5 w-28" />
-      <Skeleton className="mt-4 h-16 w-full" />
+    <div
+      className="surface rounded-lg border border-glass-line bg-glass p-6"
+      aria-hidden="true"
+    >
+      <Bar className="h-4 w-40" />
+      <Bar className="mt-3 h-5 w-28" />
+      {/* The band that has not been drawn: full width, and no median tick,
+          because the median is exactly the number that is not known yet. */}
+      <Bar className="mt-4 h-16 w-full" />
       <div className="mt-4 space-y-2">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-5/6" />
-        <Skeleton className="h-3 w-4/6" />
+        <Bar className="h-3 w-full" />
+        <Bar className="h-3 w-5/6" />
+        <Bar className="h-3 w-4/6" />
       </div>
     </div>
   );

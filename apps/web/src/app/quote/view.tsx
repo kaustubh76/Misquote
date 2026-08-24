@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
@@ -124,15 +125,14 @@ export function QuoteView() {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="0x…"
-            className="min-w-0 flex-1 rounded-md border border-line bg-panel px-3 py-2.5 font-mono text-sm text-ink placeholder:text-faint"
+            className="min-w-0 flex-1 rounded-md border border-glass-line bg-glass px-3 py-2.5 font-mono text-sm text-ink transition-colors placeholder:text-faint focus:border-brand focus:shadow-[inset_3px_0_0_0_var(--brand)]"
           />
-          <button
+          <Button
             type="submit"
             disabled={state.phase === "reading" || !address.trim()}
-            className="rounded-md border border-transparent bg-brand px-4 py-2.5 text-sm font-medium text-brand-ink shadow-elev-brand transition-opacity hover:opacity-90 disabled:opacity-45"
           >
             {state.phase === "reading" ? "Reading chain…" : "Check my positions"}
-          </button>
+          </Button>
         </div>
         <p className="mt-2 mb-0 text-xs text-faint">
           Read-only. This never asks for a key, a signature, or an approval.
@@ -346,14 +346,9 @@ function QuoteRun({ pool, label }: { pool: string; label: string }) {
         title={label || pool}
         eyebrow={<span className="normal-case">{pool}</span>}
         aside={
-          <button
-            type="button"
-            onClick={enqueue}
-            disabled={running}
-            className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90 disabled:opacity-45"
-          >
+          <Button size="sm" onClick={enqueue} disabled={running}>
             {running ? "Running…" : "Replay this pool"}
-          </button>
+          </Button>
         }
       />
 

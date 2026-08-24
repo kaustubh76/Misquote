@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { TickRule } from "@/components/TickRule";
 
 /**
  * Heading level as a property of position, not of the call site.
@@ -99,7 +100,15 @@ export function Section({
     // test keys off it to assert that everything inside a Section sits strictly
     // below the Section's own title.
     <section data-heading-scope="" className={className}>
-      <Heading className={headingClassName}>{title}</Heading>
+      {/* The glyph goes inside the heading rather than beside it, so
+          `headingClassName` keeps meaning what its ~20 callers already pass —
+          several set their own margin, and a flex row around the heading would
+          have moved all of them. It is `aria-hidden` and renders no text, so
+          the accessible name and `innerText` are both unchanged. */}
+      <Heading className={headingClassName}>
+        <TickRule lead />
+        {title}
+      </Heading>
       {intro && <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">{intro}</p>}
       <HeadingLevel value={level + 1}>{children}</HeadingLevel>
     </section>

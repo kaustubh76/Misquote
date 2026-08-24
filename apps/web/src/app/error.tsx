@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/Button";
 import { useEffect } from "react";
 
 /**
@@ -62,13 +63,9 @@ export default function RouteError({
       </p>
 
       <p className="mt-4 mb-0 text-sm">
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-sm border border-line bg-panel px-3 py-1.5 text-sm text-ink hover:border-accent hover:text-accent"
-        >
+        <Button tone="secondary" size="sm" onClick={reset}>
           Try again
-        </button>
+        </Button>
         <span className="ml-3 text-dim">
           or read <Link href="/artifacts/index.json">the artifacts</Link> directly —
           they are plain JSON and this site is only a view over them.

@@ -18,6 +18,13 @@ export interface Row {
  * The scroll container is focusable and labelled because a region that scrolls
  * only under a pointer is unreachable by keyboard.
  */
+/* Sticky, and it has to carry a background: a transparent `<th>` in a scroll
+   container lets the rows pass under the header text. `--glass` rather than
+   `--panel` so the tape still reads through the table the way it reads through
+   the card the table sits in. */
+const STICKY =
+  "sticky top-0 z-10 bg-glass py-1.5 text-xs font-semibold tracking-wide uppercase";
+
 export function DataTable({
   caption,
   rows,
@@ -74,20 +81,20 @@ export function DataTable({
           <tr>
             <th
               scope="col"
-              className={showHeader ? "py-1.5 pr-4 text-left text-xs font-semibold text-faint uppercase tracking-wide" : ""}
+              className={showHeader ? `${STICKY} pr-4 text-left text-faint` : ""}
             >
               {columns[0]}
             </th>
             <th
               scope="col"
-              className={showHeader ? "py-1.5 text-right text-xs font-semibold text-ink uppercase tracking-wide" : ""}
+              className={showHeader ? `${STICKY} text-right text-ink` : ""}
             >
               {columns[1]}
             </th>
             {hasNote && (
               <th
                 scope="col"
-                className={showHeader ? "py-1.5 pl-4 text-right text-xs font-semibold text-dim uppercase tracking-wide" : ""}
+                className={showHeader ? `${STICKY} pl-4 text-right text-dim` : ""}
               >
                 {columns[2] ?? "Note"}
               </th>
@@ -96,10 +103,13 @@ export function DataTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-line last:border-b-0">
+            <tr
+              key={i}
+              className="border-b border-glass-line last:border-b-0 odd:bg-panel-2/40"
+            >
               <th
                 scope="row"
-                className="py-1.5 pr-4 text-left font-normal text-dim align-baseline"
+                className="py-1.5 pr-4 text-left align-baseline font-normal text-dim [font-variant-numeric:tabular-nums]"
               >
                 {row.label}
               </th>

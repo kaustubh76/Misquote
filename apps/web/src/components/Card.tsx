@@ -1,5 +1,20 @@
 import { Heading } from "@/components/Heading";
 
+/*
+ * `bg-glass` rather than `bg-panel`, and that is the whole change.
+ *
+ * `--panel` is opaque, which was correct while the page behind it was one flat
+ * fill and there was nothing to see through to. There is now: `.tape` in
+ * globals.css draws a field behind every route, and an opaque card is a lid on
+ * it. `--glass` is `--panel` at 85% over `--bg`, which composites to a colour
+ * lying between the two surfaces every text token is already measured against
+ * — see the note on the token, which is why no contrast test moved.
+ *
+ * `shadow-elev-1` gives way to `.surface`, which is the same shadow plus a 1px
+ * inset hairline along the top edge. A translucent panel needs a lit side; an
+ * opaque one got that from its border.
+ */
+
 /**
  * `as` offers no `"div"`, on purpose.
  *
@@ -21,7 +36,7 @@ export function Card({
 }) {
   return (
     <Tag
-      className={`rounded-lg border border-line bg-panel p-6 shadow-elev-1 ${className}`}
+      className={`surface rounded-lg border border-glass-line bg-glass p-6 ${className}`}
     >
       {children}
     </Tag>
