@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CompareTray } from "@/components/CompareTray";
 import { Nav } from "@/components/Nav";
 import { RouteAnnouncer } from "@/components/RouteAnnouncer";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
@@ -41,6 +42,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-5 pt-10 pb-24">
           {children}
         </main>
+
+        {/* After `<main>`, not before it. A fixed bar ahead of the content in
+            the tab order is the thing the skip link exists to route around, and
+            mounting it here also keeps it out of every per-page render — so the
+            heading-outline test never sees a tray heading between a page's h1
+            and its cards. It renders nothing until something is selected. */}
+        <CompareTray />
 
         {/* Names the directory, not three files.
             It listed `index.json`, `warden.json` and `advantage.json` and said

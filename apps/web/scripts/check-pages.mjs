@@ -40,6 +40,11 @@ const ROUTES = [
   ["overview", "/"],
   ["quote", "/quote/"],
   ["activate", "/activate/"],
+  ["category", "/category/"],
+  // One of the four, not all: they are one component over one artifact, and a
+  // fifth screenshot of the same tree buys nothing. Rebalancing is the one with
+  // an advantage task, so it exercises the branch the others do not.
+  ["category-rebalancing", "/category/rebalancing/"],
   ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],
@@ -216,6 +221,13 @@ const NO_JS = [
   // states it. A prerender that dropped the refusal and left the plan would
   // read as an activation page that works.
   ["/activate/", 1800, "no Hire button"],
+  // Both needles come from the sentence each page exists to make, and neither
+  // is a figure that a regenerated artifact could move. The first draft had
+  // these the wrong way round — "declare no category" is the *detail* page's
+  // wording and the index says "declares a category", so the index needle
+  // matched nothing. The check caught it, which is the check working.
+  ["/category/", 1200, "our classification presented as theirs"],
+  ["/category/rebalancing/", 1800, "our classification of their free text"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
@@ -402,6 +414,59 @@ console.log(
     `  cleared=${revealed.found} marked=${revealed.marked} scrolled=${revealed.near}`,
 );
 
+// The compare tray, at the width where a fixed bar is hardest.
+//
+// The route sweep above never sees it: it renders nothing until two agents are
+// chosen, so every screenshot and every overflow measurement is of an empty
+// tray. That is precisely the wrong coverage — a fixed bottom bar carrying two
+// agent names is one of the few shapes on this site that can push a 390px
+// viewport sideways, and it is invisible to every other check here.
+//
+// Driven through the buttons rather than by writing localStorage directly, so
+// what is exercised is the path a reader takes.
+const trayCtx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+const page3 = await trayCtx.newPage();
+
+await page3.goto(BASE + "/", { waitUntil: "networkidle" });
+await page3.waitForTimeout(400);
+
+const toggles = page3.getByRole("button", { name: /^Compare / });
+const available = await toggles.count();
+for (let i = 0; i < Math.min(2, available); i++) {
+  await toggles.nth(i).click();
+  await page3.waitForTimeout(150);
+}
+
+const tray = await page3.evaluate(() => {
+  const region = document.querySelector('[role="region"][aria-label="Compare tray"]');
+  const de = document.documentElement;
+  return {
+    present: !!region,
+    chips: region ? region.querySelectorAll("li").length : 0,
+    overflow: de.scrollWidth - de.clientWidth,
+    // The tray is fixed; content must not end underneath it.
+    occludes: region
+      ? region.getBoundingClientRect().top < (document.querySelector("main")?.getBoundingClientRect().bottom ?? 0) - 1
+      : false,
+  };
+});
+
+if (available < 2) {
+  failures.push(`compare tray: only ${available} compare buttons on the overview, so nothing was exercised`);
+}
+if (!tray.present) failures.push("compare tray: choosing two agents did not open a tray");
+if (tray.chips < 2) failures.push(`compare tray: ${tray.chips} chip(s) after two clicks`);
+if (tray.overflow > 0) {
+  failures.push(`compare tray: ${tray.overflow}px of horizontal overflow at 390px`);
+}
+
+const trayOk = available >= 2 && tray.present && tray.chips >= 2 && tray.overflow === 0;
+console.log(
+  `  ${trayOk ? "ok  " : "FAIL"}  ${"interact compare tray".padEnd(30)}` +
+    `  chips=${tray.chips} overflow=${tray.overflow}px`,
+);
+
+await trayCtx.close();
 await live.close();
 await browser.close();
 

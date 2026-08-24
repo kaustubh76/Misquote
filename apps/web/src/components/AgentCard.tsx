@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
+import { CompareToggle } from "@/components/CompareToggle";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Pill, verdictTone } from "@/components/Pill";
@@ -177,11 +178,14 @@ export function AgentCard({
         />
       </div>
 
-      <p className="mt-5 mb-0">
-        <Link href={`/agent/${ref_.slug}`} className="text-sm">
-          Full tearsheet, gate histogram and provenance →
-        </Link>
-      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="m-0">
+          <Link href={`/agent/${ref_.slug}`} className="text-sm">
+            Full tearsheet, gate histogram and provenance →
+          </Link>
+        </p>
+        <CompareToggle slug={ref_.slug} name={ref_.name} />
+      </div>
     </Card>
   );
 }

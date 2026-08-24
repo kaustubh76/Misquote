@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serveArtifacts } from "@/test/harness";
 
 import AdvantagePage from "./advantage/page";
+import CategoryIndexPage from "./category/page";
 import AssumptionsPage from "./assumptions/page";
 import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
@@ -12,6 +13,7 @@ import VectorsPage from "./vectors/page";
 import VenuePage from "./venue/page";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
+import { CategoryView } from "./category/[slug]/view";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
@@ -37,6 +39,11 @@ const VIEWS = [
   ["Vectors", <VectorsPage key="vec" />],
   ["Venue", <VenuePage key="ven" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
+  ["Categories", <CategoryIndexPage key="c" />],
+  // The view, not the page: `[slug]/page.tsx` is an async server component
+  // taking a `params` promise, which cannot be rendered here the way a sync one
+  // can. `AgentDetail` above is in this list for the same reason.
+  ["Category detail", <CategoryView key="cd" slug="rebalancing" />],
 ] as const;
 
 const level = (el: Element) => Number(el.tagName[1]);

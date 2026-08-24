@@ -41,6 +41,7 @@ export const ROUTES: readonly Route[] = [
   { href: "/", label: "Overview", group: "product" },
   { href: "/quote", label: "Quote", group: "product" },
   { href: "/activate", label: "Activate", group: "product" },
+  { href: "/category", label: "Categories", group: "product" },
   { href: "/registry", label: "Registry", group: "product" },
   { href: "/advantage", label: "Advantage", group: "evidence" },
   { href: "/methods", label: "Methods", group: "evidence" },

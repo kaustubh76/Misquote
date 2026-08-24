@@ -26,6 +26,7 @@ const ROUTES = [
   ["Overview", "/"],
   ["Quote", "/quote"],
   ["Activate", "/activate"],
+  ["Categories", "/category"],
   ["Venue", "/venue"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],

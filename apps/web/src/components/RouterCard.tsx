@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
+import { CompareToggle } from "@/components/CompareToggle";
 import { count } from "@/lib/format";
 import type { AgentRef, RouterArtifact } from "@/lib/artifacts";
 
@@ -74,11 +75,18 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
         </p>
       )}
 
-      <p className="mt-3 mb-0 text-xs text-faint">
-        <Link href={`/agent/${ref_.slug}`} className="text-dim">
-          How it chose, and what that rests on →
-        </Link>
-      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="m-0 text-xs text-faint">
+          <Link href={`/agent/${ref_.slug}`} className="text-dim">
+            How it chose, and what that rests on →
+          </Link>
+        </p>
+        {/* Offered here too, and the tray is what refuses the mixed pair. A
+            button missing from this card alone would read as "this agent
+            cannot be compared with anything", which is not the claim — it
+            cannot be compared with an *LP* agent. */}
+        <CompareToggle slug={ref_.slug} name={ref_.name} />
+      </div>
     </Card>
   );
 }
