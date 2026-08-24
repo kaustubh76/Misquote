@@ -1,6 +1,8 @@
 "use client";
 
 import { BuildStamp } from "@/components/BuildStamp";
+import { EvidenceRail, type EvidenceEntry } from "@/components/EvidenceRail";
+import { TickRule } from "@/components/TickRule";
 import { Button } from "@/components/Button";
 import { count } from "@/lib/format";
 import { Section } from "@/components/Heading";
@@ -47,6 +49,7 @@ const DELIVERABLE_GATE = "agent advantage report";
 export function OverviewView({
   initialIndex,
   initialBuild,
+  evidence,
 }: {
   /**
    * Read from disk at build time by `app/page.tsx`, so the landing page is not
@@ -65,6 +68,13 @@ export function OverviewView({
    */
   initialIndex?: IndexArtifact;
   initialBuild?: BuildArtifact;
+  /**
+   * One figure per evidence route, counted from its own artifact at build time
+   * by `app/page.tsx`. Numbers rather than artifacts, because everything this
+   * component receives is serialised into the flight payload and
+   * `assumptions.json` is 130KB of it.
+   */
+  evidence: Record<string, EvidenceEntry | null>;
 }) {
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
     initialIndex ? { ok: true, value: initialIndex } : null,
@@ -169,32 +179,49 @@ export function OverviewView({
           This was an h1, a paragraph and a bordered grey box with a blue link
           in it — visually indistinguishable from the cards below, on the one
           screen that has to say what the product is before anything is read.
-          The band gives it ground, the brand fill gives the primary action a
-          shape that reads as an action, and the type scale finally has a size
-          above a section heading to put a headline at. */}
-      <div className="-mx-5 mb-10 border-b border-line bg-brand-bg/40 px-5 pt-4 pb-10">
-        <p className="mb-3 font-mono text-xs tracking-widest text-brand uppercase">
+          Then it was a flat `bg-brand-bg/40` slab with a hard border, which
+          fixed the hierarchy and, once `.tape` existed behind it, became a lid
+          on the field.
+
+          It has no fill now. The wash fades to nothing, so the tape reads
+          through the headline and the region is defined by the light behind it
+          rather than by a box drawn around it. `--glass-2` and not `--glass`
+          because nothing on this strip is body copy — that distinction is in
+          the token and it is the reason there are two.
+
+          The border is gone too, replaced by the band: `--line` to P25, brand
+          across the interquartile range, `--line` to P75, with the median tick
+          at the centre. The product's own figure doing a divider's job, at page
+          width, immediately under the sentence that promises ranges. */}
+      <div className="-mx-5 mb-10 bg-gradient-to-b from-glass-2 to-transparent px-5 pt-4 pb-10">
+        <p className="rise-1 mb-3 font-mono text-xs tracking-widest text-brand uppercase">
           Agent marketplace · BNB Chain
         </p>
-        <h1 className="max-w-[18ch] text-3xl leading-[1.1] font-semibold text-balance">
+        {/* `--text-4xl` existed in the scale and was used by nothing. The
+            scale's own note says 3xl and 4xl were added because "a hero and a
+            section heading had to be the same thing" — and the hero was still
+            at 3xl, which is the size every other page's h1 uses. */}
+        <h1 className="rise-2 max-w-[16ch] text-4xl leading-[1.05] font-semibold tracking-[-0.022em] text-balance">
           Every marketplace misquotes you.
         </h1>
         {/* 48 words carrying four claims, three of which the page demonstrates
             below: the ranges are drawn, the withheld quotes say so themselves,
             and every figure links to its assumption. What only prose can say is
             what the alternative does — so that is what is left. */}
-        <p className="mt-4 max-w-[60ch] text-md text-dim">
+        <p className="rise-3 mt-4 max-w-[60ch] text-md text-dim">
           Others rank agents by star ratings. Every number here traces to chain state or a{" "}
           <Link href="/assumptions">published assumption</Link>, and where the evidence is
           thin it <strong className="text-ink">says nothing instead</strong>.
         </p>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="rise-4 mt-6 flex flex-wrap gap-3">
           <Button href="/advantage">Does hiring an agent beat doing it yourself?</Button>
           <Button href="/methods" tone="secondary">
             How a quote is made
           </Button>
         </div>
+
+        <TickRule className="mt-10" />
       </div>
 
       <div className="mt-10">
@@ -328,9 +355,29 @@ export function OverviewView({
             </div>
           </Section>
         )}
+
+        {/* The map of the argument.
+            This page used to end at the ledger, so the half of the site that
+            exists to be checked — seven pages of tick math, venue divergences,
+            pool badges, assumptions and gates — was reachable only through a
+            nav band a first-time reader has no reason to look at. A page whose
+            headline is that other marketplaces cannot be checked should say
+            what there is to check here, and say it in figures.
+
+            Every number is read from its own artifact at build time, so this
+            renders in the exported HTML with JavaScript off, along with the
+            rest of the page. */}
+        <Section
+          title="What there is to check"
+          className="mt-12"
+          headingClassName="mb-4 text-lg font-semibold"
+          intro="Seven pages, each generated from an artifact this repository can regenerate. The figures below are counted from those files, not typed."
+        >
+          <EvidenceRail entries={evidence} />
+        </Section>
       </div>
 
-      <footer className="mt-16 border-t border-line pt-6 text-sm text-faint">
+      <footer className="mt-16 border-t border-glass-line pt-6 text-sm text-faint">
         {/* The unique claim here is the static export, which appears nowhere
             else on the site. The path is already in the build stamp below. */}
         <p className="m-0">

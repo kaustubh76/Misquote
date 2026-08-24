@@ -1,5 +1,6 @@
 import { OverviewView } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
+import { entryOf, type EvidenceEntry } from "@/components/EvidenceRail";
 import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
 
 /**
@@ -24,11 +25,55 @@ import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
  * `status`, `vectors`, `venue` and `vetting` already have for `metadata`.
  */
 
+/**
+ * The seven evidence figures, read once at build time.
+ *
+ * Numbers, not artifacts. `OverviewView` is a client component, so everything
+ * passed to it is serialised into the flight payload of every build — and
+ * `assumptions.json` alone is 130KB. Reading each file here and handing over a
+ * formatted count keeps that payload to seven short strings while still
+ * putting the figures in the exported HTML, which is the point: a reader with
+ * JavaScript off gets the map of the argument, not seven empty cards.
+ *
+ * Each figure is the one its own page leads with, and none of them is computed
+ * twice — `summary` blocks are written by the emitters that write the pages.
+ * A file that will not parse yields `null` and renders as a route with no
+ * number, because a missing artifact is not a count of zero.
+ */
+function evidence(): Record<string, EvidenceEntry | null> {
+  const advantage = readArtifact<{ summary?: { tasks?: number } }>("advantage.json");
+  const assumptions = readArtifact<{ entries?: unknown[] }>("assumptions.json");
+  const vectors = readArtifact<{ corpus?: { cases?: number } }>("vectors.json");
+  const venue = readArtifact<{ divergences?: unknown[] }>("venue.json");
+  const vetting = readArtifact<{ summary?: { checks?: number } }>("vetting.json");
+  const status = readArtifact<{ summary?: { pass?: number; total?: number } }>("status.json");
+  const warden = readArtifact<{ floors?: Record<string, unknown> }>("warden.json");
+
+  return {
+    "/advantage": entryOf(advantage?.summary?.tasks, "tasks, each done both ways"),
+    "/methods": entryOf(
+      warden?.floors ? Object.keys(warden.floors).length : undefined,
+      "floors that stop a number printing",
+    ),
+    "/assumptions": entryOf(assumptions?.entries?.length, "assumptions, each citable"),
+    "/vectors": entryOf(vectors?.corpus?.cases, "cases against the real Solidity"),
+    "/venue": entryOf(venue?.divergences?.length, "places this is not Uniswap"),
+    "/vetting": entryOf(vetting?.summary?.checks, "checks read from chain"),
+    "/status": entryOf(
+      status?.summary?.total,
+      status?.summary?.pass === undefined
+        ? "readiness gates"
+        : `readiness gates, ${status.summary.pass} passing`,
+    ),
+  };
+}
+
 export default function OverviewPage() {
   return (
     <OverviewView
       initialIndex={readArtifact<IndexArtifact>("index.json")}
       initialBuild={readArtifact<BuildArtifact>("build.json")}
+      evidence={evidence()}
     />
   );
 }
