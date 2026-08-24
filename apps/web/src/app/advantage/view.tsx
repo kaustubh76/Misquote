@@ -14,7 +14,7 @@ import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
 import { agentSlugFor, type IndexedAgentRef } from "@/lib/counterpart";
-import { count, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { count, fixed, isNum, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
 
 export function AdvantageView({
   initialMain,
@@ -64,6 +64,14 @@ export function AdvantageView({
   }, []);
 
   const d = main?.ok ? main.value : null;
+
+  // The distinct replay windows, longest first, and how many tasks ran on each.
+  // Derived rather than read, because the report publishes no such field — and
+  // that absence is exactly why the page never disclosed that its four tasks
+  // are not all on the same length of tape.
+  const windows = [...new Set((d?.tasks ?? []).map((t) => t.replay_days).filter(isNum))]
+    .sort((a, b) => b - a);
+  const tasksOn = (n: number) => (d?.tasks ?? []).filter((t) => t.replay_days === n).length;
 
   return (
     <Loadable loading={main === null} what="the advantage report">
@@ -118,6 +126,47 @@ export function AdvantageView({
                   Across all {count(d.summary.tasks)} tasks
                 </Heading>
                 <p className="m-0 font-mono text-sm text-warn">{d.overall.label}</p>
+
+                {/* How the tasks fell out, as a shape.
+
+                    The `dl` beside this carries the same four counts in words,
+                    and four numbers in a column is work a reader does that a
+                    strip does for free — the same argument `/status` makes
+                    about its own gate counts. It is not a verdict:
+                    `overall.label` above says there is none, and this says
+                    nothing the list does not.
+
+                    Writing it is what found that `indistinguishable` had never
+                    rendered anywhere, so the list reported 0 ahead and 2 behind
+                    of 4 tasks and left the other two unaccounted for. It has a
+                    row now, next to its slice. */}
+                <div
+                  className="mt-3 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
+                  role="img"
+                  aria-label={
+                    `Of ${count(d.summary.tasks)} tasks: ${count(d.summary.agent_ahead)} ` +
+                    `with the agent ahead, ${count(d.summary.diy_ahead)} with doing it ` +
+                    `yourself ahead, ${count(d.summary.indistinguishable)} too close to ` +
+                    `call, ${count(d.summary.withheld)} withheld.`
+                  }
+                >
+                  {(
+                    [
+                      ["bg-good", d.summary.agent_ahead],
+                      ["bg-bad", d.summary.diy_ahead],
+                      ["bg-neutral", d.summary.indistinguishable],
+                      ["bg-warn", d.summary.withheld],
+                    ] as const
+                  ).map(([tone, n]) =>
+                    n > 0 ? (
+                      <div
+                        key={tone}
+                        className={tone}
+                        style={{ width: `${(n / Math.max(1, d.summary.tasks)) * 100}%` }}
+                      />
+                    ) : null,
+                  )}
+                </div>
                 <p className="mt-3 mb-0 max-w-[56ch] text-sm text-dim">
                   {/* The refusal is the headline, and it is deliberate.
                       Three things here were typed. "thirty-observation floor"
@@ -149,6 +198,15 @@ export function AdvantageView({
                   tone="text-good"
                 />
                 <Summary label="DIY ahead" value={count(d.summary.diy_ahead)} tone="text-bad" />
+                {/* On the interface since the report was written and rendered
+                    nowhere, so the list said 0 ahead and 2 behind of 4 and left
+                    the other two unaccounted for. They are the calls this
+                    report declines to make, which is the most characteristic
+                    number on the page. */}
+                <Summary
+                  label="too close to call"
+                  value={count(d.summary.indistinguishable)}
+                />
                 <Summary label="bands separated" value={count(d.summary.separated)} />
               </dl>
             </div>
@@ -160,7 +218,28 @@ export function AdvantageView({
           <Section
             title={<>The {count(d.summary.tasks)} tasks</>}
             className="mt-8"
-            intro="The baseline differs per task — several tasks with one baseline is one task relabelled."
+            intro={
+              <>
+                The baseline differs per task — several tasks with one baseline is
+                one task relabelled — and so does the tape.
+                {/* Derived, never typed, and that is the point: the report
+                    publishes no "the windows differ" flag, which is precisely
+                    why nothing on this page ever said they do. No cause is
+                    invented either — the artifact does not record why Route's
+                    window is shorter, so this does not guess. */}
+                {windows.length > 1 && (
+                  <>
+                    {" "}
+                    {windows
+                      .map((n) => `${count(tasksOn(n))} on ${fixed(n, 1)} days`)
+                      .join(", ")}
+                    . Each column is compared against the other on that task&rsquo;s own
+                    tape, so the window bounds how much of a year the annualised
+                    figure describes — not which of the two is ahead.
+                  </>
+                )}
+              </>
+            }
           >
             <div className="grid gap-6">
               {d.tasks.map((task) => (
@@ -391,6 +470,52 @@ function TaskCard({
           {task.quotable ? signed(task.delta_pp, 2, "pp") : "—"}
         </span>{" "}
         <span className="text-dim">{task.verdict}</span>
+      </p>
+
+      {/* The quantity the task is named for, as against the net return.
+
+          "Protect — avoid being picked off by one-way flow" rendered as
+          "loses to DIY by 38.17pp" and nothing else, while the artifact
+          recorded that on the convexity cost the task exists to reduce the
+          agent came in 18.4x better. Showing the first without the second is
+          half a finding, and the half that flatters the baseline.
+
+          `summary` is the emitter's own sentence, rendered verbatim. The ratio
+          is not recomputed here: a second implementation of the comparison one
+          inch from the one Python wrote is the defect `Band` avoids by taking
+          `ranges_overlap` as a prop rather than deriving it. It renders on all
+          four tasks, including the two where it reads "worse".
+
+          `null` on disk for the Choose task, which compares two pools and has
+          no single number the choice is about. Absent, not zero. */}
+      {task.primary_metric && (
+        <p className="mt-3 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm">
+          <span className="text-faint">{task.primary_metric.name}: </span>
+          <span
+            className={`tabular ${
+              task.primary_metric.improved ? "text-good" : "text-dim"
+            }`}
+          >
+            {task.primary_metric.summary.replace(`${task.primary_metric.name}: `, "")}
+          </span>
+        </p>
+      )}
+
+      {/* The three fields behind the sentence above, on every card in the same
+          place.
+
+          `material` and `separated` are the two conditions a call needs and
+          only one of them reached the page — `separated` through the pill's
+          tone, `material` nowhere. And `replay_days` reached it nowhere at all:
+          three tasks replay 31.0 days and Route replays 17.0.
+
+          Stated on all four rather than flagged on the short one. A window
+          noted only where it is unusual is an apology; a window on every card
+          is a field, and the comparison between them belongs to the reader. */}
+      <p className="mt-2 mb-0 font-mono text-xs text-faint">
+        {task.material ? "material" : "immaterial"} · bands{" "}
+        {task.separated ? "separated" : "overlapping"}
+        {isNum(task.replay_days) && <> · {fixed(task.replay_days, 1)} days of tape</>}
       </p>
 
       {task.quotable && (

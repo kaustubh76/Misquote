@@ -11,7 +11,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, fraction, shortAddress } from "@/lib/format";
+import { count, fixed, fraction, isNum, shortAddress } from "@/lib/format";
 
 interface Divergence {
   what: string;
@@ -227,6 +227,79 @@ export function VenueView({ initial, initialBadges }: {
                 </Card>
               ))}
             </div>
+
+            {/* What the first divergence costs, as a figure.
+
+                `fee_overstatement` has been in the artifact as long as the
+                report has, and the page argued about it in prose and never
+                showed it. It is 1 / `lp_fee_share` for the flagship pool: a
+                replay that reconstructs LP fees from swap volume — which is
+                what every integration written from the fork parent's
+                documentation does — counts the whole fee, and the position is
+                only paid part of it.
+
+                Its own card rather than attached to a divergence row. Selecting
+                that row would mean keying off an index or matching its `where`
+                string, and both are the kind of brittle join that survives
+                until an emitter reorders a list.
+
+                One bar, split, rather than two bars: it is one fee, and the
+                question is who receives it. The protocol's share is hatched
+                because the hatch means "there is deliberately nothing here",
+                and that is exactly what it is to the LP — fees a reconstruction
+                counts and the position never sees. */}
+            {(() => {
+              const flagship = d.pools.find((pool) => pool.role === "flagship");
+              if (!flagship || !isNum(flagship.lp_fee_share)) return null;
+              const lp = flagship.lp_fee_share;
+              return (
+                <Card className="mt-4">
+                  <p className="mt-0 mb-4 max-w-[72ch] text-sm text-dim">
+                    The pool charges one fee. The LP is not paid all of it, and a
+                    replay written from {d.venue.fork_of}&rsquo;s documentation has no
+                    reason to know that.
+                  </p>
+
+                  <div
+                    className="hatched relative h-6 overflow-hidden rounded-sm border border-glass-line"
+                    role="img"
+                    aria-label={`Of every fee this pool charges, the liquidity provider receives ${fraction(lp)} and the protocol takes the rest.`}
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 bg-brand/35"
+                      style={{ width: `${lp * 100}%` }}
+                    />
+                    <span
+                      className="absolute inset-y-0 left-0 border-r border-brand"
+                      style={{ width: `${lp * 100}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap justify-between gap-x-4 text-xs">
+                    <span className="text-dim">
+                      the LP receives{" "}
+                      <span className="tabular text-ink">{fraction(lp)}</span> —
+                      feeProtocol {count(flagship.fee_protocol)}
+                    </span>
+                    <span className="text-faint">
+                      the protocol takes{" "}
+                      <span className="tabular">{fraction(1 - lp)}</span>
+                    </span>
+                  </div>
+
+                  <p className="mt-4 mb-0 border-t border-line pt-3 text-sm">
+                    <span className="tabular font-semibold text-warn">
+                      {fixed(d.fee_overstatement, 3)}&times;
+                    </span>{" "}
+                    <span className="text-dim">
+                      — how much a replay that reconstructs fees from swap volume
+                      overstates what a position earned, and it lands on the headline
+                      return.
+                    </span>
+                  </p>
+                </Card>
+              );
+            })()}
           </Section>
 
           {/* ------------------------------------------------- the pools -- */}
@@ -267,24 +340,45 @@ export function VenueView({ initial, initialBadges }: {
             </Card>
 
             <Card className="mt-4">
-              <p className="m-0 max-w-[72ch] text-sm text-dim">
-                {/* The tier table, rendered rather than described. The absent
-                    tier is the claim, so it is drawn as an absence beside the
-                    ones that exist rather than asserted in a sentence. */}
-                Fee tiers here are{" "}
-                {d.fee_tiers.map((tier, i) => (
-                  <span key={tier.fee_pips}>
-                    {i > 0 && ", "}
-                    <span className="font-mono text-xs text-ink">
-                      {tier.fee_pips}→{tier.tick_spacing}
+              {/* The comment here used to say the absent tier "is drawn as an
+                  absence beside the ones that exist rather than asserted in a
+                  sentence", and then asserted it in a sentence. It is drawn
+                  now: the tiers that exist are solid chips and the one that
+                  does not is a dashed, hatched chip in the same row — the
+                  site's texture for "there is deliberately nothing here",
+                  which is what a missing fee tier is.
+
+                  The absent chip's `<span>` holds exactly `3000→60` and its
+                  `<li>` holds no direct text of its own, which is what keeps
+                  `pages.test.tsx`'s singular `getByText` on that string
+                  matching one element. */}
+              <p className="mt-0 mb-3 max-w-[72ch] text-sm text-dim">
+                Fee tiers here, and the one that is not.
+              </p>
+
+              <ul className="m-0 flex list-none flex-wrap items-center gap-2 p-0">
+                {d.fee_tiers.map((tier) => (
+                  <li key={tier.fee_pips}>
+                    <span className="inline-block rounded-sm border border-line bg-panel-2 px-2.5 py-1 font-mono text-xs text-ink">
+                      {tier.fee_pips}&rarr;{tier.tick_spacing}
                     </span>
-                  </span>
+                  </li>
                 ))}
-                . There is no{" "}
-                <span className="font-mono text-xs text-warn">
-                  {d.uniswap_only_tier}→60
-                </span>
-                , which is {d.venue.fork_of}&rsquo;s most-used tier.
+                <li>
+                  <span className="hatched inline-block rounded-sm border border-dashed border-warn-line px-2.5 py-1 font-mono text-xs text-warn [--hatch-tone:var(--hatch-warn)]">
+                    {d.uniswap_only_tier}&rarr;60
+                  </span>
+                </li>
+              </ul>
+
+              <p className="mt-3 mb-0 max-w-[72ch] text-sm text-dim">
+                The dashed one is {d.venue.fork_of}&rsquo;s most-used tier, and it does
+                not exist here. A position sized for it has{" "}
+                <span className="tabular text-ink">
+                  {count(d.unmintable_remainder)}
+                </span>{" "}
+                ticks of remainder that cannot be minted at any spacing this venue
+                offers.
               </p>
             </Card>
           </Section>
