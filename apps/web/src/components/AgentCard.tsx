@@ -154,7 +154,7 @@ export function AgentCard({
           </p>
 
           {adv && (
-            <p className="mt-4 mb-0 rounded-sm border border-line bg-panel-2 px-3 py-2 text-sm">
+            <p className="mt-4 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm">
               <span className="text-faint">vs doing it yourself: </span>
               <span className={`tabular font-semibold ${SIGN_CLASS[signOf(adv.delta_pp)]}`}>
                 {signed(adv.delta_pp, 2, "pp")}

@@ -59,7 +59,7 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
       </dl>
 
       {data.advantage && (
-        <p className="mt-4 mb-0 rounded-sm border border-line bg-panel-2 px-3 py-2 text-sm">
+        <p className="mt-4 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm">
           <span className="text-faint">vs doing it yourself: </span>
           <span className="tabular font-semibold">
             {data.advantage.delta_pp >= 0 ? "+" : ""}
@@ -70,7 +70,7 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
       )}
 
       {data.finding && (
-        <p className="mt-4 mb-0 rounded-sm border border-line bg-panel-2 px-3 py-2 text-sm leading-relaxed">
+        <p className="mt-4 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm leading-relaxed">
           {data.finding}
         </p>
       )}

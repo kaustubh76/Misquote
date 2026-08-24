@@ -100,7 +100,7 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
                 tabIndex={0}
                 role="region"
                 aria-label="Code sample"
-                className="my-3 overflow-x-auto rounded-sm border border-line bg-panel-2 p-3 font-mono text-xs text-dim"
+                className="my-3 overflow-x-auto rounded-sm border border-glass-line bg-panel-2/50 p-3 font-mono text-xs text-dim"
               >
                 {block.text}
               </pre>

@@ -271,7 +271,7 @@ export function AssumptionsView({
               chips reading "A1 A2 A3 …" in one undifferentiated run: no
               titles, so nothing to recognise; no grouping, though the page
               below splits by kind; and nothing to narrow it with. */}
-          <div className="mt-8 rounded-lg border border-line bg-panel-2 p-5">
+          <div className="surface mt-8 rounded-lg border border-glass-line bg-glass p-5">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <ChipGroup label="Filter by kind" options={chips} value={kind} onChange={setKind} />
               <div className="min-w-0 flex-1 sm:max-w-xs">
@@ -469,7 +469,7 @@ function EntryCard({
     >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <span className="rounded-sm border border-line bg-panel-2 px-2 py-0.5 font-mono text-xs text-warn">
+          <span className="rounded-sm border border-glass-line bg-panel-2/50 px-2 py-0.5 font-mono text-xs text-warn">
             {entry.id}
           </span>
           <Heading className="m-0 min-w-0 text-md font-semibold break-words">{entry.title}</Heading>

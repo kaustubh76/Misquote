@@ -247,7 +247,7 @@ export function Band({
   return (
     <figure className="m-0">
       <div
-        className="relative rounded-md border border-line bg-panel-2 px-3 py-3"
+        className="relative rounded-md border border-glass-line bg-panel-2/50 px-3 py-3"
         role="img"
         aria-label={`${caption ? `${caption}. ` : ""}${description}`}
       >

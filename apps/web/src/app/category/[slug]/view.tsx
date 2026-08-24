@@ -239,18 +239,18 @@ function Basis({
       <CardHeader title="What this category is judged on" eyebrow="the comparison" />
       <dl className="m-0 grid gap-3 text-sm sm:grid-cols-2">
         {baseline && (
-          <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
+          <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
             <dt className="m-0 text-xs text-faint uppercase">Doing it yourself</dt>
             <dd className="m-0 mt-1 text-dim [overflow-wrap:anywhere]">{baseline}</dd>
           </div>
         )}
         {metric ? (
-          <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
+          <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
             <dt className="m-0 text-xs text-faint uppercase">Measured as</dt>
             <dd className="m-0 mt-1 text-dim [overflow-wrap:anywhere]">{metric}</dd>
           </div>
         ) : (
-          <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
+          <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
             <dt className="m-0 text-xs text-faint uppercase">Measured as</dt>
             <dd className="m-0 mt-1 text-dim">
               <Pill tone="none">Not in the advantage report</Pill>

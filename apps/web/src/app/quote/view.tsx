@@ -505,7 +505,7 @@ function RunProgress({ job }: { job: JobView }) {
       )}
 
       {job.result && (
-        <div className="mt-4 rounded-md border border-line bg-panel-2 p-4">
+        <div className="surface mt-4 rounded-md border border-glass-line bg-glass p-4">
           <p className="tabular m-0 text-lg font-semibold text-ink">
             {job.result.p25.toFixed(2)}% – {job.result.p75.toFixed(2)}%
           </p>

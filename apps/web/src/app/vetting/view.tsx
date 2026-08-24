@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { BuildStamp, type Build } from "@/components/BuildStamp";
-import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { CheckList } from "@/components/CheckList";
+import { SectionRail } from "@/components/SectionRail";
 import { Heading, Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
 import { Loadable } from "@/components/LoadingStatus";
@@ -128,6 +128,29 @@ function checksOf(record: AddressArtifact | undefined): VettingCheck[] {
   ];
 }
 
+/**
+ * The rollup verdict's own tone.
+ *
+ * Not `PASS ? good : bad`. `RANK` distinguishes four verdicts and `badge.py` is
+ * explicit that an UNKNOWN blocks without being a failure, so collapsing three
+ * of them into red would be the mistake this file argues against for the
+ * per-check pills, made one level up at the largest type size on the page.
+ */
+const VERDICT_STYLE: Record<string, string> = {
+  PASS: "border-good-line bg-good-bg/50 text-good",
+  FAIL: "border-bad-line bg-bad-bg/50 text-bad",
+  WARN: "border-warn-line bg-warn-bg/50 text-warn",
+  UNKNOWN: "border-line-strong bg-panel-2/60 text-dim",
+};
+
+/** One segment per verdict. UNKNOWN is a texture, not a colour — see the strip. */
+const SEGMENT: Record<string, string> = {
+  PASS: "bg-good",
+  WARN: "bg-warn",
+  UNKNOWN: "hatched bg-neutral/40 [--hatch-tone:var(--hatch-none)]",
+  FAIL: "bg-bad",
+};
+
 export function VettingView({
   initialVetting,
   initialIndex,
@@ -228,6 +251,12 @@ export function VettingView({
     ...(addrs?.ok ? checksOf(addrs.value) : []),
   ];
 
+  // The strip's segments, in severity order, off the checks the page renders.
+  const tally = RANK.map((verdict) => ({
+    verdict,
+    n: everyCheck.filter((c) => c.status === verdict).length,
+  }));
+
   const verdictChips: Chip<string>[] = [
     { value: "all", label: "All", meta: String(everyCheck.length) },
     ...RANK.filter((r) => everyCheck.some((c) => c.status === r)).map((r) => ({
@@ -262,11 +291,28 @@ export function VettingView({
   // than asserted — an emitter that stops publishing one should subtract from
   // the rollup, not blank the page.
   const pools = d?.surveyed ? d.summary : null;
+  // Counted off the checks this page renders, not off the `summary` blocks.
+  //
+  // This was the same undercount `everyCheck` had and it survived the first
+  // fix, which is worse than the original bug: the strip's segments came off
+  // `everyCheck` (78) while the sentence under them came off these summaries
+  // (38), so the picture and its own caption disagreed by forty checks.
+  //
+  // The summaries are not wrong — they describe `vetting.json` and
+  // `addresses.json` as files. They are the wrong thing to describe a page
+  // with, because the page also draws the two surveys nested inside the
+  // address record. One source for both, and it is the rendered one.
   const totals = {
-    subjects: (pools?.pools ?? 0) + (addressSummary ? 1 : 0),
-    checks: (pools?.checks ?? 0) + (addressSummary?.checked ?? 0),
-    unknown: (pools?.unknown_checks ?? 0) + (addressSummary?.unknown ?? 0),
-    failed: (pools?.failed_checks ?? 0) + (addressSummary?.failed ?? 0),
+    subjects:
+      (pools?.pools ?? 0) +
+      (addrs?.ok && addrs.value.surveyed ? 1 : 0) +
+      (addrs?.ok && addrs.value.venus?.surveyed ? 1 : 0) +
+      (addrs?.ok
+        ? Object.values(addrs.value.erc8183 ?? {}).filter((r) => r.surveyed).length
+        : 0),
+    checks: everyCheck.length,
+    unknown: everyCheck.filter((c) => c.status === "UNKNOWN").length,
+    failed: everyCheck.filter((c) => c.status === "FAIL").length,
   };
 
   const proofs = index?.ok
@@ -325,28 +371,103 @@ export function VettingView({
           the two by the same ordering `badge.py` uses: FAIL beats UNKNOWN beats
           WARN beats PASS. */}
       {(d?.surveyed || addressSummary) && (
-        <div className="mt-8 flex flex-wrap items-center gap-2">
-          <Badge tone={worstVerdict === "PASS" ? "neutral" : "warn"}>
-            worst verdict: {worstVerdict}
-          </Badge>
-          <span className="font-mono text-xs text-faint">
+        <div
+          className={`surface mt-8 rounded-md border p-6 ${
+            VERDICT_STYLE[worstVerdict] ?? "border-warn-line bg-warn-bg/50 text-warn"
+          }`}
+        >
+          {/* The answer, at the size of an answer.
+              This page is the longest on the site — three near-identical pool
+              blocks and two address surveys — and the one line saying what they
+              add up to was a `text-xs` badge above them, with two more prose
+              count-summaries stacked under it. `/status` and `/advantage` both
+              have this exact `{pass}/{fail}/{unknown}` of `{total}` shape and
+              both got a mark for it; this was the third and never did. */}
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <p className="m-0 font-mono text-3xl leading-none font-semibold tracking-tight">
+              {worstVerdict}
+            </p>
+            <p className="m-0 font-mono text-xs">
+              worst of {count(totals.subjects)} subjects
+            </p>
+          </div>
+
+          {/* Counted off the checks the page renders, never off `summary` —
+              which is what the undercount above this was. A picture that
+              disagrees with the list under it is worse than no picture.
+
+              UNKNOWN is hatched rather than tinted. A read that did not happen
+              has no finding to colour, and `--hatch-none` is this site's mark
+              for "there was never anything here" — the same texture a reader
+              has already met on a not-built card. */}
+          <div
+            className="mt-4 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
+            role="img"
+            aria-label={
+              `${worstVerdict} is the worst verdict on this page: ` +
+              `${tally.map((t) => `${count(t.n)} ${t.verdict}`).join(", ")}, ` +
+              `across ${count(everyCheck.length)} checks read from chain.`
+            }
+          >
+            {tally.map(({ verdict, n }) =>
+              n > 0 ? (
+                <div
+                  key={verdict}
+                  className={SEGMENT[verdict] ?? "bg-neutral"}
+                  style={{ width: `${(n / Math.max(1, everyCheck.length)) * 100}%` }}
+                />
+              ) : null,
+            )}
+          </div>
+
+          {/* The same figures in words, and the sentence `pages.test.tsx` looks
+              up with a singular `getByText`. It stays exactly one text node. */}
+          <p className="mt-3 mb-0 text-sm">
             {count(totals.checks)} checks across {count(totals.subjects)} subjects ·{" "}
             {count(totals.unknown)} unknown · {count(totals.failed)} failed
-          </span>
+          </p>
         </div>
+      )}
+
+      {/* The longest page on the site, and until now the only way down it was
+          the scrollbar — three near-identical pool blocks, then two address
+          surveys. Every id is gated on the section that owns it actually
+          rendering, so a run that badged nothing cannot produce a pill pointing
+          at a heading that was never drawn.
+
+          Anchored by address rather than by position: two of the three pool
+          labels differ only in their fee tier, and the address is the identity
+          `/venue` and `/vetting` already cross-reference each other by. */}
+      {d?.surveyed && (
+        <SectionRail
+          label="On this page"
+          items={[
+            ...d.pools.map((pool) => ({
+              id: pool.pool,
+              label: pool.label || shortAddress(pool.pool),
+            })),
+            ...(addrs?.ok && addrs.value.surveyed
+              ? [{ id: "addresses", label: "Addresses" }]
+              : []),
+            ...(proofs.length > 0 ? [{ id: "not-proofs", label: "Not proofs" }] : []),
+          ]}
+        />
       )}
 
       {d?.surveyed && (
         <>
-          <div className="mt-6 font-mono text-xs text-faint">
-            pools: {count(d.summary.badged)} of {count(d.summary.pools)} badged ·{" "}
-            {count(d.summary.checks)} checks · {count(d.summary.unknown_checks)} unknown ·{" "}
-            {count(d.summary.failed_checks)} failed
-          </div>
+          {/* Three stacked count-summaries became one strip and one line. What
+              is left here is the only figure the strip does not carry — how
+              many pools came away with a badge — and it sits with the pools it
+              counts rather than in a rollup of rollups. */}
+          <p className="mt-6 mb-0 font-mono text-xs text-faint">
+            {count(d.summary.badged)} of {count(d.summary.pools)} pools badged
+          </p>
 
           {d.pools.map((pool) => (
             <Section
               key={pool.pool}
+              id={pool.pool}
               title={pool.label || shortAddress(pool.pool)}
               className="mt-10"
             >
@@ -383,6 +504,7 @@ export function VettingView({
           ))}
           {proofs.length > 0 && (
             <Section
+              id="not-proofs"
               title="What a badge still cannot do"
               className="mt-12"
               intro="The checks above are reads. They are not proofs, and the difference is the whole of the remaining work."
@@ -414,7 +536,7 @@ export function VettingView({
         )}
 
         {everyCheck.length > 0 && verdictChips.length > 2 && (
-          <div className="mt-8 rounded-lg border border-line bg-panel-2 p-4">
+          <div className="surface mt-8 rounded-lg border border-glass-line bg-glass p-4">
             <ChipGroup
               label="Filter checks by verdict"
               options={verdictChips}
@@ -434,7 +556,11 @@ export function VettingView({
         {/* The addresses the signer is aimed at. Same renderer as the pools
             above, because they are the same question — named checks, chain
             readings, a verdict — asked about a different subject. */}
-        <Section title="The addresses the signer is pointed at" className="mt-12">
+        <Section
+          id="addresses"
+          title="The addresses the signer is pointed at"
+          className="mt-12"
+        >
           {addrs?.ok && addrs.value.surveyed ? (
             <Card>
               <CardHeader

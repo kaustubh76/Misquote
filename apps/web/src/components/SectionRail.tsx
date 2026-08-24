@@ -32,10 +32,10 @@ export function SectionRail({
     <nav aria-label={label} className="mt-4 mb-8">
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
         {items.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} className="min-w-0">
             <a
               href={`#${item.id}`}
-              className="inline-block rounded-full border border-glass-line bg-glass px-3 py-1 font-mono text-xs tracking-wide text-dim no-underline transition-colors hover:border-brand-line hover:text-brand"
+              className="inline-block max-w-full rounded-full border border-glass-line bg-glass px-3 py-1 font-mono text-xs tracking-wide break-words text-dim no-underline transition-colors hover:border-brand-line hover:text-brand"
             >
               {item.label}
             </a>

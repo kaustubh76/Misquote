@@ -197,7 +197,7 @@ export function VenueView({ initial, initialBadges }: {
                   <p className="m-0 text-sm font-semibold text-ink">{row.what}</p>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-sm border border-line bg-panel-2 px-3 py-2">
+                    <div className="rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2">
                       <p className="m-0 font-mono text-[0.6875rem] tracking-wide text-faint uppercase">
                         {d.venue.fork_of}
                       </p>
@@ -359,7 +359,7 @@ export function VenueView({ initial, initialBadges }: {
               <ul className="m-0 flex list-none flex-wrap items-center gap-2 p-0">
                 {d.fee_tiers.map((tier) => (
                   <li key={tier.fee_pips}>
-                    <span className="inline-block rounded-sm border border-line bg-panel-2 px-2.5 py-1 font-mono text-xs text-ink">
+                    <span className="inline-block rounded-sm border border-glass-line bg-panel-2/50 px-2.5 py-1 font-mono text-xs text-ink">
                       {tier.fee_pips}&rarr;{tier.tick_spacing}
                     </span>
                   </li>

@@ -221,7 +221,7 @@ export function StatusView({
           </div>
 
           {d.fast && d.skipped.length > 0 && (
-            <div className="mt-4 rounded-md border border-line bg-panel-2 p-4">
+            <div className="surface mt-4 rounded-md border border-glass-line bg-glass p-4">
               <p className="m-0 text-sm text-dim">
                 {/* The claim that survives, and appears nowhere else: skipped
                     gates are absent from the counts rather than passing. */}
@@ -268,7 +268,7 @@ export function StatusView({
           )}
 
           <Section title="Gates">
-            <div className="mb-5 rounded-lg border border-line bg-panel-2 p-4">
+            <div className="surface mb-5 rounded-lg border border-glass-line bg-glass p-4">
               <ChipGroup
                 label="Filter by verdict"
                 options={chips}

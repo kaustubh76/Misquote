@@ -4,7 +4,7 @@ import Link from "next/link";
  * The primary action, in the one colour this palette reserves for actions.
  *
  * Before this the site's only call to action was a bordered grey box with a
- * blue link inside it — `rounded-md border border-line bg-panel … hover:border-accent`
+ * blue link inside it — a bordered box on an opaque panel with an accent hover
  * hand-written on the landing page — which is indistinguishable at a glance
  * from the cards around it. A marketplace whose main verb is "hire this agent"
  * needs its verbs to look like verbs.

@@ -73,7 +73,7 @@ export function AgentComparison({
   const commensurable = units.size === 1;
 
   return (
-    <div className="rounded-lg border border-line bg-panel-2 p-5">
+    <div className="surface rounded-lg border border-glass-line bg-glass p-5">
       <ul className="m-0 list-none space-y-4 p-0">
         {agents.map(({ ref, data }) => {
           const r = data.replay;

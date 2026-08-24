@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
+import { SectionRail } from "@/components/SectionRail";
 import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -397,9 +398,34 @@ export function RegistryView({
 
       {d && (
         <>
+          {/* 915 lines and five sections, the second-longest route here.
+              `SectionRail`'s own docstring justifies itself with "575 lines and
+              five sections", and this page is both longer and denser and had no
+              way through it.
+
+              Not added to `/advantage` or `/status` in the same pass: two
+              sections each, both reachable in a screen or two, and a two-pill
+              rail is chrome rather than navigation. The threshold is whether a
+              reader can lose a section, not whether the component exists.
+
+              `deliverable` is gated on `gate`, so it is listed only when the
+              section it points at renders — the dead-anchor shape found in
+              `AgentDetail` this same pass. */}
+          <SectionRail
+            label="On this page"
+            items={[
+              ...(gate ? [{ id: "deliverable", label: "Deliverable" }] : []),
+              { id: "hiring", label: "Hiring" },
+              { id: "escrow", label: "Escrow" },
+              { id: "identity", label: "Identity" },
+              { id: "aacp", label: "AACP" },
+            ]}
+          />
+
           {/* --------------------------------------------- the deliverable -- */}
           {gate && (
             <Section
+              id="deliverable"
               title="The judged deliverable"
               className="mt-10"
               headingClassName="mb-2 text-lg font-semibold"
@@ -431,7 +457,7 @@ export function RegistryView({
           )}
 
           {/* ------------------------------------------------- the hire flow -- */}
-          <Section title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
+          <Section id="hiring" title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
               The number that matters is the second one.
             </p>
@@ -523,7 +549,7 @@ export function RegistryView({
           </Section>
 
           {/* ----------------------------------------------------- the escrow -- */}
-          <Section title="The escrow contract">
+          <Section id="escrow" title="The escrow contract">
             {d.hire_flow.escrow.available ? (
               <Card>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -590,7 +616,7 @@ export function RegistryView({
           </Section>
 
           {/* --------------------------------------------------- the registry -- */}
-          <Section title="ERC-8004 identity registry">
+          <Section id="identity" title="ERC-8004 identity registry">
             {d.identity.surveyed ? (
               <Card>
                 {/* Six intervals, where the page used to print one point.
@@ -828,7 +854,7 @@ export function RegistryView({
               `aacp.available`, so a failed lookup made it vanish and dropped
               the recorded `reason` with it — while the escrow section three
               above renders its reason as a refusal. Same grammar for both. */}
-          <Section title="TermiX AACP">
+          <Section id="aacp" title="TermiX AACP">
             {!d.aacp.available ? (
               <Refusal
                 title="No AACP contract table was read"

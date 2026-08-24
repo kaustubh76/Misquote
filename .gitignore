@@ -38,3 +38,7 @@ data/cache/
 ops/KILL
 
 .DS_Store
+
+# Scratch files. Several one-off screenshot and probe scripts have been
+# committed by accident from apps/web/scripts/ during UI work.
+_*.mjs

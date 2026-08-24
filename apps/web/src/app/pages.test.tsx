@@ -660,6 +660,32 @@ describe("Overview never shows a bare region", () => {
   });
 });
 
+/**
+ * Every check `/vetting` renders, counted the way the view counts them.
+ *
+ * These two tests built the total from `vetting.pools` plus `addresses.checks`
+ * and stopped there, which is exactly the undercount the view had: the address
+ * record nests a `venus` survey and one `erc8183` record per chain, and the
+ * page draws all of them. The tests agreed with the bug because they
+ * reimplemented it. Counting recursively is what makes them able to disagree.
+ */
+function renderedChecks(record: {
+  surveyed?: boolean;
+  checks?: { status: string }[];
+  venus?: unknown;
+  erc8183?: Record<string, unknown>;
+}): { status: string }[] {
+  if (!record?.surveyed) return [];
+  const nested = record.venus as Parameters<typeof renderedChecks>[0] | undefined;
+  return [
+    ...(record.checks ?? []),
+    ...(nested ? renderedChecks(nested) : []),
+    ...Object.values(record.erc8183 ?? {}).flatMap((chain) =>
+      renderedChecks(chain as Parameters<typeof renderedChecks>[0]),
+    ),
+  ];
+}
+
 describe("Vetting: the addresses the signer is pointed at", () => {
   interface Addrs {
     surveyed: boolean;
@@ -760,12 +786,21 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     // The rollup read `vetting.json` alone — "18 checks" above a page showing
     // 29 — and `worst verdict` never looked at the addresses, so an address
     // FAIL would still have shown PASS at the top.
-    const v = readArtifact<{ surveyed: boolean; summary: { checks?: number } }>("vetting.json");
-    const a = readArtifact<Addrs & { summary?: { checked: number } }>("addresses.json");
+    //
+    // It then understated by the same mechanism one level deeper, and this test
+    // agreed with it because it summed the same two `summary` blocks the view
+    // did. The address record nests a `venus` survey and one `erc8183` record
+    // per chain, all rendered — so the page said 38 above 78. Counted the way
+    // the view counts now, which is what lets the two disagree.
+    const v = readArtifact<{ surveyed: boolean; pools: { checks: { status: string }[] }[] }>(
+      "vetting.json",
+    );
+    const a = readArtifact<Addrs>("addresses.json");
     render(<VettingPage />);
     await screen.findByRole("heading", { name: /addresses the signer is pointed at/i });
 
-    const expected = (v.surveyed ? (v.summary.checks ?? 0) : 0) + (a.surveyed ? (a.summary?.checked ?? 0) : 0);
+    const expected =
+      (v.surveyed ? v.pools.flatMap((p) => p.checks).length : 0) + renderedChecks(a).length;
     expect(screen.getByText(new RegExp(`${expected} checks across`))).toBeInTheDocument();
   });
 
@@ -1327,32 +1362,6 @@ describe("Status can be narrowed to what nobody checked", () => {
     }
   });
 });
-
-/**
- * Every check `/vetting` renders, counted the way the view counts them.
- *
- * These two tests built the total from `vetting.pools` plus `addresses.checks`
- * and stopped there, which is exactly the undercount the view had: the address
- * record nests a `venus` survey and one `erc8183` record per chain, and the
- * page draws all of them. The tests agreed with the bug because they
- * reimplemented it. Counting recursively is what makes them able to disagree.
- */
-function renderedChecks(record: {
-  surveyed?: boolean;
-  checks?: { status: string }[];
-  venus?: unknown;
-  erc8183?: Record<string, unknown>;
-}): { status: string }[] {
-  if (!record?.surveyed) return [];
-  const nested = record.venus as Parameters<typeof renderedChecks>[0] | undefined;
-  return [
-    ...(record.checks ?? []),
-    ...(nested ? renderedChecks(nested) : []),
-    ...Object.values(record.erc8183 ?? {}).flatMap((chain) =>
-      renderedChecks(chain as Parameters<typeof renderedChecks>[0]),
-    ),
-  ];
-}
 
 describe("Vetting offers a verdict filter only when there is a choice", () => {
   interface Vetting {

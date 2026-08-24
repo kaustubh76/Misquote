@@ -178,11 +178,6 @@ export function AdvantageView({
                       And the sample clause was a fake derivation: a ternary on
                       `d.tasks[0]` emitting a fixed string containing two numbers
                       `advantage.json` does not carry at any level. */}
-                  {/* The refusal is the headline and stays. What went: a
-                      restatement of `d.overall.label` one line above, and a
-                      strawman ("led on 2 of 3") that the `dl` beside it already
-                      reports — inventing a flattering claim to refuse is its
-                      own small misquote. */}
                   {count(d.summary.tasks)} tapes are not evidence about a strategy. Each
                   task&rsquo;s own quote is, and it is drawn from many windows.
                 </p>
@@ -409,11 +404,11 @@ function TaskCard({
       </div>
 
       <dl className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
-        <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
+        <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">Without an agent</dt>
           <dd className="m-0 mt-1 break-all text-dim">{task.without_agent}</dd>
         </div>
-        <div className="min-w-0 rounded-sm border border-line bg-panel-2 p-3">
+        <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">With an agent</dt>
           {/* The agent's own card answers this same task from its own run, and
               the two have disagreed by as much as a sign. This sentence named
