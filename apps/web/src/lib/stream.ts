@@ -61,7 +61,16 @@ const SECOND_MS = 1000;
 
 const DEFAULT_POLL_MS = 2 * SECOND_MS;
 
-function isFinished(kind: string): boolean {
+/**
+ * Whether a job state is terminal.
+ *
+ * Exported because it was private and the answer was needed in two more places,
+ * so both wrote it out again: `quote/view.tsx` hardcoded the same five strings
+ * for its `aria-busy`, and its tape effect keyed off a phase that does not
+ * change when a job ends. Three copies of `ops/jobs.py`'s terminal set, and the
+ * two copies were the ones that drifted.
+ */
+export function isFinished(kind: string): boolean {
   return (FINISHED as readonly string[]).includes(kind);
 }
 

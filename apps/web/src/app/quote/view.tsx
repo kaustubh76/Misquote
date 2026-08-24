@@ -8,7 +8,7 @@ import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { apiBase, loadLive, RefusalError } from "@/lib/api";
-import { type JobEvent, subscribe } from "@/lib/stream";
+import { type JobEvent, subscribe, isFinished } from "@/lib/stream";
 
 /** One pool the wallet holds a position in, as `/quote/eligibility` reports it. */
 interface Holding {
@@ -262,37 +262,90 @@ type RunState =
  * as a job that resolves into one twenty minutes later. That refusal renders as
  * a `Refusal`, not an `ErrorNotice` — nothing broke.
  */
+/**
+ * What each replay card is currently claiming about the tape, keyed by pool.
+ *
+ * Module-level rather than React state on purpose: the thing being coordinated
+ * is a single attribute on `document.documentElement`, which is outside every
+ * component's tree and shared by every route. Lifting it into a context would
+ * put a provider on the layout for one attribute that only `/quote` writes.
+ */
+type TapeClaim = "reading" | "refused";
+const TAPE_CLAIMS = new Map<string, TapeClaim>();
+
+/**
+ * The root attribute, recomputed from every claim rather than assigned by one.
+ *
+ * A running job outranks a refused one: if any pool is still being replayed the
+ * head is reading, whatever a finished sibling concluded. The amber only shows
+ * once nothing is running and something was refused — which is when it is the
+ * page's actual state rather than one card's.
+ */
+function applyTape(): void {
+  const claims = [...TAPE_CLAIMS.values()];
+  const next = claims.includes("reading")
+    ? "reading"
+    : claims.includes("refused")
+      ? "refused"
+      : null;
+
+  const root = document.documentElement;
+  if (next) root.dataset.tape = next;
+  else delete root.dataset.tape;
+}
+
 function QuoteRun({ pool, label }: { pool: string; label: string }) {
   const [state, setState] = useState<RunState>({ phase: "idle" });
 
   /*
-   * The tape is the status indicator.
+   * The tape is the status indicator, and one card may not speak for the page.
    *
    * `.tape` in globals.css draws the event tape this product replays, drifting
-   * at `--tape-rate`. While a replay job is actually running, the read head is
-   * reading, and the backdrop is the one surface on the page that can say so
-   * without another widget competing with the progress bar. A refusal stops the
-   * tape dead and turns the head amber.
+   * at `--tape-rate`. While a replay job is running the read head is reading,
+   * and the backdrop is the one surface that can say so without another widget
+   * competing with the progress bar. A refusal stops the tape and turns the
+   * head amber. The attribute is all this writes: the rates and the amber live
+   * in globals.css under `:root[data-tape=…]`, so a colour keeps one home.
    *
-   * The attribute is all this writes. The two rates and the amber live in
-   * globals.css under `:root[data-tape=…]`, so a colour still has exactly one
-   * home and this cannot set one the palette has not measured.
+   * The first version of this assigned `root.dataset.tape` directly from one
+   * card's phase and deleted it on cleanup, which was wrong the moment a wallet
+   * held two pools. `/quote` renders one `QuoteRun` per quotable holding, they
+   * all address the same root element, and the write was last-one-wins: an idle
+   * sibling deleted the attribute a running sibling had just set, and any
+   * unmount cleared it while another job was still going. The feature worked
+   * only for wallets with exactly one quotable pool, and failed silently for
+   * every other wallet — no error, just a backdrop that stopped reporting.
    *
-   * The cleanup is not optional and not cosmetic: `document.documentElement` is
-   * shared by every route, so a card unmounted mid-run — a navigation away, a
-   * second pool replacing this one — would otherwise leave the whole site
-   * running at replay speed with no job behind it.
+   * So the attribute is *derived* rather than assigned. Each card publishes its
+   * own state into a module-level registry keyed by pool, and the root gets
+   * whatever the whole registry adds up to.
    */
+  // Read from the *job*, not from the phase, and this is the second half of the
+  // bug above. `onFinished` calls `setState({ phase: "watching", … })` — the
+  // same string it was already on — so an effect with `[state.phase]` in its
+  // dependency list never re-ran when a job ended. The tape kept reading at
+  // 26s indefinitely, for the whole site, with nothing behind it. The phase
+  // says what the card is doing; only `job.status` says whether the work is
+  // over, and `isFinished` is now the one place that knows which states those
+  // are.
+  const status = state.phase === "watching" ? state.job.status : null;
+  const claim: TapeClaim | null =
+    state.phase === "refused" || status === "refused"
+      ? "refused"
+      : state.phase === "queueing" || (status !== null && !isFinished(status))
+        ? "reading"
+        : null;
+
   useEffect(() => {
-    const root = document.documentElement;
-    const running = state.phase === "queueing" || state.phase === "watching";
-    if (state.phase === "refused") root.dataset.tape = "refused";
-    else if (running) root.dataset.tape = "reading";
-    else delete root.dataset.tape;
+    if (claim) TAPE_CLAIMS.set(pool, claim);
+    else TAPE_CLAIMS.delete(pool);
+    applyTape();
+
     return () => {
-      delete root.dataset.tape;
+      TAPE_CLAIMS.delete(pool);
+      applyTape();
     };
-  }, [state.phase]);
+  }, [claim, pool]);
 
   useEffect(() => {
     if (state.phase !== "watching") return;
@@ -398,7 +451,7 @@ function RunProgress({ job }: { job: JobView }) {
   const pct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
 
   return (
-    <div aria-busy={!["done", "refused", "failed", "cancelled", "orphaned"].includes(job.status)}>
+    <div aria-busy={!isFinished(job.status)}>
       <p className="m-0 text-sm text-dim">
         <span className="font-mono text-xs text-faint">{job.jobId.slice(0, 8)}</span>{" "}
         <Pill tone={job.status === "done" ? "pass" : job.status === "failed" ? "fail" : "none"}>

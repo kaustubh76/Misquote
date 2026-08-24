@@ -105,7 +105,26 @@ export function AgentComparison({
                 </span>
               </div>
 
-              <div className="relative mt-1.5 h-2 w-full overflow-hidden rounded-full bg-neutral-bg">
+              {/* `aria-hidden`, and the comment above is why: every figure in
+                  this row is written out beside it, so the bar is the ranking
+                  and not the record. It was neither hidden nor labelled — the
+                  only bar family on the site that announced as "image" and then
+                  said nothing, on the landing page.
+
+                  Hiding rather than labelling is the honest call here. `CostBars`
+                  and `ShareIntervals` name themselves because they carry a
+                  figure the prose does not; this one carries `Math.abs(net) /
+                  worst`, a ratio no sentence on the page states and none needs
+                  to, because the amounts are right there.
+
+                  The track is hatched like every other empty track — `CostBars`,
+                  `GateHistogram` and both `/quote` bars. It was the last
+                  `bg-neutral-bg` left, which made it the one place an empty
+                  track meant nothing in particular. */}
+              <div
+                aria-hidden="true"
+                className="hatched relative mt-1.5 h-2 w-full overflow-hidden rounded-full border border-glass-line"
+              >
                 <div
                   className={`h-full rounded-full ${r.net_quote < 0 ? "bg-bad" : "bg-good"}`}
                   style={{ width: `${Math.max(share, 0.8)}%` }}

@@ -5,6 +5,35 @@ import { vi } from "vitest";
 const ARTIFACTS = join(process.cwd(), "public", "artifacts");
 
 /**
+ * One read per artifact per worker, rather than one per fetch.
+ *
+ * Every view fetches its data on mount, so a page test triggers a `readFileSync`
+ * of the file it renders — and `assumptions.json` is 181,816 bytes. `/assumptions`
+ * has eleven tests and each one re-read all of it, synchronously, on a thread
+ * vitest also runs three other suites on.
+ *
+ * That was the flake. `vitest.config.ts` blamed re-serialisation and raised
+ * `testTimeout` to 15s over it, and the raise did not hold: the `/assumptions`
+ * suites still failed one to three times per full run, always under file
+ * parallelism, and always passing on a rerun or with `--no-file-parallelism`.
+ * The config's own note says a flake "teaches people to rerun rather than to
+ * read", which is exactly what a timeout raise teaches.
+ *
+ * Safe to memoise because the artifacts do not change during a run: nothing in
+ * the suite writes to `public/artifacts`, and a test that wants different bytes
+ * passes `overrides`, which is checked before this map is ever consulted.
+ */
+const FILES = new Map<string, string>();
+
+function artifactBody(name: string): string {
+  const hit = FILES.get(name);
+  if (hit !== undefined) return hit;
+  const body = readFileSync(join(ARTIFACTS, name), "utf8");
+  FILES.set(name, body);
+  return body;
+}
+
+/**
  * Serve the real generated artifacts to a page under test.
  *
  * Every view fetches its data at runtime, so a page test that stubs the data
@@ -54,7 +83,7 @@ export function serveArtifacts(
       }
 
       try {
-        const body = readFileSync(join(ARTIFACTS, name), "utf8");
+        const body = artifactBody(name);
         return new Response(body, {
           status: 200,
           headers: { "content-type": "application/json" },
@@ -71,7 +100,10 @@ export function serveArtifacts(
 }
 
 export function readArtifact<T>(name: string): T {
-  return JSON.parse(readFileSync(join(ARTIFACTS, name), "utf8")) as T;
+  // Parsed fresh from a cached string, deliberately. Callers mutate what they
+  // get back to build `overrides`, so handing out a shared object would let one
+  // test's edit reach the next one.
+  return JSON.parse(artifactBody(name)) as T;
 }
 
 /**

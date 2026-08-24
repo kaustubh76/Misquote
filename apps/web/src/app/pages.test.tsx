@@ -1328,6 +1328,32 @@ describe("Status can be narrowed to what nobody checked", () => {
   });
 });
 
+/**
+ * Every check `/vetting` renders, counted the way the view counts them.
+ *
+ * These two tests built the total from `vetting.pools` plus `addresses.checks`
+ * and stopped there, which is exactly the undercount the view had: the address
+ * record nests a `venus` survey and one `erc8183` record per chain, and the
+ * page draws all of them. The tests agreed with the bug because they
+ * reimplemented it. Counting recursively is what makes them able to disagree.
+ */
+function renderedChecks(record: {
+  surveyed?: boolean;
+  checks?: { status: string }[];
+  venus?: unknown;
+  erc8183?: Record<string, unknown>;
+}): { status: string }[] {
+  if (!record?.surveyed) return [];
+  const nested = record.venus as Parameters<typeof renderedChecks>[0] | undefined;
+  return [
+    ...(record.checks ?? []),
+    ...(nested ? renderedChecks(nested) : []),
+    ...Object.values(record.erc8183 ?? {}).flatMap((chain) =>
+      renderedChecks(chain as Parameters<typeof renderedChecks>[0]),
+    ),
+  ];
+}
+
 describe("Vetting offers a verdict filter only when there is a choice", () => {
   interface Vetting {
     pools: { checks: { name: string; status: string }[] }[];
@@ -1342,7 +1368,7 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     // useful part; the control is not.
     const vetting = readArtifact<Vetting>("vetting.json");
     const addrs = readArtifact<Addrs>("addresses.json");
-    const all = [...vetting.pools.flatMap((p) => p.checks), ...addrs.checks];
+    const all = [...vetting.pools.flatMap((p) => p.checks), ...renderedChecks(addrs)];
     const verdicts = new Set(all.map((c) => c.status));
     render(<VettingPage />);
     await screen.findByRole("heading", { name: /Due diligence/ });
@@ -1372,7 +1398,8 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     render(<VettingPage />);
     await screen.findByRole("heading", { name: /Due diligence/ });
 
-    const total = doctored.pools.flatMap((p) => p.checks).length + addrs.checks.length;
+    const total =
+      doctored.pools.flatMap((p) => p.checks).length + renderedChecks(addrs).length;
     expect(await screen.findByRole("radio", { name: `All ${total}` })).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /^Fail/ }));

@@ -35,6 +35,24 @@ const TONE: Record<string, PillTone> = {
  * different claims, and only one of them is true here.
  */
 export function CheckList({ checks }: { checks: CheckRow[] }) {
+  // A filtered-out subject says so, rather than rendering an empty <ul>.
+  //
+  // `/vetting` narrows every subject on the page with one control, and a
+  // subject with no match rendered a live heading over nothing — no message, no
+  // count, no indication the filter was the reason. Silence there reads as "we
+  // checked and found nothing to show", which on this page is a different and
+  // much stronger claim than "your filter excluded these".
+  //
+  // Not a `Refusal`: nothing was refused and no evidence fell short. It is the
+  // reader's own filter, and the sentence says so.
+  if (checks.length === 0) {
+    return (
+      <p className="m-0 text-sm text-faint">
+        No checks here match the current filter.
+      </p>
+    );
+  }
+
   return (
     <ul className="m-0 list-none space-y-4 p-0">
       {checks.map((check) =>

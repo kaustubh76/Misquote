@@ -111,6 +111,23 @@ function ageHours(readAt: string | undefined, now: number | null): number | unde
   return Number.isNaN(then) ? undefined : (now - then) / 3_600_000;
 }
 
+/**
+ * Every check inside an address record, including the surveys nested in it.
+ *
+ * `AddressArtifact` contains other `AddressArtifact`s — `venus`, and one per
+ * chain under `erc8183` — and the view renders all of them. Anything that
+ * counts checks has to walk the same shape the renderer walks, or it reports a
+ * number about a page other than the one on screen.
+ */
+function checksOf(record: AddressArtifact | undefined): VettingCheck[] {
+  if (!record?.surveyed) return [];
+  return [
+    ...(record.checks ?? []),
+    ...checksOf(record.venus),
+    ...Object.values(record.erc8183 ?? {}).flatMap((chain) => checksOf(chain)),
+  ];
+}
+
 export function VettingView({
   initialVetting,
   initialIndex,
@@ -191,9 +208,24 @@ export function VettingView({
    */
   const [verdict, setVerdict] = useState<string>("all");
 
+  // Every check this page draws, including the two surveys nested inside the
+  // address record.
+  //
+  // This summed the pools and the address record's own checks and stopped
+  // there — 38 — while the page also renders `venus.checks` (18) and both
+  // `erc8183` chain records (22) through the same `narrow()` and the same
+  // `CheckList`. So the filter chip read "All 38" above 78 rendered checks, the
+  // sentence below it said "Every one of the 38 checks below returned PASS"
+  // about 78 of them, and narrowing to a verdict would have hidden forty checks
+  // the count claimed to be filtering.
+  //
+  // On a page whose entire subject is counting checks read from chain, on a
+  // site whose argument is that every number traces to its source. Recursive
+  // now, so a survey nested one level deeper is counted rather than silently
+  // dropped the way these two were.
   const everyCheck = [
     ...(state?.ok ? (state.value.pools ?? []).flatMap((p) => p.checks ?? []) : []),
-    ...(addrs?.ok ? (addrs.value.checks ?? []) : []),
+    ...(addrs?.ok ? checksOf(addrs.value) : []),
   ];
 
   const verdictChips: Chip<string>[] = [

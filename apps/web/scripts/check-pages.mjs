@@ -108,8 +108,21 @@ for (const [colorScheme, width] of VIEWPORTS) {
   // faithful replay of this exact loop shape — one context, one page, all
   // fifteen routes sequentially, networkidle plus the same 350ms — produced
   // zero. A fresh context per load produced zero in 24. `next dev` reports no
-  // hydration warning on any route. Two hits in four real runs of this script
-  // is about one in ninety loads, which is the rate it has always had.
+  // hydration warning on any route.
+  //
+  // **It tracks machine load, and that is the first thing found that predicts
+  // it.** Every zero above was measured on an idle machine. On the same tree
+  // with an unrelated build saturating the box — load average 30 to 50 against
+  // 8 cores — this script hit it three runs in a row, once on /agent/router,
+  // then on /venue and /activate together, always on a route the commit under
+  // test had not touched, always the same three react-dom frames. That is
+  // roughly one in twenty loads against the one in ninety it shows when idle.
+  //
+  // Which fits what a hydration mismatch is: React commits the server HTML and
+  // then reconciles, and a starved event loop widens every window in between.
+  // If this is ever worth chasing properly, reproduce it under `stress-ng` or a
+  // parallel `next build` rather than on a quiet laptop — that is the condition
+  // the "never reproduces on demand" note above was missing.
   page.on("pageerror", (e) => {
     const frames = (e.stack ?? "").split("\n").slice(1, 4).map((l) => l.trim()).join(" <- ");
     problems.push(`uncaught on ${page.url()}: ${e}${frames ? ` [${frames}]` : ""}`);

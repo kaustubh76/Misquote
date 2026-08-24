@@ -177,14 +177,28 @@ export function AgentDetail({
         {poolAddress && <> · {shortAddress(poolAddress)}</>}
       </p>
 
-      {/* This page is five sections and about four screens, and a judge
-          arriving from a deep link had no indication the provenance block was
-          below the fold. */}
+      {/* This page is six sections and about four screens, and a judge arriving
+          from a deep link had no indication the provenance block was below the
+          fold.
+
+          Built from what renders, not from a fixed list, and that is a fix
+          rather than a refactor. The list hardcoded `#advantage` while the
+          section it points at lives inside `{adv && (…)}` — every artifact
+          carries an advantage block today, so the anchor resolves and
+          `check-pages.mjs`'s dead-anchor sweep passes, and the first artifact
+          without one would have shipped a rail pill pointing at nothing.
+
+          It also listed four of six, so it skipped the two sections in the
+          middle of the page — a reader clicking "vs DIY" and then "Parameters"
+          jumped over the verdicts and the journal without being told they were
+          there. */}
       <SectionRail
         label="On this tearsheet"
         items={[
           { id: "quote", label: "Quote" },
-          { id: "advantage", label: "vs DIY" },
+          { id: "verdicts", label: "Verdicts" },
+          ...(adv ? [{ id: "advantage", label: "vs DIY" }] : []),
+          { id: "journal", label: "Journal" },
           { id: "parameters", label: "Parameters" },
           { id: "provenance", label: "Provenance" },
         ]}
@@ -315,6 +329,7 @@ export function AgentDetail({
           defend. `unitFor` names the unit only where the artifact proves it, so
           neither label is a guess. */}
       <Section
+        id="verdicts"
         title="Verdicts"
         intro="Two different populations, both from the same replay: one counts decisions, the other counts window returns."
       >
@@ -412,6 +427,7 @@ export function AgentDetail({
           account of the replay's. Each card now states its own source and span,
           and the heading no longer calls a counterfactual "what it did". */}
       <Section
+        id="journal"
         title="What it did, and what it would have done"
         intro="Two different runs. The live loop recorded rather than signed."
       >
