@@ -450,23 +450,86 @@ def read_scan(path: Path = SCAN_PATH) -> dict[str, Any]:
         return {"available": False, "reason": f"{path.name} is unreadable: {error}"}
 
 
-def fetch_scan() -> dict[str, Any]:
+def _feedback_cross_check(census: dict[str, Any], reach: dict[str, Any]) -> dict[str, Any]:
+    """The same quantity from two of 8004scan's own tables.
+
+    `census` sums `total_feedbacks` across every agent row; `feedback_reach`
+    asks the feedback collection for its own total. One index, two tables, and
+    no reason for them to differ — so a difference is the index disagreeing with
+    itself, which is worth publishing precisely because it is not our finding to
+    explain. Same rule as the population gap: stated, not resolved.
+    """
+    if not (census.get("available") and reach.get("available")):
+        return {
+            "available": False,
+            "reason": "both a census and a feedback count are needed to compare them",
+        }
+    summed = int(census.get("feedbacks_claimed") or 0)
+    counted = int(reach.get("feedbacks") or 0)
+    return {
+        "available": True,
+        "summed_over_agents": summed,
+        "counted_in_feedback_table": counted,
+        "difference": summed - counted,
+        "agree": summed == counted,
+        "note": (
+            "Two of 8004scan's own tables answering the same question. Published "
+            "whether or not they agree — a third-party index disagreeing with "
+            "itself is a fact about the source, and resolving it here would mean "
+            "choosing a number we have no way to check."
+        ),
+    }
+
+
+def fetch_scan(census: bool = True) -> dict[str, Any]:
     """Read 8004scan and reconcile it against our own on-chain count.
 
     The comparison is the point. Our number comes from binary search on
     `ownerOf`; theirs from an indexer. Neither is privileged here — both are
     published with the method named, and the gap between them is stated rather
     than resolved, because nothing in this repository can say which is right.
+
+    What is read depends on what the environment entitles us to, and the payload
+    says which it was rather than leaving the reader to infer it from the key
+    names. With `SCAN8004_API_KEY` set this counts every agent the index holds
+    for BSC, an hour or so for 278,000 — and the shares carry no interval
+    because nothing was inferred. Without it, the anonymous tier affords one
+    page of the newest hundred, which is a sample of one platform's latest batch
+    and is published under `sample` so it can never be read as the population.
     """
     from misquote.registry import scan8004
 
+    tier = scan8004.tier()
     pop = scan8004.population(BSC_MAINNET)
     payload: dict[str, Any] = {
-        "source": "8004scan.io/api/v1/public",
+        "source": f"8004scan.io{tier.base.removeprefix('https://8004scan.io')}",
+        "tier": tier.name,
+        "rate_limit_per_minute": tier.requests_per_minute,
         "population": pop,
-        "sample": scan8004.sample(BSC_MAINNET, 100),
         "stats": scan8004.stats(),
     }
+
+    # The two readings are mutually exclusive on purpose. Publishing a census
+    # and a sample together would invite a reader to compare a share of 278,353
+    # against a share of 100 as though the difference were a finding about the
+    # registry rather than about which tier answered.
+    if census and tier.can_census:
+        payload["census"] = scan8004.census(BSC_MAINNET)
+        payload["feedback_reach"] = scan8004.feedback_reach(BSC_MAINNET)
+        payload["feedback_cross_check"] = _feedback_cross_check(
+            payload["census"], payload["feedback_reach"]
+        )
+    else:
+        payload["sample"] = scan8004.sample(BSC_MAINNET, 100)
+        if census:
+            payload["census"] = {
+                "available": False,
+                "tier": tier.name,
+                "reason": (
+                    "no SCAN8004_API_KEY, so the whole-population count was not "
+                    "affordable — 10 requests a minute is about 4.6 hours for BSC"
+                ),
+            }
 
     ours = read_survey().get("population")
     theirs = pop.get("population") if pop.get("available") else None
@@ -513,6 +576,16 @@ def main() -> int:
             "reading with a refusal."
         ),
     )
+    parser.add_argument(
+        "--no-census",
+        action="store_true",
+        help=(
+            "with a key, --scan counts every BSC agent the index holds, which "
+            "took 68 minutes the first time it ran. This takes the one-page "
+            "reading instead — "
+            "faster, and honestly labelled a sample rather than a population."
+        ),
+    )
     parser.add_argument("--survey-path", default=str(SURVEY_PATH))
     parser.add_argument(
         "--out", default=str(REPO / "apps" / "web" / "public" / "artifacts" / "registry.json")
@@ -545,7 +618,7 @@ def main() -> int:
         "aacp": aacp_overlap(),
         # A second, independent reading of the same registry. Alongside ours,
         # never instead of it — see `registry/scan8004.py`.
-        "third_party": fetch_scan() if args.scan else read_scan(),
+        "third_party": fetch_scan(census=not args.no_census) if args.scan else read_scan(),
         "build": provenance.build_stamp(
             "python scripts/registry_report.py"
             + (f" --sample {args.sample}" if args.sample else ""),

@@ -1,39 +1,79 @@
 {
+  "census": {
+    "agents_missed": 0,
+    "available": true,
+    "chain_id": 56,
+    "complete": true,
+    "counted": 278500,
+    "described": 270414,
+    "distinct_descriptions": 26684,
+    "distinct_owners": 234400,
+    "failed_offsets": [],
+    "failure_reasons": {},
+    "feedbacks_claimed": 11681,
+    "minted_during_the_walk": 83,
+    "note": "Every agent the index holds for this chain, counted \u2014 not sampled. The shares carry no confidence interval because nothing was inferred: `counted` is the denominator. What it cannot say is whether 8004scan's index is itself complete, which is why our own on-chain count is published beside it and the two are reconciled rather than merged.",
+    "ordering": "ascending, so the pages already walked do not shift while the chain keeps minting \u2014 measured at 72 new BSC agents during a 68-minute walk",
+    "pages_failed": 0,
+    "population_at_end": 278515,
+    "population_at_start": 278432,
+    "protocols": {
+      "A2A": 13950,
+      "Email": 241,
+      "MCP": 5047,
+      "OASF": 365,
+      "Web": 98146
+    },
+    "starred": 115,
+    "tier": "keyed",
+    "verified": 0,
+    "with_feedback": 510,
+    "with_score": 122060,
+    "x402_supported": 66562
+  },
+  "feedback_cross_check": {
+    "agree": false,
+    "available": true,
+    "counted_in_feedback_table": 11709,
+    "difference": -28,
+    "note": "Two of 8004scan's own tables answering the same question. Published whether or not they agree \u2014 a third-party index disagreeing with itself is a fact about the source, and resolving it here would mean choosing a number we have no way to check.",
+    "summed_over_agents": 11681
+  },
+  "feedback_reach": {
+    "anchored": true,
+    "available": true,
+    "chain_id": 56,
+    "example_block_number": 116800764,
+    "example_transaction_hash": "0x89a33aa7661447b2d73e8ac69e78f2db11c86e4992b6558db3118dbeab1fdd82",
+    "feedbacks": 11709,
+    "note": "Counted from the feedback table rather than summed off the agents. Every row names the transaction that wrote it, so the count is checkable on chain \u2014 which is what separates it from a star rating.",
+    "tier": "keyed"
+  },
   "population": {
     "available": true,
     "chain_id": 56,
     "contract_address": "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
-    "population": 270245
+    "population": 278432,
+    "tier": "keyed"
   },
+  "rate_limit_per_minute": 600,
   "reconciliation": {
-    "difference": 10042,
-    "difference_pct": 3.583,
+    "difference": 1855,
+    "difference_pct": 0.662,
     "note": "Two counts of the same registry by different methods. They are published together and the gap is not resolved: nothing here can say which is right, and picking the larger would be the misquote this project is named after. What is checked is that both are counting the same contract \u2014 if they were not, the comparison would be meaningless rather than merely unresolved.",
     "ours": 280287,
     "ours_method": "binary search on ownerOf \u2014 totalSupply() reverts on this proxy",
     "same_contract": true,
-    "theirs": 270245,
+    "theirs": 278432,
     "theirs_method": "8004scan's indexer"
   },
-  "sample": {
-    "available": true,
-    "chain_id": 56,
-    "described": 100,
-    "distinct_descriptions": 18,
-    "ordering": "8004scan's default, which is newest first",
-    "sampled": 100,
-    "starred": 0,
-    "verified": 0,
-    "with_feedback": 0,
-    "with_score": 0,
-    "x402_supported": 1
-  },
-  "source": "8004scan.io/api/v1/public",
+  "source": "8004scan.io/api/v1",
   "stats": {
     "available": true,
-    "average_feedback_score": 80.99325937317033,
-    "daily_new_agents_all_chains": 12297,
-    "total_agents_all_chains": 750353,
-    "total_feedbacks_all_chains": 3567019
-  }
+    "average_feedback_score": 80.99331570846203,
+    "daily_new_agents_all_chains": 3240,
+    "total_agents_all_chains": 765099,
+    "total_feedbacks_all_chains": 3591022
+  },
+  "tier": "keyed"
 }

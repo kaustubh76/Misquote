@@ -8,6 +8,10 @@ N      ?= 2000
 CHAIN  ?= 56
 # How many registry ids `make registry-survey` reads. See the target.
 SAMPLE ?= 400
+# Passed through to `make registry-scan`. `SCAN_ARGS=--no-census` takes the
+# one-page reading instead of counting the chain — an hour shorter, and
+# labelled a sample rather than a population.
+SCAN_ARGS ?=
 # The indexed tape. `showcase-auto` uses it when it exists and falls back to the
 # labelled synthetic path when it does not; the scripts default to the same file.
 DB_PATH ?= data/misquote.db
@@ -271,9 +275,23 @@ registry-scan:  ## read 8004scan and record a second, independent count of the s
 	# with the method named, and the gap is not resolved — nothing here can say
 	# which is right, and picking the larger is the misquote.
 	#
-	# The API needs no key at 10 requests a minute. Like `--sample`, this splits
-	# reading from publishing: `make registry` republishes what this recorded.
-	$(UV) run python scripts/registry_report.py --scan
+	# With SCAN8004_API_KEY exported this is a **census**: all 278,353 BSC agents
+	# at 100 a page, so the artifact says `counted: 278,353 of 278,353` and the
+	# shares carry no confidence interval, because nothing was inferred. Budget
+	# an hour — the first full run took 68 minutes, and it is 8004scan's latency
+	# that sets that, not the rate limit, which it never came close to. It also asks how many of
+	# those agents anyone has ever left feedback on, which is the half of "is
+	# this agent real" that `ownerOf` cannot answer.
+	#
+	# Without the key it still works at 10 requests a minute, and still splits
+	# reading from publishing the way `--sample` does — but the only page it can
+	# afford is the newest hundred, which is one platform's latest batch rather
+	# than a draw from the registry. That reading is published under `sample`,
+	# never `census`, and `tier` on every payload says which one answered.
+	# `--no-census` takes the fast reading deliberately.
+	#
+	# Nothing here loads .env; export it, as with BSC_RPC_URL.
+	$(UV) run python -u scripts/registry_report.py --scan $(SCAN_ARGS)
 
 registry-survey:  ## read the ERC-8004 registry and record a sample. usage: make registry-survey SAMPLE=400
 	# ~2.2s per agent against free endpoints: 400 ids is about fifteen minutes,
