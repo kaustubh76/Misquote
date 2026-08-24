@@ -541,6 +541,55 @@ export interface AdvantageTask {
    * report-level field stopped being a number — see `AdvantageArtifact`.
    */
   capital_quote?: number;
+  /**
+   * How many days of tape this task replayed.
+   *
+   * Optional because `advantage_short.json` predates it, and per task for the
+   * same reason `source` and `capital_quote` are: these are separate replays.
+   *
+   * They are not the same length. Three tasks run 31.0 days and Route runs
+   * 17.0, and until this field was read nothing on `/advantage` said so — the
+   * page put four deltas in one list and let a reader assume one tape. It does
+   * not bias a delta, because both columns of a task share that task's tape;
+   * it bounds how much of a year the annualised figure describes.
+   */
+  replay_days?: number;
+  /**
+   * The quantity the task is named for, as against the net return.
+   *
+   * The Protect task is "avoid being picked off by one-way flow", and its
+   * primary metric is the convexity cost it was hired to reduce — the agent
+   * comes in 18.4x better on that while losing 38.17pp of net return. The page
+   * showed only the second for as long as this field went unread, which is
+   * half a finding.
+   *
+   * `summary` is written by the emitter and rendered verbatim. Recomputing the
+   * ratio in the browser would put a second implementation of the comparison
+   * one inch from the sentence Python wrote — the argument `Band` already
+   * makes about `ranges_overlap`.
+   *
+   * Null on disk for a task with no single metric: the Choose task compares
+   * two pools, and there is no one number the choice is about.
+   */
+  primary_metric?: PrimaryMetric | null;
+}
+
+/**
+ * One quantity, both ways, with the emitter's own verdict on it.
+ *
+ * `lower_is_better` and `improved` are both carried because they are different
+ * facts — a cost falling is an improvement and a fee falling is not — and a UI
+ * that derived the second from the first would be reimplementing the emitter.
+ */
+export interface PrimaryMetric {
+  name: string;
+  baseline: number;
+  agent: number;
+  lower_is_better: boolean;
+  unit: string;
+  improved: boolean;
+  /** Rendered verbatim. Never reconstructed from the two numbers above. */
+  summary: string;
 }
 
 export interface AdvantageArtifact {

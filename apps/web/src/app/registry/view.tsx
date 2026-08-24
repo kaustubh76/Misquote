@@ -7,12 +7,13 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
+import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, shortAddress } from "@/lib/format";
+import { count, fixed, isNum, shortAddress } from "@/lib/format";
 
 interface Step {
   call: string;
@@ -169,6 +170,27 @@ export interface RegistryArtifact {
      *  agents is not a point, and printing it as one is the false precision
      *  this page exists to criticise. */
     intervals?: Record<string, { low: number; high: number }>;
+    /**
+     * The numerators for the other five shares in `intervals`, all out of
+     * `sampled`.
+     *
+     * `substantive` was declared from the start and these were not, so the page
+     * could draw one interval and had no honest way to draw the rest — a bar
+     * needs the count the survey made, and multiplying a published percentage
+     * back out to get one is precisely the false precision the comment above
+     * objects to. So five intervals went unrendered next to a note explaining
+     * why rendering them as points would be wrong.
+     *
+     * Optional for the same reason `substantive` and `sampled` are: an offline
+     * run writes `{ surveyed: false }` and none of them.
+     */
+    resolvable?: number;
+    declared_active?: number;
+    on_chain_cards?: number;
+    with_endpoint?: number;
+    placeholders?: number;
+    /** The sampler's seed, recorded so the survey is reproducible. */
+    seed?: number;
   };
   aacp: {
     available: boolean;
@@ -177,6 +199,39 @@ export interface RegistryArtifact {
     contracts?: Record<string, string>;
     note?: string;
     reason?: string;
+    /**
+     * How much of the deployed escrow's interface was recovered.
+     *
+     * `resolved` of `total` selectors matched to a signature. Deliberately not
+     * rendered as a `FloorGauge`: nobody required 65, so "short of the floor"
+     * would draw a counted unknown as a failure. `note` says what the rest are
+     * — counted, not guessed — and renders verbatim.
+     */
+    escrow_selectors?: { resolved: number; total: number; note: string };
+  };
+  /**
+   * What a third-party index says about the same registry.
+   *
+   * Declared partially, on purpose. `registry.json`'s `third_party` block also
+   * carries a `stats` and a `sample` section that nothing draws, and typing
+   * those would be the "declared and never read" defect
+   * `tests/web/test_no_dead_exports.py` exists for, one layer down. Only what
+   * is rendered is declared.
+   */
+  third_party?: {
+    reconciliation?: {
+      ours: number;
+      ours_method: string;
+      theirs: number;
+      theirs_method: string;
+      difference: number;
+      /** Already in percentage points: `0.69` means 0.69%. */
+      difference_pct: number;
+      /** Whether both methods are counting the same contract at all. */
+      same_contract: boolean;
+      /** The emitter's own sentence on why the gap is not resolved. Verbatim. */
+      note: string;
+    };
   };
   // `registry.json` has carried this since the emitter was written, and this
   // page showed none of it — every address on it read as a standing fact rather
@@ -191,6 +246,68 @@ export interface StatusSummary {
 
 /** The gate the track turns on, by the name `scripts/go_no_go.py` gives it. */
 const DELIVERABLE_GATE = "agent advantage report";
+
+/**
+ * The six shares, under the names the emitter's own report gives them.
+ *
+ * Verbatim from `RegistrySurvey.render()` in
+ * `packages/misquote/registry/erc8004.py`, which already prints "card
+ * resolves", "declares an endpoint", "placeholder text", "declares itself
+ * live" and "card held on chain" — so the page does not invent a second
+ * vocabulary for categories that have one.
+ *
+ * `substantive` is the exception and is deliberately just the word: the survey
+ * table below has a row labelled "substantive agent cards", and
+ * `src/app/pages.test.tsx` looks that string up with a singular `findByText`
+ * that throws on two matches. Same claim, two scales, one of them named once.
+ */
+const SHARE_LABEL: Record<string, string> = {
+  resolvable: "card resolves",
+  declared_active: "declares itself live",
+  on_chain_cards: "card held on chain",
+  with_endpoint: "declares an endpoint",
+  substantive: "substantive",
+  placeholders: "placeholder text",
+};
+
+/**
+ * Each published interval joined to the numerator that produced it.
+ *
+ * Driven off `intervals` rather than off the counts, so a share the emitter
+ * stops publishing an interval for disappears rather than quietly reverting to
+ * a point estimate.
+ *
+ * A key with no numerator on this interface is **dropped, never reconstructed**
+ * from `substantive_share` or from a bound. Turning a published percentage back
+ * into a count is exactly the false precision the interface comment above
+ * objects to, and doing it to fill a bar would be that mistake inside the fix
+ * for it.
+ *
+ * Sorted by count, which is presentation and not a claim: it puts the survey's
+ * shape on the page without asserting the rows are a funnel, which they are not
+ * — `placeholders` runs the other way.
+ */
+function shareRows(identity: RegistryArtifact["identity"]): ShareInterval[] {
+  const counts: Record<string, number | undefined> = {
+    resolvable: identity.resolvable,
+    declared_active: identity.declared_active,
+    on_chain_cards: identity.on_chain_cards,
+    with_endpoint: identity.with_endpoint,
+    substantive: identity.substantive,
+    placeholders: identity.placeholders,
+  };
+
+  return Object.entries(identity.intervals ?? {})
+    .map(([key, ci]) => ({
+      key,
+      label: SHARE_LABEL[key] ?? key,
+      n: counts[key],
+      low: ci.low,
+      high: ci.high,
+    }))
+    .filter((row): row is ShareInterval => isNum(row.n))
+    .sort((a, b) => b.n - a.n);
+}
 
 export function RegistryView({
   initialRegistry,
@@ -476,6 +593,36 @@ export function RegistryView({
           <Section title="ERC-8004 identity registry">
             {d.identity.surveyed ? (
               <Card>
+                {/* Six intervals, where the page used to print one point.
+
+                    The artifact has published all six since the survey was
+                    written, and the interface note beside `intervals` says a
+                    share of a few hundred out of ~280,000 "is not a point, and
+                    printing it as one is the false precision this page exists
+                    to criticise". The page then printed exactly that: one
+                    share, as "34.8%", with the other five dropped. The table
+                    below is unchanged and still carries the substantive row in
+                    words; this is the same survey with the arithmetic drawn. */}
+                {(() => {
+                  const rows = shareRows(d.identity);
+                  const sampled = d.identity.sampled;
+                  return rows.length > 0 && sampled !== undefined ? (
+                    <div className="mb-6">
+                      <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
+                        Every card in one sample of {count(sampled)}, checked six ways.
+                        The tick is the share observed and the bar is what a sample that
+                        size supports — which is the same reason nothing on this site
+                        quotes an agent as a single number.
+                      </p>
+                      <ShareIntervals
+                        rows={rows}
+                        sampled={sampled}
+                        caption="What the sample supports, per check"
+                      />
+                    </div>
+                  ) : null;
+                })()}
+
                 {/* The share carries its own denominator, and the registry
                     carries its own size.
 
@@ -533,6 +680,123 @@ export function RegistryView({
               />
             )}
 
+            {/* Two counts of the same registry, and the gap between them is
+                the answer.
+
+                `third_party.reconciliation` has been in the artifact since the
+                survey learned to cross-check itself and no page read it —
+                including its note, which is the only sentence in this
+                repository that says out loud where the project's name comes
+                from. It renders verbatim, because a paraphrase of a refusal is
+                how it becomes an apology.
+
+                Drawn as an interval rather than as two bars, and that was a
+                correction. Two bars from a shared zero are the honest picture
+                of a 0.66% disagreement and they are also two identical bars —
+                the block carried its whole finding in the numbers and nothing
+                in the mark. But two methods that will not be reconciled *are* a
+                range, which is the one figure this entire site is built to
+                draw: the registry holds somewhere between these two counts, and
+                naming a single number would be the misquote.
+
+                The axis is magnified — it spans the two counts with padding,
+                not zero to the larger — and that is stated rather than hidden.
+                A zoom that is labelled is a reading aid; an unlabelled one is
+                the distortion this page criticises. The caption carries the
+                width as a share of the count so the magnification cannot
+                mislead. */}
+            {(() => {
+              const rec = d.third_party?.reconciliation;
+              if (!rec) return null;
+
+              const low = Math.min(rec.ours, rec.theirs);
+              const high = Math.max(rec.ours, rec.theirs);
+              const pad = Math.max(1, (high - low) * 0.45);
+              const span = high - low + pad * 2;
+              const at = (n: number) => `${((n - (low - pad)) / span) * 100}%`;
+
+              const ends = [
+                { who: "8004scan", n: rec.theirs, how: rec.theirs_method },
+                { who: "this repository", n: rec.ours, how: rec.ours_method },
+              ].sort((a, b) => a.n - b.n);
+
+              return (
+                <Card className="mt-4">
+                  <CardHeader
+                    title="Two counts of the same registry"
+                    eyebrow="Not reconciled"
+                    aside={
+                      <Badge tone={rec.same_contract ? "neutral" : "warn"}>
+                        {rec.same_contract ? "Same contract" : "Different contracts"}
+                      </Badge>
+                    }
+                  />
+
+                  <div
+                    className="relative h-12"
+                    role="img"
+                    aria-label={
+                      `Two counts of the same registry: ${count(rec.theirs)} by ` +
+                      `${rec.theirs_method}, and ${count(rec.ours)} by ${rec.ours_method}. ` +
+                      `${count(rec.difference)} apart, ${fixed(rec.difference_pct, 2)}% of ` +
+                      `the larger. Neither is chosen.`
+                    }
+                  >
+                    {/* The unresolved span. Hatched in the neutral tone, not
+                        the warm one: `Ledger.tsx` sets that rule — warm means
+                        evidence exists and fell short, neutral means nothing
+                        was ever there. This gap is neither a shortfall nor an
+                        error; it is a region no method on this page speaks
+                        for, which is what the hatch means. */}
+                    <div
+                      className="hatched absolute top-1/2 h-6 -translate-y-1/2 rounded-sm border border-line-strong"
+                      style={{ left: at(low), width: `${((high - low) / span) * 100}%` }}
+                    />
+                    {ends.map((end, i) => (
+                      <div
+                        key={end.who}
+                        className="absolute top-1/2 h-8 w-0.5 -translate-y-1/2 bg-brand"
+                        style={{ left: at(end.n) }}
+                      >
+                        <span
+                          className={`absolute -top-1 whitespace-nowrap font-mono text-xs text-ink ${
+                            i === 0 ? "right-2 text-right" : "left-2"
+                          }`}
+                        >
+                          {count(end.n)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <ul className="m-0 mt-2 list-none space-y-1 p-0">
+                    {ends.map((end) => (
+                      <li
+                        key={end.who}
+                        className="font-mono text-xs break-words text-faint"
+                      >
+                        {count(end.n)} · {end.who} — {end.how}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="mt-5 mb-0 border-t border-line pt-4 text-sm">
+                    <span className="tabular font-semibold text-warn">
+                      {count(rec.difference)}
+                    </span>{" "}
+                    <span className="text-dim">
+                      apart — {fixed(rec.difference_pct, 2)}% of the larger, which is
+                      why the axis above is drawn across the two counts rather than
+                      from zero. At true scale the marks would sit on top of each
+                      other.
+                    </span>
+                  </p>
+                  {/* The emitter's own words. This is the sentence. */}
+                  <p className="mt-2 mb-0 max-w-[72ch] text-sm text-dim">{rec.note}</p>
+                </Card>
+              );
+            })()}
+
             <Card className="mt-4">
               <CardHeader
                 title="Reputation is deliberately not displayed"
@@ -589,6 +853,47 @@ export function RegistryView({
                       value: <span className="font-mono">{shortAddress(addr)}</span>,
                     }))}
                   />
+                )}
+                {/* How much of the deployed interface was actually recovered.
+
+                    Deliberately not a `FloorGauge`: nobody required 65, so
+                    "short of the floor" would draw a counted unknown as a
+                    failure. What the bar says is coverage — the resolved part
+                    is solid and the rest is hatched, because the hatch means
+                    "there is deliberately nothing here" and an unresolved
+                    selector is precisely that. The emitter's note says why, and
+                    it is the argument: they are counted, not guessed. */}
+                {d.aacp.escrow_selectors && (
+                  <div className="mt-5 border-t border-line pt-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                      <span className="text-dim">escrow selectors named</span>
+                      <span className="tabular text-ink">
+                        {count(d.aacp.escrow_selectors.resolved)} of{" "}
+                        {count(d.aacp.escrow_selectors.total)}
+                      </span>
+                    </div>
+                    <div
+                      className="hatched relative mt-1.5 h-3 overflow-hidden rounded-full border border-glass-line"
+                      role="img"
+                      aria-label={`${count(d.aacp.escrow_selectors.resolved)} of ${count(
+                        d.aacp.escrow_selectors.total,
+                      )} escrow selectors were matched to a signature.`}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-brand/40"
+                        style={{
+                          width: `${
+                            (d.aacp.escrow_selectors.resolved /
+                              Math.max(1, d.aacp.escrow_selectors.total)) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <p className="mt-2 mb-0 max-w-[72ch] text-xs text-faint">
+                      {d.aacp.escrow_selectors.note}
+                    </p>
+                  </div>
                 )}
                 {d.aacp.note && (
                   <p className="mt-4 mb-0 text-xs text-faint">

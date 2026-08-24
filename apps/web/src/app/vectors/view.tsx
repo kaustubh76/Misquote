@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
+import { FloorGauge } from "@/components/FloorGauge";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { Pill } from "@/components/Pill";
@@ -312,6 +313,24 @@ function VerificationCard({
   }
 
   const failed = v.outcome === "FAIL";
+  // Which pass figure this run publishes. The differential counts cases and
+  // the replay counts tests; neither is renamed to match the other, for the
+  // same reason `groups_replayed` and `groups_compared` are two fields.
+  const gauge =
+    v.mismatches !== undefined && v.cases_covered !== undefined
+      ? {
+          label: "cases agreeing",
+          observed: v.cases_covered - v.mismatches,
+          required: v.cases_covered,
+        }
+      : v.tests_passed !== undefined
+        ? {
+            label: "tests passing",
+            observed: v.tests_passed,
+            required: v.tests_passed + (v.tests_failed ?? 0),
+          }
+        : null;
+
   return (
     <Card className="min-w-0">
       <CardHeader
@@ -326,11 +345,53 @@ function VerificationCard({
         </p>
       )}
 
+      {/* The run's own pass bar.
+          `mismatches` and `tests_failed` were both declared on this interface
+          and drawn nowhere: the differential's zero against 19,546 cases is the
+          strongest claim on this page and it reached a reader only inside
+          `summary_line`, as prose.
+
+          `FloorGauge` is a genuine fit rather than a stretch. The differential's
+          stated rule is exact integer equality with no tolerance anywhere, so
+          the floor is not a threshold somebody picked — it is the whole corpus,
+          and "every case has to agree" is what that looks like as a picture.
+          One mismatch moves the bar by five thousandths of a percent and is
+          invisible; what carries it is the texture flipping to a hatch and the
+          two figures ceasing to be equal, which is the component's own argument
+          that colour is never the only signal. */}
+      {gauge && (
+        <div className="mb-4">
+          <FloorGauge
+            label={gauge.label}
+            observed={gauge.observed}
+            required={gauge.required}
+          />
+        </div>
+      )}
+
       <DataTable
         caption={`${title} run`}
         rows={[
-          { label: "command", value: <span className="font-mono text-xs">{v.command}</span> },
-          { label: `${said} said`, value: v.summary_line ?? "—" },
+          // Both of these are prose-length and both were `whitespace-nowrap`,
+          // which is `DataTable`'s default and correct for a figure — a wrapped
+          // number is unreadable. It is wrong for a sentence: the differential's
+          // `summary_line` runs about a hundred monospace characters, which
+          // forced that table to 866px inside a 718px card and pushed the
+          // values of four rows out of sight behind a horizontal scroll. The
+          // document never overflowed, so `check-pages.mjs` was right to pass
+          // it; the row was simply unreadable.
+          {
+            label: "command",
+            value: (
+              <span className="font-mono text-xs break-words whitespace-normal">
+                {v.command}
+              </span>
+            ),
+          },
+          {
+            label: `${said} said`,
+            value: <span className="whitespace-normal">{v.summary_line ?? "—"}</span>,
+          },
           {
             // Never "comparisons made". Nothing watched the assertion loops.
             // What was observed: named tests exited zero, and those tests load
@@ -345,6 +406,18 @@ function VerificationCard({
             value: v.git_sha ?? "no commit",
             note: v.git_dirty ? "dirty tree" : "",
           },
+          // The complement of the bar above, named rather than implied. Only
+          // the differential publishes it; the replay row would be a blank
+          // labelled "mismatches", which reads as zero rather than as absent.
+          ...(v.mismatches === undefined
+            ? []
+            : [
+                {
+                  label: "mismatches",
+                  value: count(v.mismatches),
+                  tone: v.mismatches > 0 ? "text-bad" : "text-good",
+                },
+              ]),
         ]}
       />
 
