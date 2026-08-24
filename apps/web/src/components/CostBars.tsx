@@ -86,7 +86,7 @@ export function CostBars({
                   {amount(Math.abs(row.value))}
                 </span>
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-bg">
+              <div className="hatched mt-1 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
                 <div
                   className={`h-full rounded-full ${earned ? "bg-good" : "bg-warn"}`}
                   // A component that is a rounding error against the largest

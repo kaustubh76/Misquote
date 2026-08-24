@@ -48,6 +48,11 @@ export function AgentCard({
 
       <Band
         sufficient={data.quote_sufficient && !!q}
+        floor={{
+          label: "Observations",
+          observed: data.quote_detail?.samples ?? 0,
+          required: data.floors.min_observations,
+        }}
         note={q?.note}
         returns={q?.returns}
         caption={`${data.agent} net return`}

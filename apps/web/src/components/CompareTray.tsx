@@ -1,5 +1,30 @@
 "use client";
 
+/*
+ * `initial` on a motion component server-renders its own start frame as an
+ * inline style, so a `<m.div initial={{ opacity: 0 }}>` wrapping prose ships
+ * `style="opacity:0"` in the static export and stays there for a reader with
+ * JavaScript off — invisibly, because `innerText` ignores opacity and every
+ * no-JS floor in scripts/check-pages.mjs would still pass.
+ *
+ * This component is safe to animate for one specific reason: it renders nothing
+ * at all until an effect has read `localStorage`, so it has no prerendered
+ * prose to hide. That is the test for anything else on this site that wants
+ * `m.*` — if it is in the static HTML, its entrance belongs in globals.css
+ * behind `@supports (animation-timeline: view())` instead.
+ *
+ * `strict` on LazyMotion is what enforces the bundle choice: it makes `motion.*`
+ * throw and `m.*` the only way in, so nobody quietly pulls the full package in
+ * for one fade.
+ */
+
+import {
+  AnimatePresence,
+  domAnimation,
+  LazyMotion,
+  m,
+  MotionConfig,
+} from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ComparisonTable } from "@/components/ComparisonTable";
@@ -102,7 +127,12 @@ export function CompareTray() {
     });
   }, []);
 
-  if (!mounted || slugs.length === 0) return null;
+  // Not an early return any more. The tray unmounts the moment the last agent
+  // is cleared, and an unmounted component cannot animate its own exit — so the
+  // panel became a child of `AnimatePresence` and this became a flag. `mounted`
+  // still gates the first paint: the selection lives in `localStorage`, and
+  // rendering it before the effect reads it is a hydration mismatch.
+  const showing = mounted && slugs.length > 0;
 
   const named = slugs.map((slug) => ({
     slug,
@@ -126,66 +156,85 @@ export function CompareTray() {
   const [left, right] = loaded;
 
   return (
-    <div
-      role="region"
-      aria-label="Compare tray"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 backdrop-blur"
-    >
-      <div className="mx-auto max-w-6xl px-5 py-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-mono text-xs tracking-widest text-faint uppercase">
-            Comparing
-          </span>
+    <LazyMotion features={domAnimation} strict>
+      {/* The `@media (prefers-reduced-motion)` block in globals.css cannot
+          reach an animation the library drives from JavaScript — it forces
+          `animation-duration`, and there is no CSS animation here to force.
+          `reducedMotion="user"` is the equivalent switch on this side of the
+          boundary, and without it the one animation on the site that a reader
+          cannot opt out of would be a bar sliding up over their content. */}
+      <MotionConfig reducedMotion="user">
+        <AnimatePresence>
+        {showing && (
+          <m.div
+            key="tray"
+            role="region"
+            aria-label="Compare tray"
+            // Transform only, so the bar composites instead of relaying out the
+            // fixed strip on every frame. `--motion-enter` decelerates hard at
+            // the end: the tray arrives and settles rather than sliding to a
+            // stop.
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-line bg-glass backdrop-blur"
+          >
+            <div className="mx-auto max-w-6xl px-5 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-mono text-xs tracking-widest text-faint uppercase">
+                Comparing
+              </span>
 
-          <ul className="flex min-w-0 flex-wrap items-center gap-2">
-            {named.map((entry) => (
-              <li key={entry.slug}>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-line bg-brand-bg px-2.5 py-1 text-sm text-brand">
-                  {entry.name}
-                  <button
-                    type="button"
-                    onClick={() => remove(entry.slug)}
-                    aria-label={`Remove ${entry.name} from the comparison`}
-                    className="rounded-full px-1 leading-none hover:text-ink"
-                  >
-                    ×
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
+              <ul className="flex min-w-0 flex-wrap items-center gap-2">
+                {named.map((entry) => (
+                  <li key={entry.slug}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-line bg-brand-bg px-2.5 py-1 text-sm text-brand">
+                      {entry.name}
+                      <button
+                        type="button"
+                        onClick={() => remove(entry.slug)}
+                        aria-label={`Remove ${entry.name} from the comparison`}
+                        className="rounded-full px-1 leading-none hover:text-ink"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-          {ready && (
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90"
-            >
-              {open ? "Hide" : "Compare"}
-            </button>
-          )}
+              {ready && (
+                <button
+                  type="button"
+                  onClick={() => setOpen((v) => !v)}
+                  aria-expanded={open}
+                  className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90"
+                >
+                  {open ? "Hide" : "Compare"}
+                </button>
+              )}
 
-          {/* Named, because `Loadable` already owns an unnamed `role="status"`
-              on most pages and two anonymous voices is one too many. */}
-          <p role="status" aria-label="Comparison state" className="m-0 text-xs text-faint">
-            {mixed
-              ? "not comparable"
-              : slugs.length < 2
-                ? "pick one more"
-                : loaded.length < 2
-                  ? "loading"
-                  : ""}
-          </p>
-        </div>
+              {/* Named, because `Loadable` already owns an unnamed `role="status"`
+                  on most pages and two anonymous voices is one too many. */}
+              <p role="status" aria-label="Comparison state" className="m-0 text-xs text-faint">
+                {mixed
+                  ? "not comparable"
+                  : slugs.length < 2
+                    ? "pick one more"
+                    : loaded.length < 2
+                      ? "loading"
+                      : ""}
+              </p>
+            </div>
 
-        {mixed && (
-          <div className="mt-3 max-h-[40vh] overflow-y-auto">
-            <Refusal
-              title="These two are not comparable"
-              reason="One of these supplies to a lending market and the other provides liquidity to a pool. There is no in-range fraction and no adverse-selection cost on a lending position, so the rows below it would be blank — and a blank under a row labelled 'in range' reads as a measurement that came out empty rather than one that does not exist."
-              floor="Compare two liquidity agents, or read the allocation card on its own."
-            />
+            {mixed && (
+              <div className="mt-3 max-h-[40vh] overflow-y-auto">
+                <Refusal
+                  title="These two are not comparable"
+                  reason="One of these supplies to a lending market and the other provides liquidity to a pool. There is no in-range fraction and no adverse-selection cost on a lending position, so the rows below it would be blank — and a blank under a row labelled 'in range' reads as a measurement that came out empty rather than one that does not exist."
+                  floor="Compare two liquidity agents, or read the allocation card on its own."
+                />
           </div>
         )}
 
@@ -205,8 +254,12 @@ export function CompareTray() {
             </p>
           </div>
         )}
-      </div>
-    </div>
+          </div>
+          </m.div>
+        )}
+        </AnimatePresence>
+      </MotionConfig>
+    </LazyMotion>
   );
 }
 

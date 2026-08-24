@@ -93,9 +93,23 @@ for (const [colorScheme, width] of VIEWPORTS) {
   //
   // The URL was added first and settled one question — it does fire on the
   // route it is reported against, not on the previous one still hydrating. The
-  // frames are here so the *next* occurrence identifies the component instead
-  // of costing another afternoon of failing to reproduce it. Minified, but a
-  // chunk name and an offset are enough to find it.
+  // frames were added next, so the *next* occurrence would identify the
+  // component instead of costing another afternoon.
+  //
+  // It fired twice more since, on /category/rebalancing/ and on /quote/, and
+  // the frames were byte-identical both times: `rD <- oq <- iw`, all three in
+  // chunk `0fef27c7`. That chunk is react-dom — it carries `react.dev/errors`
+  // and the Suspense runtime and nothing of this application. So the stack is
+  // React's own hydration-recovery path and the frames cannot name a component,
+  // which is the question they were added to answer. They are not worth
+  // widening; the next lead has to come from somewhere else.
+  //
+  // Reproduction attempts, so nobody spends the afternoon again: 150 loads of a
+  // faithful replay of this exact loop shape — one context, one page, all
+  // fifteen routes sequentially, networkidle plus the same 350ms — produced
+  // zero. A fresh context per load produced zero in 24. `next dev` reports no
+  // hydration warning on any route. Two hits in four real runs of this script
+  // is about one in ninety loads, which is the rate it has always had.
   page.on("pageerror", (e) => {
     const frames = (e.stack ?? "").split("\n").slice(1, 4).map((l) => l.trim()).join(" <- ");
     problems.push(`uncaught on ${page.url()}: ${e}${frames ? ` [${frames}]` : ""}`);

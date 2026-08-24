@@ -1,3 +1,4 @@
+import { FloorGauge } from "@/components/FloorGauge";
 import { isNum, pct, signed } from "@/lib/format";
 
 export interface BandSeries {
@@ -15,6 +16,18 @@ export interface BandProps {
   sufficient: boolean;
   /** The engine's own sentence about why it withheld. Rendered verbatim. */
   note?: string;
+
+  /**
+   * The floor the evidence fell short of, when the caller knows both numbers.
+   *
+   * Read only by the withheld branch, and optional there. Every figure in it
+   * has to come from the artifact — `quote_detail.samples` against
+   * `floors.min_observations`, `quote_detail.windows` against
+   * `floors.min_windows`. A gauge drawn from a floor this component guessed
+   * would put a fabricated threshold under a refusal, which is the one place
+   * on this site where a made-up number would do the most damage.
+   */
+  floor?: { label: string; observed: number; required: number; unit?: string };
   /** Individual window returns, drawn as a rug behind the band. */
   returns?: number[];
   caption?: string;
@@ -158,6 +171,7 @@ export function Band({
   series,
   sufficient,
   note,
+  floor,
   returns = [],
   caption,
   overlap,
@@ -165,22 +179,44 @@ export function Band({
 }: BandProps) {
   if (!sufficient) {
     return (
-      <div className="rounded-md border border-warn-line bg-warn-bg/50 p-4">
+      <div className="rounded-md border border-warn-line bg-warn-bg/40 p-4">
+        {/* The hatch used to be written here, inline, at 135° with its own 5px
+            period — and separately in Ledger.tsx, and separately again as a
+            grey `animate-pulse` in Skeleton.tsx. Three inventions of one idea.
+            `.hatched` in globals.css is the single one now, at a single angle,
+            so a reader who has learnt this texture on a not-built card has
+            already learnt it here.
+
+            Dashed rather than solid, and no median tick at all. A band without
+            a median is a range nobody stood behind, which is exactly the claim:
+            the shape of the answer is known and the number is not. Drawing a
+            tick — even a faint one — would put a value on the page that the
+            engine refused to state. */}
         <div
-          className="h-9 w-full rounded-sm border border-warn-line/60"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(135deg, transparent, transparent 5px, var(--warn-line) 5px, var(--warn-line) 6px)",
-          }}
+          className="hatched h-9 w-full rounded-sm border border-dashed border-warn-line/70"
+          style={{ ["--hatch-tone" as string]: "var(--hatch-warn)" }}
           role="img"
           aria-label="No range: the quote was withheld."
         />
-        <p className="mt-3 text-sm text-warn">
+        <p className="mt-3 mb-0 text-sm text-warn">
           <span className="font-semibold">Quote withheld.</span>{" "}
           {/* The engine's own words. Paraphrasing a refusal is how it becomes
               an apology instead of a result. */}
           {note || "Not enough history to state a range that describes the strategy."}
         </p>
+        {/* The shortfall, as a figure rather than a footnote. Only when the
+            caller has both numbers — a gauge with a guessed floor would be the
+            fabrication this whole branch exists to avoid. */}
+        {floor && (
+          <div className="mt-3">
+            <FloorGauge
+              label={floor.label}
+              observed={floor.observed}
+              required={floor.required}
+              unit={floor.unit}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -321,7 +357,7 @@ export function Band({
                       it is. The concentration sentence below carries what the
                       box used to imply. */}
                   <div
-                    className={`absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border ${tone.fill} ${tone.edge}`}
+                    className={`band-draw absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border ${tone.fill} ${tone.edge}`}
                     style={{ left: `${left}%`, width: `${right - left}%` }}
                   />
                   {/* No `title`: the median is already in the container's
@@ -329,7 +365,7 @@ export function Band({
                       beside this band, and a tooltip on a bare div reaches
                       neither keyboard nor touch. */}
                   <div
-                    className={`absolute top-1/2 h-5 w-0.5 -translate-y-1/2 ${tone.tick}`}
+                    className={`band-tick absolute top-1/2 h-5 w-0.5 -translate-y-1/2 ${tone.tick}`}
                     style={{ left: `${median}%` }}
                   />
                 </div>

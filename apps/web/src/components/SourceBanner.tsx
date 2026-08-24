@@ -49,7 +49,9 @@ export function SourceBanner({
   return (
     <div
       className={`mb-8 rounded-md border p-4 ${
-        synthetic ? "border-warn-line bg-warn-bg/40" : "border-line bg-panel-2"
+        synthetic
+          ? "hatched border-warn-line bg-warn-bg/40 [--hatch-tone:var(--hatch-warn)]"
+          : "border-glass-line bg-glass"
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">

@@ -215,6 +215,11 @@ export function AgentDetail({
         <Card>
           <Band
             sufficient={d.quote_sufficient && !!q}
+        floor={{
+          label: "Observations",
+          observed: d.quote_detail?.samples ?? 0,
+          required: d.floors.min_observations,
+        }}
             note={q?.note}
             returns={q?.returns}
             caption={`${d.agent} net return on capital`}

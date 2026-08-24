@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
 import { Cite } from "@/components/Cite";
+import { FloorGauge } from "@/components/FloorGauge";
 import { DataTable } from "@/components/DataTable";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -192,6 +193,15 @@ export function MethodsView({ initial }: {
               Below this the quote is withheld entirely rather than estimated from a
               handful. <Cite id="A5" />
             </p>
+            {q && d && floors && (
+              <div className="mt-4">
+                <FloorGauge
+                  label="Windows in this run"
+                  observed={q.windows}
+                  required={floors.min_windows}
+                />
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -207,6 +217,16 @@ export function MethodsView({ initial }: {
               A window shorter than the policy horizon measures nothing, however many
               of them there are.
             </p>
+            {q && d && floors && (
+              <div className="mt-4">
+                <FloorGauge
+                  label="Hours per window"
+                  observed={q.hours_per_window}
+                  required={floors.min_window_hours}
+                  unit="h"
+                />
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -239,6 +259,16 @@ export function MethodsView({ initial }: {
                 <>Below it, the figure is reported as-is with its span attached.</>
               )}
             </p>
+            {q && d && floors && (
+              <div className="mt-4">
+                <FloorGauge
+                  label="Hours of tape"
+                  observed={d.replay.hours}
+                  required={floors.min_hours_to_annualise}
+                  unit="h"
+                />
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -251,6 +281,15 @@ export function MethodsView({ initial }: {
               was missing. A confident number on a tiny sample is worth less than a
               refusal.
             </p>
+            {q && d && floors && (
+              <div className="mt-4">
+                <FloorGauge
+                  label="Observations in this run"
+                  observed={q.samples}
+                  required={floors.min_observations}
+                />
+              </div>
+            )}
           </Card>
 
           {/* The fifth. It was missing while the heading said four — and it is
@@ -266,6 +305,19 @@ export function MethodsView({ initial }: {
               The one floor that calls a verdict rather than withholding a number: below
               it, in-range fails on every card.
             </p>
+            {/* The only floor on this page the current run fails, and it was
+                the only one of the five without a picture. A page arguing that
+                floors stop numbers printing should show one stopping one. */}
+            {q && d && floors && (
+              <div className="mt-4">
+                <FloorGauge
+                  label="In range, this run"
+                  observed={q.in_range_p50}
+                  required={floors.in_range_floor}
+                  format={fraction}
+                />
+              </div>
+            )}
           </Card>
         </div>
       </Section>

@@ -1,3 +1,15 @@
+/*
+ * A not-built entry has no fill, and that is the design rather than an
+ * oversight: the card is transparent, so `.tape` shows straight through it and
+ * there is literally nothing behind the thing that was never built.
+ *
+ * Three states of absence on this site, and none of them is told apart by
+ * colour — the rule `src/components/Pill.tsx` sets out. Withheld is a *warm*
+ * hatch behind a solid border: evidence exists and fell short. Not built is a
+ * *neutral* hatch behind a dashed one: it never existed. Error is
+ * `src/components/Refusal.tsx`'s red with a `role="alert"`, and is the only one
+ * of the three that means something broke.
+ */
 import { Badge } from "@/components/Badge";
 import { Heading } from "@/components/Heading";
 import type { NotBuiltEntry } from "@/lib/artifacts";
@@ -13,7 +25,7 @@ import type { NotBuiltEntry } from "@/lib/artifacts";
  */
 export function NotBuiltCard({ entry }: { entry: NotBuiltEntry }) {
   return (
-    <article className="rounded-lg border border-dashed border-line-strong bg-panel/50 p-6">
+    <article className="hatched rounded-lg border border-dashed border-line-strong p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 font-mono text-xs tracking-wide text-faint uppercase">

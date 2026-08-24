@@ -1005,6 +1005,45 @@
     }
   }
 
+  /* A band that measures itself as you arrive at it.
+   *
+   * Scroll-driven, and inside the feature query for the same reason `.reveal`
+   * is: a `transform: scaleX(0)` sitting in a base rule would collapse every
+   * range bar to nothing in a browser that never runs the animation, and would
+   * do it silently — the numbers beside the bar still read, so no check goes
+   * red and the figure is simply gone.
+   *
+   * `scaleX` on `transform`, and that composes rather than collides: Band.tsx
+   * centres the box with `-translate-y-1/2`, which Tailwind v4 compiles to the
+   * individual `translate` property, not to the `transform` shorthand. If that
+   * output ever reverts, this silently un-centres every band and Band.test.tsx
+   * is what says so.
+   *
+   * `--motion-band` is symmetric in and out, so a bar that grows reads as a
+   * measurement settling rather than as a thing being flicked onto the page.
+   * The median arrives after the interval it marks the middle of, which is also
+   * the order the engine computes them in. */
+  @supports (animation-timeline: view()) {
+    .band-draw {
+      animation: band-draw var(--dur-4) var(--motion-band) both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 30%;
+      transform-origin: left center;
+    }
+    .band-tick {
+      animation: tick-in var(--dur-3) var(--motion-band) both;
+      animation-timeline: view();
+      animation-range: entry 22% cover 38%;
+    }
+  }
+
+  /* An indeterminate progress sliver, for a queued job that has not yet said
+     how many replays it will run. A full-width bar would claim a total the
+     server has not sent. */
+  .shuttle {
+    animation: shuttle 1.4s var(--motion-band) infinite;
+  }
+
   /* The texture for "there is deliberately nothing here".
    *
    * One angle, 135°, wherever absence appears — a withheld band, a not-built

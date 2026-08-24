@@ -72,7 +72,7 @@ export function GateHistogram({
                 {relative ? count(n) : `${count(n)} of ${count(total)}`}
               </span>
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-bg">
+            <div className="hatched mt-1 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
               <div
                 className="h-full rounded-full bg-warn"
                 style={{ width: `${scale > 0 ? (100 * n) / scale : 0}%` }}

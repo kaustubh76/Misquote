@@ -265,6 +265,35 @@ type RunState =
 function QuoteRun({ pool, label }: { pool: string; label: string }) {
   const [state, setState] = useState<RunState>({ phase: "idle" });
 
+  /*
+   * The tape is the status indicator.
+   *
+   * `.tape` in globals.css draws the event tape this product replays, drifting
+   * at `--tape-rate`. While a replay job is actually running, the read head is
+   * reading, and the backdrop is the one surface on the page that can say so
+   * without another widget competing with the progress bar. A refusal stops the
+   * tape dead and turns the head amber.
+   *
+   * The attribute is all this writes. The two rates and the amber live in
+   * globals.css under `:root[data-tape=…]`, so a colour still has exactly one
+   * home and this cannot set one the palette has not measured.
+   *
+   * The cleanup is not optional and not cosmetic: `document.documentElement` is
+   * shared by every route, so a card unmounted mid-run — a navigation away, a
+   * second pool replacing this one — would otherwise leave the whole site
+   * running at replay speed with no job behind it.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    const running = state.phase === "queueing" || state.phase === "watching";
+    if (state.phase === "refused") root.dataset.tape = "refused";
+    else if (running) root.dataset.tape = "reading";
+    else delete root.dataset.tape;
+    return () => {
+      delete root.dataset.tape;
+    };
+  }, [state.phase]);
+
   useEffect(() => {
     if (state.phase !== "watching") return;
 
@@ -378,15 +407,37 @@ function RunProgress({ job }: { job: JobView }) {
         {job.phase}
       </p>
 
-      {job.total > 0 && (
+      {/* Two bars, because there are two states and they are not the same
+          claim. Once the worker has announced a total, the bar is a fraction of
+          it and `transition: width` interpolates between the discrete SSE
+          events so a jump from 12/60 to 13/60 reads as motion rather than as a
+          twitch. Before that announcement there is no denominator, and a
+          full-width bar at 0% would be asserting a total the server has not
+          sent — so the queued state gets a sliver that shuttles and measures
+          nothing, which is what "queued" means. */}
+      {job.total > 0 ? (
         <>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-panel-2">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+          <div className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
+            <div
+              className="h-full rounded-full bg-brand transition-[width] duration-[var(--dur-3)] ease-band"
+              style={{ width: `${pct}%` }}
+            />
           </div>
           <p className="tabular mt-1 mb-0 text-xs text-faint">
             {job.done} of {job.total} replays
           </p>
         </>
+      ) : (
+        job.status === "queued" && (
+          <>
+            <div className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
+              <div className="shuttle h-full w-[28%] rounded-full bg-brand" />
+            </div>
+            <p className="mt-1 mb-0 text-xs text-faint">
+              Queued. The worker has not said how many replays this is yet.
+            </p>
+          </>
+        )
       )}
 
       {job.refusal && (
