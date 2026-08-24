@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Backdrop } from "@/components/Backdrop";
 import { CompareTray } from "@/components/CompareTray";
 import { Nav } from "@/components/Nav";
 import { RouteAnnouncer } from "@/components/RouteAnnouncer";
@@ -29,6 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
+        {/* First child, and fixed at `z-index: -1`. It is visible only because
+            `body` carries the page background and a root-element background
+            propagates to the canvas, which paints behind negative-z children —
+            so nothing here may give `html` or `body` a stacking context. See
+            the note above `.tape` in globals.css. */}
+        <Backdrop />
+
         <a href="#main" className="skip-link">
           Skip to content
         </a>

@@ -121,6 +121,138 @@
   --elev-1: 0 1px 2px rgb(15 18 22 / 0.06), 0 1px 1px rgb(15 18 22 / 0.04);
   --elev-2: 0 4px 12px rgb(15 18 22 / 0.08), 0 1px 3px rgb(15 18 22 / 0.06);
   --elev-brand: 0 2px 10px rgb(109 40 217 / 0.18);
+
+  /* ─────────────────────────────────────────────── The Tape Head. ───────
+   *
+   * The backdrop's palette. Same shape as everything above it: one
+   * declaration, two arms.
+   *
+   * Eight-digit hex throughout, and that is load-bearing rather than terse.
+   * These are gradient stops, and a stop needs its own alpha; applying the
+   * alpha at the use site instead would give both themes one opacity, which
+   * is the thing `light-dark()` exists here to prevent. The LIGHT_DARK regex
+   * in `tests/web/test_theme_tokens.py` accepts `#[0-9a-fA-F]{3,8}`, so the
+   * alpha rides inside the pair.
+   *
+   * Every zero-alpha end is the same hue as its partner rather than the
+   * `transparent` keyword. `transparent` is transparent *black*: fading to it
+   * drags every stop in between toward grey, which shows up as a dirty band
+   * across the middle of the wash and is worse on the light arm than the dark
+   * one.
+   *
+   * The two arms are not one idea at two brightnesses. Dark is additive — the
+   * ticks are lighter than `--bg`. Light is subtractive — the same geometry in
+   * ink darker than `--bg`, because a glow on white is a smudge.
+   *
+   * None of these carries text, and none is looked up by a contrast test in
+   * `tests/web/test_theme_tokens.py`: that file iterates hardcoded name lists,
+   * not the tokens it parses. What holds them honest is
+   * `apps/web/scripts/check-pages.mjs --shots`, which renders every route in
+   * both themes for a human to look at. */
+  --tape-tick: light-dark(#12203517, #c6d4e824);
+  --tape-tick-2: light-dark(#1220350f, #c6d4e815);
+  --tape-base: light-dark(#1220352e, #c6d4e838);
+
+  /* The read head, and the one colour on this site that is blended rather
+   * than painted. `mix-blend-mode: hard-light` picks its own operation from
+   * the *source* colour: a source below 50% luminance multiplies, one above
+   * screens. So the light arm — a dark violet — darkens whatever passes under
+   * it, and the dark arm — a pale violet — brightens it, from one blend mode
+   * and one token. That is what makes a tick visibly change as it crosses the
+   * head without anything tracking where the ticks are. */
+  --tape-head: light-dark(#4c1d9552, #e9d5ff96);
+  --tape-head-0: light-dark(#4c1d9500, #e9d5ff00);
+
+  /* The refused arm. Swapped in by `:root[data-tape="refused"]` below rather
+   * than written from JavaScript, so a colour still has exactly one home. */
+  --tape-head-warn: light-dark(#92400e52, #fcd34d96);
+  --tape-head-warn-0: light-dark(#92400e00, #fcd34d00);
+
+  --tape-wash-a: light-dark(#e9e2fbcc, #1a1533b8);
+  --tape-wash-b: light-dark(#e9e2fb5c, #1a153359);
+  --tape-wash-c: light-dark(#e9e2fb00, #1a153300);
+  --tape-far-a: light-dark(#dfeaf7a6, #0c1a28a6);
+  --tape-far-c: light-dark(#dfeaf700, #0c1a2800);
+
+  /* Per-pixel dither. The oklab interpolation and the three-stop ramps below
+   * reduce how much banding there is to kill; this is the layer that actually
+   * kills it. A colour masked by noise rather than a noise image at an
+   * opacity, so the speckle's tint and its strength both come out of one pair:
+   * white specks lift the blacks in dark, dark specks settle the paper in
+   * light. */
+  --tape-grain: light-dark(#0b0d1012, #ffffff12);
+  --tape-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* How long the tape takes to travel one tile. Read by `.tape__rail`, and
+   * the only knob the rest of the site turns: `/quote` drops it while a
+   * replay job is running and stops it on a refusal. Setting it to `0s`
+   * freezes the backdrop into a static composition, which is the escape
+   * hatch if the drift ever reads as busy. */
+  --tape-rate: 210s;
+
+  /* ─────────────────────────────────────────────── Glass. ───────────────
+   *
+   * `--panel` and `--panel-2` are opaque and stay that way. These are the
+   * translucent counterparts a surface needs once there is something behind
+   * it, which there now is.
+   *
+   * The AA argument, because these sit behind text and nothing composites
+   * them. `--glass` is `--panel` at 85% over `--bg`: in light that resolves
+   * to about #fefefe, between `--bg` (#fbfbfa) and `--panel` (#ffffff); in
+   * dark to about #12151a, between #0b0d10 and #14171c. Every text token is
+   * darker than both endpoints in light and lighter than both in dark, and
+   * contrast is monotonic in background luminance on that side of the fold —
+   * so a background lying between two passing backgrounds passes. The
+   * endpoints are the figures already recorded above: ink 17.96/14.90, dim
+   * 6.09/6.97, faint 5.23/5.07.
+   *
+   * `--glass-2` is deliberately weaker and is for surfaces carrying no body
+   * text — the hero wash, section washes. The argument above does not reach
+   * it, so do not put `--dim` or `--faint` on it. */
+  --glass: light-dark(#ffffffd9, #14171cd9);
+  --glass-2: light-dark(#ffffff8c, #171b21a6);
+  --glass-line: light-dark(#12203517, #ffffff1a);
+  --glass-hi: light-dark(#ffffffff, #ffffff17);
+
+  /* ─────────────────────────────────────────────── Absence. ─────────────
+   *
+   * This site reports what it could not compute as often as what it could,
+   * and until now those reports were grey boxes. The hatch is the texture for
+   * "there is deliberately nothing here" — one angle, 135°, everywhere it
+   * appears, so a reader learns it once. Colour is not the carrier: `--bad`
+   * stays reserved for `ErrorNotice`, which is the only one of these states
+   * that means something broke. */
+  --hatch-warn: light-dark(#8a5a003d, #d9a44138);
+  --hatch-none: light-dark(#12203517, #e8eaed14);
+
+  /* ─────────────────────────────────────────────── Motion. ──────────────
+   *
+   * Not colours, so the `light-dark()` rule does not apply to them and the
+   * bare-hex guard cannot see them: a duration is the same duration in both
+   * themes.
+   *
+   * Named `--motion-*` rather than `--ease-*` on purpose. `@theme inline`
+   * maps these into Tailwind's `--ease-*` namespace, and this file already
+   * records what happens when the two names collide — "`--text-3xl:
+   * var(--text-3xl)` is a self reference and resolves to nothing". An
+   * `--ease-enter` in `:root` mapped to `--ease-enter` in `@theme` would
+   * produce no easing at all, on every animation, in both themes, silently.
+   *
+   * Four durations because there are four sizes of change here, ordered by
+   * how much of the page moves:
+   *   dur-1  a colour under the cursor
+   *   dur-2  a control changing state
+   *   dur-3  a surface arriving or leaving
+   *   dur-4  a figure drawing itself
+   * Anything slower is ambient and is measured in seconds — see --tape-rate. */
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+  --dur-4: 900ms;
+
+  --motion-quick: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --motion-band: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-enter: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* An explicit choice pins `color-scheme`, which is what `light-dark()` reads.
@@ -183,6 +315,19 @@
   --shadow-elev-2: var(--elev-2);
   --shadow-elev-brand: var(--elev-brand);
 
+  --color-glass: var(--glass);
+  --color-glass-2: var(--glass-2);
+  --color-glass-line: var(--glass-line);
+  --color-hatch-warn: var(--hatch-warn);
+  --color-hatch-none: var(--hatch-none);
+
+  /* Tailwind's easing namespace, fed from the `--motion-*` names above. The
+     two must differ or each maps to itself and resolves to nothing — the same
+     defect as `--text-3xl: var(--text-3xl)`, described below. */
+  --ease-quick: var(--motion-quick);
+  --ease-band: var(--motion-band);
+  --ease-enter: var(--motion-enter);
+
   /* The type scale, defined here and *only* here.
    *
    * It used to live in `:root` as `--text-xs` through `--text-2xl`, and nothing
@@ -213,6 +358,506 @@
   --text-2xl: 2.25rem;
   --text-3xl: 2.75rem;
   --text-4xl: 3.5rem;
+}
+
+/* ══════════════════════════════════════════════════════ The Tape Head ══════
+ *
+ * The backdrop, and the only ornament on this site that is not a figure.
+ *
+ * It is the event tape the replay engine reads. A read head is pinned at the
+ * content column's left gutter; flowing right-to-left into it are irregularly
+ * spaced hairline ticks hanging from a baseline. The spacing is not uniform
+ * because the thing it depicts is not uniform — clusters are swap bursts, gaps
+ * are quiet hours.
+ *
+ * Two rails, not one band. The tape frames the page top and bottom and never
+ * sits behind body copy, because horizontal drift across the reading direction
+ * is the one motion the eye cannot ignore and this site is dense prose over
+ * dense tables. It travels 1200px in `--tape-rate` — about 5.7px/s at the
+ * default 210s, which is alive without ever being legible as movement.
+ *
+ * Fixed and clipped, for a reason that is checked rather than assumed.
+ * `apps/web/scripts/check-pages.mjs` measures
+ * `documentElement.scrollWidth - clientWidth` on every route at 390px. A fixed
+ * box is not part of the initial containing block's scrollable overflow, and
+ * `overflow: clip` catches the translated children regardless. `clip` rather
+ * than `hidden` because `hidden` creates a scroll container — the trap
+ * `src/components/Nav.tsx` documents, where an `overflow-x: auto` computed
+ * `overflow-y` to `auto` and ate a focus ring at its own outline offset.
+ *
+ * `z-index: -1` is visible at all only because `body` carries the page
+ * background and a root-element background propagates to the canvas, which
+ * paints behind negative-z children. Giving `html` or `body` a stacking
+ * context — an `opacity`, a `filter`, an `isolation`, a `transform` — hides
+ * this entire section and nothing will report it.
+ */
+.tape {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  pointer-events: none;
+  isolation: isolate;
+  contain: layout paint style;
+}
+
+.tape > * {
+  position: absolute;
+}
+
+/* 1 — the wash.
+ *
+ * Two ellipses, so the page is not lit from one point: a violet core under the
+ * header where the tape is densest, and a cool counterweight low and right.
+ * Stops are tokens including the transparent ends, and `in oklab` keeps the
+ * steps perceptually even so the ramp does not stall in the middle and then
+ * jump. */
+.tape__wash {
+  inset: 0;
+  background:
+    radial-gradient(
+      120ch 58ch at 50% -12% in oklab,
+      var(--tape-wash-a) 0%,
+      var(--tape-wash-b) 38%,
+      var(--tape-wash-c) 74%
+    ),
+    radial-gradient(
+      92ch 50ch at 92% 108% in oklab,
+      var(--tape-far-a) 0%,
+      var(--tape-far-c) 68%
+    );
+}
+
+/* 2 — the rails. */
+.tape__top {
+  inset: 0 0 auto 0;
+  height: 300px;
+}
+
+.tape__bottom {
+  inset: auto 0 0 0;
+  height: 170px;
+}
+
+/* The baseline the ticks hang from. Masked at both margins so it reads as a
+   span of tape that ends rather than a rule across the page. */
+.tape__base {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--tape-base);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
+}
+
+.tape__top .tape__base { top: 118px; }
+.tape__bottom .tape__base { bottom: 86px; }
+
+/* The ticks.
+ *
+ * Each rail is one `linear-gradient(90deg, …)` of 1px bars at hand-picked
+ * irregular offsets, tiled with `background-repeat: repeat-x` and translated
+ * by exactly one tile width — so the loop is seamless with no crossfade and no
+ * second copy.
+ *
+ * Two tile widths, 1200px and 830px, at durations in the same ratio so both
+ * travel at identical speed while looping on different periods. Their beat is
+ * what stops the field from visibly repeating: 1200 and 830 share only a
+ * factor of 10, so the pattern restates every 99,600px — about five hours at
+ * the resting rate.
+ *
+ * The vertical mask is what makes them ticks rather than columns, and the two
+ * depths give two tick lengths for free. */
+.tape__rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background-repeat: repeat-x;
+  animation: tape-run var(--tape-rate) linear infinite;
+}
+
+.tape__rail--a {
+  background-image: linear-gradient(90deg,
+      transparent 0px 7px,
+      var(--tape-tick) 7px 8px,
+      transparent 8px 19px,
+      var(--tape-tick) 19px 20px,
+      transparent 20px 24px,
+      var(--tape-tick) 24px 25px,
+      transparent 25px 38px,
+      var(--tape-tick) 38px 39px,
+      transparent 39px 41px,
+      var(--tape-tick) 41px 42px,
+      transparent 42px 44px,
+      var(--tape-tick) 44px 45px,
+      transparent 45px 52px,
+      var(--tape-tick) 52px 53px,
+      transparent 53px 71px,
+      var(--tape-tick) 71px 72px,
+      transparent 72px 96px,
+      var(--tape-tick) 96px 97px,
+      transparent 97px 103px,
+      var(--tape-tick) 103px 104px,
+      transparent 104px 107px,
+      var(--tape-tick) 107px 108px,
+      transparent 108px 148px,
+      var(--tape-tick) 148px 149px,
+      transparent 149px 191px,
+      var(--tape-tick) 191px 192px,
+      transparent 192px 197px,
+      var(--tape-tick) 197px 198px,
+      transparent 198px 203px,
+      var(--tape-tick) 203px 204px,
+      transparent 204px 209px,
+      var(--tape-tick) 209px 210px,
+      transparent 210px 216px,
+      var(--tape-tick) 216px 217px,
+      transparent 217px 244px,
+      var(--tape-tick) 244px 245px,
+      transparent 245px 259px,
+      var(--tape-tick) 259px 260px,
+      transparent 260px 301px,
+      var(--tape-tick) 301px 302px,
+      transparent 302px 308px,
+      var(--tape-tick) 308px 309px,
+      transparent 309px 372px,
+      var(--tape-tick) 372px 373px,
+      transparent 373px 379px,
+      var(--tape-tick) 379px 380px,
+      transparent 380px 383px,
+      var(--tape-tick) 383px 384px,
+      transparent 384px 388px,
+      var(--tape-tick) 388px 389px,
+      transparent 389px 431px,
+      var(--tape-tick) 431px 432px,
+      transparent 432px 447px,
+      var(--tape-tick) 447px 448px,
+      transparent 448px 512px,
+      var(--tape-tick) 512px 513px,
+      transparent 513px 519px,
+      var(--tape-tick) 519px 520px,
+      transparent 520px 523px,
+      var(--tape-tick) 523px 524px,
+      transparent 524px 566px,
+      var(--tape-tick) 566px 567px,
+      transparent 567px 601px,
+      var(--tape-tick) 601px 602px,
+      transparent 602px 608px,
+      var(--tape-tick) 608px 609px,
+      transparent 609px 612px,
+      var(--tape-tick) 612px 613px,
+      transparent 613px 617px,
+      var(--tape-tick) 617px 618px,
+      transparent 618px 623px,
+      var(--tape-tick) 623px 624px,
+      transparent 624px 661px,
+      var(--tape-tick) 661px 662px,
+      transparent 662px 704px,
+      var(--tape-tick) 704px 705px,
+      transparent 705px 748px,
+      var(--tape-tick) 748px 749px,
+      transparent 749px 753px,
+      var(--tape-tick) 753px 754px,
+      transparent 754px 796px,
+      var(--tape-tick) 796px 797px,
+      transparent 797px 802px,
+      var(--tape-tick) 802px 803px,
+      transparent 803px 807px,
+      var(--tape-tick) 807px 808px,
+      transparent 808px 861px,
+      var(--tape-tick) 861px 862px,
+      transparent 862px 899px,
+      var(--tape-tick) 899px 900px,
+      transparent 900px 904px,
+      var(--tape-tick) 904px 905px,
+      transparent 905px 908px,
+      var(--tape-tick) 908px 909px,
+      transparent 909px 913px,
+      var(--tape-tick) 913px 914px,
+      transparent 914px 967px,
+      var(--tape-tick) 967px 968px,
+      transparent 968px 1011px,
+      var(--tape-tick) 1011px 1012px,
+      transparent 1012px 1058px,
+      var(--tape-tick) 1058px 1059px,
+      transparent 1059px 1063px,
+      var(--tape-tick) 1063px 1064px,
+      transparent 1064px 1067px,
+      var(--tape-tick) 1067px 1068px,
+      transparent 1068px 1104px,
+      var(--tape-tick) 1104px 1105px,
+      transparent 1105px 1148px,
+      var(--tape-tick) 1148px 1149px,
+      transparent 1149px 1163px,
+      var(--tape-tick) 1163px 1164px,
+      transparent 1164px 1200px
+    );
+  background-size: 1200px 100%;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 34%, transparent 100%);
+}
+
+.tape__rail--b {
+  background-image: linear-gradient(90deg,
+      transparent 0px 11px,
+      var(--tape-tick) 11px 12px,
+      transparent 12px 33px,
+      var(--tape-tick) 33px 34px,
+      transparent 34px 58px,
+      var(--tape-tick) 58px 59px,
+      transparent 59px 62px,
+      var(--tape-tick) 62px 63px,
+      transparent 63px 88px,
+      var(--tape-tick) 88px 89px,
+      transparent 89px 141px,
+      var(--tape-tick) 141px 142px,
+      transparent 142px 168px,
+      var(--tape-tick) 168px 169px,
+      transparent 169px 172px,
+      var(--tape-tick) 172px 173px,
+      transparent 173px 229px,
+      var(--tape-tick) 229px 230px,
+      transparent 230px 266px,
+      var(--tape-tick) 266px 267px,
+      transparent 267px 271px,
+      var(--tape-tick) 271px 272px,
+      transparent 272px 318px,
+      var(--tape-tick) 318px 319px,
+      transparent 319px 344px,
+      var(--tape-tick) 344px 345px,
+      transparent 345px 397px,
+      var(--tape-tick) 397px 398px,
+      transparent 398px 402px,
+      var(--tape-tick) 402px 403px,
+      transparent 403px 406px,
+      var(--tape-tick) 406px 407px,
+      transparent 407px 455px,
+      var(--tape-tick) 455px 456px,
+      transparent 456px 498px,
+      var(--tape-tick) 498px 499px,
+      transparent 499px 541px,
+      var(--tape-tick) 541px 542px,
+      transparent 542px 547px,
+      var(--tape-tick) 547px 548px,
+      transparent 548px 589px,
+      var(--tape-tick) 589px 590px,
+      transparent 590px 634px,
+      var(--tape-tick) 634px 635px,
+      transparent 635px 677px,
+      var(--tape-tick) 677px 678px,
+      transparent 678px 682px,
+      var(--tape-tick) 682px 683px,
+      transparent 683px 721px,
+      var(--tape-tick) 721px 722px,
+      transparent 722px 766px,
+      var(--tape-tick) 766px 767px,
+      transparent 767px 771px,
+      var(--tape-tick) 771px 772px,
+      transparent 772px 813px,
+      var(--tape-tick) 813px 814px,
+      transparent 814px 817px,
+      var(--tape-tick) 817px 818px,
+      transparent 818px 830px
+    );
+  background-size: 830px 100%;
+  animation-name: tape-run-b;
+  animation-duration: calc(var(--tape-rate) * 0.6917);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 46%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 46%);
+}
+
+.tape__rail--c {
+  background-image: linear-gradient(90deg,
+      transparent 0px 15px,
+      var(--tape-tick-2) 15px 16px,
+      transparent 16px 29px,
+      var(--tape-tick-2) 29px 30px,
+      transparent 30px 47px,
+      var(--tape-tick-2) 47px 48px,
+      transparent 48px 83px,
+      var(--tape-tick-2) 83px 84px,
+      transparent 84px 119px,
+      var(--tape-tick-2) 119px 120px,
+      transparent 120px 124px,
+      var(--tape-tick-2) 124px 125px,
+      transparent 125px 166px,
+      var(--tape-tick-2) 166px 167px,
+      transparent 167px 214px,
+      var(--tape-tick-2) 214px 215px,
+      transparent 215px 251px,
+      var(--tape-tick-2) 251px 252px,
+      transparent 252px 296px,
+      var(--tape-tick-2) 296px 297px,
+      transparent 297px 333px,
+      var(--tape-tick-2) 333px 334px,
+      transparent 334px 338px,
+      var(--tape-tick-2) 338px 339px,
+      transparent 339px 381px,
+      var(--tape-tick-2) 381px 382px,
+      transparent 382px 424px,
+      var(--tape-tick-2) 424px 425px,
+      transparent 425px 469px,
+      var(--tape-tick-2) 469px 470px,
+      transparent 470px 474px,
+      var(--tape-tick-2) 474px 475px,
+      transparent 475px 517px,
+      var(--tape-tick-2) 517px 518px,
+      transparent 518px 563px,
+      var(--tape-tick-2) 563px 564px,
+      transparent 564px 606px,
+      var(--tape-tick-2) 606px 607px,
+      transparent 607px 651px,
+      var(--tape-tick-2) 651px 652px,
+      transparent 652px 657px,
+      var(--tape-tick-2) 657px 658px,
+      transparent 658px 699px,
+      var(--tape-tick-2) 699px 700px,
+      transparent 700px 742px,
+      var(--tape-tick-2) 742px 743px,
+      transparent 743px 788px,
+      var(--tape-tick-2) 788px 789px,
+      transparent 789px 833px,
+      var(--tape-tick-2) 833px 834px,
+      transparent 834px 839px,
+      var(--tape-tick-2) 839px 840px,
+      transparent 840px 881px,
+      var(--tape-tick-2) 881px 882px,
+      transparent 882px 926px,
+      var(--tape-tick-2) 926px 927px,
+      transparent 927px 971px,
+      var(--tape-tick-2) 971px 972px,
+      transparent 972px 1016px,
+      var(--tape-tick-2) 1016px 1017px,
+      transparent 1017px 1062px,
+      var(--tape-tick-2) 1062px 1063px,
+      transparent 1063px 1108px,
+      var(--tape-tick-2) 1108px 1109px,
+      transparent 1109px 1153px,
+      var(--tape-tick-2) 1153px 1154px,
+      transparent 1154px 1200px
+    );
+  background-size: 1200px 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 26%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 0%, #000 26%, transparent 100%);
+}
+
+.tape__top .tape__rail { top: 119px; bottom: 0; }
+.tape__bottom .tape__rail { bottom: 0; height: 86px; }
+
+@keyframes tape-run {
+  from { transform: translateX(0); }
+  to { transform: translateX(-1200px); }
+}
+
+@keyframes tape-run-b {
+  from { transform: translateX(0); }
+  to { transform: translateX(-830px); }
+}
+
+/* 3 — the read head.
+ *
+ * Pinned to the content column's left gutter: `<main>` is `mx-auto max-w-6xl
+ * px-5`, so that is `50% - 36rem + 1.25rem`, floored at the padding for
+ * viewports narrower than the container.
+ *
+ * `hard-light` and not `plus-lighter`, because the site has two themes. The
+ * blend picks its operation from the *source*: `--tape-head`'s light arm is a
+ * dark violet and multiplies, its dark arm is a pale violet and screens. So a
+ * tick crossing the head darkens on paper and brightens on ink, from one
+ * declaration — and nothing has to know where the ticks are.
+ *
+ * The vertical mask confines the blend to the two rail zones. Between them the
+ * head contributes nothing, which is what keeps it off the reading column. */
+.tape__head {
+  top: 0;
+  bottom: 0;
+  left: max(0px, calc(50% - 36rem));
+  width: 132px;
+  translate: -118px 0;
+  mix-blend-mode: hard-light;
+
+  /* Asymmetric on purpose, and this is a correction rather than a flourish.
+     Centred, the bloom sat under the first two words of every headline —
+     `<main>` is `max-w-6xl px-5`, so a head centred on the container edge
+     still reaches 46px into the text. The light now falls almost entirely
+     outward into the empty margin and stops at the content boundary, which is
+     also the truer picture: a read head is an edge, and the tape is what is on
+     the far side of it. */
+  background:
+    linear-gradient(
+      90deg in oklab,
+      var(--tape-head-0) 0%,
+      var(--tape-head) 88%,
+      var(--tape-head-0) 100%
+    );
+
+  /* The quiet zone is the point of this mask: between the two rails the head
+     contributes nothing, which is what keeps it off the reading column. The
+     first draft measured the lower band from the bottom of a 900px viewport
+     and left a gap of only 270px, so on a laptop the bloom reappeared halfway
+     up the page and sat behind the cards. Both bands are now tied to the rail
+     heights they belong to. */
+  -webkit-mask-image: linear-gradient(
+    to bottom, #000 0px, #000 190px, transparent 300px,
+    transparent calc(100% - 165px), #000 calc(100% - 80px), #000 100%);
+  mask-image: linear-gradient(
+    to bottom, #000 0px, #000 190px, transparent 300px,
+    transparent calc(100% - 165px), #000 calc(100% - 80px), #000 100%);
+}
+
+/* The head's core: a 1px line on the container edge, so the head has an edge
+   and not only a bloom. */
+.tape__head::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: var(--tape-head);
+  opacity: 0.5;
+}
+
+/* 4 — the grain, which is what actually kills the banding. */
+.tape__grain {
+  inset: 0;
+  background-color: var(--tape-grain);
+  -webkit-mask-image: var(--tape-noise);
+  mask-image: var(--tape-noise);
+  -webkit-mask-size: 200px 200px;
+  mask-size: 200px 200px;
+  mask-mode: luminance;
+}
+
+/* Below the container width there is no gutter for the head to stand in and no
+   margin for the tape to run through, so the bottom rail goes and the rest
+   steps back. */
+@media (max-width: 640px) {
+  .tape__bottom { display: none; }
+  .tape__top { opacity: 0.55; }
+  .tape__head { opacity: 0.7; }
+}
+
+@media print {
+  .tape { display: none; }
+}
+
+/* The tape as a status surface.
+ *
+ * `/quote` sets `data-tape` on the root while an SSE replay job runs: the head
+ * is reading, and the backdrop is the only place on the page that can say so
+ * without adding a widget. A refusal stops the tape dead and turns the head
+ * amber — and the amber is swapped here rather than written from JavaScript,
+ * so a colour still has exactly one home in this file. `0s` is not a slow
+ * animation; an animation with no duration does not run. */
+:root[data-tape="reading"] {
+  --tape-rate: 26s;
+}
+:root[data-tape="refused"] {
+  --tape-rate: 0s;
+  --tape-head: var(--tape-head-warn);
+  --tape-head-0: var(--tape-head-warn-0);
 }
 
 @layer base {
@@ -273,7 +918,54 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+
+    /* The switch above is not sufficient on its own, twice over, and both
+       gaps are silent.
+       An infinite animation forced to a single 0.01ms iteration does not
+       stop — it runs once, instantly, and lands on its `to` frame. For
+       `tape-run` that is a 1200px jump at load, which is the opposite of what
+       the preference asked for. And a scroll-driven animation takes its
+       progress from the timeline rather than from `animation-duration`, so
+       `!important` never reaches it at all.
+       Everything infinite or scroll-driven is therefore named here. Finite
+       entrances are not, and must not be: they are authored with
+       `animation-fill-mode: both` and a `to` frame that is the correct
+       resting state, so collapsing them to 0.01ms is exactly right. */
+    .tape__rail,
+    .reveal,
+    .band-draw,
+    .shuttle {
+      animation: none !important;
+    }
   }
+}
+
+/* The motion vocabulary.
+ *
+ * Five keyframes, and every one of them ends on the state the element is
+ * supposed to rest in. That is a rule and not a coincidence: under
+ * `prefers-reduced-motion` these collapse to one 0.01ms iteration and land on
+ * their `to` frame, so a `rise` authored the other way round — 0% opaque, 100%
+ * transparent — would leave the page blank for exactly the readers who asked
+ * for less movement. Each is used with `both` so the fill holds. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes band-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes tick-in {
+  from { opacity: 0; transform: scaleY(0.2); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes shuttle {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(420%); }
 }
 
 @layer utilities {
@@ -287,6 +979,43 @@
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* Staggered entrance for a hero. Four steps, because a hero is an eyebrow, a
+     headline, a lede and its actions, and they should arrive in reading order. */
+  .rise-1 { animation: rise var(--dur-4) var(--motion-enter) both; }
+  .rise-2 { animation: rise var(--dur-4) var(--motion-enter) 60ms both; }
+  .rise-3 { animation: rise var(--dur-4) var(--motion-enter) 120ms both; }
+  .rise-4 { animation: rise var(--dur-4) var(--motion-enter) 180ms both; }
+
+  /* Scroll-driven reveal, declared *entirely* inside the feature query.
+   *
+   * The base rule deliberately declares nothing, and that is the load-bearing
+   * part. Writing `.reveal { opacity: 0 }` outside this block and undoing it
+   * from a keyframe hides content permanently in every browser without
+   * scroll-driven animations — and does it silently. The page renders, the
+   * text is in the DOM, and `scripts/check-pages.mjs` still passes its no-JS
+   * floors, because `innerText` reads text that is painted at zero alpha. The
+   * only symptom is a blank page for a third of readers. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 4% cover 22%;
+    }
+  }
+
+  /* The texture for "there is deliberately nothing here".
+   *
+   * One angle, 135°, wherever absence appears — a withheld band, a not-built
+   * card, an empty cost track, a loading skeleton — so a reader learns it once
+   * and it is never carried by colour alone. */
+  .hatched {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--hatch-tone, var(--hatch-none)) 0 1px,
+      transparent 1px 7px
+    );
   }
 
   /* Skip link: off-screen until focused, then pinned top-left. */
