@@ -8,7 +8,12 @@ import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { apiBase, loadLive, RefusalError } from "@/lib/api";
-import { type JobEvent, subscribe, isFinished } from "@/lib/stream";
+import {
+  isFinished,
+  type JobEvent,
+  type StreamOptions,
+  subscribe,
+} from "@/lib/stream";
 
 /** One pool the wallet holds a position in, as `/quote/eligibility` reports it. */
 interface Holding {
@@ -60,7 +65,22 @@ type State =
  * in a hundred milliseconds and names the missing tape is worth more than a
  * spinner that resolves into the same refusal twenty minutes later.
  */
-export function QuoteView() {
+/**
+ * How a job is watched. Injected, and only ever by a test.
+ *
+ * `lib/stream.ts` has carried an `eventSource` option since it was written —
+ * "**EventSource does not exist in jsdom**, and cannot be stubbed by the fetch
+ * mock", "Injected in tests" — and the seam stopped one component short of its
+ * only call site, so nothing could reach it and the module's docstring
+ * described a suite that did not exist. Three props, no logic.
+ *
+ * Passing `{ eventSource: null }` is not the same as letting jsdom's missing
+ * global decide. The default resolves the branch from `typeof EventSource`, so
+ * the day jsdom ships one, a suite written against the polling path would
+ * silently start exercising a path it has no fixture for and hang until the
+ * timeout instead of failing. A test that names its branch keeps naming it.
+ */
+export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
   const [address, setAddress] = useState("");
   const [state, setState] = useState<State>({ phase: "idle" });
 
@@ -168,13 +188,13 @@ export function QuoteView() {
           />
         )}
 
-        {state.phase === "done" && <Result value={state.value} />}
+        {state.phase === "done" && <Result value={state.value} stream={stream} />}
       </div>
     </>
   );
 }
 
-function Result({ value }: { value: Eligibility }) {
+function Result({ value, stream }: { value: Eligibility; stream?: StreamOptions }) {
   return (
     <Section title="What this wallet holds" headingClassName="text-lg font-semibold">
       <p className="mt-2 mb-5 max-w-[62ch] text-sm text-dim">
@@ -239,7 +259,7 @@ function Result({ value }: { value: Eligibility }) {
       {value.holdings
         .filter((h) => h.quotable)
         .map((h) => (
-          <QuoteRun key={h.pool} pool={h.pool} label={h.label} />
+          <QuoteRun key={h.pool} pool={h.pool} label={h.label} stream={stream} />
         ))}
     </Section>
   );
@@ -294,7 +314,15 @@ function applyTape(): void {
   else delete root.dataset.tape;
 }
 
-function QuoteRun({ pool, label }: { pool: string; label: string }) {
+function QuoteRun({
+  pool,
+  label,
+  stream,
+}: {
+  pool: string;
+  label: string;
+  stream?: StreamOptions;
+}) {
   const [state, setState] = useState<RunState>({ phase: "idle" });
 
   /*
@@ -350,7 +378,9 @@ function QuoteRun({ pool, label }: { pool: string; label: string }) {
   useEffect(() => {
     if (state.phase !== "watching") return;
 
-    const stop = subscribe(state.job.jobId, {
+    const stop = subscribe(
+      state.job.jobId,
+      {
       onEvent: (event: JobEvent) =>
         setState((prev) =>
           prev.phase === "watching"
@@ -376,8 +406,10 @@ function QuoteRun({ pool, label }: { pool: string; label: string }) {
           job: { ...body, jobId: state.job.jobId, done: 0, total: 0, phase: "" },
         });
       },
-      onError: (message) => setState({ phase: "failed", message }),
-    });
+        onError: (message) => setState({ phase: "failed", message }),
+      },
+      stream,
+    );
 
     return stop;
     // Keyed on the job id: re-subscribing on every progress tick would open a
