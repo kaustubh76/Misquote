@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Section } from "@/components/Heading";
+import { SectionRail } from "@/components/SectionRail";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
@@ -171,10 +172,23 @@ export function AgentDetail({
       </p>
 
       <h1 className="m-0 text-2xl font-semibold">{d.agent}</h1>
-      <p className="mt-1 mb-6 font-mono text-xs text-faint">
+      <p className="mt-1 mb-0 font-mono text-xs text-faint">
         {poolLabel}
         {poolAddress && <> · {shortAddress(poolAddress)}</>}
       </p>
+
+      {/* This page is five sections and about four screens, and a judge
+          arriving from a deep link had no indication the provenance block was
+          below the fold. */}
+      <SectionRail
+        label="On this tearsheet"
+        items={[
+          { id: "quote", label: "Quote" },
+          { id: "advantage", label: "vs DIY" },
+          { id: "parameters", label: "Parameters" },
+          { id: "provenance", label: "Provenance" },
+        ]}
+      />
 
       {/* This page carried its source as a row in a provenance table 330 lines
           below the headline, while `/` and `/advantage` — which quote the same
@@ -211,7 +225,7 @@ export function AgentDetail({
       />
 
       {/* ---------------------------------------------------------- quote -- */}
-      <Section title="What it would have earned">
+      <Section id="quote" title="What it would have earned">
         <Card>
           <Band
             sufficient={d.quote_sufficient && !!q}
@@ -334,7 +348,7 @@ export function AgentDetail({
 
       {/* ------------------------------------------------------ vs the DIY -- */}
       {adv && (
-        <Section title="Against doing it yourself">
+        <Section id="advantage" title="Against doing it yourself">
           <Card>
             <p className="mt-0 mb-4 text-sm text-dim">
               {/* A verbatim duplicate of /advantage's lede. What is new here,
@@ -476,7 +490,7 @@ export function AgentDetail({
       </Section>
 
       {/* ----------------------------------------------------- estimators -- */}
-      <Section title="The parameters behind the range">
+      <Section id="parameters" title="The parameters behind the range">
         <Card>
           {e.kappa_is_fallback ? (
             <Refusal
@@ -531,7 +545,7 @@ export function AgentDetail({
       </Section>
 
       {/* ----------------------------------------------------- provenance -- */}
-      <Section title="Provenance">
+      <Section id="provenance" title="Provenance">
         <Card>
           <DataTable
             caption="Where these numbers came from"

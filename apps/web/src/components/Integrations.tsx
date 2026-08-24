@@ -48,7 +48,7 @@ export function Integrations({
       {venue !== undefined && (
         <Link
           href="/venue"
-          className="group rounded-lg border border-line bg-panel p-5 no-underline hover:border-accent"
+          className="surface surface-hover group rounded-lg border border-glass-line bg-glass p-5 no-underline"
         >
           <p className="m-0 font-mono text-[0.6875rem] tracking-wide text-faint uppercase">
             The venue
@@ -70,7 +70,7 @@ export function Integrations({
       {gate !== undefined && (
         <Link
           href="/registry"
-          className="group rounded-lg border border-line bg-panel p-5 no-underline hover:border-accent"
+          className="surface surface-hover group rounded-lg border border-glass-line bg-glass p-5 no-underline"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

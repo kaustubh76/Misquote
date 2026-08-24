@@ -169,12 +169,51 @@ export function StatusView({
 
       {d && (
         <>
-          <div className={`mt-8 rounded-md border p-5 ${OUTCOME_STYLE[d.outcome] ?? ""}`}>
+          {/* The answer, at the size of an answer.
+              This page is a wall of fourteen verdicts and the one line that
+              says what they add up to was `text-lg` in a box the same weight as
+              the "not run" note beneath it. It is the reason the route exists,
+              so it is now the largest thing on it — and it carries the counts
+              as a proportional strip, because "11 passed · 0 failed · 3
+              unverified" is a shape and reading it as three numbers is work a
+              picture does for free. */}
+          <div className={`mt-8 rounded-md border p-6 ${OUTCOME_STYLE[d.outcome] ?? ""}`}>
             <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <p className="m-0 font-mono text-lg font-semibold">{d.outcome}</p>
+              <p className="m-0 font-mono text-3xl leading-none font-semibold tracking-tight">
+                {d.outcome}
+              </p>
               <p className="m-0 font-mono text-xs">exit code {d.exit_code}</p>
             </div>
-            <p className="mt-2 mb-0 text-sm">
+
+            {/* One `role="img"` over the whole strip with the counts spoken in
+                order. Three unlabelled divs would announce as nothing, and the
+                sentence below already carries the same figures for anyone who
+                is not looking at it — so this is aria-hidden's job, except that
+                a bar chart with no name is exactly what a reader using a screen
+                reader is entitled to be told the shape of. */}
+            <div
+              className="mt-4 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
+              role="img"
+              aria-label={`${d.summary.pass} of ${d.summary.total} gates passing, ${d.summary.fail} failed, ${d.summary.unverified} unverified.`}
+            >
+              {(
+                [
+                  ["bg-good", d.summary.pass],
+                  ["bg-bad", d.summary.fail],
+                  ["bg-warn", d.summary.unverified],
+                ] as const
+              ).map(([tone, n]) =>
+                n > 0 ? (
+                  <div
+                    key={tone}
+                    className={tone}
+                    style={{ width: `${(n / Math.max(1, d.summary.total)) * 100}%` }}
+                  />
+                ) : null,
+              )}
+            </div>
+
+            <p className="mt-3 mb-0 text-sm">
               {d.summary.pass} passed · {d.summary.fail} failed · {d.summary.unverified}{" "}
               unverified, of {d.summary.total} gates
               {d.mainnet ? " (mainnet gates included)" : ""}.

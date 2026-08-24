@@ -82,12 +82,22 @@ export function Heading({
 export function Section({
   title,
   intro,
+  id,
   className = "mt-8",
   headingClassName = "mb-4 text-lg font-semibold",
   children,
 }: {
   title: React.ReactNode;
   intro?: React.ReactNode;
+  /**
+   * An anchor, for a page long enough to be navigated within.
+   *
+   * `.scroll-anchor` comes with it rather than being left to the caller: the
+   * header is `sticky top-0` and two rows tall, and `scroll-behavior` is smooth
+   * globally, so an un-offset jump parks the target heading underneath the nav
+   * and drops the reader into the middle of the section they asked for.
+   */
+  id?: string;
   className?: string;
   headingClassName?: string;
   children?: React.ReactNode;
@@ -99,7 +109,11 @@ export function Section({
     // the DOM, because `Card` defaults to rendering a <section> too. The outline
     // test keys off it to assert that everything inside a Section sits strictly
     // below the Section's own title.
-    <section data-heading-scope="" className={className}>
+    <section
+      id={id}
+      data-heading-scope=""
+      className={`${id ? "scroll-anchor " : ""}${className}`}
+    >
       {/* The glyph goes inside the heading rather than beside it, so
           `headingClassName` keeps meaning what its ~20 callers already pass —
           several set their own margin, and a flex row around the heading would

@@ -59,7 +59,7 @@ export function CompareToggle({ slug, name }: { slug: string; name: string }) {
         "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
         mounted && selected
           ? "border-brand-line bg-brand-bg text-brand"
-          : "border-line bg-panel text-dim hover:border-brand hover:text-brand",
+          : "border-glass-line bg-glass text-dim hover:border-brand hover:text-brand",
       ].join(" ")}
     >
       {mounted && selected ? "In comparison" : "Compare"}

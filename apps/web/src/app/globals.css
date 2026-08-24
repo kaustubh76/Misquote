@@ -934,9 +934,20 @@
     .tape__rail,
     .reveal,
     .band-draw,
+    .band-tick,
     .shuttle {
       animation: none !important;
     }
+
+    /* `.band-tick` was missing from that list for one commit and nothing said
+       so. The band's median tick is scroll-driven like the bar it sits on, so
+       under `reduce` the bars stopped and six ticks on the landing page kept
+       animating — which is the exact failure the note above describes and the
+       reason it is a hand-written list rather than a rule.
+       It was found by asking the page: `document.getAnimations()` filtered to
+       `playState === "running"` under `reducedMotion: "reduce"` should be
+       empty, and it returned six `tick-in`s on `ViewTimeline`. That check is
+       worth re-running after anything is added here. */
   }
 }
 
@@ -1053,8 +1064,34 @@
     background-image: repeating-linear-gradient(
       135deg,
       var(--hatch-tone, var(--hatch-none)) 0 1px,
-      transparent 1px 7px
+      transparent 1px var(--hatch-gap, 7px)
     );
+  }
+
+  /* The period is a variable because the texture has to hold at two scales.
+     7px is right on a 6px cost-bar track and a 12px band edge; on a full-width
+     panel it becomes close-ruled paper and starts competing with the sentence
+     printed over it. Anything larger than a card sets this. */
+  .hatched-wide {
+    --hatch-gap: 13px;
+  }
+
+  /* Anything an in-page link jumps to.
+   *
+   * `Nav` is `sticky top-0` and two rows tall, and `scroll-behavior: smooth` is
+   * global — so without an offset a jump parks the target directly under the
+   * header and drops the reader into the middle of the thing they asked for.
+   *
+   * 112px against a header measured at 85px, so a jumped-to heading clears it
+   * by about 27px. `/assumptions` carried its own `scroll-mt-20` before this —
+   * 80px, five short of the header, so every citation target landed just under
+   * the nav. One definition now, and it is the taller one.
+   *
+   * The ceiling is a test rather than taste: the live check in
+   * `apps/web/scripts/check-pages.mjs` sets `location.hash` on `/assumptions`
+   * and asserts the entry lands within 400px of the top. */
+  .scroll-anchor {
+    scroll-margin-top: 112px;
   }
 
   /* The band as a rule. See src/components/TickRule.tsx. */

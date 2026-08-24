@@ -65,7 +65,7 @@ export default function NotFound() {
           <li key={href}>
             <Link
               href={href}
-              className="block rounded-md border border-line bg-panel p-4 no-underline hover:border-accent"
+              className="surface surface-hover block rounded-md border border-glass-line bg-glass p-4 no-underline"
             >
               <span className="block text-md font-semibold text-ink">{label}</span>
               <span className="mt-1 block text-sm text-dim">{BLURB[href] ?? label}</span>

@@ -74,8 +74,14 @@ export function ActivateView() {
         it to.
       </p>
 
-      <div className="mt-6">
+      {/* Bled to the container edge and one type step up, because on this page
+          the refusal is not an aside to the argument — it is the argument. The
+          wording is untouched: `scripts/check-pages.mjs` matches "no Hire
+          button" in the no-JS render of this route, and it is the sentence the
+          page exists to make either way. */}
+      <div className="-mx-5 mt-8 px-5">
         <Refusal
+          size="lg"
           title="There is no Hire button on this site"
           reason={
             cap?.reason ??

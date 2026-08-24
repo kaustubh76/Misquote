@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
+import { CategoryGlyph } from "@/components/CategoryGlyph";
 import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { Pill } from "@/components/Pill";
@@ -79,7 +80,16 @@ export function CategoryIndexView({ initial }: { initial?: IndexArtifact }) {
                     {category.name}
                   </Link>
                 }
-                eyebrow={category.agents.length === 1 ? "one agent" : `${category.agents.length} agents`}
+                eyebrow={
+                  <span className="flex items-center gap-2">
+                    <CategoryGlyph slug={category.slug} />
+                    <span>
+                      {category.agents.length === 1
+                        ? "one agent"
+                        : `${category.agents.length} agents`}
+                    </span>
+                  </span>
+                }
               />
               <ul className="m-0 list-none space-y-2 p-0">
                 {category.agents.map((agent) => (

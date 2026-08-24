@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
 import { Card, CardHeader } from "@/components/Card";
+import { CategoryGlyph } from "@/components/CategoryGlyph";
 import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { NotBuiltCard } from "@/components/Ledger";
@@ -108,7 +109,10 @@ export function CategoryView({
           ← All categories
         </Link>
       </p>
-      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
+      <h1 className="flex flex-wrap items-center gap-3 text-3xl leading-[1.15] font-semibold text-balance">
+        {/* The glyph is `aria-hidden` and renders no text, so the accessible
+            name of this heading is the category name and nothing else. */}
+        <CategoryGlyph slug={slug} />
         {category?.name ?? slug}
       </h1>
 

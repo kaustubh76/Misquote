@@ -284,7 +284,7 @@ export function AssumptionsView({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="e.g. P-1, or protocol fee"
-                  className="mt-1 w-full rounded-sm border border-line bg-panel px-2.5 py-1.5 text-sm text-ink placeholder:text-faint"
+                  className="mt-1 w-full rounded-sm border border-glass-line bg-glass px-2.5 py-1.5 text-sm text-ink transition-colors placeholder:text-faint focus:border-brand"
                 />
               </div>
             </div>
@@ -337,7 +337,7 @@ export function AssumptionsView({
           {shown.length === 0 && (
             // A stated result, not a blank page. An empty list under a filter
             // is indistinguishable from an artifact that failed to load.
-            <p className="mt-8 rounded-md border border-line bg-panel p-5 text-sm text-dim">
+            <p className="surface mt-8 rounded-md border border-glass-line bg-glass p-5 text-sm text-dim">
               No entry matches that filter. All {all.length} are still here —{" "}
               <button
                 type="button"
@@ -384,7 +384,7 @@ export function AssumptionsView({
                 title={key.replace(/_/g, " ")}
               >
                 <Card>
-                  <span id={key} className="block scroll-mt-20" />
+                  <span id={key} className="scroll-anchor block" />
                   <Blocks blocks={blocks} />
                 </Card>
               </Section>
@@ -463,8 +463,8 @@ function EntryCard({
       // span, a table cell — then pushes the whole card wider than its column
       // and the document scrolls sideways at 390px.
       className={[
-        "min-w-0 scroll-mt-20 rounded-lg border bg-panel p-6",
-        landed ? "border-accent ring-1 ring-accent" : "border-line target:border-accent",
+        "scroll-anchor min-w-0 rounded-lg border bg-glass p-6",
+        landed ? "border-accent ring-1 ring-accent" : "border-glass-line target:border-accent",
       ].join(" ")}
     >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">

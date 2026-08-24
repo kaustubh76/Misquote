@@ -64,7 +64,7 @@ export function ThemeToggle() {
     <div
       role="radiogroup"
       aria-label="Colour theme"
-      className="inline-flex items-center gap-0.5 rounded-md border border-line bg-panel p-0.5"
+      className="inline-flex items-center gap-0.5 rounded-md border border-glass-line bg-glass p-0.5"
     >
       {THEMES.map((option, i) => {
         // Before hydration we cannot know the stored choice, so nothing is

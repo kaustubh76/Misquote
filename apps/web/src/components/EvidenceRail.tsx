@@ -41,7 +41,7 @@ export function EvidenceRail({
       {routes.map((route) => {
         const entry = entries[route.href] ?? null;
         return (
-          <li key={route.href}>
+          <li key={route.href} className="reveal">
             <Link
               href={route.href}
               className="surface surface-hover flex h-full flex-col justify-between gap-3 rounded-lg border border-glass-line bg-glass p-4 no-underline"

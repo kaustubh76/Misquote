@@ -25,7 +25,7 @@ import type { NotBuiltEntry } from "@/lib/artifacts";
  */
 export function NotBuiltCard({ entry }: { entry: NotBuiltEntry }) {
   return (
-    <article className="hatched rounded-lg border border-dashed border-line-strong p-6">
+    <article className="hatched hatched-wide rounded-lg border border-dashed border-line-strong p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 font-mono text-xs tracking-wide text-faint uppercase">
