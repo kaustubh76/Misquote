@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { serveArtifacts } from "@/test/harness";
+import { readArtifact, serveArtifacts } from "@/test/harness";
 
 import AdvantagePage from "./advantage/page";
 import CategoryIndexPage from "./category/page";
@@ -13,6 +13,8 @@ import VectorsPage from "./vectors/page";
 import VenuePage from "./venue/page";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
+import { RouterDetail } from "@/components/RouterDetail";
+import type { RouterArtifact } from "@/lib/artifacts";
 import { CategoryView } from "./category/[slug]/view";
 
 vi.mock("next/navigation", () => ({
@@ -39,6 +41,16 @@ const VIEWS = [
   ["Vectors", <VectorsPage key="vec" />],
   ["Venue", <VenuePage key="ven" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
+  // The other half of `/agent/[slug]`, and it was missing for the same reason
+  // /vetting was: the list grew by page and this one is a component the page
+  // branches to. It had no `<h1>` at all — the built route carried eight `<h2>`
+  // and no document title, because it opened with a `CardHeader`, which is a
+  // `Heading` at whatever depth it finds itself. Nothing rendered it, so
+  // nothing counted.
+  [
+    "Router detail",
+    <RouterDetail key="rd" data={readArtifact<RouterArtifact>("router.json")} />,
+  ],
   ["Categories", <CategoryIndexPage key="c" />],
   // The view, not the page: `[slug]/page.tsx` is an async server component
   // taking a `params` promise, which cannot be rendered here the way a sync one
