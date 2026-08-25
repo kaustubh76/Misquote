@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-23T08:14:02+00:00",
+  "generated_at": "2026-08-25T09:46:07+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --fast --json",
     "source": "local checks",
-    "generated_at": "2026-08-23T08:14:02+00:00",
-    "git_sha": "237c678",
-    "git_dirty": true
+    "generated_at": "2026-08-25T09:46:07+00:00",
+    "git_sha": "99a32f6",
+    "git_dirty": false
   },
   "mainnet": false,
   "fast": true,
@@ -18,7 +18,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 163 deselected, 1 warning in 2.56s",
+      "detail": "7 passed, 163 deselected, 1 warning in 2.14s",
       "remedy": "",
       "blocking": false
     },
@@ -87,10 +87,10 @@
     },
     {
       "name": "artifacts match the engine",
-      "status": "PASS",
-      "detail": "7 replay artifacts, none generated before an engine change",
-      "remedy": "",
-      "blocking": false
+      "status": "UNVERIFIED",
+      "detail": "build.json is 1 engine commit(s) behind eb040ed; warden.json is 1 engine commit(s) behind eb040ed; grid.json is 1 engine commit(s) behind eb040ed; sentinel.json is 1 engine commit(s) behind eb040ed; advantage.json is 1 engine commit(s) behind 237c678; advantage_short.json is 1 engine commit(s) behind eb040ed",
+      "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
+      "blocking": true
     },
     {
       "name": "24h testnet burn-in",
@@ -115,9 +115,9 @@
     }
   ],
   "summary": {
-    "pass": 11,
+    "pass": 10,
     "fail": 0,
-    "unverified": 3,
+    "unverified": 4,
     "total": 14
   },
   "outcome": "NOT YET",

@@ -1,11 +1,11 @@
 {
-  "age_hours": 133.2,
+  "age_hours": 206.3,
   "block": 116328079,
   "build": {
     "command": "python scripts/addresses_report.py --chain 56",
-    "generated_at": "2026-08-22T08:38:40+00:00",
-    "git_dirty": true,
-    "git_sha": "eb040ed",
+    "generated_at": "2026-08-25T09:42:54+00:00",
+    "git_dirty": false,
+    "git_sha": "99a32f6",
     "source": "chain reads recorded on disk"
   },
   "chain_id": 56,
@@ -79,7 +79,7 @@
   ],
   "erc8183": {
     "56": {
-      "age_hours": 0.0,
+      "age_hours": 73.1,
       "chain_id": 56,
       "checks": [
         {
@@ -162,7 +162,7 @@
       "verdict": "PASS"
     },
     "97": {
-      "age_hours": 0.0,
+      "age_hours": 73.1,
       "chain_id": 97,
       "checks": [
         {
@@ -255,7 +255,7 @@
   },
   "surveyed": true,
   "venus": {
-    "age_hours": 25.7,
+    "age_hours": 98.8,
     "block": 117187851,
     "chain_id": 56,
     "checks": [

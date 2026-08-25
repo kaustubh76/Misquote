@@ -69,15 +69,23 @@ const SHOWN = 8;
  * It is also the evidence behind a gate that is currently red. `/status`
  * reports the 24-hour testnet burn-in as UNVERIFIED with the detail "journal
  * covers 0.2h across 181 rows" — a blocking gate whose subject had no surface
- * anywhere on the site.
+ * anywhere on the site. On `/agent/warden` this section now shows that same
+ * 0.2h across those same 181 rows, because it reads the same file.
  *
- * This is that surface, and it will not always agree with that sentence: the
- * gate is a recording of one `make status` run and this is a live read of the
- * file that run measured. On the tree this was written against they differ by
- * three orders of magnitude, because the journal kept being appended to and
- * `status.json` did not. The disagreement is the useful part — it is visible
- * here and nowhere else — so this reports what the file says now and does not
- * try to reconcile itself with a snapshot.
+ * ## The gate looks at one agent
+ *
+ * `go_no_go.py` opens `journal/warden.jsonl` by name and nothing else. Router
+ * has been writing too — 169 decisions across 168 hours on the tree this was
+ * written against, unattended, which is seven times the gate's own 24-hour
+ * threshold — and no gate counts it, because no gate looks. That is not an
+ * argument for widening the gate here: burn-in means the *signing* agent ran
+ * unattended, and Router records rather than signs. It is an argument for the
+ * journal being visible per agent, which is what this is.
+ *
+ * An earlier version of this comment claimed the gate and the file disagreed by
+ * three orders of magnitude. They do not. That was Router's 168h read against
+ * Warden's 0.2h gate — two different agents, two different files, compared as
+ * though they were one.
  *
  * ## No anchor, and therefore no rail entry
  *
