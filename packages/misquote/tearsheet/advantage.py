@@ -170,14 +170,28 @@ class Comparison:
     capital_quote: float = 0.0
 
     # Supporting detail, published because the headline alone is not auditable.
-    baseline_in_range: float = 0.0
-    agent_in_range: float = 0.0
+    # `None`, not `0.0`, and the difference is the whole of P-19.
+    #
+    # `AllocationResult` — what the Route task replays — has `total_costs` and
+    # none of `in_range_fraction`, `total_fees`, `total_lvr`, `mints`, `pulls`
+    # or `rebalances`. `replay/allocation.py` says so itself about
+    # `rebalances_p50`: "neither of which exists for an allocation agent."
+    #
+    # `_of` used to answer a missing attribute with `0.0`, so the report
+    # published `in range 0.0%`, `fees 0.00 WBNB` and `adverse selection 0.00
+    # WBNB` for a *lending venue*, where none of those quantities exist. Three
+    # confident zeros where the honest answer is that the question does not
+    # apply — and the landing page already states the rule, excluding Router
+    # from `AgentComparison` because "a zero in those columns would read as a
+    # claim rather than an absence".
+    baseline_in_range: float | None = 0.0
+    agent_in_range: float | None = 0.0
     baseline_costs: float = 0.0
     agent_costs: float = 0.0
-    baseline_fees: float = 0.0
-    agent_fees: float = 0.0
-    baseline_lvr: float = 0.0
-    agent_lvr: float = 0.0
+    baseline_fees: float | None = 0.0
+    agent_fees: float | None = 0.0
+    baseline_lvr: float | None = 0.0
+    agent_lvr: float | None = 0.0
     baseline_moves: int = 0
     agent_moves: int = 0
 
@@ -186,12 +200,12 @@ class Comparison:
     # recentres** reads as an agent that spent its entire daily budget leaving
     # and coming back. Those are different findings, and only the second is what
     # the tape shows. See P-20.
-    baseline_mints: int = 0
-    agent_mints: int = 0
-    baseline_pulls: int = 0
-    agent_pulls: int = 0
-    baseline_recentres: int = 0
-    agent_recentres: int = 0
+    baseline_mints: int | None = 0
+    agent_mints: int | None = 0
+    baseline_pulls: int | None = 0
+    agent_pulls: int | None = 0
+    baseline_recentres: int | None = 0
+    agent_recentres: int | None = 0
 
     # How many of the reported samples are actually distinct results.
     #
@@ -202,8 +216,18 @@ class Comparison:
     # samples. A P25-P75 band drawn from 20 results counted three times is
     # narrower than the evidence supports, and a reader cannot tell without
     # this number.
-    baseline_distinct: int = 0
-    agent_distinct: int = 0
+    baseline_distinct: int | None = 0
+    agent_distinct: int | None = 0
+
+    # The observations the band was drawn from, not just how many were distinct.
+    #
+    # `compare()` is handed the `Quote` objects and kept only the count, so the
+    # four task bands drew three numbers each while the agent cards on the
+    # landing page — fed by `tearsheet/generate.py`, which publishes
+    # `list(quote.returns)` — drew a forty-point rug under theirs. Same engine,
+    # same window set, one of them showing its evidence.
+    baseline_returns: tuple[float, ...] = ()
+    agent_returns: tuple[float, ...] = ()
 
     # UTC calendar days the replay touched — **not** its elapsed span.
     #
@@ -328,18 +352,54 @@ def compare(
         agent_pulls=_count(agent_result, "pulls"),
         baseline_recentres=_count(baseline_result, "rebalances"),
         agent_recentres=_count(agent_result, "rebalances"),
-        baseline_distinct=int(getattr(baseline_quote, "distinct_returns", 0) or 0),
-        agent_distinct=int(getattr(agent_quote, "distinct_returns", 0) or 0),
+        # `_quote_int`, not `int(getattr(q, "…", 0) or 0)`. The allocation
+        # `Quote` the Route task produces has no `distinct_returns` at all, so
+        # the old spelling published a confident `0` — the same fabricated zero
+        # as the three LP fields above, in the one field whose entire purpose is
+        # to tell a reader how much of the sample is real.
+        baseline_distinct=_quote_int(baseline_quote, "distinct_returns"),
+        agent_distinct=_quote_int(agent_quote, "distinct_returns"),
+        baseline_returns=tuple(getattr(baseline_quote, "returns", ()) or ()),
+        agent_returns=tuple(getattr(agent_quote, "returns", ()) or ()),
         days=_span_days(agent_result) or _span_days(baseline_result),
     )
 
 
-def _of(result, name: str) -> float:
-    return float(getattr(result, name, 0.0)) if result is not None else 0.0
+#: Sentinel for "this result type does not have that field".
+#:
+#: Distinct from `None` for a *missing result*: a task with no replay at all and
+#: a lending task that has no fee accounting are different absences, and only
+#: the second one should be reported as "does not apply".
+_ABSENT = object()
 
 
-def _count(result, name: str) -> int:
-    return int(getattr(result, name, 0) or 0) if result is not None else 0
+def _quote_int(quote, name: str) -> int | None:
+    """An int off a `Quote`, or None when that quote kind does not report it."""
+    value = getattr(quote, name, _ABSENT)
+    return None if value is _ABSENT else int(value or 0)
+
+
+def _of(result, name: str) -> float | None:
+    """A float from a result, or None when the result type has no such field.
+
+    Returned `0.0` for both "measured zero" and "no such attribute" until this
+    docstring existed, which is how the Route task came to publish three zeros
+    about quantities a lending venue does not have. `signOf` in `lib/format.ts`
+    records the same class of bug on the other side of the wire: "an absent net
+    compares false and would have rendered green."
+    """
+    if result is None:
+        return None
+    value = getattr(result, name, _ABSENT)
+    return None if value is _ABSENT else float(value)
+
+
+def _count(result, name: str) -> int | None:
+    """An int from a result, or None when the result type has no such field."""
+    if result is None:
+        return None
+    value = getattr(result, name, _ABSENT)
+    return None if value is _ABSENT else int(value or 0)
 
 
 def _span_days(result) -> float:
@@ -364,7 +424,7 @@ def _span_days(result) -> float:
     return float(last // 86400 - first // 86400 + 1)
 
 
-def _moves(result) -> int:
+def _moves(result) -> int | None:
     """Every action that spent gas, whatever kind of agent produced it.
 
     An LP result decomposes into mints, recentres and pulls; an allocation
@@ -373,13 +433,20 @@ def _moves(result) -> int:
     difference — the sibling accessors above are already defensive, and this one
     reached straight for `result.mints` and raised on anything that was not a
     range replay.
+
+    The parts are summed only when they are all there. Once `_count` learned to
+    answer a missing field with `None` rather than `0`, adding them raised
+    `TypeError: unsupported operand type(s) for +: 'NoneType' and 'NoneType'` —
+    which is the honest failure, and the honest answer is that a result with
+    none of the three has no move count rather than a move count of zero.
     """
     if result is None:
-        return 0
+        return None
     own = getattr(result, "moves", None)
     if own is not None:
         return int(own)
-    return int(_count(result, "mints") + _count(result, "rebalances") + _count(result, "pulls"))
+    parts = [_count(result, name) for name in ("mints", "rebalances", "pulls")]
+    return None if all(p is None for p in parts) else sum(p or 0 for p in parts)
 
 
 def overall(comparisons: list[Comparison]) -> Verdict:

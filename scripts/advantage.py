@@ -52,6 +52,7 @@ import random
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL, TARGET_POOL_WIDE
@@ -621,6 +622,17 @@ def _why(c: Comparison) -> list[str]:
     if not c.quotable or c.days <= 0:
         return []
 
+    # Every figure below is an LP quantity, and a lending task has none of them:
+    # `AllocationResult` has no mints, no pulls, no fees and no in-range
+    # fraction. They read as `0` until `_of` learned to say `None`, and this
+    # paragraph would have described a lending agent as having minted zero
+    # times, pulled zero times and been in range 0.0% of a range it never had.
+    if any(
+        v is None
+        for v in (c.agent_mints, c.agent_pulls, c.agent_recentres, c.agent_fees, c.agent_in_range)
+    ):
+        return []
+
     params = Params()
     cycles = min(c.agent_mints, c.agent_pulls)
     per_day = cycles / c.days
@@ -895,44 +907,36 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float, co
                 "with_agent": c.with_agent,
                 "quotable": c.quotable,
                 "note": c.note,
-                "baseline": {
-                    "p25": round(c.baseline_p25, 6),
-                    "p50": round(c.baseline_p50, 6),
-                    "p75": round(c.baseline_p75, 6),
-                    "in_range": round(c.baseline_in_range, 4),
-                    "fees": round(c.baseline_fees, 8),
-                    "lvr_upper_bound": round(c.baseline_lvr, 8),
-                    "costs": round(c.baseline_costs, 8),
-                    "moves": c.baseline_moves,
-                    # The aggregate hides the mechanism; the parts are the
-                    # finding. Zero recentres beside equal mints and pulls is an
-                    # agent spending its budget on exits, not on chasing price.
-                    "mints": c.baseline_mints,
-                    "pulls": c.baseline_pulls,
-                    "recentres": c.baseline_recentres,
-                    # How many of the reported samples are distinct results —
-                    # P-17's qualifier, which this report has never published.
-                    "distinct_returns": c.baseline_distinct,
-                },
-                "agent": {
-                    "p25": round(c.agent_p25, 6),
-                    "p50": round(c.agent_p50, 6),
-                    "p75": round(c.agent_p75, 6),
-                    "in_range": round(c.agent_in_range, 4),
-                    "fees": round(c.agent_fees, 8),
-                    "lvr_upper_bound": round(c.agent_lvr, 8),
-                    "costs": round(c.agent_costs, 8),
-                    "moves": c.agent_moves,
-                    # The aggregate hides the mechanism; the parts are the
-                    # finding. Zero recentres beside equal mints and pulls is an
-                    # agent spending its budget on exits, not on chasing price.
-                    "mints": c.agent_mints,
-                    "pulls": c.agent_pulls,
-                    "recentres": c.agent_recentres,
-                    # How many of the reported samples are distinct results —
-                    # P-17's qualifier, which this report has never published.
-                    "distinct_returns": c.agent_distinct,
-                },
+                "baseline": _side(
+                    c.baseline_p25,
+                    c.baseline_p50,
+                    c.baseline_p75,
+                    in_range=c.baseline_in_range,
+                    fees=c.baseline_fees,
+                    lvr=c.baseline_lvr,
+                    costs=c.baseline_costs,
+                    moves=c.baseline_moves,
+                    mints=c.baseline_mints,
+                    pulls=c.baseline_pulls,
+                    recentres=c.baseline_recentres,
+                    distinct=c.baseline_distinct,
+                    returns=c.baseline_returns,
+                ),
+                "agent": _side(
+                    c.agent_p25,
+                    c.agent_p50,
+                    c.agent_p75,
+                    in_range=c.agent_in_range,
+                    fees=c.agent_fees,
+                    lvr=c.agent_lvr,
+                    costs=c.agent_costs,
+                    moves=c.agent_moves,
+                    mints=c.agent_mints,
+                    pulls=c.agent_pulls,
+                    recentres=c.agent_recentres,
+                    distinct=c.agent_distinct,
+                    returns=c.agent_returns,
+                ),
                 "replay_days": round(c.days, 3),
                 "delta_pp": round(c.delta, 6),
                 "ranges_overlap": c.ranges_overlap,
@@ -1192,6 +1196,67 @@ def build(
         if route is not None:
             tasks.append(route)
     return tasks
+
+
+def _side(
+    p25: float,
+    p50: float,
+    p75: float,
+    *,
+    in_range: float | None,
+    fees: float | None,
+    lvr: float | None,
+    costs: float | None,
+    moves: int | None,
+    mints: int | None,
+    pulls: int | None,
+    recentres: int | None,
+    distinct: int | None,
+    returns: tuple[float, ...],
+) -> dict[str, Any]:
+    """One column of a task, with absent quantities left out rather than zeroed.
+
+    A key that is not here is a question this task does not answer. The Route
+    task replays a lending venue, which has no in-range fraction, no fees and no
+    adverse-selection cost — `AllocationResult` carries none of those fields —
+    and publishing them as `0.00` reported three measurements nobody made.
+
+    Omitted rather than sent as `null`, because the reader is `lib/format.ts`,
+    whose `isNum` guard already renders a missing number as an em dash. A `null`
+    would take the same path; an omission says the same thing in fewer bytes and
+    keeps `test_no_artifact_number_is_hardcoded_in_the_ui` looking at real
+    values only.
+
+    `returns` is the sample the band was drawn from. It is what lets the four
+    task charts show their evidence the way the agent cards already do — the
+    counts were being published while the observations behind them were dropped
+    at the `Comparison` boundary.
+    """
+    side: dict[str, Any] = {
+        "p25": round(p25, 6),
+        "p50": round(p50, 6),
+        "p75": round(p75, 6),
+    }
+    optional: dict[str, Any] = {
+        "in_range": None if in_range is None else round(in_range, 4),
+        "fees": None if fees is None else round(fees, 8),
+        "lvr_upper_bound": None if lvr is None else round(lvr, 8),
+        "costs": None if costs is None else round(costs, 8),
+        # The aggregate hides the mechanism; the parts are the finding. Zero
+        # recentres beside equal mints and pulls is an agent spending its budget
+        # on exits, not on chasing price.
+        "moves": moves,
+        "mints": mints,
+        "pulls": pulls,
+        "recentres": recentres,
+        # How many of the reported samples are distinct results — P-17's
+        # qualifier, which this report has never published.
+        "distinct_returns": distinct,
+    }
+    side.update({k: v for k, v in optional.items() if v is not None})
+    if returns:
+        side["returns"] = [round(r, 6) for r in returns]
+    return side
 
 
 def main() -> int:

@@ -669,3 +669,174 @@ def test_every_venue_names_the_pool_by_address() -> None:
     assert TARGET_POOL.address in named
     assert TARGET_POOL.label in named
     assert re.search(r"0x[0-9a-fA-F]{40}", named), "a venue must resolve to an address"
+
+
+# --------------------------------------------------------------------------
+# P-19: an absent quantity is not a measured zero.
+
+
+class _LpResult:
+    """What a liquidity replay returns: every field the report knows about."""
+
+    in_range_fraction = 0.9
+    total_fees = 1.5
+    total_lvr = 0.25
+    total_costs = 0.75
+    mints = 3
+    pulls = 2
+    rebalances = 1
+
+
+class _LendingResult:
+    """What an allocation replay returns.
+
+    Faithful to `AllocationResult`, which is the point: it carries `total_costs`
+    and a `moves` property summing entries/switches/exits, and **none** of
+    `in_range_fraction`, `total_fees`, `total_lvr`, `mints`, `pulls` or
+    `rebalances`. `replay/allocation.py` says as much about `rebalances_p50`:
+    "neither of which exists for an allocation agent".
+    """
+
+    total_costs = 1.03
+    moves = 2
+
+
+class _Quote:
+    def __init__(self, p25=1.0, p50=2.0, p75=3.0, **extra):
+        self.p25, self.p50, self.p75 = p25, p50, p75
+        self.sufficient = True
+        self.note = ""
+        self.basis = "annualised"
+        self.windows = 20
+        for key, value in extra.items():
+            setattr(self, key, value)
+
+
+def _compare(baseline_result, agent_result, **quote_kw):
+    from misquote.tearsheet.advantage import compare
+
+    return compare(
+        task="t",
+        category="trading",
+        venue="v",
+        metric="m",
+        without_agent="b",
+        with_agent="a",
+        baseline_quote=_Quote(**quote_kw),
+        agent_quote=_Quote(**quote_kw),
+        baseline_result=baseline_result,
+        agent_result=agent_result,
+    )
+
+
+def test_a_lending_result_reports_no_fees_rather_than_zero_fees() -> None:
+    """The Route task published `fees 0.00 WBNB` for a venue that has no fees."""
+    c = _compare(_LendingResult(), _LendingResult())
+
+    assert c.agent_fees is None
+    assert c.agent_lvr is None
+    assert c.agent_in_range is None
+    assert c.agent_mints is None
+    # Costs and moves are real on a lending venue and must survive the change.
+    assert c.agent_costs == pytest.approx(1.03)
+    assert c.agent_moves == 2
+
+
+def test_a_measured_zero_is_still_a_zero() -> None:
+    """The other half. An agent that genuinely earned nothing earned nothing."""
+
+    class _Idle(_LpResult):
+        total_fees = 0.0
+        mints = 0
+
+    c = _compare(_Idle(), _Idle())
+    assert c.agent_fees == 0.0
+    assert c.agent_mints == 0
+
+
+def test_a_liquidity_result_is_unaffected() -> None:
+    c = _compare(_LpResult(), _LpResult())
+    assert c.agent_fees == pytest.approx(1.5)
+    assert c.agent_in_range == pytest.approx(0.9)
+    assert c.agent_recentres == 1
+
+
+def test_distinct_returns_is_absent_when_the_quote_kind_does_not_report_it() -> None:
+    """An allocation `Quote` has no `distinct_returns`, and 0 was invented.
+
+    The one field whose entire purpose is telling a reader how much of the
+    sample is real is the worst possible place to publish a confident zero.
+    """
+    c = _compare(_LendingResult(), _LendingResult())
+    assert c.agent_distinct is None
+
+    withdistinct = _compare(_LpResult(), _LpResult(), distinct_returns=23)
+    assert withdistinct.agent_distinct == 23
+
+
+def test_the_observations_behind_the_band_are_carried_not_just_counted() -> None:
+    """`compare` held the `Quote` and kept only the count of distinct results."""
+    c = _compare(_LpResult(), _LpResult(), returns=[0.1, 0.2, 0.2, 0.3])
+    assert c.agent_returns == (0.1, 0.2, 0.2, 0.3)
+    assert c.baseline_returns == (0.1, 0.2, 0.2, 0.3)
+
+
+def test_a_quote_without_returns_yields_an_empty_tuple_not_none() -> None:
+    """The band is optional; the field is not. A `None` here would need a guard
+    at every call site, and an empty rug is correctly drawn as no rug."""
+    c = _compare(_LpResult(), _LpResult())
+    assert c.agent_returns == ()
+
+
+def _emitted(**kw):
+    """One column as it reaches the artifact, through the emitter's own helper."""
+    from advantage import _side
+
+    defaults = dict(
+        in_range=0.9,
+        fees=1.5,
+        lvr=0.25,
+        costs=0.75,
+        moves=6,
+        mints=3,
+        pulls=2,
+        recentres=1,
+        distinct=20,
+        returns=(),
+    )
+    return _side(1.0, 2.0, 3.0, **{**defaults, **kw})
+
+
+def test_an_absent_field_is_missing_from_the_artifact_not_zero_in_it() -> None:
+    """A key that is not there is a question this task does not answer.
+
+    `lib/format.ts::isNum` already renders a missing number as an em dash, so
+    the front end needs no change to show the Route task's in-range fraction as
+    absent — it needed the emitter to stop asserting one.
+    """
+    side = _emitted(in_range=None, fees=None, lvr=None, mints=None, distinct=None)
+
+    for absent in ("in_range", "fees", "lvr_upper_bound", "mints", "distinct_returns"):
+        assert absent not in side, f"{absent} was published for a task that has none"
+    # Present-and-real must survive alongside the omissions.
+    assert side["costs"] == 0.75
+    assert side["moves"] == 6
+    assert side["p50"] == 2.0
+
+
+def test_a_measured_zero_is_published() -> None:
+    """The inverse, and the reason omission is keyed on None rather than falsy."""
+    side = _emitted(fees=0.0, mints=0, in_range=0.0)
+    assert side["fees"] == 0.0
+    assert side["mints"] == 0
+    assert side["in_range"] == 0.0
+
+
+def test_the_observations_reach_the_artifact() -> None:
+    side = _emitted(returns=(0.11111111, 0.2, 0.2))
+    assert side["returns"] == [0.111111, 0.2, 0.2]
+
+
+def test_no_returns_key_when_there_are_none() -> None:
+    """An empty list would draw an empty rug; an absent key draws no rug."""
+    assert "returns" not in _emitted(returns=())
