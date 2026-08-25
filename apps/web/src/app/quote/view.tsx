@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Band } from "@/components/Band";
 import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { apiBase, loadLive, RefusalError } from "@/lib/api";
+import { count, hours, isNum, pct } from "@/lib/format";
 import {
   isFinished,
   type JobEvent,
@@ -33,8 +35,44 @@ interface JobView {
   total: number;
   phase: string;
   note: string;
-  refusal?: { note?: string; remedy?: string };
-  result?: { p25: number; p50: number; p75: number; samples: number; interactive_budget: boolean };
+  /**
+   * Why the engine declined, with the two figures behind it.
+   *
+   * `windows` and `samples` were on the wire and not on this type
+   * (`ops/quote_job.py` writes both into the refusal), so the withheld branch
+   * could print the sentence and not the shortfall — on the one page where a
+   * reader has just asked for the number and is being told no.
+   */
+  refusal?: { note?: string; remedy?: string; windows?: number; samples?: number };
+  /**
+   * The quote, as the worker publishes it.
+   *
+   * This declared five fields of thirteen. The worker writes `windows`,
+   * `perturbations`, `hours_per_window`, `net_positive`, `annualised`, `basis`
+   * and `note` onto the same object, and `AgentCard` prints four of them
+   * directly under its own band — so every other quote on this site says how
+   * many windows it came from and how many finished in profit, and the live one
+   * said neither. Not scope creep: it is what lets this page make the same
+   * claim in the same words.
+   *
+   * `distinct_returns` is a count, not an array. There is no `returns[]` for a
+   * job, which is why the band below draws no rug.
+   */
+  result?: {
+    p25: number;
+    p50: number;
+    p75: number;
+    samples: number;
+    interactive_budget: boolean;
+    windows?: number;
+    perturbations?: number;
+    hours_per_window?: number;
+    net_positive?: number;
+    distinct_returns?: number;
+    annualised?: boolean;
+    basis?: string;
+    note?: string;
+  };
 }
 
 interface Eligibility {
@@ -480,7 +518,10 @@ function QuoteRun({
 }
 
 function RunProgress({ job }: { job: JobView }) {
-  const pct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+  // `donePct`, not `pct`. `lib/format` exports a `pct` that formats an
+  // already-percentage value, and a local of the same name shadowed it — the
+  // collision `RouterDetail.tsx` renamed its own local to `rate` to avoid.
+  const donePct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
 
   return (
     <div aria-busy={!isFinished(job.status)}>
@@ -505,7 +546,7 @@ function RunProgress({ job }: { job: JobView }) {
           <div className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
             <div
               className="h-full rounded-full bg-brand transition-[width] duration-[var(--dur-3)] ease-band"
-              style={{ width: `${pct}%` }}
+              style={{ width: `${donePct}%` }}
             />
           </div>
           <p className="tabular mt-1 mb-0 text-xs text-faint">
@@ -532,18 +573,87 @@ function RunProgress({ job }: { job: JobView }) {
             title="The evidence could not support a quote"
             reason={job.refusal.note ?? ""}
             floor={job.refusal.remedy}
-          />
+          >
+            {/* The shortfall, not only the sentence about it. `windows` and
+                `samples` ride on the refusal and were dropped at the type
+                boundary, so this page could say no and not say by how much —
+                on the one screen where somebody has just asked for the number.
+                Drawn only when both are known; a gauge against a floor this
+                file invented would be a fabricated number under a refusal. */}
+            {isNum(job.refusal.windows) && isNum(job.refusal.samples) && (
+              <p className="tabular mt-3 mb-0 font-mono text-xs text-faint">
+                {count(job.refusal.samples)} observations from{" "}
+                {count(job.refusal.windows)} windows
+              </p>
+            )}
+          </Refusal>
         </div>
       )}
 
       {job.result && (
         <div className="surface mt-4 rounded-md border border-glass-line bg-glass p-4">
-          <p className="tabular m-0 text-lg font-semibold text-ink">
-            {job.result.p25.toFixed(2)}% – {job.result.p75.toFixed(2)}%
+          {/* The range, drawn.
+              This printed `1.89% – 1.93%` over `median 1.91%` — a sentence, on
+              the one page in this product where a reader watches a range being
+              computed and then receives it. Every other quote on the site is a
+              band; the live one, the one somebody asked for, was the exception.
+              `RouterDetail` was fixed for exactly this two commits ago and the
+              surface pass walked past this.
+
+              One series and no rug, and both are the data rather than a
+              simplification: a job has no baseline to compare against, and
+              `ops/quote_job.py` publishes `distinct_returns` as a count rather
+              than the array `Band` would draw a rug from. */}
+          <Band
+            sufficient
+            caption="This wallet's replay, on the pool above"
+            series={[
+              {
+                label: "This replay",
+                p25: job.result.p25,
+                p50: job.result.p50,
+                p75: job.result.p75,
+                tone: "agent",
+              },
+            ]}
+          />
+
+          {/* The median and the sample shape, in text, and not redundancy:
+              `Band` writes P25–P75 in its label row and puts the median only in
+              an `aria-label`, which contributes no `innerText` — and this
+              route has a 1,200-character no-JS floor in check-pages.mjs.
+              Drawing the range must not cost the page the number.
+
+              The three fields beside it were on the wire and off the type until
+              this commit, which is why the live quote said less about itself
+              than every card on `/` does. */}
+          <p className="mt-4 mb-0 text-sm text-dim">
+            <span className="tabular text-ink">median {pct(job.result.p50)}</span> over{" "}
+            <span className="tabular">{count(job.result.samples)}</span> observations
+            {isNum(job.result.windows) && (
+              <>
+                {" "}
+                — {count(job.result.windows)} windows
+                {isNum(job.result.perturbations) && (
+                  <> × {count(job.result.perturbations)} perturbations</>
+                )}
+                {isNum(job.result.hours_per_window) && (
+                  <> of ~{hours(job.result.hours_per_window)} each</>
+                )}
+              </>
+            )}
+            .
           </p>
-          <p className="m-0 text-sm text-dim">
-            median {job.result.p50.toFixed(2)}% over {job.result.samples} observations
-          </p>
+          {isNum(job.result.net_positive) && (
+            <p className="mt-1 mb-0 text-sm">
+              <span
+                className={job.result.net_positive === 0 ? "text-warn" : "text-dim"}
+              >
+                {count(job.result.net_positive)} of {count(job.result.samples)} observations
+                finished in profit.
+              </span>
+            </p>
+          )}
           {job.result.interactive_budget && (
             <p className="mt-2 mb-0 text-xs text-warn">
               Run on the reduced interactive budget, so this range is wider than a
