@@ -5,6 +5,7 @@ import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card, CardHeader } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { CheckList } from "@/components/CheckList";
+import { BadgeLookup } from "@/components/BadgeLookup";
 import { SectionRail } from "@/components/SectionRail";
 import { Heading, Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
@@ -565,6 +566,27 @@ export function VettingView({
             </p>
           </div>
         )}
+
+        {/* The question this page could not answer: not "which pools have
+            badges" but "what about *this* one". `/vetting/{address}` sends two
+            different 404s for it — a pool we verified and never vetted, and a
+            pool we never verified — and collapsing those is what the route's own
+            comment says the surface exists to avoid.
+
+            No `id` and no rail entry: it needs a live service, so an anchor
+            would be dead on the static export. */}
+        <Section
+          title="Ask about an address"
+          className="mt-12"
+          headingClassName="text-lg font-semibold"
+        >
+          <p className="mt-2 mb-4 max-w-[62ch] text-sm text-dim">
+            Recorded badges only — a badge is nine chain readings taken at one block,
+            and one re-read live under a request timeout would be a weaker badge at the
+            same URL with nothing saying so.
+          </p>
+          <BadgeLookup />
+        </Section>
 
         {/* The addresses the signer is aimed at. Same renderer as the pools
             above, because they are the same question — named checks, chain
