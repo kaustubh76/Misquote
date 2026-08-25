@@ -30,7 +30,13 @@ from fastapi import Query
 from misquote.api.errors import refuse
 from misquote.api.locations import db_path
 from misquote.chain.addresses import known_pools_on, pool_by_address
-from misquote.indexer.store import connect, coverage, covered_span, cursor_for, tape_summary
+from misquote.indexer.store import (
+    connect_readonly,
+    coverage,
+    covered_span,
+    cursor_for,
+    tape_summary,
+)
 
 #: The chain every recorded pool sits on. A parameter rather than a constant at
 #: the call sites, so a second chain is a value and not a code change.
@@ -100,7 +106,7 @@ def tape(chain_id: int = Query(DEFAULT_CHAIN_ID)) -> dict[str, Any]:
             note="Nothing has indexed anything yet. This is an absence, not a fault.",
         )
 
-    conn = connect(path)
+    conn = connect_readonly(path)
     try:
         return {
             "chain_id": chain_id,
@@ -137,7 +143,7 @@ def tape_for_pool(address: str) -> dict[str, Any]:
             note="Nothing has indexed anything yet. This is an absence, not a fault.",
         )
 
-    conn = connect(path)
+    conn = connect_readonly(path)
     try:
         return {
             "chain_id": ref.chain_id,

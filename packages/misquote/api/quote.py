@@ -28,7 +28,7 @@ from misquote.api.preflight import assess
 from misquote.api.wallet import _valid
 from misquote.chain.addresses import known_pools_on, pool_by_address
 from misquote.chain.positions import PositionReader
-from misquote.indexer.store import connect
+from misquote.indexer.store import connect_readonly
 from misquote.ops import jobs
 
 DEFAULT_CHAIN_ID = 56
@@ -43,7 +43,7 @@ def _conn() -> Any:
             remedy="make indexer POOL=0x...",
             note="Nothing has indexed anything yet, so no quote is possible for any pool.",
         )
-    return connect(path)
+    return connect_readonly(path)
 
 
 def quote_preflight(chain_id: int = DEFAULT_CHAIN_ID) -> dict[str, Any]:

@@ -30,6 +30,7 @@ assertion that would have caught it.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from pathlib import Path
 
@@ -140,3 +141,30 @@ def test_the_engines_own_predicate_says_the_slice_can_quote(tmp_path: Path) -> N
 
     refused = {label: v["why_not"] for label, v in verdicts.items() if not v["quotable"]}
     assert not refused, f"the deployed tape cannot quote: {refused}"
+
+
+def test_reading_the_tape_does_not_modify_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answering a question about the tape must not change the tape.
+
+    `store.connect` creates the file if absent and runs `schema.sql` over it,
+    which begins `PRAGMA journal_mode = WAL`. The API opened the tape that way,
+    so a single `GET /tape` rewrote the database header of this committed file
+    and left `-wal` and `-shm` beside it — `git status` dirty from having served
+    a read.
+
+    Hashed rather than compared by mtime, because the change was one byte.
+    """
+    if not SLICE.exists():
+        pytest.skip(f"no slice at {SLICE} — `make tape-slice`")
+
+    from misquote.api import tape as tape_routes
+
+    monkeypatch.setenv("DB_PATH", str(SLICE))
+    before = hashlib.sha256(SLICE.read_bytes()).hexdigest()
+
+    answered = tape_routes.tape(chain_id=CHAIN_ID)
+    assert answered["pools"], "the read returned nothing, so it proves nothing about writing"
+
+    assert hashlib.sha256(SLICE.read_bytes()).hexdigest() == before
+    for sidecar in (f"{SLICE}-wal", f"{SLICE}-shm"):
+        assert not Path(sidecar).exists(), f"reading the tape created {sidecar}"

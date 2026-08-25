@@ -32,6 +32,37 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+def connect_readonly(db_path: str | Path) -> sqlite3.Connection:
+    """Open an existing tape with no ability to change it.
+
+    `connect` above creates the file if absent and runs `schema.sql` over it,
+    which is right for the indexer and wrong for every reader. The API is a
+    reader — its own index route says the artifact and tape routes "serve what
+    the emitters wrote and add nothing to it" — and it was opening the tape the
+    writer's way.
+
+    That is not theoretical. `schema.sql` opens with `PRAGMA journal_mode = WAL`,
+    so merely answering `GET /tape` rewrote the database header of the committed
+    `data/deploy/tape.db` and left `-wal` and `-shm` beside it. A service that
+    modifies its own evidence by being asked a question about it is the wrong
+    shape regardless of how small the modification is, and here it showed up as
+    a tracked file dirtied by running `make api`.
+
+    `mode=ro` rather than `immutable=1`: the two differ exactly where it matters.
+    `immutable` promises the file will not change underneath the reader, which is
+    true of a deployed slice and false of the local tape — `schema.sql` chose WAL
+    in the first place so "the Warden reads while the indexer writes", and a
+    reader that assumed immutability there would serve a stale page cache.
+
+    Raises `sqlite3.OperationalError` if the file does not exist, which is the
+    intended difference from `connect`: a reader asked about a tape that is not
+    there must not bring one into being.
+    """
+    conn = sqlite3.connect(f"file:{Path(db_path)}?mode=ro", uri=True, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def register_pool(
     conn: sqlite3.Connection, meta: PoolMeta, created_block: int | None = None
 ) -> None:

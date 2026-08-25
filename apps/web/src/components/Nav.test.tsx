@@ -34,6 +34,7 @@ const ROUTES = [
   ["Assumptions", "/assumptions"],
   ["Registry", "/registry"],
   ["Vetting", "/vetting"],
+  ["Tape", "/tape"],
   ["Status", "/status"],
 ] as const;
 

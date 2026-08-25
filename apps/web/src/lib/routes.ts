@@ -49,6 +49,7 @@ export const ROUTES: readonly Route[] = [
   { href: "/vectors", label: "Vectors", group: "evidence" },
   { href: "/venue", label: "Venue", group: "evidence" },
   { href: "/vetting", label: "Vetting", group: "evidence" },
+  { href: "/tape", label: "Tape", group: "evidence" },
   { href: "/status", label: "Status", group: "evidence" },
 ] as const;
 

@@ -59,6 +59,11 @@ const ROUTES = [
   ["assumptions", "/assumptions/"],
   ["registry", "/registry/"],
   ["vetting", "/vetting/"],
+  // Live-only, and the one route here where a screenshot at 390px is the whole
+  // check: the coverage strips are absolutely-positioned segments summing to a
+  // percentage width, which is the shape that overflows a narrow viewport
+  // without any single element being too wide.
+  ["tape", "/tape/"],
   ["status", "/status/"],
 ];
 
@@ -266,6 +271,13 @@ const NO_JS = [
   ["/assumptions/", 50000, "none filtered out"],
   ["/registry/", 2500, "JOB STATES"],
   ["/vetting/", 3500, "factory resolves it"],
+  // The only route here whose subject cannot be prerendered — what a database
+  // holds right now is live by definition. So the needle is the recorded half:
+  // a pool label out of `vetting.json`, which is what the page renders with
+  // JavaScript off. A prerender that lost it would leave the argument about
+  // coverage with nothing to apply it to, which is the failure worth catching;
+  // the coverage strips themselves are correctly absent without JS.
+  ["/tape/", 2000, "TSLAx"],
   ["/status/", 3000, "kill switch"],
   ["/agent/warden/", 2000, "in range"],
   // Router has no in-range fraction; its page leads with the boundary.
