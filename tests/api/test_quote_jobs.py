@@ -12,6 +12,8 @@ import pytest
 
 pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv sync --extra api`")
 
+from misquote.chain.addresses import TARGET_POOL  # noqa: E402
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 from misquote.api import service as api  # noqa: E402
@@ -257,7 +259,7 @@ def test_no_duration_is_quoted_when_the_tape_cannot_support_one() -> None:
         assert cost["events"] is None
 
     # And the sentence degrades with it rather than rendering "None seconds".
-    note = _queued_note(1_787_657_569, None)
+    note = _queued_note(1, None)
     assert "does not report enough to estimate" in note
     assert "None" not in note
 
@@ -270,5 +272,148 @@ def test_an_unattended_queue_is_reported_before_any_duration() -> None:
     """
     from misquote.api.quote import _queued_note
 
-    assert "nothing has claimed a job" in _queued_note(None, 397)
-    assert "397" not in _queued_note(None, 397)
+    assert "no worker has beaten" in _queued_note(0, 397)
+    assert "397" not in _queued_note(0, 397)
+
+    # And a live worker gets the duration rather than the warning.
+    assert "397s" in _queued_note(1, 397) or "minutes" in _queued_note(1, 397)
+
+
+def test_a_booted_worker_is_visible_before_it_claims_anything(tmp_path) -> None:
+    """The state a fresh deploy is in, which the queue could not describe.
+
+    `worker_last_seen` inferred a worker from the jobs it had touched and said
+    so honestly — "evidence, not proof". On a new instance that inference cannot
+    fire: a worker against an empty queue has touched nothing and reads exactly
+    like no worker at all.
+
+    That is the first thing anyone hiring meets, and it is the difference
+    between "your job is next" and "your job is unattended". Found by watching a
+    live deploy leave a job `queued` for three minutes with no way to tell which
+    of the two it was.
+    """
+    import os
+
+    os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
+    from misquote.ops import jobs
+
+    conn = jobs.connect()
+    try:
+        assert jobs.worker_last_seen(conn) is None
+        assert jobs.workers_alive(conn) == 0
+
+        jobs.announce(conn, pid=4242, host="render-abc")
+
+        assert jobs.workers_alive(conn) == 1
+        assert jobs.worker_last_seen(conn) is not None
+
+        # Keyed by pid: a restarted worker replaces its own row rather than
+        # leaving a ghost that keeps reporting a process that has gone.
+        jobs.announce(conn, pid=4242, host="render-abc")
+        assert jobs.workers_alive(conn) == 1
+
+        jobs.announce(conn, pid=99, host="render-abc")
+        assert jobs.workers_alive(conn) == 2
+    finally:
+        conn.close()
+
+
+def test_a_worker_that_stopped_beating_is_not_counted_as_draining(tmp_path) -> None:
+    """`worker_last_seen` stays true forever; a heartbeat expires.
+
+    The note keys on the heartbeat for exactly this reason — on a long-lived
+    instance whose worker died, "something drained this once" is true and
+    useless, and would tell a caller to wait for a process that is gone.
+    """
+    import os
+    import time
+
+    os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
+    from misquote.ops import jobs
+
+    conn = jobs.connect()
+    try:
+        jobs.announce(conn, pid=7, host="h")
+        assert jobs.workers_alive(conn) == 1
+
+        stale = int(time.time()) - jobs.STALE_AFTER_S - 60
+        conn.execute("UPDATE worker SET heartbeat_ts = ?", (stale,))
+
+        assert jobs.workers_alive(conn) == 0, "a stale heartbeat still counts as alive"
+        assert jobs.worker_last_seen(conn) is not None, "the trace should survive"
+    finally:
+        conn.close()
+
+
+def test_the_worker_announces_itself_by_draining(tmp_path) -> None:
+    """Not that `announce` works — that the worker calls it.
+
+    The first version of these tests exercised `jobs.announce` directly and
+    passed while the worker's call to it was removed. A guard on a helper nobody
+    is proven to invoke is a guard on nothing, so this drives the real loop:
+    `drain(once=True)` against an empty queue claims nothing, and a worker must
+    still be visible afterwards.
+    """
+    import os
+
+    os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
+    from misquote.ops import jobs, worker
+
+    conn = jobs.connect()
+    try:
+        assert jobs.workers_alive(conn) == 0
+
+        ran = worker.drain(conn, once=True, idle_sleep_s=0.01)
+
+        assert ran == 0, "nothing was queued, so nothing should have run"
+        assert jobs.workers_alive(conn) == 1, (
+            "the worker drained an empty queue and left no trace of itself — which "
+            "is the state a fresh deploy is in, and reads as no worker at all"
+        )
+    finally:
+        conn.close()
+
+
+def test_the_hire_note_agrees_with_the_worker_count_it_reports(tmp_path) -> None:
+    """A worker that stopped beating must not be quoted as draining.
+
+    `worker_last_seen` stays true forever once anything has touched the queue,
+    so keying the note on it tells a caller to wait for a process that has gone.
+    This builds exactly that state — a heartbeat aged past the staleness floor,
+    leaving `worker_last_seen` set and `workers_alive` at zero — and asserts the
+    sentence follows the live count rather than the historical one.
+
+    Runs against the tape a deploy actually carries, because the queued branch
+    is only reached when the pre-flight says a quote is possible; an empty tape
+    refuses at 409 and never gets here.
+    """
+    import os
+    import time
+    from pathlib import Path
+
+    tape = Path(__file__).resolve().parents[2] / "data" / "deploy" / "tape.db"
+    if not tape.is_file():
+        pytest.skip("no deploy tape; run `make tape-slice`")
+
+    os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
+    os.environ["DB_PATH"] = str(tape)
+    from misquote.api import quote as quote_routes
+
+    conn = jobs.connect()
+    try:
+        jobs.announce(conn, pid=11, host="h")
+        conn.execute(
+            "UPDATE worker SET heartbeat_ts = ?", (int(time.time()) - jobs.STALE_AFTER_S - 60,)
+        )
+        assert jobs.worker_last_seen(conn) is not None
+        assert jobs.workers_alive(conn) == 0
+    finally:
+        conn.close()
+
+    body = quote_routes.submit_quote({"pool": TARGET_POOL.address})
+
+    assert body["workers_alive"] == 0
+    assert body["worker_last_seen"] is not None, "the historical trace should survive"
+    assert "no worker has beaten" in body["note"], (
+        "the note is keyed on worker_last_seen, which outlives the worker"
+    )

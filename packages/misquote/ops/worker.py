@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import socket
 import sqlite3
 import time
 import traceback
@@ -99,9 +100,17 @@ def drain(
     without a clock: `once=True` drains what is queued and returns.
     """
     pid = os.getpid()
+    host = socket.gethostname()
     ran = 0
 
     while True:
+        # Before the claim, so an idle worker is still visible. `worker_last_seen`
+        # used to infer a worker from the jobs it had touched, which cannot fire
+        # on a fresh deploy: a worker against an empty queue has touched nothing
+        # and reads exactly like no worker at all. That is the first state
+        # anyone hiring meets, and it was the one the queue could not describe.
+        jobs.announce(conn, pid=pid, host=host)
+
         job = jobs.claim(conn, pid=pid)
         if job is None:
             if once:

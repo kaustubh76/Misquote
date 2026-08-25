@@ -189,6 +189,11 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
             },
         )
         last_seen = jobs.worker_last_seen(store)
+        # A recent heartbeat, not merely a trace in the job table. `last_seen`
+        # answers "has anything ever drained this queue"; this answers "is
+        # anything draining it now", which is the question a caller waiting on
+        # a job is actually asking.
+        alive = jobs.workers_alive(store)
     finally:
         store.close()
 
@@ -211,12 +216,13 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         # provisioned it would show that indefinitely, and nothing in the
         # response would hint why.
         "worker_last_seen": last_seen,
+        "workers_alive": alive,
         # The note said "hours of arithmetic" for every pool. That was true of
         # the 30-day tape the throughput was measured on and wrong by an order
         # of magnitude for the ten-day slice a deploy carries, where the same
         # plan is about a quarter of an hour. The plan knows its own size now,
         # so the sentence is derived from it rather than fixed.
-        "note": _queued_note(last_seen, cost["estimated_seconds"]),
+        "note": _queued_note(alive, cost["estimated_seconds"]),
     }
 
 
@@ -263,17 +269,22 @@ def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _queued_note(last_seen: int | None, seconds: int | None) -> str:
+def _queued_note(alive: int, seconds: int | None) -> str:
     """What a caller is actually waiting for, in this pool's own numbers.
 
     Three states, kept apart. Nothing draining is the one that matters most and
     is reported first — a job behind no worker is not slow, it is unattended,
     and the two look identical from outside.
+
+    Keyed on a live heartbeat rather than `worker_last_seen`. That field answers
+    "has anything ever drained this queue", which on a long-lived instance stays
+    true long after the worker died — so a caller would be told to wait for a
+    process that no longer exists.
     """
-    if not last_seen:
+    if not alive:
         return (
-            "Queued — but nothing has claimed a job on this instance, so it may sit "
-            "here. Start a worker with `make api-worker`."
+            "Queued — but no worker has beaten on this instance recently, so it may "
+            "sit here. Start one with `make api-worker`."
         )
     if not seconds:
         return (

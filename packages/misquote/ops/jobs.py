@@ -202,6 +202,36 @@ def sweep_orphans(conn: sqlite3.Connection, *, stale_after_s: int = STALE_AFTER_
     return orphaned
 
 
+def announce(conn: sqlite3.Connection, *, pid: int, host: str) -> None:
+    """Record that a worker is alive, before it has claimed anything.
+
+    The queue had no worker registry, so `worker_last_seen` inferred one from
+    the jobs it had touched. On a fresh deploy that inference cannot fire: a
+    worker running against an empty queue has touched nothing, and reads exactly
+    like no worker at all — which is the first thing anyone hiring meets.
+
+    Keyed by pid so a restarted worker replaces its own row rather than
+    accumulating ghosts, and refreshed on every idle pass so a stale row means a
+    dead process rather than a quiet one.
+    """
+    now = int(time.time())
+    conn.execute(
+        "INSERT INTO worker (pid, host, started_ts, heartbeat_ts) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(pid) DO UPDATE SET heartbeat_ts = excluded.heartbeat_ts, "
+        "host = excluded.host",
+        (pid, host, now, now),
+    )
+
+
+def workers_alive(conn: sqlite3.Connection, *, within_s: int = STALE_AFTER_S) -> int:
+    """How many workers have beaten recently. Zero is a real and useful answer."""
+    cutoff = int(time.time()) - within_s
+    row = conn.execute(
+        "SELECT count(*) AS n FROM worker WHERE heartbeat_ts >= ?", (cutoff,)
+    ).fetchone()
+    return int(row["n"] or 0) if row else 0
+
+
 def worker_last_seen(conn: sqlite3.Connection) -> int | None:
     """Epoch seconds of the most recent sign of a worker, or None.
 
@@ -220,6 +250,13 @@ def worker_last_seen(conn: sqlite3.Connection) -> int | None:
         "SELECT max(coalesce(heartbeat_ts, 0), coalesce(started_ts, 0)) AS seen FROM job"
     ).fetchone()
     seen = int(row["seen"] or 0) if row else 0
+
+    # The registry too, and the newer of the two wins. Job rows remain evidence
+    # of work actually done; `worker` is evidence of a process that exists. A
+    # deploy whose worker has booted and claimed nothing now reports the second
+    # rather than nothing at all.
+    beat = conn.execute("SELECT max(heartbeat_ts) AS seen FROM worker").fetchone()
+    seen = max(seen, int(beat["seen"] or 0) if beat else 0)
     return seen or None
 
 
