@@ -1,17 +1,21 @@
 {
-  "base": null,
+  "base": "https://misquote-api.onrender.com",
   "build": {
     "command": "make artifacts",
-    "generated_at": "2026-08-23T16:49:11+00:00",
-    "git_dirty": true,
-    "git_sha": "511ac9a",
+    "generated_at": "2026-08-25T10:11:15+00:00",
+    "git_dirty": false,
+    "git_sha": "43014d1",
     "source": "environment"
   },
   "note": "base is null when no live API is configured, which is the ordinary state: every page on this site renders from the artifacts alone. A client that finds null must not fall back to the site origin \u2014 there is no API there, and requesting one would 404 against the export.",
   "routes": {
+    "capability": "/sessions/capability",
+    "eligibility": "/quote/eligibility/{address}",
+    "job": "/quote/job/{job_id}",
     "journal": "/journal/{agent}",
-    "positions": "/wallet/{address}/positions",
+    "quote": "POST /quote",
     "registry": "/registry/agents",
+    "stream": "/quote/job/{job_id}/stream",
     "tape": "/tape",
     "vetting": "/vetting/{address}"
   }
