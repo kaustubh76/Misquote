@@ -12,12 +12,13 @@ import pytest
 
 pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv sync --extra api`")
 
-from misquote.chain.addresses import TARGET_POOL  # noqa: E402
-
 from fastapi.testclient import TestClient  # noqa: E402
 
 from misquote.api import service as api  # noqa: E402
-from misquote.chain.addresses import known_pools_on  # noqa: E402
+from misquote.chain.addresses import (
+    TARGET_POOL,  # noqa: E402
+    known_pools_on,  # noqa: E402
+)
 from misquote.indexer.store import connect as connect_tape  # noqa: E402
 from misquote.ops import jobs  # noqa: E402
 
