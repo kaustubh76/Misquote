@@ -369,19 +369,41 @@ def test_included_routers_would_not_have_been_caught() -> None:
     )
 
 
-def test_the_service_starts_from_the_command_render_runs() -> None:
-    """`render.yaml` names an import path, and a typo in it fails at deploy.
+def test_the_command_render_runs_reaches_the_app_it_names() -> None:
+    """`render.yaml` -> `scripts/serve.sh` -> `misquote.api.service:app`.
 
-    `uvicorn misquote.api.service:app` is a string in a YAML file that nothing
-    else resolves. Asserting the module and attribute exist under exactly that
-    spelling catches a rename here before Render catches it in a build log.
+    Three files and two string references, none of which any import resolves. A
+    rename in the module breaks a deploy and nothing local notices, which is the
+    whole reason to assert the spelling rather than trust it.
+
+    The chain grew a link when the worker moved in beside uvicorn: the blueprint
+    used to invoke uvicorn directly, and now it invokes a script that does. This
+    test failed at exactly that change, which is the behaviour wanted — the
+    assertion followed the command rather than being deleted for being
+    inconvenient.
     """
     import importlib
+    import os
 
     module = importlib.import_module("misquote.api.service")
-    assert hasattr(module, "app"), "render.yaml points at misquote.api.service:app"
+    assert hasattr(module, "app"), "the start command points at misquote.api.service:app"
 
     blueprint = (REPO / "render.yaml").read_text()
-    assert "misquote.api.service:app" in blueprint
-    assert "--host 0.0.0.0" in blueprint, "Render needs the service bound off localhost"
-    assert "$PORT" in blueprint, "Render assigns the port; a hardcoded one is unreachable"
+    script_path = REPO / "scripts" / "serve.sh"
+    assert "scripts/serve.sh" in blueprint, "the blueprint no longer runs the launcher"
+    assert script_path.is_file(), "render.yaml runs a script that is not in the repository"
+    assert os.access(script_path, os.X_OK), "scripts/serve.sh is not executable"
+
+    script = script_path.read_text()
+    assert "misquote.api.service:app" in script
+    # Render assigns the port and routes to it; a hardcoded one is unreachable,
+    # and binding localhost inside a container serves nobody outside it.
+    assert "--host 0.0.0.0" in script
+    assert "PORT" in script
+
+    # The half that makes a hire finish. Without this the API still answers,
+    # jobs still queue, and every one of them sits unclaimed forever.
+    assert "misquote.ops.worker" in script, "the launcher no longer starts a worker"
+    # `exec`, so Render's SIGTERM reaches uvicorn rather than a shell that would
+    # have to forward it.
+    assert "exec uvicorn" in script

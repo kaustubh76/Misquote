@@ -35,22 +35,28 @@
 # with no disk that database lives on ephemeral storage and is lost on restart,
 # which for queued work means the queue is lost with it.
 #
-# ## The worker, and what happens without one
+# ## The worker runs here, in this same service
 #
 # A quote is run by `python -m misquote.ops.worker`, not by the web process —
 # `ranges.quote()` raises if entered twice in one process, and `fork_map` must
-# fork from a single-threaded parent, which an ASGI server is not. The worker is
-# declared below and is **commented out**, because Render background workers
-# need a paid plan and this blueprint is a free-tier demo.
+# fork from a single-threaded parent, which an ASGI server is not.
 #
-# That absence is not silent. `jobs.worker_last_seen` reports whether anything
-# has ever claimed a job, `POST /quote` returns it, and the response says
-# plainly that a job may sit queued when nothing is draining. Without it the
-# page would show "queued" forever and look exactly like a slow replay.
+# That argues for a separate **process**, and this file used to read it as
+# arguing for a separate **service** — declared below, commented out, waiting on
+# a paid plan. Two mistakes in one. Render services do not share a filesystem,
+# so a worker in another container would have polled an empty `jobs.db` while
+# jobs piled up in this one; and nothing about the three constraints above asks
+# for a second host. `scripts/serve.sh` starts the worker beside uvicorn, same
+# container, same filesystem, same queue, free plan.
 #
-# A free instance also spins down when idle, so even with a worker a 4.6-hour
-# replay would not survive to finish. The pre-flight, the refusals and every
-# read route are what this deployment can honestly serve.
+# Verified locally by hiring twice: the first job went `queued -> running` with
+# the worker claiming it, and the second response carried a live
+# `worker_last_seen` instead of the "nothing has claimed a job here" refusal.
+#
+# What is still true: a free instance spins down when idle, so a job nobody is
+# polling can be suspended mid-replay, and the disk is ephemeral, so a redeploy
+# loses the queue. Both are reported rather than hidden — `worker_last_seen` and
+# the job's own status say what happened.
 #
 # ## Why the install is editable
 #
@@ -79,7 +85,11 @@ services:
     plan: free
     region: oregon
     buildCommand: pip install -e ".[api]"
-    startCommand: uvicorn misquote.api.service:app --host 0.0.0.0 --port $PORT
+    # Both processes, one container — see scripts/serve.sh. The worker used to
+    # be a second service declared below and commented out, on the belief that
+    # draining the queue needed a paid plan. It needed a separate *process*,
+    # which is free.
+    startCommand: sh scripts/serve.sh
     # `/health` answers from the process without touching an artifact, which is
     # what makes it usable as a health check: a probe that went red when a file
     # was missing would restart the container in a loop over exactly the
@@ -98,27 +108,9 @@ services:
       - key: DB_PATH
         value: data/deploy/tape.db
 
-# The worker that actually runs a replay. Commented out rather than deleted:
-# Render background workers require a paid plan, and a blueprint that declared
-# one would fail to apply on the free tier this file targets. Uncomment it — and
-# attach a disk for `data/jobs.db` — to make `POST /quote` produce a quote
-# rather than a queued job.
-#
-#  - type: worker
-#    name: misquote-worker
-#    runtime: python
-#    plan: starter
-#    region: oregon
-#    buildCommand: pip install -e ".[api]"
-#    startCommand: python -m misquote.ops.worker
-#    envVars:
-#      - key: PYTHON_VERSION
-#        value: "3.12.12"
-#      - key: MISQUOTE_JOBS_DB
-#        value: /var/data/jobs.db
-#      - key: BSC_RPC_URL
-#        sync: false
-#    disk:
-#      name: jobs
-#      mountPath: /var/data
-#      sizeGB: 1
+# The worker no longer needs a service of its own — `scripts/serve.sh` runs it
+# beside uvicorn in the web service above, on the free plan. What a paid worker
+# would still buy is isolation: a replay that cannot be suspended by the web
+# instance spinning down, and a disk that survives a redeploy so the queue is
+# not lost with it. Neither is needed to answer a hire, which is why this is a
+# note rather than a commented-out block nobody can tell the status of.
