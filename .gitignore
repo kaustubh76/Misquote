@@ -46,3 +46,6 @@ _*.mjs
 # TypeScript incremental build cache. Tracked for months and churning in every
 # diff before anyone noticed.
 apps/web/tsconfig.tsbuildinfo
+
+# Vercel CLI link state.
+.vercel/

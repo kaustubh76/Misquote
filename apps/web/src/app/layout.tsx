@@ -28,11 +28,18 @@ export const metadata: Metadata = {
    * correct, unlike the API base — `lib/api.ts` explains at length why *that*
    * one may not bake in, and the difference is real: the API host is a runtime
    * property of a deployment a static export may be repointed at, and the
-   * canonical URL of that export is a property of the build itself. A demo
-   * served from `python3 -m http.server` gets the localhost default and an
-   * unfurl nobody was going to see anyway.
+   * canonical URL of that export is a property of the build itself.
+   *
+   * The default is the deployed host rather than localhost, and that is the
+   * fix for a chicken-and-egg: a card is only worth having if it resolves, and
+   * requiring an environment variable to make it resolve means every build that
+   * forgets one ships a card pointing at a machine nobody else can reach. This
+   * project has one canonical URL, the repository can know it, and
+   * `NEXT_PUBLIC_SITE_URL` still overrides for a fork or a preview.
    */
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://misquote.vercel.app",
+  ),
 
   /**
    * The card a paste of this link unfurls into.

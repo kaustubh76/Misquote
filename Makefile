@@ -347,7 +347,7 @@ og:  ## regenerate the social card -> apps/web/public/opengraph-image.png
 	# up as a diff rather than as a mystery. Same reason `public/artifacts/` is
 	# committed.
 	cd apps/web && NEXT_DIST_DIR=.next-og pnpm build >/dev/null
-	cp apps/web/.next-og/opengraph-image apps/web/public/opengraph-image.png
+	cp apps/web/.next-og/card/opengraph-image apps/web/public/opengraph-image.png
 	rm -rf apps/web/.next-og
 	@echo "  -> apps/web/public/opengraph-image.png"
 

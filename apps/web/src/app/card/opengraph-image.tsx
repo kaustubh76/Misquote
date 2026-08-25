@@ -27,6 +27,22 @@ import { ImageResponse } from "next/og";
  * is a flex row or column and every child that could collapse carries an
  * explicit `display: flex`.
  *
+ * ## Why this lives under `card/` and not at the app root
+ *
+ * Directly under `src/app/`, a file with this name is the *metadata
+ * convention*, and Next
+ * wires it into `og:image` for every route — overriding `metadata.openGraph.
+ * images`, which is how the card ended up pointing at a URL that does not serve
+ * an image. Measured on the deployed host: the generated route answers
+ * `text/plain`, and with `trailingSlash: true` the un-slashed form is a 308 to
+ * a body served as `application/octet-stream`. A Vercel `Content-Type` header
+ * fixed neither, because the header matched the path that redirects.
+ *
+ * Under `card/` it is the OG image for a `/card` route that has no page, so
+ * nothing auto-wires and nothing links to it. `metadata.openGraph.images` in
+ * `layout.tsx` takes effect, pointing at the committed PNG below, which is
+ * verified serving `200 image/png` on the live host and locally.
+ *
  * ## Why there is also a PNG in `public/`
  *
  * This route exports as a file with **no extension**, and `make web-static`
@@ -36,7 +52,7 @@ import { ImageResponse } from "next/og";
  * document that they will not.
  *
  * So `apps/web/public/opengraph-image.png` is the copy the metadata points at,
- * and this file is the source it is generated from. `make og` regenerates it —
+ * and this file is the source it is generated from. `make og` regenerates it from here —
  * the output is byte-identical across builds, so a stale copy is a diff rather
  * than a mystery. Committing a generated file is the pattern this repository
  * already uses for `public/artifacts/*.json`.
