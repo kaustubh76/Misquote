@@ -1,5 +1,6 @@
 import { OverviewView } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
+import { artifactsBehindEngine } from "@/lib/stale";
 import { entryOf, type EvidenceEntry } from "@/components/EvidenceRail";
 import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
 
@@ -74,6 +75,7 @@ export default function OverviewPage() {
       initialIndex={readArtifact<IndexArtifact>("index.json")}
       initialBuild={readArtifact<BuildArtifact>("build.json")}
       evidence={evidence()}
+      behind={artifactsBehindEngine()}
     />
   );
 }

@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-25T09:46:07+00:00",
+  "generated_at": "2026-08-25T11:13:35+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --fast --json",
     "source": "local checks",
-    "generated_at": "2026-08-25T09:46:07+00:00",
-    "git_sha": "99a32f6",
-    "git_dirty": false
+    "generated_at": "2026-08-25T11:13:35+00:00",
+    "git_sha": "025af16",
+    "git_dirty": true
   },
   "mainnet": false,
   "fast": true,
@@ -18,7 +18,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 163 deselected, 1 warning in 2.14s",
+      "detail": "7 passed, 163 deselected, 1 warning in 3.41s",
       "remedy": "",
       "blocking": false
     },
@@ -90,7 +90,42 @@
       "status": "UNVERIFIED",
       "detail": "build.json is 1 engine commit(s) behind eb040ed; warden.json is 1 engine commit(s) behind eb040ed; grid.json is 1 engine commit(s) behind eb040ed; sentinel.json is 1 engine commit(s) behind eb040ed; advantage.json is 1 engine commit(s) behind 237c678; advantage_short.json is 1 engine commit(s) behind eb040ed",
       "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
-      "blocking": true
+      "blocking": true,
+      "data": {
+        "behind": [
+          {
+            "artifact": "build.json",
+            "recorded_sha": "eb040ed",
+            "commits": 1
+          },
+          {
+            "artifact": "warden.json",
+            "recorded_sha": "eb040ed",
+            "commits": 1
+          },
+          {
+            "artifact": "grid.json",
+            "recorded_sha": "eb040ed",
+            "commits": 1
+          },
+          {
+            "artifact": "sentinel.json",
+            "recorded_sha": "eb040ed",
+            "commits": 1
+          },
+          {
+            "artifact": "advantage.json",
+            "recorded_sha": "237c678",
+            "commits": 1
+          },
+          {
+            "artifact": "advantage_short.json",
+            "recorded_sha": "eb040ed",
+            "commits": 1
+          }
+        ],
+        "unstamped": []
+      }
     },
     {
       "name": "24h testnet burn-in",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdvantageView } from "./view";
 import type { AdvantageArtifact } from "@/lib/artifacts";
 import { readArtifact } from "@/lib/build-artifact";
+import { artifactsBehindEngine } from "@/lib/stale";
 import type { IndexedAgentRef } from "@/lib/counterpart";
 
 // A server component, so the title reaches the prerendered HTML. Every route
@@ -23,6 +24,7 @@ export default function Page() {
       initialMain={readArtifact<AdvantageArtifact>("advantage.json")}
       initialShort={readArtifact<AdvantageArtifact>("advantage_short.json")}
       initialAgents={readArtifact<{ agents?: IndexedAgentRef[] }>("index.json")?.agents}
+      behind={artifactsBehindEngine()}
     />
   );
 }

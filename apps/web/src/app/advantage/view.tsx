@@ -12,6 +12,7 @@ import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
+import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
 import { agentSlugFor, type IndexedAgentRef } from "@/lib/counterpart";
 import { count, fixed, isNum, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
@@ -20,7 +21,16 @@ export function AdvantageView({
   initialMain,
   initialShort,
   initialAgents,
+  behind = [],
 }: {
+  /**
+   * Artifacts generated before the engine changed, from `status.json`.
+   *
+   * Read on the server so the caveat is in the exported HTML beside the figures
+   * it qualifies, rather than appearing a moment after hydration on a page a
+   * reader may already have quoted from.
+   */
+  behind?: BehindEntry[];
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initialMain?: AdvantageArtifact;
   initialShort?: AdvantageArtifact;
@@ -116,6 +126,15 @@ export function AdvantageView({
         <>
           <div className="mt-8">
             <SourceBanner source={d.source} badge={d.badge} />
+            {/* Under the source banner, not above it. Which tape produced these
+                numbers changes what they mean; whether the engine has moved
+                since changes only how current they are, and the stronger claim
+                goes first. */}
+            <StaleNotice
+              behind={behind}
+              artifacts={["advantage.json", "advantage_short.json"]}
+              className="mb-8 -mt-4"
+            />
           </div>
 
           {/* ------------------------------------------------- the headline -- */}

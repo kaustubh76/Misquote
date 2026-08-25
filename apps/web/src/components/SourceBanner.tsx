@@ -69,11 +69,23 @@ export function SourceBanner({
             A <strong className="text-ink">generated</strong> tape — the shape of these
             results is real, the history is not.
           </>
-        ) : (
+        ) : pool ? (
           <>
             Replayed over indexed history for{" "}
             <span className="font-mono text-xs">{pool}</span>. No position was held.
           </>
+        ) : (
+          /* `pool` is optional and this branch used to render it regardless, so
+             a caller that had no single pool to name produced "Replayed over
+             indexed history for . No position was held." — a dangling
+             preposition and an empty mono span, on the chain branch, which is
+             the reassuring one.
+
+             `/advantage` is that caller and it is right not to pass one: its
+             four tasks run across two PancakeSwap pools and a Venus lending
+             market, and naming any of them would be naming a third of the
+             page. Every other call site has exactly one pool and passes it. */
+          <>Replayed over indexed history. No position was held.</>
         )}
         {/* The span goes in the same sentence as the source, because "synthetic"
             and "62.2 hours" are one qualification and a reader who takes only

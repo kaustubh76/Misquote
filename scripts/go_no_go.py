@@ -23,6 +23,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from misquote.tearsheet import provenance
 
@@ -48,6 +49,20 @@ class Check:
     status: str
     detail: str
     remedy: str = ""
+
+    #: Machine-readable findings, for a renderer that needs more than the prose.
+    #:
+    #: `detail` is a sentence for a terminal and for `/status`, and it is the
+    #: right shape there. It is the wrong shape for any other page: the engine
+    #: check builds "warden.json is 1 engine commit(s) behind eb040ed;
+    #: grid.json is 1 …", and a view that wanted to say "these figures predate
+    #: an engine change" beside the figures would have to parse that back —
+    #: a second implementation of a rule this file owns, drifting the moment
+    #: the wording changes.
+    #:
+    #: Omitted from the payload when absent, so a check that has nothing
+    #: structured to say does not publish an empty object suggesting it might.
+    data: dict[str, Any] | None = None
 
     @property
     def blocking(self) -> bool:
@@ -832,6 +847,7 @@ def check_artifact_freshness() -> Check:
     """
     stale: list[str] = []
     unstamped: list[str] = []
+    behind: list[dict[str, Any]] = []
 
     for name in REPLAY_ARTIFACTS:
         path = ARTIFACTS / name
@@ -858,6 +874,7 @@ def check_artifact_freshness() -> Check:
         commits = [line for line in out.splitlines() if line.strip()]
         if commits:
             stale.append(f"{name} is {len(commits)} engine commit(s) behind {sha}")
+            behind.append({"artifact": name, "recorded_sha": sha, "commits": len(commits)})
 
     if not stale and not unstamped:
         return Check(
@@ -873,6 +890,12 @@ def check_artifact_freshness() -> Check:
         detail,
         "regenerate them (`make showcase`, `make advantage`) — or accept that "
         "the published numbers describe an engine that has since changed",
+        # The same finding, structured, so a page can say it beside the figures
+        # rather than only in the checklist. `behind` is the actionable half —
+        # `unstamped` means we cannot tell, which is a different claim and is
+        # kept separate for the reason `vetting/badge.py` gives: unknown does
+        # not become pass, and it does not become fail either.
+        data={"behind": behind, "unstamped": unstamped},
     )
 
 
@@ -927,6 +950,7 @@ def to_payload(checks: list[Check], *, mainnet: bool, fast: bool) -> dict:
                 "detail": c.detail,
                 "remedy": c.remedy,
                 "blocking": c.blocking,
+                **({"data": c.data} if c.data else {}),
             }
             for c in checks
         ],

@@ -17,6 +17,7 @@ import { NotBuiltCard } from "@/components/Ledger";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
+import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
 import {
   load,
   loadAgents,
@@ -50,7 +51,10 @@ export function OverviewView({
   initialIndex,
   initialBuild,
   evidence,
+  behind = [],
 }: {
+  /** Artifacts generated before the engine changed. See `lib/stale`. */
+  behind?: BehindEntry[];
   /**
    * Read from disk at build time by `app/page.tsx`, so the landing page is not
    * a heading and a spinner in the exported HTML.
@@ -232,6 +236,17 @@ export function OverviewView({
             pool={index.value.pool}
           />
         )}
+
+        {/* Every card below is drawn from one of these four. `index.json` and
+            `build.json` carry no commit of their own and are stamped by proxy,
+            which `go_no_go.py` reports separately as unstamped rather than as
+            stale — so naming them here is what makes the notice cover the
+            agent cards the landing page actually renders. */}
+        <StaleNotice
+          behind={behind}
+          artifacts={["index.json", "build.json", "warden.json", "grid.json", "sentinel.json", "router.json"]}
+          className="mb-8"
+        />
 
         {index && !index.ok && (
           <ErrorNotice
