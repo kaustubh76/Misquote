@@ -199,3 +199,76 @@ def test_a_claimed_job_is_evidence_that_a_worker_exists(client: TestClient) -> N
         assert job_store.worker_last_seen(store) is not None
     finally:
         store.close()
+
+
+def test_the_quoted_duration_counts_the_replays_a_job_actually_runs() -> None:
+    """The estimate must use A15's window count, not the engine's.
+
+    Two window counts exist and both are right for their own question. The
+    sufficiency plan uses the engine's 20, because the floor it tests is whether
+    a *full* run could be quoted at all. A job runs
+    `quote_job.INTERACTIVE_WINDOWS`, which is 8.
+
+    Written first against the plan's, this promised 60 replays for work that is
+    24 — a caller told to expect two and a half times the arithmetic they will
+    get. A watched job is what caught it, reporting `7/24 replaying` against a
+    response quoting a plan of sixty, so the assertion is against the constant
+    the worker imports rather than against a number typed here.
+    """
+    from misquote.api.quote import replay_cost
+    from misquote.core.types import Params
+    from misquote.ops.quote_job import INTERACTIVE_WINDOWS
+    from misquote.replay.ranges import EVENTS_PER_SECOND, perturbations
+
+    check = {
+        "plan": {"windows": 20, "widest_window_hours": 120.0},
+        "tape": {"swaps": 60_853, "hours": 240.0},
+    }
+    cost = replay_cost(check)
+
+    expected_replays = INTERACTIVE_WINDOWS * len(perturbations(Params()))
+    assert cost["replays"] == expected_replays
+    assert cost["replays"] != check["plan"]["windows"] * len(perturbations(Params())), (
+        "the estimate is counting the sufficiency plan's windows again"
+    )
+
+    # Half the tape per window, times the replays, at the engine's own rate.
+    assert cost["events"] == int(expected_replays * 60_853 * 0.5)
+    assert cost["estimated_seconds"] == round(cost["events"] / EVENTS_PER_SECOND)
+
+
+def test_no_duration_is_quoted_when_the_tape_cannot_support_one() -> None:
+    """Absent, never guessed.
+
+    A duration is the field a caller is most likely to believe and the least
+    able to check. A pool with no swaps, no span or no window gets `None` and a
+    sentence saying so, rather than a confident zero.
+    """
+    from misquote.api.quote import _queued_note, replay_cost
+
+    for tape, plan in (
+        ({"swaps": 0, "hours": 240.0}, {"widest_window_hours": 120.0}),
+        ({"swaps": 500, "hours": 0.0}, {"widest_window_hours": 120.0}),
+        ({"swaps": 500, "hours": 240.0}, {"widest_window_hours": 0.0}),
+        ({}, {}),
+    ):
+        cost = replay_cost({"tape": tape, "plan": plan})
+        assert cost["estimated_seconds"] is None, (tape, plan)
+        assert cost["events"] is None
+
+    # And the sentence degrades with it rather than rendering "None seconds".
+    note = _queued_note(1_787_657_569, None)
+    assert "does not report enough to estimate" in note
+    assert "None" not in note
+
+
+def test_an_unattended_queue_is_reported_before_any_duration() -> None:
+    """A job behind no worker is not slow, it is unattended.
+
+    From outside the two are identical — `queued` either way — and the estimate
+    would make the unattended case read as a wait that ends.
+    """
+    from misquote.api.quote import _queued_note
+
+    assert "nothing has claimed a job" in _queued_note(None, 397)
+    assert "397" not in _queued_note(None, 397)

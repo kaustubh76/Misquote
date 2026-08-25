@@ -28,8 +28,11 @@ from misquote.api.preflight import assess
 from misquote.api.wallet import _valid
 from misquote.chain.addresses import known_pools_on, pool_by_address
 from misquote.chain.positions import PositionReader
+from misquote.core.types import Params
 from misquote.indexer.store import connect_readonly
 from misquote.ops import jobs
+from misquote.ops.quote_job import INTERACTIVE_WINDOWS
+from misquote.replay.ranges import EVENTS_PER_SECOND, perturbations
 
 DEFAULT_CHAIN_ID = 56
 
@@ -172,6 +175,8 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
             note=" · ".join(check["why_not"]),
         )
 
+    cost = replay_cost(check)
+
     store = jobs.connect()
     try:
         job_id = jobs.submit(
@@ -193,6 +198,11 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         "poll": f"/quote/job/{job_id}",
         "stream": f"/quote/job/{job_id}/stream",
         "preflight": check["plan"],
+        # The plan is the sufficiency check's, at the engine's 20 windows. This
+        # is the work the job will actually do, at A15's 8. Reported apart
+        # because they answer different questions and sharing a key would let
+        # one be read as the other.
+        "cost": cost,
         # Whether anything is draining the queue, reported at submit time.
         #
         # Without this the failure is silent and indistinguishable from a slow
@@ -201,13 +211,82 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         # provisioned it would show that indefinitely, and nothing in the
         # response would hint why.
         "worker_last_seen": last_seen,
-        "note": (
-            "Queued, not computed. A full run is hours of arithmetic, not seconds."
-            if last_seen
-            else "Queued — but nothing has claimed a job on this instance, so it may "
-            "sit here. Start a worker with `make api-worker`."
-        ),
+        # The note said "hours of arithmetic" for every pool. That was true of
+        # the 30-day tape the throughput was measured on and wrong by an order
+        # of magnitude for the ten-day slice a deploy carries, where the same
+        # plan is about a quarter of an hour. The plan knows its own size now,
+        # so the sentence is derived from it rather than fixed.
+        "note": _queued_note(last_seen, cost["estimated_seconds"]),
     }
+
+
+def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
+    """How much arithmetic this hire is, and roughly how long that takes.
+
+    ## The count is the job's, not the engine's
+
+    Written first against `check["plan"]["windows"]`, which is 20 — the engine's
+    default, and the number the *sufficiency* check is entitled to use, because
+    the floor it tests is about whether a full run could be quoted at all.
+
+    A job does not run twenty. `quote_job.INTERACTIVE_WINDOWS` is **8**, a
+    disclosed reduction published as A15, so a hire is 24 replays and the first
+    version of this estimate promised 60. A watched job settled it: it reported
+    `7/24 replaying` while the response had quoted a plan of sixty. Two window
+    counts exist for good reasons and this is the one that describes the work.
+
+    ## What the estimate covers, and what it does not
+
+    The replay arithmetic only. The same watched job spent **80 seconds loading
+    the tape** before the first replay — more than this whole estimate for a
+    thin pool — and nothing measures that rate, so it is named in the sentence
+    rather than folded into a number that would look precise and be wrong.
+
+    Absent rather than guessed when the tape cannot say: a duration is the field
+    most likely to be believed and least able to defend itself.
+    """
+    plan = check.get("plan") or {}
+    tape = check.get("tape") or {}
+    replays = INTERACTIVE_WINDOWS * len(perturbations(Params()))
+
+    swaps = tape.get("swaps")
+    hours = tape.get("hours") or 0.0
+    widest = plan.get("widest_window_hours") or 0.0
+    if not isinstance(swaps, int | float) or not swaps or hours <= 0 or widest <= 0:
+        return {"replays": replays, "events": None, "estimated_seconds": None}
+
+    events = int(replays * float(swaps) * (widest / hours))
+    return {
+        "replays": replays,
+        "events": events,
+        "estimated_seconds": round(events / EVENTS_PER_SECOND),
+    }
+
+
+def _queued_note(last_seen: int | None, seconds: int | None) -> str:
+    """What a caller is actually waiting for, in this pool's own numbers.
+
+    Three states, kept apart. Nothing draining is the one that matters most and
+    is reported first — a job behind no worker is not slow, it is unattended,
+    and the two look identical from outside.
+    """
+    if not last_seen:
+        return (
+            "Queued — but nothing has claimed a job on this instance, so it may sit "
+            "here. Start a worker with `make api-worker`."
+        )
+    if not seconds:
+        return (
+            "Queued, not computed. This tape does not report enough to estimate how "
+            "long the replay will take."
+        )
+    minutes = seconds / 60.0
+    span = f"{seconds}s" if seconds < 90 else f"about {minutes:.0f} minutes"
+    return (
+        f"Queued, not computed — {span} of replay once a worker claims it, plus "
+        "loading the tape. That is this pool's own event count against the engine's "
+        "measured throughput, not a fixed figure, and a slower host takes longer."
+    )
 
 
 def quote_job_status(job_id: str) -> dict[str, Any]:

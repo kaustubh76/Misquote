@@ -175,6 +175,25 @@ def rolling_windows(first_ts: int, last_ts: int, count: int) -> list[tuple[int, 
     return windows
 
 
+#: Replay throughput, in events per second, measured rather than assumed.
+#:
+#: Recorded on the 30-day WBNB/USDT tape: 60 replays of ~125,700 events each,
+#: 4.6 hours wall-clock for the four agents the showcase runs. 86% of that is
+#: the sigma estimator recomputing its whole ~841-bar window on every event,
+#: which is deliberate — making it incremental would change summation order and
+#: therefore change bits, and T1/L1 compare replay decisions bitwise.
+#:
+#: A named constant because `api/preflight.py` quotes a waiting caller an
+#: expected duration from it. It lived in `quote()`'s docstring, where a second
+#: copy would have had to be typed into the API and the two would have drifted.
+#:
+#: It is one machine's figure. A host with less CPU is slower and this will
+#: overstate what it can do, which is the safer direction for an estimate a
+#: reader is deciding whether to wait on — but it is an estimate, and the
+#: response says so.
+EVENTS_PER_SECOND = 1_839.0
+
+
 def perturbations(params: Params, fraction: float = 0.25) -> list[Params]:
     """Gamma and kappa at their nominal values and at +/- `fraction`.
 
@@ -366,7 +385,7 @@ def quote(
     incremental would change summation order and therefore change bits; running
     the same arithmetic on eight cores cannot.
 
-    Measured on the 30-day WBNB/USDT tape: 1,839 events/s, 60 replays of ~125,700
+    Measured on the 30-day WBNB/USDT tape: `EVENTS_PER_SECOND`, 60 replays of ~125,700
     events each, 4.6 hours for the four agents the showcase runs. 86% of that is
     the sigma estimator recomputing its whole ~841-bar window on every event.
     """
