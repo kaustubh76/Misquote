@@ -8,7 +8,8 @@ import { Card, CardHeader } from "@/components/Card";
 import { Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
-import { apiBase, loadLive, RefusalError } from "@/lib/api";
+import { AnsweredBy } from "@/components/AnsweredBy";
+import { apiBase, loadLive, RefusalError, type Source } from "@/lib/api";
 import { count, hours, isNum, pct } from "@/lib/format";
 import {
   isFinished,
@@ -86,7 +87,7 @@ interface Eligibility {
 type State =
   | { phase: "idle" }
   | { phase: "reading" }
-  | { phase: "done"; value: Eligibility }
+  | { phase: "done"; value: Eligibility; source: Source }
   | { phase: "refused"; error: RefusalError }
   | { phase: "failed"; message: string };
 
@@ -133,7 +134,7 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
     // answering a question nobody asked about an address nobody indexed.
     const got = await loadLive<Eligibility>(`/quote/eligibility/${wanted}`);
 
-    if (got.ok) return setState({ phase: "done", value: got.value });
+    if (got.ok) return setState({ phase: "done", value: got.value, source: got.source });
     if (got.error instanceof RefusalError) {
       return setState({ phase: "refused", error: got.error });
     }
@@ -226,15 +227,31 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
           />
         )}
 
-        {state.phase === "done" && <Result value={state.value} stream={stream} />}
+        {state.phase === "done" && (
+          <Result value={state.value} source={state.source} stream={stream} />
+        )}
       </div>
     </>
   );
 }
 
-function Result({ value, stream }: { value: Eligibility; stream?: StreamOptions }) {
+function Result({
+  value,
+  source,
+  stream,
+}: {
+  value: Eligibility;
+  source: Source;
+  stream?: StreamOptions;
+}) {
   return (
     <Section title="What this wallet holds" headingClassName="text-lg font-semibold">
+      {/* `loadLive` is called here with no fallback, deliberately — there is no
+          precomputed answer for a stranger's wallet — so this reads "answered
+          live" every time it renders at all. That is not a reason to omit it:
+          the claim a reader needs is that a service read their positions from
+          chain just now, and the alternative to seeing it is assuming it. */}
+      <AnsweredBy source={source} className="mt-2" />
       <p className="mt-2 mb-5 max-w-[62ch] text-sm text-dim">
         {value.held} position{value.held === 1 ? "" : "s"} at block{" "}
         <span className="tabular">{value.read_at_block.toLocaleString("en-US")}</span>.{" "}

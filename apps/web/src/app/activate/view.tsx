@@ -6,7 +6,8 @@ import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { Refusal } from "@/components/Refusal";
-import { loadLive } from "@/lib/api";
+import { AnsweredBy } from "@/components/AnsweredBy";
+import { loadLive, type Source } from "@/lib/api";
 
 interface Step {
   name: string;
@@ -47,6 +48,7 @@ interface Capability {
  */
 export function ActivateView() {
   const [cap, setCap] = useState<Capability | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -54,7 +56,10 @@ export function ActivateView() {
     (async () => {
       const got = await loadLive<Capability>("/sessions/capability");
       if (!live) return;
-      if (got.ok) setCap(got.value);
+      if (got.ok) {
+        setCap(got.value);
+        setSource(got.source);
+      }
       setChecked(true);
     })();
     return () => {
@@ -169,10 +174,17 @@ export function ActivateView() {
         <Column title="Needs a signature" items={cap?.needs_a_signer ?? ["grant", "revoke"]} />
       </div>
 
+      {/* This said "Read live from the activation endpoint" in prose — the same
+          claim `AnsweredBy` makes, hand-rolled here because the component did
+          not exist, and derived from `cap != null` rather than from the
+          `source` `loadLive` had already returned. Two ways of saying one thing,
+          and the prose one could not tell a live answer from a fallback. */}
       <p className="mt-8 mb-0 text-sm text-faint" role={checked ? undefined : "status"}>
-        {checked && cap
-          ? "Read live from the activation endpoint."
-          : "Standing description. The live endpoint says the same thing."}{" "}
+        {checked && source ? (
+          <AnsweredBy source={source} className="mr-2 align-baseline" />
+        ) : (
+          <>Standing description. The live endpoint says the same thing. </>
+        )}
         <Link href="/status">Readiness</Link> lists everything else that is and is
         not built.
       </p>
