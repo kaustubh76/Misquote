@@ -19,6 +19,51 @@ export const metadata: Metadata = {
   description:
     "Every other marketplace misquotes you. This one shows its math: P25–P75 ranges where every number traces to a published artifact, each page saying whether its tape was chain history or synthetic, and no number at all where the evidence is too thin.",
   other: { "color-scheme": "dark light" },
+
+  /**
+   * Where a relative image URL resolves from.
+   *
+   * `og:image` has to be absolute for a crawler to fetch it, and Next builds it
+   * against this. `NEXT_PUBLIC_SITE_URL` is a build-time value here and that is
+   * correct, unlike the API base — `lib/api.ts` explains at length why *that*
+   * one may not bake in, and the difference is real: the API host is a runtime
+   * property of a deployment a static export may be repointed at, and the
+   * canonical URL of that export is a property of the build itself. A demo
+   * served from `python3 -m http.server` gets the localhost default and an
+   * unfurl nobody was going to see anyway.
+   */
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+
+  /**
+   * The card a paste of this link unfurls into.
+   *
+   * There was none at all — no `og:*`, no `twitter:*` — so every share of this
+   * URL rendered as a bare link. On a project whose brief was to showcase
+   * itself, that is the one surface guaranteed to be seen before the site.
+   *
+   * `title` and `description` are not restated: the defaults above are the
+   * page's own, and a second copy is a second thing to keep true. The image
+   * comes from `opengraph-image.tsx`, which Next wires in by convention.
+   */
+  openGraph: {
+    type: "website",
+    siteName: "Misquote",
+    locale: "en",
+    // `/opengraph-image.png`, not the `/opengraph-image` route Next wires in by
+    // convention, and the extension is the entire reason. The generated route
+    // exports as a file with no suffix, and `make web-static` — the command a
+    // judge is told to run — serves it through `python3 -m http.server`, which
+    // types by extension and answers `application/octet-stream`. Slack and
+    // Discord sniff and cope; Twitter and LinkedIn are documented not to.
+    // Measured, not assumed: `curl -I` on the export returns exactly that.
+    images: ["/opengraph-image.png"],
+  },
+  twitter: {
+    // `summary_large_image`, because the card is a 1200×630 figure. `summary`
+    // would crop the band mark out of its own share card.
+    card: "summary_large_image",
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card og
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -337,6 +337,19 @@ api:  ## the artifact API in dev mode, http://localhost:8000
 
 web:  ## the front-end in dev mode, http://localhost:3000
 	cd apps/web && pnpm dev
+
+og:  ## regenerate the social card -> apps/web/public/opengraph-image.png
+	# `src/app/opengraph-image.tsx` is the source; this is the copy the metadata
+	# points at, and it exists only because the generated route exports without
+	# a file extension and `make web-static` serves it as octet-stream.
+	#
+	# Deterministic: the same tree renders the same bytes, so a stale card shows
+	# up as a diff rather than as a mystery. Same reason `public/artifacts/` is
+	# committed.
+	cd apps/web && NEXT_DIST_DIR=.next-og pnpm build >/dev/null
+	cp apps/web/.next-og/opengraph-image apps/web/public/opengraph-image.png
+	rm -rf apps/web/.next-og
+	@echo "  -> apps/web/public/opengraph-image.png"
 
 web-build:  ## static export -> apps/web/out (no node process needed to serve it)
 	cd apps/web && pnpm build
