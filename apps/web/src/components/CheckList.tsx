@@ -47,9 +47,7 @@ export function CheckList({ checks }: { checks: CheckRow[] }) {
   // reader's own filter, and the sentence says so.
   if (checks.length === 0) {
     return (
-      <p className="m-0 text-sm text-faint">
-        No checks here match the current filter.
-      </p>
+      <p className="m-0 text-sm text-dim">No checks here match the current filter.</p>
     );
   }
 

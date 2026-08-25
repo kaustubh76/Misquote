@@ -485,6 +485,7 @@ export function AgentDetail({
                 two differ by three orders of magnitude, and passing the wrong
                 one would put every gate at a fraction of a percent. */}
             <GateHistogram
+              caption={`${d.agent}: why the loop held`}
               blocks={d.activity.held_by_gate}
               total={d.activity.decisions}
             />

@@ -543,7 +543,24 @@ function RunProgress({ job }: { job: JobView }) {
           nothing, which is what "queued" means. */}
       {job.total > 0 ? (
         <>
-          <div className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
+          {/* A real `progressbar`, which this is the only genuinely determinate
+              long-running operation on the site to deserve. It had `aria-busy`
+              on the wrapper and a `role="status"` line above it, so a reader
+              was told something was happening and never how far along — while
+              `donePct` was already computed and spent only on a CSS width.
+
+              `aria-valuetext` as well as `aria-valuenow`, because "12 of 60
+              replays" is what the page says in words and a bare "20" is not.
+              The indeterminate branch below is deliberately not a progressbar:
+              it has no denominator to report. */}
+          <div
+            className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={job.total}
+            aria-valuenow={job.done}
+            aria-valuetext={`${count(job.done)} of ${count(job.total)} replays`}
+          >
             <div
               className="h-full rounded-full bg-brand transition-[width] duration-[var(--dur-3)] ease-band"
               style={{ width: `${donePct}%` }}

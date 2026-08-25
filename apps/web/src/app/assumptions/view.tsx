@@ -284,7 +284,7 @@ export function AssumptionsView({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="e.g. P-1, or protocol fee"
-                  className="mt-1 w-full rounded-sm border border-glass-line bg-glass px-2.5 py-1.5 text-sm text-ink transition-colors placeholder:text-faint focus:border-brand"
+                  className="mt-1 w-full rounded-sm border border-glass-line bg-glass px-2.5 py-1.5 text-sm text-ink transition-colors placeholder:text-faint focus:border-brand focus:shadow-[inset_3px_0_0_0_var(--brand)]"
                 />
               </div>
             </div>
@@ -463,7 +463,7 @@ function EntryCard({
       // span, a table cell — then pushes the whole card wider than its column
       // and the document scrolls sideways at 390px.
       className={[
-        "scroll-anchor min-w-0 rounded-lg border bg-glass p-6",
+        "surface scroll-anchor min-w-0 rounded-lg border bg-glass p-6",
         landed ? "border-accent ring-1 ring-accent" : "border-glass-line target:border-accent",
       ].join(" ")}
     >

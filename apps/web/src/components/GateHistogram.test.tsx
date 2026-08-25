@@ -16,7 +16,7 @@ describe("a bar means a share of decisions, not a share of the tallest bar", () 
     // three full-width bars saying "every gate blocked every decision", when
     // two decisions in three is the truth.
     const { container } = render(
-      <GateHistogram blocks={{ R1: 115, R2: 115, R3: 115 }} total={175} />,
+      <GateHistogram caption="Why the loop held" blocks={{ R1: 115, R2: 115, R3: 115 }} total={175} />,
     );
 
     expect(barWidths(container)).toEqual([
@@ -27,7 +27,7 @@ describe("a bar means a share of decisions, not a share of the tallest bar", () 
   });
 
   it("writes the denominator next to the count", () => {
-    render(<GateHistogram blocks={{ R1: 115 }} total={175} />);
+    render(<GateHistogram caption="Why the loop held" blocks={{ R1: 115 }} total={175} />);
     // "115" alone invites the reader to supply a denominator, and the nearest
     // number on the page is the replay's 44,802 — a different run entirely.
     expect(screen.getByText("115 of 175")).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe("a bar means a share of decisions, not a share of the tallest bar", () 
     // R1+R2+R3 = 345 against 175 decisions. Gates are not exclusive: one
     // decision can trip several. Nothing may render a total or a stacked bar.
     const { container } = render(
-      <GateHistogram blocks={{ R1: 115, R2: 115, R3: 115 }} total={175} />,
+      <GateHistogram caption="Why the loop held" blocks={{ R1: 115, R2: 115, R3: 115 }} total={175} />,
     );
     expect(container.textContent).not.toContain("345");
     expect(container.textContent).not.toMatch(/100%/);
@@ -47,7 +47,7 @@ describe("a bar means a share of decisions, not a share of the tallest bar", () 
 
 describe("when there is no denominator", () => {
   it("falls back to relative scaling and says that it has", () => {
-    const { container } = render(<GateHistogram blocks={{ R1: 115, R2: 40 }} />);
+    const { container } = render(<GateHistogram caption="Why the loop held" blocks={{ R1: 115, R2: 40 }} />);
 
     expect(barWidths(container)).toEqual(["100%", "34.78260869565217%"]);
     // A relative chart and an absolute one are pixel-identical. The difference
@@ -57,7 +57,7 @@ describe("when there is no denominator", () => {
   });
 
   it("treats a zero total as unknown rather than dividing by it", () => {
-    const { container } = render(<GateHistogram blocks={{ R1: 5 }} total={0} />);
+    const { container } = render(<GateHistogram caption="Why the loop held" blocks={{ R1: 5 }} total={0} />);
     expect(barWidths(container)).toEqual(["100%"]);
     expect(screen.getByText(/scaled to the largest gate/)).toBeInTheDocument();
   });
@@ -65,7 +65,7 @@ describe("when there is no denominator", () => {
 
 describe("no journal at all", () => {
   it("says there is nothing to attribute, rather than drawing an empty chart", () => {
-    render(<GateHistogram blocks={{}} total={0} />);
+    render(<GateHistogram caption="Why the loop held" blocks={{}} total={0} />);
     expect(screen.getByText(/wrote no decision journal/)).toBeInTheDocument();
   });
 });

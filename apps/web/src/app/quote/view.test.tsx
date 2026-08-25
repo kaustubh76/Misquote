@@ -183,6 +183,11 @@ describe("a queued job draws no denominator it has not been given", () => {
     // rename that broke the reduced-motion contract would be silent otherwise.
     expect(container.querySelector(".shuttle")).not.toBeNull();
 
+    // No `progressbar` while there is no denominator to report: an
+    // indeterminate bar that claimed a value would be claiming the total it
+    // was written to avoid claiming.
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
     status = {
       status: "running",
       progress: { done: 12, total: 60, phase: "replaying" },
@@ -192,6 +197,14 @@ describe("a queued job draws no denominator it has not been given", () => {
     // Two bars, two claims. Once there is a denominator the indeterminate one
     // must be gone, or the page asserts both at once.
     expect(container.querySelector(".shuttle")).toBeNull();
+
+    // The determinate one is a real progressbar. This is the only genuinely
+    // determinate long-running operation on the site, and `aria-valuetext`
+    // carries the sentence the page shows rather than a bare percentage.
+    const bar = screen.getByRole("progressbar");
+    expect(bar).toHaveAttribute("aria-valuenow", "12");
+    expect(bar).toHaveAttribute("aria-valuemax", "60");
+    expect(bar).toHaveAttribute("aria-valuetext", "12 of 60 replays");
   });
 });
 

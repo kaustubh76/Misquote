@@ -41,16 +41,36 @@ const GATE_MEANING: Record<string, string> = {
 export function GateHistogram({
   blocks,
   total,
+  caption,
 }: {
   blocks: Record<string, number>;
   /** Decisions the journal recorded. Omit only when it is genuinely unknown. */
   total?: number;
+  /**
+   * What the figure is, for a reader who cannot see it.
+   *
+   * This component was the one member of the chart family that was neither
+   * named nor deliberately hidden: `CostBars` and `ShareIntervals` are a
+   * `figure` with `role="group"`, `FloorGauge` is a `role="img"` with a
+   * sentence, and `AgentComparison` is explicitly `aria-hidden` because its
+   * numbers are written out beside it. This was a bare fragment, so its bars
+   * announced as nothing at all.
+   */
+  caption: string;
 }) {
   const entries = Object.entries(blocks).sort(([a], [b]) => a.localeCompare(b));
 
   if (entries.length === 0) {
+    // Hatched, at `--hatch-none`. Nothing was ever recorded here — no journal
+    // was written — which is the "never existed" half of this site's texture
+    // for absence, not the "evidence fell short" half. It was a bare grey
+    // paragraph while the vocabulary for exactly this case was one class away.
     return (
-      <p className="text-sm text-faint">
+      <p
+        className="hatched m-0 rounded-sm border border-dashed border-line-strong p-4 text-sm text-faint [--hatch-tone:var(--hatch-none)]"
+        role="img"
+        aria-label={`${caption}: no decision journal was recorded, so no hold can be attributed to a gate.`}
+      >
         No gate blocks recorded — this replay wrote no decision journal, so there is
         nothing to attribute holds to.
       </p>
@@ -62,7 +82,7 @@ export function GateHistogram({
   const relative = !(total && total > 0);
 
   return (
-    <>
+    <figure className="m-0" role="group" aria-label={caption}>
       <ul className="m-0 list-none space-y-2 p-0">
         {entries.map(([gate, n]) => (
           <li key={gate}>
@@ -95,6 +115,6 @@ export function GateHistogram({
           &ldquo;every time&rdquo;.
         </p>
       )}
-    </>
+    </figure>
   );
 }
