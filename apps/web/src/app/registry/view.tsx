@@ -13,6 +13,7 @@ import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
+import { RegistrySearch } from "@/components/RegistrySearch";
 import { load, type Loaded } from "@/lib/artifacts";
 import { count, fixed, isNum, shortAddress } from "@/lib/format";
 
@@ -698,10 +699,30 @@ export function RegistryView({
             )}
 
             {d.identity.surveyed && (d.identity.agents?.length ?? 0) > 0 && (
-              <ThirdPartyListings
-                agents={d.identity.agents ?? []}
-                population={d.identity.population}
-              />
+              <>
+                <ThirdPartyListings
+                  agents={d.identity.agents ?? []}
+                  population={d.identity.population}
+                />
+                {/* The cards above are `identity.listings_shown` of
+                    `identity.sampled` — twenty-four of four hundred on the
+                    artifact this was written against. The rest were read and
+                    scored and were reachable only through `/registry/agents`,
+                    which nothing had ever called. */}
+                <Card className="mt-4">
+                  <CardHeader
+                    title="The rest of the survey"
+                    eyebrow="live"
+                    aside={
+                      <Pill tone="info">
+                        {count(d.identity.listings_shown)} of {count(d.identity.sampled)}{" "}
+                        published
+                      </Pill>
+                    }
+                  />
+                  <RegistrySearch published={d.identity.listings_shown ?? 0} />
+                </Card>
+              </>
             )}
 
             {/* Two counts of the same registry, and the gap between them is
