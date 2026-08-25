@@ -13,11 +13,23 @@
 # public endpoints, and when none answers they refuse at 503 saying so — the
 # service comes up either way, and says which it is.
 #
-# **It reads the tape.** `/tape`, `/quote/preflight` and every replay open
-# `data/misquote.db`, which is 256MB and **is not in this repository**. A
-# deploy without it serves the artifact routes normally and refuses the tape
-# routes at 503 with `make indexer` as the remedy. That is a working deployment
-# of a smaller thing, not a broken one.
+# **It reads the tape.** `/tape`, `/quote/preflight`, `/quote/eligibility` and
+# every replay open a database. The indexed one, `data/misquote.db`, is 245MB
+# and gitignored, so for the life of this blueprint those routes came up 503 on
+# every host that was not the author's laptop — a third of the service
+# permanently refusing, in a deployment nobody had run.
+#
+# `DB_PATH` below points instead at `data/deploy/tape.db`, which **is** in this
+# repository: 31MB holding the last ten days of all three verified pools, cut by
+# `make tape-slice`. It is a subset, and it is a subset that says so — the
+# `covered` rows are intersected with the window, so the coverage this deploy
+# reports is coverage it actually holds. `tests/api/test_tape_slice.py` asserts
+# both directions of that.
+#
+# Ten days rather than the full thirty because of `MIN_HOURS_TO_ANNUALISE`,
+# which is seven: below it a quote states the period it covers instead of an
+# annual rate. Ten clears it with margin and fits in a checkout; thirty is
+# 105MB and does not.
 #
 # **It writes.** `POST /quote` creates a job in `data/jobs.db`. On an instance
 # with no disk that database lives on ephemeral storage and is lost on restart,
@@ -81,6 +93,10 @@ services:
       # committed blueprint would put a credential in git.
       - key: BSC_RPC_URL
         sync: false
+      # The committed slice, not the 245MB tape — see above. Relative to the
+      # repo root, which is the working directory the start command runs from.
+      - key: DB_PATH
+        value: data/deploy/tape.db
 
 # The worker that actually runs a replay. Commented out rather than deleted:
 # Render background workers require a paid plan, and a blueprint that declared

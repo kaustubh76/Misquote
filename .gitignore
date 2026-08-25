@@ -34,6 +34,13 @@ data/*.db-wal
 data/*.db-shm
 data/cache/
 
+# The deployed tape slice is committed — `data/*.db` above matches direct
+# children only, so it is tracked without a negation. Its WAL sidecars are not:
+# anything that opens it read-write leaves them, including `make api` and the
+# suite.
+data/deploy/*.db-wal
+data/deploy/*.db-shm
+
 # ops
 ops/KILL
 

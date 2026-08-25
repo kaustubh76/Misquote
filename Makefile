@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card og
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card og
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -98,6 +98,13 @@ indexer:  ## backfill the target pool. usage: make indexer POOL=0x...
 	# Resumes from the ranges nobody has read, not from a cursor, so re-running
 	# after a failure fills the holes rather than appending past them.
 	$(UV) run python -u -m misquote.indexer.backfill --pool $(POOL)
+
+tape-slice:  ## the deployable tape: the last N days of every verified pool
+	# `data/misquote.db` is 245MB and gitignored, and Render deploys from a
+	# checkout — so without this the API's tape and quote routes come up 503 on
+	# every host that is not this laptop. Writes data/deploy/tape.db, which is
+	# committed, and refuses if the slice would claim coverage it does not hold.
+	$(UV) run python scripts/slice_tape.py
 
 indexer-follow:  ## follow the pool forward at a rate free endpoints tolerate
 	# The same read as the backfill, one chunk per poll. BSC produces a
