@@ -76,16 +76,29 @@ export interface VettingArtifact {
   chain_id: number;
   badge_dir: string;
   pools: VettingPool[];
+  /**
+   * The emitter's own rollup of `vetting.json`.
+   *
+   * Only what this page reads. It declared six more — `unbadged`, `cleared`,
+   * `blocked`, `checks`, `unknown_checks`, `failed_checks` — and read none of
+   * them: the first three never were, and the last three were deliberately
+   * abandoned when the rollup started counting off the checks the page
+   * actually renders rather than off two files. Leaving them declared
+   * advertised six fields the page had decided were the wrong thing to draw,
+   * which is the same defect one layer down as publishing a field nothing
+   * reads.
+   *
+   * `verdicts` is the opposite case and is declared now: the emitter publishes
+   * a per-verdict tally and the strip above reconstructs it by hand from
+   * `everyCheck`. It stays reconstructed — the strip has to agree with the
+   * list under it, and only the rendered checks can promise that — but the
+   * field being on the wire and off the type is what made it invisible.
+   */
   summary: {
     pools: number;
     badged: number;
-    unbadged?: number;
-    cleared?: number;
-    blocked?: number;
-    checks?: number;
-    unknown_checks?: number;
-    failed_checks?: number;
     worst?: string;
+    verdicts?: Record<string, number>;
   };
   // `Build`, not a local restatement of it. The hand-written version here
   // declared no `git_dirty`, so the field was dropped at the type boundary and
@@ -287,9 +300,9 @@ export function VettingView({
   const worstVerdict =
     verdicts.sort((x, y) => RANK.indexOf(y) - RANK.indexOf(x))[0] ?? "UNKNOWN";
 
-  // The pool counts are optional on the artifact, so each is defaulted rather
-  // than asserted — an emitter that stops publishing one should subtract from
-  // the rollup, not blank the page.
+  // `pools` is the pool block, or nothing when the run was not surveyed. It
+  // used to be six defaulted counts feeding the rollup; the rollup counts the
+  // rendered checks now, so the only survivor is the pool total.
   const pools = d?.surveyed ? d.summary : null;
   // Counted off the checks this page renders, not off the `summary` blocks.
   //

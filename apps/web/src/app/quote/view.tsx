@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Band } from "@/components/Band";
 import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
-import { Heading, Section } from "@/components/Heading";
+import { Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { apiBase, loadLive, RefusalError } from "@/lib/api";
@@ -287,18 +287,31 @@ function Result({ value, stream }: { value: Eligibility; stream?: StreamOptions 
         </div>
       )}
 
-      <Heading className="mt-8 mb-2 text-md font-semibold">Run one</Heading>
-      <p className="m-0 mb-4 max-w-[62ch] text-sm text-dim">
-        A replay is minutes of arithmetic, not milliseconds, and it needs a worker
-        draining the queue (<code className="font-mono text-xs">make api-worker</code>).
-        Progress below is the job&rsquo;s own event log, so closing this page does
-        not lose it — reopening replays from where it got to.
-      </p>
-      {value.holdings
-        .filter((h) => h.quotable)
-        .map((h) => (
-          <QuoteRun key={h.pool} pool={h.pool} label={h.label} stream={stream} />
-        ))}
+      {/* A `Section`, like the other two on this page. It was a bare `Heading`
+          followed by an intro paragraph followed by a list of cards, which is
+          the shape `Section` exists for — so it carried no `TickRule`, and its
+          heading level came from context rather than from a section that would
+          deepen it, leaving "Run one" at the same depth as the pool cards
+          underneath it. */}
+      <Section
+        title="Run one"
+        className="mt-8"
+        headingClassName="mb-2 text-md font-semibold"
+        intro={
+          <>
+            A replay is minutes of arithmetic, not milliseconds, and it needs a worker
+            draining the queue (<code className="font-mono text-xs">make api-worker</code>).
+            Progress below is the job&rsquo;s own event log, so closing this page does
+            not lose it — reopening replays from where it got to.
+          </>
+        }
+      >
+        {value.holdings
+          .filter((h) => h.quotable)
+          .map((h) => (
+            <QuoteRun key={h.pool} pool={h.pool} label={h.label} stream={stream} />
+          ))}
+      </Section>
     </Section>
   );
 }

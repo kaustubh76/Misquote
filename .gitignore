@@ -42,3 +42,7 @@ ops/KILL
 # Scratch files. Several one-off screenshot and probe scripts have been
 # committed by accident from apps/web/scripts/ during UI work.
 _*.mjs
+
+# TypeScript incremental build cache. Tracked for months and churning in every
+# diff before anyone noticed.
+apps/web/tsconfig.tsbuildinfo

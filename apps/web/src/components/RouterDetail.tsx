@@ -57,7 +57,18 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
     { id: "quote", label: "Quote" },
     { id: "boundary", label: "Boundary" },
     ...(adv ? [{ id: "advantage", label: "vs DIY" }] : []),
+    ...(data.cost_model ? [{ id: "costs", label: "Costs" }] : []),
     { id: "venues", label: "Venues" },
+    // Rendered, anchored, and omitted from this list for one commit — which is
+    // the *other* half of the bug the comment above claims credit for fixing.
+    // `AgentDetail` listed four of six and skipped the middle of its own page;
+    // this listed five of seven and did the same thing, three lines under a
+    // note about not doing it. A rail built from a hand-written list is a rail
+    // that drifts from its page; both are now written beside the condition that
+    // draws the section.
+    ...(Object.keys(data.params).length > 0
+      ? [{ id: "parameters", label: "Parameters" }]
+      : []),
     ...(data.provenance ? [{ id: "provenance", label: "Provenance" }] : []),
   ];
 
@@ -277,7 +288,11 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
       )}
 
       {data.cost_model && (
-        <Section title="What a move costs" intro="Every input is a reading, or says it is not.">
+        <Section
+          id="costs"
+          title="What a move costs"
+          intro="Every input is a reading, or says it is not."
+        >
           <Card>
             <DataTable
               caption="The cost inputs behind the hurdle, and where each came from"

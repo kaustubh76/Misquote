@@ -398,10 +398,8 @@ export function RegistryView({
 
       {d && (
         <>
-          {/* 915 lines and five sections, the second-longest route here.
-              `SectionRail`'s own docstring justifies itself with "575 lines and
-              five sections", and this page is both longer and denser and had no
-              way through it.
+          {/* Five sections and the second-longest route on the site by body
+              text, and it had no way through it.
 
               Not added to `/advantage` or `/status` in the same pass: two
               sections each, both reachable in a screen or two, and a two-pill

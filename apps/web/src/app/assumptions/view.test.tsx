@@ -33,13 +33,32 @@ async function loaded() {
 
 const index = () => screen.getByRole("navigation", { name: "Assumptions index" });
 
+/**
+ * The index's links to *entries*, as against its links to sections.
+ *
+ * These assertions used to read every link in the index and assume it was an
+ * entry, which was true while the index listed nothing else. It also lists the
+ * named sections now — they were the only content on the page unreachable from
+ * it — and those are deliberately not filtered, because a verdict filter
+ * narrows entries and a section is not an entry.
+ *
+ * Scoped by id rather than by a test-only attribute: the ids are the artifact's
+ * own, so this cannot drift from what the page links to.
+ */
+const entryLinks = () => {
+  const ids = new Set(sheet().entries.map((e) => e.id));
+  return within(index())
+    .getAllByRole("link")
+    .filter((a) => ids.has((a.getAttribute("href") ?? "").slice(1)));
+};
+
 describe("the index says what each entry is, not just that it exists", () => {
   it("gives every entry its title, not a bare id", async () => {
     // It was 48 chips reading "A1 A2 A3 …" in one flat run, on a page of about
     // 19,000px. An id alone is nothing to recognise, and the artifact has
     // carried the title all along.
     await loaded();
-    const links = within(index()).getAllByRole("link");
+    const links = entryLinks();
     expect(links).toHaveLength(sheet().entries.length);
 
     for (const entry of sheet().entries) {
@@ -66,6 +85,33 @@ describe("the index says what each entry is, not just that it exists", () => {
   });
 });
 
+describe("the index reaches everything on the page", () => {
+  it("links the named sections, not only the entries", async () => {
+    // These five were the only blocks on the page the index never reached, so
+    // a reader could jump to any of seventy assumptions and to none of the
+    // sections that frame them.
+    await loaded();
+    for (const [key, blocks] of Object.entries(sheet().sections)) {
+      if (blocks.length === 0) continue;
+      const link = within(index())
+        .getAllByRole("link")
+        .find((a) => a.getAttribute("href") === `#${key}`);
+      expect(link, `no index link for section ${key}`).toBeDefined();
+    }
+  });
+
+  it("anchors a section on its own heading, not below it", async () => {
+    // The anchor was a `<span id>` inside the Card, under the title — so a
+    // deep link landed past the heading of the thing it linked to. `Section`'s
+    // own `id` prop puts it on the `<section>` and brings `.scroll-anchor`.
+    await loaded();
+    const [key] = Object.entries(sheet().sections).find(([, b]) => b.length > 0)!;
+    const target = document.getElementById(key)!;
+    expect(target.tagName).toBe("SECTION");
+    expect(target.className).toContain("scroll-anchor");
+  });
+});
+
 describe("the filter", () => {
   it("narrows to one kind and says how many are left", async () => {
     const user = userEvent.setup();
@@ -79,7 +125,7 @@ describe("the filter", () => {
         screen.getByText(`Showing ${defects.length} of ${sheet().entries.length} entries.`),
       ).toBeInTheDocument(),
     );
-    expect(within(index()).getAllByRole("link")).toHaveLength(defects.length);
+    expect(entryLinks()).toHaveLength(defects.length);
   });
 
   it("announces the count in a live region, since the cards it removes are below the fold", async () => {
@@ -98,7 +144,7 @@ describe("the filter", () => {
     await loaded();
     await user.type(screen.getByLabelText(/Filter by id or title/), "P-1");
 
-    const links = within(index()).getAllByRole("link");
+    const links = entryLinks();
     expect(links.length).toBeGreaterThan(0);
     // P-1, P-10, P-11 all contain "P-1"; none of the A-series does.
     for (const link of links) expect(link.getAttribute("href")).toMatch(/^#P-1/);

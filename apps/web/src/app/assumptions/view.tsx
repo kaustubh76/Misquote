@@ -318,7 +318,7 @@ export function AssumptionsView({
                             <li key={e.id} className="min-w-0">
                               <a
                                 href={`#${e.id}`}
-                                className="flex min-w-0 gap-2 py-0.5 text-sm text-dim no-underline hover:text-accent"
+                                className="flex min-w-0 gap-2 py-0.5 text-sm text-dim no-underline hover:text-brand"
                               >
                                 <span className="shrink-0 font-mono text-xs text-warn">
                                   {e.id}
@@ -330,6 +330,36 @@ export function AssumptionsView({
                       </ul>
                     </div>
                   ))}
+
+                {/* The named sections, which this index omitted entirely.
+                    They are the only blocks on the page that are not entries,
+                    so iterating `shown` never reached them — a reader could
+                    jump to any of seventy assumptions and to none of the five
+                    sections that frame them. Kept visually apart from the
+                    kind groups above, because they are a different kind of
+                    destination, and not filtered: a verdict filter narrows
+                    entries and these are not entries. */}
+                {Object.entries(d.sections).some(([, b]) => b.length > 0) && (
+                  <div className="mt-4 border-t border-line pt-3">
+                    <p className="m-0 font-mono text-xs tracking-wide text-faint uppercase">
+                      Sections
+                    </p>
+                    <ul className="mt-1.5 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
+                      {Object.entries(d.sections)
+                        .filter(([, blocks]) => blocks.length > 0)
+                        .map(([key]) => (
+                          <li key={key} className="min-w-0">
+                            <a
+                              href={`#${key}`}
+                              className="text-sm text-dim capitalize no-underline hover:text-brand"
+                            >
+                              {key.replace(/_/g, " ")}
+                            </a>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
               </nav>
             )}
           </div>
@@ -372,19 +402,28 @@ export function AssumptionsView({
             </Section>
           )}
 
-          {/* The named sections carry no id in the artifact and had none here
-              either, so they were the only content on the page unreachable by
-              anchor — and absent from the index for the same reason. */}
+          {/* The named sections carry no id in the artifact, so the id is the
+              key and it goes on the `<section>` — via `Section`'s own `id`
+              prop, which brings `.scroll-anchor` with it.
+
+              It was a `<span id>` *inside* the Card, below the heading, so a
+              deep link to one of these landed past the title of the thing it
+              was linking to. The comment here used to say these sections were
+              "the only content on the page unreachable by anchor — and absent
+              from the index for the same reason", as though both halves had
+              been fixed. Only the first had. The index below iterates the
+              entries and never these, which is the second half, and it is
+              fixed in the same pass. */}
           {Object.entries(d.sections).map(([key, blocks]) =>
             blocks.length === 0 ? null : (
               <Section
                 key={key}
+                id={key}
                 className="mt-10"
                 headingClassName="mb-5 text-lg font-semibold capitalize"
                 title={key.replace(/_/g, " ")}
               >
                 <Card>
-                  <span id={key} className="scroll-anchor block" />
                   <Blocks blocks={blocks} />
                 </Card>
               </Section>

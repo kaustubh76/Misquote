@@ -118,9 +118,10 @@ export function AgentComparison({
                   to, because the amounts are right there.
 
                   The track is hatched like every other empty track — `CostBars`,
-                  `GateHistogram` and both `/quote` bars. It was the last
-                  `bg-neutral-bg` left, which made it the one place an empty
-                  track meant nothing in particular. */}
+                  `GateHistogram` and both `/quote` bars. It was the last bar
+                  *track* on `bg-neutral-bg`, which made it the one place an
+                  empty track meant nothing in particular. The token itself is
+                  still in use as a fill, on pills and chips. */}
               <div
                 aria-hidden="true"
                 className="hatched relative mt-1.5 h-2 w-full overflow-hidden rounded-full border border-glass-line"

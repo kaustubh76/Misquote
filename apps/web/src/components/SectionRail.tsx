@@ -1,10 +1,18 @@
 /**
  * In-page links for a page that does not fit on a screen.
  *
- * `src/components/AgentDetail.tsx` is 575 lines and renders five sections; a
- * judge deep-linking to a tearsheet arrives at the top of all of them with no
- * indication that the provenance block they were sent for is four screens
- * down. This is that page's own table of contents.
+ * A judge deep-linking to a long route arrives at the top of it with no
+ * indication that the block they were sent for is four screens down.
+ *
+ * Four call sites now — both halves of `/agent/[slug]`, `/vetting` and
+ * `/registry` — so this is no longer "that page's table of contents". The
+ * threshold is whether a reader can lose a section: `/advantage` and `/status`
+ * have two each, both reachable in a screen, and a two-pill rail is chrome
+ * rather than navigation.
+ *
+ * No line count here on purpose. This docstring used to cite one, `/registry`
+ * quoted it back to justify itself, and by then the file had grown past it —
+ * one number restated in two places, wrong in both.
  *
  * Two decisions worth stating.
  *
