@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Band } from "@/components/Band";
+import { AgentJournal } from "@/components/AgentJournal";
 import { BuildStamp } from "@/components/BuildStamp";
 import { Card } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
@@ -400,6 +401,12 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
           </ul>
         </Card>
       </Section>
+
+      {/* Live, so it renders nothing on the static export and needs no rail
+          entry — see its own docstring. Placed after the replay sections and
+          before the stamp: it is the last piece of evidence on the page and it
+          is about a different run from everything above it. */}
+      <AgentJournal agent="router" />
 
       {data.build && <BuildStamp className="mt-10" build={data.build} />}
     </div>

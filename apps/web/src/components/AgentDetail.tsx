@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Section } from "@/components/Heading";
+import { AgentJournal } from "@/components/AgentJournal";
 import { SectionRail } from "@/components/SectionRail";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
@@ -606,6 +607,12 @@ export function AgentDetail({
           </ul>
         </Card>
       </Section>
+
+      {/* Only warden and router have ever written one; `agent_names()` reads
+          the directory rather than the four agents we ship, and this renders
+          nothing for an agent with no journal rather than a section reading
+          zero. Live, so it adds no anchor and no rail entry. */}
+      <AgentJournal agent={slug} />
     </div>
   );
 }

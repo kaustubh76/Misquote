@@ -1,0 +1,224 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AnsweredBy } from "@/components/AnsweredBy";
+import { Section } from "@/components/Heading";
+import { Pill } from "@/components/Pill";
+import { loadLive, type Source } from "@/lib/api";
+import { count, EMPTY, hours, pct, timestamp } from "@/lib/format";
+
+/**
+ * One line of the journal — and not every line is a decision.
+ *
+ * The warden writes lifecycle rows too: four of its 181 are
+ * `{event: "run_start", chain_id, head_block, poll_seconds, …}` with no `ts`
+ * and no `action` at all. `read_journal` already knows this, which is why its
+ * summary reports `rows` and `decisions` as separate numbers.
+ *
+ * Both fields are therefore optional here. Typing `ts: number` did not make it
+ * one: `new Date(undefined * 1000).toISOString()` throws `RangeError: Invalid
+ * time value`, and because this renders inside the page rather than beside it,
+ * that took the whole of `/agent/warden` down — a blank route, in all three
+ * viewports, from a component that renders nothing at all when the API is
+ * absent.
+ */
+interface Row {
+  ts?: number;
+  action?: string;
+  reasons?: Record<string, number>;
+}
+
+interface Summary {
+  rows: number;
+  decisions: number;
+  holds: number;
+  mints: number;
+  rebalances: number;
+  pulls: number;
+  errors: number;
+  executed: number;
+  first_ts?: number | null;
+  last_ts?: number | null;
+}
+
+interface Journal {
+  agent: string;
+  total_rows: number;
+  unparsed_rows: number;
+  returned: number;
+  summary: Summary;
+  rows: Row[];
+}
+
+const SECONDS_PER_HOUR = 3600;
+
+/** How many of the newest decisions to render. The route's own tail is larger. */
+const SHOWN = 8;
+
+/**
+ * What the live agent actually did, as distinct from what the replay found.
+ *
+ * Every figure on an agent's tearsheet comes from replaying its policy over
+ * recorded history. None of it is a record of the agent *running* — and one
+ * does exist: `data/journal/<agent>.jsonl` is append-only, is the tearsheet's
+ * only input, and is served row by row at `/journal/{agent}` by a module whose
+ * docstring explains that it deliberately does not summarise, because a summary
+ * here would be a second implementation of `read_journal` and the two would
+ * disagree. Nothing had ever fetched it.
+ *
+ * It is also the evidence behind a gate that is currently red. `/status`
+ * reports the 24-hour testnet burn-in as UNVERIFIED with the detail "journal
+ * covers 0.2h across 181 rows" — a blocking gate whose subject had no surface
+ * anywhere on the site.
+ *
+ * This is that surface, and it will not always agree with that sentence: the
+ * gate is a recording of one `make status` run and this is a live read of the
+ * file that run measured. On the tree this was written against they differ by
+ * three orders of magnitude, because the journal kept being appended to and
+ * `status.json` did not. The disagreement is the useful part — it is visible
+ * here and nowhere else — so this reports what the file says now and does not
+ * try to reconcile itself with a snapshot.
+ *
+ * ## No anchor, and therefore no rail entry
+ *
+ * The section renders only when a live service answers, so a rail pill pointing
+ * at it would be dead on the static export — which `check-pages.mjs` sweeps for
+ * and which `RouterDetail` has already been fixed for once. It has no `id` for
+ * that reason, and the absence is the guard.
+ *
+ * ## Absent, not empty
+ *
+ * An agent that has never run has no journal, and `agent_names()` reads the
+ * directory rather than the four agents we ship "because reporting it as
+ * available would be advertising an empty file as a record". A 404 here is that
+ * case, so it renders as nothing at all rather than as a section reading zero.
+ */
+export function AgentJournal({ agent }: { agent: string }) {
+  const [journal, setJournal] = useState<Journal | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const got = await loadLive<Journal>(`/journal/${agent}`);
+      if (!live || !got.ok) return;
+      setJournal(got.value);
+      setSource(got.source);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [agent]);
+
+  // Rendered only when there is something to render. Not a refusal panel: an
+  // agent with no journal on a page full of replay results would be reporting
+  // an absence the reader did not ask about, on every one of the four cards.
+  if (!journal || journal.total_rows === 0) return null;
+
+  const { summary } = journal;
+  const covered =
+    summary.first_ts && summary.last_ts
+      ? (summary.last_ts - summary.first_ts) / SECONDS_PER_HOUR
+      : null;
+  const acted = summary.mints + summary.rebalances + summary.pulls;
+  // Decisions only. A `run_start` row has no action and is not something the
+  // agent decided; listing it among the decisions would inflate the one number
+  // on this page that is about the policy.
+  const decisions = journal.rows.filter((row) => typeof row.action === "string");
+
+  return (
+    <Section
+      title="What it did when it ran"
+      className="mt-10"
+      headingClassName="text-lg font-semibold"
+    >
+      <div className="mt-2 mb-4 flex flex-wrap items-baseline justify-between gap-3">
+        <p className="m-0 max-w-[62ch] text-sm text-dim">
+          Everything above is this policy replayed over recorded history. This is the
+          decision journal the live agent appended — the same file the readiness gate
+          measures, served as rows rather than as a summary.
+        </p>
+        {source && <AnsweredBy source={source} />}
+      </div>
+
+      <dl className="m-0 mb-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        <Figure label="decisions" value={count(summary.decisions)} />
+        <Figure
+          label="held"
+          // The share, because "168 holds" and "168 of 169 decisions were holds"
+          // are different claims and only the second one is about the policy.
+          value={
+            summary.decisions > 0
+              ? `${count(summary.holds)} · ${pct((summary.holds / summary.decisions) * 100, 0)}`
+              : count(summary.holds)
+          }
+        />
+        <Figure label="acted" value={count(acted)} />
+        <Figure label="covers" value={covered === null ? "—" : hours(covered)} />
+      </dl>
+
+      {journal.unparsed_rows > 0 && (
+        // Counted rather than swallowed by the route, so it is reported rather
+        // than swallowed here: a journal with unreadable lines is a journal
+        // whose totals are short by an unknown amount.
+        <p className="mt-0 mb-4 text-xs text-warn">
+          {count(journal.unparsed_rows)} line(s) in this journal could not be parsed and
+          are not counted above.
+        </p>
+      )}
+
+      <ol className="m-0 list-none space-y-1.5 p-0">
+        {decisions.slice(-SHOWN).reverse().map((row, index) => (
+          <li
+            key={`${row.ts ?? "no-ts"}-${row.action}-${index}`}
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-1.5 text-xs last:border-0"
+          >
+            <span className="tabular shrink-0 font-mono text-faint">{when(row.ts)}</span>
+            <Pill tone={row.action === "hold" ? "info" : "pass"}>{row.action}</Pill>
+            {/* The reason keys the writer set to 1, which is how the agents
+                record which branch they took. Rendered as the names rather than
+                as the numbers: `reason_no_quotable_venue: 1.0` is a flag, and
+                printing the 1.0 beside it would suggest a magnitude. */}
+            <span className="min-w-0 font-mono break-words text-faint">
+              {Object.entries(row.reasons ?? {})
+                .filter(([key, value]) => key.startsWith("reason_") && value === 1)
+                .map(([key]) => key.replace(/^reason_/, ""))
+                // A `reason_hold` beside a "hold" pill is the same word twice.
+                // The agents set a reason key named after the branch as well as
+                // ones naming why it was taken, and only the second kind adds
+                // anything next to the action.
+                .filter((reason) => reason !== row.action)
+                .join(" · ") || "—"}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <p className="mt-3 mb-0 text-xs text-faint">
+        Newest first here; the file is append-only and newest last. Showing{" "}
+        {count(Math.min(SHOWN, decisions.length))} of {count(summary.decisions)} recorded
+        decisions
+        {journal.total_rows > summary.decisions && (
+          <> — the file also holds {count(journal.total_rows - summary.decisions)} lifecycle
+          row(s), which are not decisions</>
+        )}
+        .
+      </p>
+    </Section>
+  );
+}
+
+/** A journal timestamp, or a dash. Seconds since the epoch, and sometimes absent. */
+function when(ts: number | undefined): string {
+  if (typeof ts !== "number" || !Number.isFinite(ts)) return EMPTY;
+  return timestamp(new Date(ts * 1000).toISOString());
+}
+
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="font-mono text-[11px] tracking-wide text-faint uppercase">{label}</dt>
+      <dd className="tabular m-0 text-sm text-ink">{value}</dd>
+    </div>
+  );
+}
