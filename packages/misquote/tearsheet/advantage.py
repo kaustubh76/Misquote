@@ -229,6 +229,19 @@ class Comparison:
     baseline_returns: tuple[float, ...] = ()
     agent_returns: tuple[float, ...] = ()
 
+    # Both columns are the same replay, not two that happened to agree.
+    #
+    # `task_choose` reuses the baseline run when depth and the flow screen pick
+    # the same pool, and its comment gives the reason: re-running "would invite
+    # the reader to think two things were measured when one was". The chart then
+    # drew two bands, two dots and two legend rows — identical, and inviting
+    # exactly that.
+    #
+    # A flag rather than an equality test on the numbers. Two genuinely separate
+    # runs are allowed to tie, and a renderer that collapsed them would erase a
+    # real finding: that two different choices came out the same.
+    same_run: bool = False
+
     # UTC calendar days the replay touched — **not** its elapsed span.
     #
     # The distinction is the difference between a rate that can be compared to
@@ -298,6 +311,7 @@ def compare(
     source: str = "synthetic",
     capital_quote: float = 0.0,
     primary: PrimaryMetric | None = None,
+    same_run: bool = False,
 ) -> Comparison:
     """Build a `Comparison` from two quotes produced by the same engine.
 
@@ -362,6 +376,7 @@ def compare(
         baseline_returns=tuple(getattr(baseline_quote, "returns", ()) or ()),
         agent_returns=tuple(getattr(agent_quote, "returns", ()) or ()),
         days=_span_days(agent_result) or _span_days(baseline_result),
+        same_run=same_run,
     )
 
 

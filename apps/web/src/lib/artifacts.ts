@@ -502,27 +502,73 @@ export interface AdvantageTask {
     p25: number;
     p50: number;
     p75: number;
-    in_range: number;
-    fees: number;
-    lvr_upper_bound: number;
-    costs: number;
-    moves: number;
+    /**
+     * Optional, every one of them, and that is the artifact telling the truth.
+     *
+     * A task publishes only the quantities its replay actually has. The Route
+     * task runs a Venus lending market through `AllocationResult`, which
+     * carries costs and moves and has no in-range fraction, no fees and no
+     * adverse-selection accounting — so those keys are absent rather than
+     * zero. `lib/format.ts::isNum` renders a missing number as an em dash,
+     * which is the honest mark for a question this venue does not answer.
+     *
+     * Typed as required until the emitter stopped fabricating them, which is
+     * how `/advantage` came to show `fees (WBNB) 0.00` for a lending venue.
+     */
+    in_range?: number;
+    fees?: number;
+    lvr_upper_bound?: number;
+    costs?: number;
+    moves?: number;
+    /** How many of the reported samples are distinct results. */
+    distinct_returns?: number;
+    /** The observations the band was drawn from, when the quote carries them. */
+    returns?: number[];
   };
   agent: {
     p25: number;
     p50: number;
     p75: number;
-    in_range: number;
-    fees: number;
-    lvr_upper_bound: number;
-    costs: number;
-    moves: number;
+    /**
+     * Optional, every one of them, and that is the artifact telling the truth.
+     *
+     * A task publishes only the quantities its replay actually has. The Route
+     * task runs a Venus lending market through `AllocationResult`, which
+     * carries costs and moves and has no in-range fraction, no fees and no
+     * adverse-selection accounting — so those keys are absent rather than
+     * zero. `lib/format.ts::isNum` renders a missing number as an em dash,
+     * which is the honest mark for a question this venue does not answer.
+     *
+     * Typed as required until the emitter stopped fabricating them, which is
+     * how `/advantage` came to show `fees (WBNB) 0.00` for a lending venue.
+     */
+    in_range?: number;
+    fees?: number;
+    lvr_upper_bound?: number;
+    costs?: number;
+    moves?: number;
+    /** How many of the reported samples are distinct results. */
+    distinct_returns?: number;
+    /** The observations the band was drawn from, when the quote carries them. */
+    returns?: number[];
   };
   delta_pp: number;
   ranges_overlap: boolean;
   material: boolean;
   separated: boolean;
   verdict: string;
+  /**
+   * Both columns are the same replay, not two that agreed.
+   *
+   * `task_choose` reuses the baseline run when the depth heuristic and the flow
+   * screen pick the same pool. Its comment says re-running "would invite the
+   * reader to think two things were measured when one was" — and the chart drew
+   * two identical bands, doing exactly that.
+   *
+   * Read rather than inferred from `delta_pp === 0`: two genuinely separate
+   * runs are allowed to tie, and collapsing those would erase a real finding.
+   */
+  same_run?: boolean;
   /**
    * The tape behind this one task.
    *

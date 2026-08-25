@@ -15,7 +15,7 @@ import { SourceBanner } from "@/components/SourceBanner";
 import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
 import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
 import { agentSlugFor, type IndexedAgentRef } from "@/lib/counterpart";
-import { count, fixed, isNum, money, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { EMPTY, SIGN_CLASS, count, fixed, isNum, money, signOf, signed } from "@/lib/format";
 
 export function AdvantageView({
   initialMain,
@@ -451,33 +451,68 @@ function TaskCard({
         </div>
       </dl>
 
+      {/* One series when one thing was measured.
+
+          `task_choose` reuses the baseline replay when the depth heuristic and
+          the flow screen land on the same pool, and says why: re-running "would
+          invite the reader to think two things were measured when one was". The
+          chart then drew two bands, two dots and two legend rows, identical —
+          the exact impression the emitter went out of its way not to give. The
+          eyebrow carried the fact and the figure contradicted it.
+
+          `task.same_run`, not `delta_pp === 0`: two separate runs are allowed
+          to tie, and collapsing those would erase the finding that two
+          different choices came out the same. */}
       <Band
         sufficient={task.quotable}
         note={task.note}
         caption={task.task}
         overlap={task.ranges_overlap}
         deltaPp={task.delta_pp}
+        // The observations behind the band, the same rug the agent cards draw.
+        // `Band` keys it to the agent series, so the agent's are the ones that
+        // belong here; on a `same_run` task the two lists are the same anyway.
+        returns={task.agent.returns}
         series={
           task.quotable
-            ? [
-                {
-                  label: task.with_agent,
-                  p25: task.agent.p25,
-                  p50: task.agent.p50,
-                  p75: task.agent.p75,
-                  tone: "agent",
-                },
-                {
-                  label: task.without_agent,
-                  p25: task.baseline.p25,
-                  p50: task.baseline.p50,
-                  p75: task.baseline.p75,
-                  tone: "baseline",
-                },
-              ]
+            ? task.same_run
+              ? [
+                  {
+                    label: task.with_agent,
+                    p25: task.agent.p25,
+                    p50: task.agent.p50,
+                    p75: task.agent.p75,
+                    tone: "agent",
+                  },
+                ]
+              : [
+                  {
+                    label: task.with_agent,
+                    p25: task.agent.p25,
+                    p50: task.agent.p50,
+                    p75: task.agent.p75,
+                    tone: "agent",
+                  },
+                  {
+                    label: task.without_agent,
+                    p25: task.baseline.p25,
+                    p50: task.baseline.p50,
+                    p75: task.baseline.p75,
+                    tone: "baseline",
+                  },
+                ]
             : []
         }
       />
+
+      {task.quotable && task.same_run && (
+        <p className="mt-3 mb-0 max-w-[62ch] text-sm text-dim">
+          <strong className="text-ink">One band, because one thing was measured.</strong>{" "}
+          Both rules chose the same venue, so the two columns are the same replay —
+          same tape, same policy, same capital — and the difference between them is
+          exactly zero by construction rather than by measurement.
+        </p>
+      )}
 
       <p className="mt-4 mb-0 text-sm">
         <span className={`tabular font-semibold ${SIGN_CLASS[sign]}`}>
@@ -569,6 +604,23 @@ function TaskCard({
                 moves: task.baseline.moves,
               }}
             />
+            {/* An em dash in this table is a question the venue does not
+                answer, not a measurement of nothing — and a dash without that
+                sentence is indistinguishable from a number that failed to
+                load. The Route task replays a lending market, which has no
+                in-range fraction, no fees and no adverse-selection cost.
+
+                Derived from the artifact rather than from the task's name: a
+                second lending task would inherit this without anyone
+                remembering to add it, and an LP task that somehow lost a field
+                would say so rather than showing a bare dash. */}
+            {(task.agent.fees === undefined || task.agent.in_range === undefined) && (
+              <p className="mt-3 mb-0 text-xs text-dim">
+                Rows reading {EMPTY} are quantities this venue does not have — not
+                measurements of zero. A lending market has no range to be in and pays
+                no swap fee to a provider.
+              </p>
+            )}
             <p className="mt-3 mb-0 text-xs break-all text-faint">
               {task.metric} · on {money(basis, unit)} of capital · {task.note}
             </p>

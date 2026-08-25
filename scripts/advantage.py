@@ -599,6 +599,10 @@ def task_choose(
         agent_result=agent_result,
         source=source,
         capital_quote=capital,
+        # Stated rather than left for a reader to infer from two identical
+        # bands. When the rules agree there is one measurement, and the chart
+        # should draw one.
+        same_run=rules_agree,
     )
 
 
@@ -940,6 +944,7 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float, co
                 "replay_days": round(c.days, 3),
                 "delta_pp": round(c.delta, 6),
                 "ranges_overlap": c.ranges_overlap,
+                "same_run": c.same_run,
                 "material": c.material,
                 "separated": c.separated,
                 "verdict": c.verdict_line(),
