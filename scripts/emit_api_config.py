@@ -42,12 +42,32 @@ def config(base: str | None) -> dict[str, Any]:
     cleaned = (base or "").strip().rstrip("/")
     return {
         "base": cleaned or None,
+        # What a browser client actually calls, which is not the same as what
+        # the service serves. `api/service.py`'s index route is the full list;
+        # this is the discovery map, so a route nothing can reach from a page
+        # does not belong in it.
+        #
+        # `/wallet/{address}/positions` used to be here and is not, and the
+        # reason is worth recording rather than silently dropping: it is a real
+        # route and the site never calls it, because `/quote/eligibility`
+        # already folds the chain read and the tape check into one answer.
+        # Asking for positions separately would be a second round trip
+        # returning strictly less.
+        #
+        # The quote path is three entries because it is three requests with
+        # three different failure modes — the POST can be refused before a job
+        # exists, the poll is the fallback when a stream is buffered, and the
+        # stream is the one that replays from `Last-Event-ID`.
         "routes": {
             "tape": "/tape",
             "journal": "/journal/{agent}",
             "vetting": "/vetting/{address}",
             "registry": "/registry/agents",
-            "positions": "/wallet/{address}/positions",
+            "eligibility": "/quote/eligibility/{address}",
+            "quote": "POST /quote",
+            "job": "/quote/job/{job_id}",
+            "stream": "/quote/job/{job_id}/stream",
+            "capability": "/sessions/capability",
         },
         "note": (
             "base is null when no live API is configured, which is the ordinary "
