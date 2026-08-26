@@ -568,6 +568,199 @@
     {
       "blocks": [
         {
+          "text": "**Added.** The width is chosen once and never re-examined \u2014 R1 asks whether the centre drifted, R2 whether a move pays, R3 about cooldown, R4 about toxicity, and **nothing asks whether the width is still right**. Because R1's threshold is `theta * w`, an over-wide range raises its own bar against the recentre that would correct it. So the opening sizing is effectively permanent, and it was being made on the first sample of the tape.",
+          "type": "p"
+        },
+        {
+          "text": "On that sample `sigma` is not an estimate. `estimators/sigma.py::shrink` returns the prior outright before any returns exist, and A7 records that prior as roughly 190% annualised against BNB's typical 50\u201370%. This pool's realized sigma is about **17%**, so the prior is **11x too hot**, and equation (2) is evaluated against it.",
+          "type": "p"
+        },
+        {
+          "text": "*Measured consequence:* the agent opened at **\u00b114.45% on a pool that moved 11.6% for the entire month**, sat in range 100% of the time, never moved again, and earned 0.00727 in fees against a fixed 200-tick ladder's 0.04836 \u2014 **6.7x less**, while being indistinguishable from the passive baseline it exists to beat.",
+          "type": "p"
+        },
+        {
+          "text": "*The gate:* `sigma_confidence` \u2014 the shrinkage weight `n / (n + 20)`, surfaced on the `Observation` \u2014 must reach `min_sigma_confidence` (0.9, so 180 one-minute bars, about three hours) before a position may be opened. Deliberately **not** `sigma.ready`, which is a bar count: at the readiness threshold the weight is only 0.6, so a \"ready\" sigma is still 40% prior.",
+          "type": "p"
+        },
+        {
+          "text": "*Kappa is deliberately not in this gate, and the first version of it was backwards.* The intuition was that a fallback kappa makes the width a constant, so a fallback should block the open. The arithmetic says the opposite: the fallback **is** the published fit, 3,600.91, at which equation (2) returns about 3 ticks \u2014 under the A18 floor, so the floor sets the width and the result is the well-behaved case. The \u00b114.45% range came from kappa \u2248 7, which is `is_fallback=False`: a genuine fit on a slice, clearing r\u00b2 \u2265 0.5, wrong by 500x. Blocking on the flag would have refused the safe case and admitted the dangerous one. A19's ceiling is what actually bounds kappa.",
+          "type": "p"
+        },
+        {
+          "text": "*It applies to `passive_policy` too.* The benchmark calls the same `target_range`, so it was opening at the same prior-sized width \u2014 which cut the baseline's own fees from 0.01753 to 0.00697. A comparison is only worth making if both sides are sized by one rule.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A20",
+      "kind": "assumption",
+      "line": 528,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "A position is not opened while sigma is still the prior"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Every venue this project quotes until now has a rate that belongs to the venue: a Venus market pays every supplier the same. A concentrated-liquidity pool does not. Two LPs in the same pool at the same moment earn different returns because they chose different widths \u2014 narrow earns dense fees and leaves the range, wide earns thin fees and stays.",
+          "type": "p"
+        },
+        {
+          "text": "So **\"the APR of pool X\" is not a well-formed quantity**, and a surface printing one is quoting something that does not exist. `estimators/pool_apr.py` therefore cannot be constructed without a width, carries `reference_width_ticks` on every result, and puts it in the rendered label. A caller who wants \"the pool's yield\" has to say which position they mean.",
+          "type": "p"
+        },
+        {
+          "text": "*What it is measured on:* realized LP fees over a trailing window, net of the protocol's actual per-swap cut, divided by the capital a position of that width deploys. The fee arithmetic is `lvr/accountant.py`'s \u2014 reused rather than restated, because that is the one calculation this repository has already got wrong twice (P-1's 1.515x overstatement, P-8's `slot0[2]` for `slot0[5]`).",
+          "type": "p"
+        },
+        {
+          "text": "*Reported with its cost, never without.* `fit()` returns the realized convexity cost from the same window beside the fee APR, and `net_apr` is a property over the two rather than a stored third measurement. A fee APR published alone is the gross number every other venue quotes, which is exactly what A10 exists to prevent.",
+          "type": "p"
+        },
+        {
+          "text": "*A position dilutes itself.* An LP earns `L_self / (L_pool + L_self)` of each swap's fee, so a larger position is a larger share of its own denominator and its rate falls with size \u2014 8.7158% at one unit of capital against 8.7145% at four, on the same flow. That is not rounding; it is the reason A1 caps a replayed position at 1% of pool liquidity, and an estimator reporting perfect invariance would be one that had dropped the self-term.",
+          "type": "p"
+        },
+        {
+          "text": "*Floor:* below **30 swaps** in the window the estimator is not ready and publishes no verdict. TSLAx/USDT has 85 swaps across the entire 30-day tape; a number from a handful of them would turn \"we have no idea\" into a figure someone can sort a table by.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A21",
+      "kind": "assumption",
+      "line": 613,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "A pool's fee APR is a property of a position, not of the pool"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** `scripts/pools_report.py` answers *which pool, how wide* \u2014 and the shape of that answer is constrained twice over.",
+          "type": "p"
+        },
+        {
+          "text": "*Bands, not a leaderboard.* Every figure is a **P25\u2013P75 range over rolling windows** carrying its observation count (A5), using `replay/ranges.py`'s own `MIN_SAMPLES` and `MIN_WINDOW_HOURS` floors so a pool refused here is refused on the same evidence standard a quote is. Two widths whose ranges overlap are reported as *\"not separated at this sample size\"* \u2014 the sentence `tearsheet/advantage.py` already uses \u2014 rather than ranked. A sorted column of point estimates is the exact shape of the thing this project is named against.",
+          "type": "p"
+        },
+        {
+          "text": "*Badged pools only.* A row publishes a ranking only where `vetting/badges/<pool>.json` says `safe_to_provide`. **An absent badge is a refusal, not a pass**: the whole argument of the vetting layer is that a pool nobody checked is a pool nobody should be steered into, and defaulting the other way would quietly invert it.",
+          "type": "p"
+        },
+        {
+          "text": "*What \"underserved\" means here.* Volume says a pool is busy; busy and underserved are different. An LP's return is proportional to **fee income per unit of liquidity**, so that is the field the comparison rests on \u2014 the same flow spread over less depth pays each unit more. Reported beside volume, swap count and tick crossings rather than instead of them.",
+          "type": "p"
+        },
+        {
+          "text": "*The width ladder* spans 40 to 800 ticks and deliberately brackets A18's derived floor and A19's ceiling at both ends. A sweep that cannot disagree with the derivation it is checking is not a check.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A22",
+      "kind": "assumption",
+      "line": 649,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "Pools are compared as bands, and only when the vetting layer clears them"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Measured 26 Aug 2026.** A18 derives a width floor by inverting the first-passage series at G-3's in-range floor (1.4395\u03c3, ~130 ticks on the flagship) and A19 a ceiling at 99% in-range (2.807\u03c3, ~244). Both were published as derivations and carried as **provisional**, because a derivation against a proxy \u2014 in-range time \u2014 is not evidence about the thing that matters, which is net return.",
+          "type": "p"
+        },
+        {
+          "text": "The ladder has now been run on the 30-day tape, 20 rolling windows per width, net of the protocol's cut and net of the realized convexity cost:",
+          "type": "p"
+        },
+        {
+          "head": [
+            "half-width",
+            "P25",
+            "P50",
+            "P75",
+            "windows"
+          ],
+          "rows": [
+            [
+              "40",
+              "8.49%",
+              "15.46%",
+              "30.86%",
+              "20"
+            ],
+            [
+              "**80**",
+              "12.66%",
+              "**17.03%**",
+              "28.17%",
+              "20"
+            ],
+            [
+              "130",
+              "10.14%",
+              "16.28%",
+              "23.25%",
+              "20"
+            ],
+            [
+              "200",
+              "8.96%",
+              "15.63%",
+              "19.82%",
+              "20"
+            ],
+            [
+              "244",
+              "9.84%",
+              "14.83%",
+              "17.89%",
+              "20"
+            ],
+            [
+              "400",
+              "11.86%",
+              "13.40%",
+              "17.83%",
+              "20"
+            ],
+            [
+              "800",
+              "7.31%",
+              "10.73%",
+              "11.51%",
+              "20"
+            ]
+          ],
+          "type": "table"
+        },
+        {
+          "text": "**The verdict is a refusal, and it is the honest one:** \u00b180 leads at the median and its P25\u2013P75 band overlaps \u00b1130, so *it has not been shown to be better*. Every adjacent pair on this ladder overlaps. At 20 windows this tape cannot separate widths, and saying otherwise on the strength of a median ordering is exactly the misquote a band exists to prevent.",
+          "type": "p"
+        },
+        {
+          "text": "*What can be said.* The medians decline monotonically from 80 outward \u2014 17.03, 16.28, 15.63, 14.83, 13.40, 10.73 \u2014 and 40 sits below 80 at 15.46, so the curve has a hump rather than a trend. And P75 falls steeply with width (30.86% \u2192 11.51%) while P25 does not, which is the variance a narrow range buys: more time out of range, and a longer tail when it is in.",
+          "type": "p"
+        },
+        {
+          "text": "*What this does to A18 and A19.* Neither is refuted; neither is confirmed as optimal. The derived band [130, 244] sits inside the measured ladder and its medians are within the leader's band. **They stop being \"provisional pending measurement\" and become \"measured, not separated\"** \u2014 which is a weaker claim than the derivation implied and a stronger one than nothing. The floor's original job \u2014 stopping a range 0.795\u03c3 wide that a random walk leaves 81% of the time \u2014 is unaffected, and 40 ticks scoring a *lower* median than 80 with the widest band on the ladder is consistent with it.",
+          "type": "p"
+        },
+        {
+          "text": "*Cost of the measurement, recorded because it was nearly not made:* the first implementation rebuilt its trailing window on every event, O(n\u00b2) against windows holding 126,000 swaps. That is ~16 billion operations per window and it ran 100 minutes without finishing. A deque and a bisect took the same run to **340 seconds**.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A23",
+      "kind": "assumption",
+      "line": 567,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The width band, measured \u2014 and not separated"
+    },
+    {
+      "blocks": [
+        {
           "text": "Spec \u00a76's replay loop credits fees \"pro-rata by `L_h/(L_pool+L_h)`\". For a *real* historical or live position, the pool's `Swap` event carries a `liquidity` field that **already includes `L_h`**, so dividing by `L_pool + L_h` counts our own liquidity twice and understates our share.",
           "type": "p"
         },

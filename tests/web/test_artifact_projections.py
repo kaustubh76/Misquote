@@ -42,7 +42,7 @@ import pytest
 
 from misquote.chain.addresses import TARGET_POOL
 from misquote.registry import erc8004, erc8183
-from misquote.tearsheet import ledger, vectors
+from misquote.tearsheet import ledger, pools, vectors
 
 REPO = Path(__file__).resolve().parents[2]
 ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
@@ -110,6 +110,12 @@ PROJECTIONS: tuple[tuple[str, str, Callable[[], Any]], ...] = (
         lambda: venue.unmintable_remainder(TARGET_POOL.tick_spacing),
     ),
     ("venue.json", "divergences", venue.divergences),
+    # `pools.json` is **not** a projection end to end — it reads the indexed tape,
+    # so its bands cannot be re-derived without one. The ladder can: it is a
+    # module constant, and it is the field a reader would check first, because a
+    # ladder that quietly stopped bracketing A18's floor and A19's ceiling would
+    # turn the width comparison into one that cannot disagree with them.
+    ("pools.json", "width_ladder", lambda: list(pools.WIDTH_LADDER)),
 )
 
 

@@ -1,0 +1,277 @@
+{
+  "build": {
+    "command": "python scripts/pools_report.py",
+    "generated_at": "2026-08-26T09:15:40+00:00",
+    "git_dirty": true,
+    "git_sha": "b5cacd6",
+    "source": "chain"
+  },
+  "capital_quote": 1.0,
+  "chain_id": 56,
+  "pools": [
+    {
+      "address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+      "badged": true,
+      "best_width_ticks": 80,
+      "demand": {
+        "fee_per_unit_liquidity": 2.047304097366267e-23,
+        "median_liquidity": 1.2927001244513975e+24,
+        "swaps": 252923,
+        "tick_crossings": 5712,
+        "volume_quote": 163090.31444988467
+      },
+      "fee_pips": 500,
+      "label": "PancakeSwap v3 WBNB/USDT 0.05%",
+      "ladder": [
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.084948091900563,
+          "p50": 0.1546034857742466,
+          "p75": 0.30862820233464117,
+          "sufficient": true,
+          "width_ticks": 40
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.1265682694379709,
+          "p50": 0.17026691342867745,
+          "p75": 0.28168287156059796,
+          "sufficient": true,
+          "width_ticks": 80
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.10143332684155155,
+          "p50": 0.16275612155741792,
+          "p75": 0.2324828395098725,
+          "sufficient": true,
+          "width_ticks": 130
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.08961666713930058,
+          "p50": 0.1563180856174361,
+          "p75": 0.1982436623020313,
+          "sufficient": true,
+          "width_ticks": 200
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.09837556412543708,
+          "p50": 0.14834952524969014,
+          "p75": 0.1789040229914925,
+          "sufficient": true,
+          "width_ticks": 244
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.11864962842257648,
+          "p50": 0.13396307727789475,
+          "p75": 0.1783268443041885,
+          "sufficient": true,
+          "width_ticks": 400
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": 0.07313553511595708,
+          "p50": 0.1073271172723974,
+          "p75": 0.11509616868498351,
+          "sufficient": true,
+          "width_ticks": 800
+        }
+      ],
+      "lp_fee_share": 0.6599999999999999,
+      "quote_symbol": "WBNB",
+      "tick_spacing": 10,
+      "verdict": "+/-80 ticks leads at the median, but its P25-P75 band overlaps +/-130 \u2014 not separated at this sample size"
+    },
+    {
+      "address": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
+      "badged": true,
+      "best_width_ticks": 400,
+      "demand": {
+        "fee_per_unit_liquidity": 6.988673909675816e-23,
+        "median_liquidity": 1.5390901016687716e+22,
+        "swaps": 14016,
+        "tick_crossings": 729,
+        "volume_quote": 1287.7274899957715
+      },
+      "fee_pips": 2500,
+      "label": "PancakeSwap v3 WBNB/USDT 0.25%",
+      "ladder": [
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -15.861492617932875,
+          "p50": 0.027619474894521462,
+          "p75": 0.09479557503033492,
+          "sufficient": true,
+          "width_ticks": 40
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -15.925568720873702,
+          "p50": 0.07100238854070824,
+          "p75": 0.1651022392413627,
+          "sufficient": true,
+          "width_ticks": 80
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -15.716838671907475,
+          "p50": 0.09781859975533538,
+          "p75": 0.1773386237254923,
+          "sufficient": true,
+          "width_ticks": 130
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -13.801623037758135,
+          "p50": 0.12161944220157728,
+          "p75": 0.16530959777296192,
+          "sufficient": true,
+          "width_ticks": 200
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -12.90044443932932,
+          "p50": 0.12412638328321077,
+          "p75": 0.15406061534389065,
+          "sufficient": true,
+          "width_ticks": 244
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -10.155915234066844,
+          "p50": 0.1377967240224019,
+          "p75": 0.16294832581000673,
+          "sufficient": true,
+          "width_ticks": 400
+        },
+        {
+          "note": "",
+          "observations": 20,
+          "p25": -5.581481867234517,
+          "p50": 0.10807285866797761,
+          "p75": 0.11831789373366672,
+          "sufficient": true,
+          "width_ticks": 800
+        }
+      ],
+      "lp_fee_share": 0.6799999999999999,
+      "quote_symbol": "WBNB",
+      "tick_spacing": 50,
+      "verdict": "+/-400 ticks leads at the median, but its P25-P75 band overlaps +/-244 \u2014 not separated at this sample size"
+    },
+    {
+      "address": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+      "badged": true,
+      "best_width_ticks": null,
+      "demand": {
+        "fee_per_unit_liquidity": 8.177324362663803e-23,
+        "median_liquidity": 1.5761667389981652e+18,
+        "swaps": 85,
+        "tick_crossings": 80,
+        "volume_quote": 0.15504634663057995
+      },
+      "fee_pips": 2500,
+      "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
+      "ladder": [
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 40
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 80
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 130
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 200
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 244
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 400
+        },
+        {
+          "note": "13 usable windows, need 20",
+          "observations": 13,
+          "p25": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "sufficient": false,
+          "width_ticks": 800
+        }
+      ],
+      "lp_fee_share": 0.6799999999999999,
+      "quote_symbol": "TSLAx",
+      "tick_spacing": 50,
+      "verdict": "no width has enough evidence on this pool"
+    }
+  ],
+  "summary": {
+    "badged": 3,
+    "pools": 3,
+    "quotable": 2,
+    "refused": 1
+  },
+  "width_ladder": [
+    40,
+    80,
+    130,
+    200,
+    244,
+    400,
+    800
+  ]
+}

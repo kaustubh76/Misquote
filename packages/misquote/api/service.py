@@ -52,6 +52,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from misquote.api import journal as journal_routes
+from misquote.api import pools as pools_routes
 from misquote.api import quote as quote_routes
 from misquote.api import registry as registry_routes
 from misquote.api import sessions as sessions_routes
@@ -309,6 +310,8 @@ for _path, _handler in (
     ("/journal/{agent}", journal_routes.journal),
     ("/vetting", vetting_routes.vetting),
     ("/vetting/{address}", vetting_routes.badge),
+    ("/pools", pools_routes.pools),
+    ("/pools/{address}", pools_routes.pool),
     ("/registry/agents", registry_routes.registry_agents),
     ("/registry/agents/{agent_id}", registry_routes.registry_agent),
     ("/wallet/{address}/positions", wallet_routes.wallet_positions),
