@@ -186,3 +186,65 @@ def test_the_look_ahead_guard_applies_here_too() -> None:
     est.set_decision_time(future.ts - 1)
     with pytest.raises(LookAheadError):
         est.ingest(future)
+
+
+# --- depth, and the cache ---------------------------------------------------
+
+
+def test_the_fit_carries_the_pools_depth_not_only_our_position() -> None:
+    """A1 needs the size of the venue, which cannot be the size of the position.
+
+    `depth_quote` is what the pool's own liquidity over the reference range is
+    worth. Without it a pool venue had nothing to offer `capped_notional` but
+    the capital it had just deployed, which is a ceiling made out of the thing
+    it is meant to bound.
+    """
+    est = PoolAprEstimator(META, reference_width_ticks=80, capital_quote=1.0)
+    feed(est, swaps(MIN_SWAPS + 10))
+    got = est.fit()
+
+    assert got.depth_quote > 0.0
+    assert got.depth_quote > got.capital_quote, (
+        "the pool is deeper than the one unit of capital replayed into it, and a "
+        "ceiling that were not would cap every sample"
+    )
+
+
+def test_the_cached_fit_is_dropped_when_the_window_moves() -> None:
+    """The memo is only safe while the window it was taken over is unchanged.
+
+    A fit is a pure function of the trailing events, and they change in exactly
+    two places — an event absorbed and an event aged out. This asserts the second
+    of those, because it is the one with no new data to make a stale answer
+    obvious: the window empties, and an estimator that kept answering would keep
+    publishing a rate for a period it can no longer see.
+    """
+    events = swaps(MIN_SWAPS + 10, step=60)
+    est = PoolAprEstimator(META, reference_width_ticks=80, capital_quote=1.0, window_seconds=3600)
+    feed(est, events)
+
+    warm = est.fit()
+    assert warm.is_ready
+    assert est.fit() is warm, "an unchanged window answers from the memo"
+
+    # Far enough ahead that every event has aged out of the window.
+    est.set_decision_time(events[-1].ts + 86_400)
+    after = est.fit()
+
+    assert after is not warm, "the memo did not survive the window emptying"
+    assert not after.is_ready
+    assert after.swaps == 0
+
+
+def test_the_memo_answers_exactly_what_recomputing_would() -> None:
+    """A cache that returns a different number is a bug wearing a speedup's name."""
+    events = swaps(MIN_SWAPS + 20)
+    est = PoolAprEstimator(META, reference_width_ticks=80, capital_quote=1.0)
+    fresh = PoolAprEstimator(META, reference_width_ticks=80, capital_quote=1.0)
+    feed(est, events)
+    feed(fresh, events)
+
+    cached = est.fit()
+    est.fit()  # a second ask, served from the memo
+
+    assert est.fit() == fresh.fit() == cached

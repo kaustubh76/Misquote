@@ -81,6 +81,20 @@ class PoolAprFit:
     swaps: int
     hours: float
     is_ready: bool
+    #: What the pool's own depth over the reference range is worth, in the
+    #: pool's quote token. The size a position is measured *against*, never the
+    #: size of the position itself.
+    #:
+    #: A1 bounds a replayed position at a fraction of the venue it sits in, so
+    #: it needs the venue's size. `capital_quote` is what we deployed, which is
+    #: the one quantity that cannot bound itself: a ceiling computed from the
+    #: thing it is meant to constrain is not a ceiling.
+    #:
+    #: Defaulted so the eight-field constructor in existing tests still builds,
+    #: and defaulted to zero rather than to something permissive: an unmeasured
+    #: depth must absorb nothing, on the same argument the driver already makes
+    #: about a market it has not observed.
+    depth_quote: float = 0.0
 
     @property
     def net_apr(self) -> float:
@@ -113,7 +127,7 @@ class PoolAprEstimator(TrailingEstimator):
     the future and never notice.
     """
 
-    __slots__ = ("_meta", "_width", "_window_s", "_events", "_capital", "_centre")
+    __slots__ = ("_meta", "_width", "_window_s", "_events", "_capital", "_centre", "_cached")
 
     def __init__(
         self,
@@ -143,6 +157,21 @@ class PoolAprEstimator(TrailingEstimator):
         # turned a width ladder over the real tape into a 100-minute job.
         self._events: deque[Event] = deque()
         self._centre: int | None = None
+        # The last fit, held until the window changes.
+        #
+        # `fit()` replays an `LvrAccountant` over the entire window on every
+        # call, and the allocation driver asks for one two to three times per
+        # sample — to accrue, to quote, and again to rebase on entry. Recomputing
+        # an identical answer is the same class of waste as the eviction bug
+        # above, and the same size: on the real tape a 24h window holds ~8,400
+        # swaps and a 30-day replay takes ~725 hourly samples, so the repeats
+        # alone were ~6 billion accountant steps.
+        #
+        # The invariant that makes this safe is narrow and checkable: a fit is a
+        # pure function of `_events` and `_centre`, and both change in exactly
+        # two places — `_absorb` and `_on_time_advanced`. Neither the decision
+        # time nor anything else `TrailingEstimator` holds enters the result.
+        self._cached: PoolAprFit | None = None
 
     def _absorb(self, event: Event) -> None:
         if event.kind != "swap":
@@ -150,6 +179,7 @@ class PoolAprEstimator(TrailingEstimator):
         if self._centre is None:
             self._centre = event.tick
         self._events.append(event)
+        self._cached = None
 
     def _on_time_advanced(self) -> None:
         """Retire what has aged out, so `ready` can answer honestly.
@@ -167,8 +197,10 @@ class PoolAprEstimator(TrailingEstimator):
         # The centre is the oldest surviving tick — the range an LP would have
         # opened when the window began. Only re-read when something actually
         # aged out, so the common case costs one comparison.
-        if popped and self._events:
-            self._centre = self._events[0].tick
+        if popped:
+            self._cached = None
+            if self._events:
+                self._centre = self._events[0].tick
 
     @property
     def ready(self) -> bool:
@@ -180,6 +212,12 @@ class PoolAprEstimator(TrailingEstimator):
 
     def fit(self) -> PoolAprFit:
         """The estimate with everything needed to disbelieve it attached."""
+        if self._cached is not None:
+            return self._cached
+        self._cached = fit = self._compute()
+        return fit
+
+    def _compute(self) -> PoolAprFit:
         events = self._events
         if not events or self._centre is None:
             return PoolAprFit(0.0, self._width, 0.0, 0.0, 0.0, self._capital, 0, 0.0, False)
@@ -210,7 +248,24 @@ class PoolAprEstimator(TrailingEstimator):
             swaps=len(events),
             hours=hours,
             is_ready=len(events) >= MIN_SWAPS,
+            depth_quote=self._depth_quote(sqrt_price, lower, upper),
         )
+
+    def _depth_quote(self, sqrt_price: int, lower: int, upper: int) -> float:
+        """What the pool's own liquidity over this range is worth, in quote.
+
+        The median active liquidity across the window rather than the latest,
+        for the reason every other figure here is a median: one swap's `liquidity`
+        is whatever happened to be in range at that block, and sizing a ceiling
+        off a single observation is how a quiet moment becomes a claim about the
+        pool. `tearsheet/pools.py` measures depth the same way from the same
+        field, and this is the trailing-window counterpart of it.
+        """
+        active = sorted(float(e.liquidity) for e in self._events if e.liquidity > 0)
+        if not active:
+            return 0.0
+        median = active[len(active) // 2]
+        return self._quote_value(sqrt_price, lower, upper, int(median))
 
     def _liquidity_for_capital(self, sqrt_price: int, lower: int, upper: int) -> int:
         """How much liquidity `capital_quote` buys at this price and width.
@@ -225,9 +280,24 @@ class PoolAprEstimator(TrailingEstimator):
         probe = get_liquidity_for_amounts(sqrt_price, sa, sb, 10**18, 10**18)
         if probe <= 0:
             return 0
-        amount0, amount1 = get_amounts_for_liquidity(sqrt_price, sa, sb, probe)
-        price = ((sqrt_price / Q96) ** 2) * 10.0 ** (self._meta.dec0 - self._meta.dec1)
-        cost = amount1 / 10.0**self._meta.dec1 + (amount0 / 10.0**self._meta.dec0) * price
+        cost = self._quote_value(sqrt_price, lower, upper, probe)
         if cost <= 0:
             return 0
         return int(probe * (self._capital / cost))
+
+    def _quote_value(self, sqrt_price: int, lower: int, upper: int, liquidity: int) -> float:
+        """Both legs of a position, valued in the quote token.
+
+        Shared by the two callers rather than written twice. The second copy is
+        the one that would drift, and what it computes — how much a quantity of
+        liquidity is worth — is the denominator of a fee APR in one caller and
+        the denominator of A1's ceiling in the other. Those disagreeing would be
+        invisible and would make the ceiling meaningless in exactly the units it
+        is expressed in.
+        """
+        if liquidity <= 0:
+            return 0.0
+        sa, sb = get_sqrt_ratio_at_tick(lower), get_sqrt_ratio_at_tick(upper)
+        amount0, amount1 = get_amounts_for_liquidity(sqrt_price, sa, sb, liquidity)
+        price = ((sqrt_price / Q96) ** 2) * 10.0 ** (self._meta.dec0 - self._meta.dec1)
+        return amount1 / 10.0**self._meta.dec1 + (amount0 / 10.0**self._meta.dec0) * price

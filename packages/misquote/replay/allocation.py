@@ -41,10 +41,10 @@ from misquote.core.allocation import (
     AllocationDecision,
     AllocationObservation,
     VenueId,
-    VenueQuote,
 )
-from misquote.core.types import DEFAULT_RESERVE_FACTOR, SECONDS_PER_YEAR
-from misquote.estimators.apr import RateEvent, TrailingAprEstimator
+from misquote.core.types import SECONDS_PER_YEAR
+from misquote.estimators.apr import RateEvent
+from misquote.replay.venues import as_venue
 
 #: How often the policy is asked. Rates move slowly; sampling every accrual
 #: would ask a weekly-horizon decision hundreds of times an hour and charge
@@ -253,39 +253,76 @@ class AllocationDriver:
         self.sample_interval_s = sample_interval_s
         self.apr_window_s = apr_window_s
 
-    def run(self, events: list[RateEvent]) -> AllocationResult:
-        """Replay the tape. `events` must be every market's accruals, in ts order."""
+    def _group(self, events: list[RateEvent] | dict[VenueId, list]) -> dict[VenueId, list]:
+        """Tapes per venue, from either accepted shape.
+
+        A venue named in `markets` with no tape gets an empty list rather than
+        being dropped: it is a venue whose rate is unmeasured, and `quotable`
+        already refuses to rank one of those. Dropping it would instead make it
+        invisible, which is the difference between "we have no idea" and "it
+        does not exist".
+        """
+        if isinstance(events, dict):
+            unknown = set(events) - set(self.markets)
+            if unknown:
+                raise ValueError(
+                    f"tapes for venues that were not declared: {sorted(unknown)}. "
+                    "Every venue the driver replays has to be in `markets`, or it "
+                    "has no estimator and no way to be quoted."
+                )
+            return {v: list(events.get(v, ())) for v in self.markets}
+
+        grouped: dict[VenueId, list] = {v: [] for v in self.markets}
+        for e in events:
+            if e.market in grouped:
+                grouped[e.market].append(e)
+        return grouped
+
+    def run(self, events: list[RateEvent] | dict[VenueId, list]) -> AllocationResult:
+        """Replay the tape.
+
+        Takes either every market's accruals in ts order, or the tapes already
+        grouped by venue. The grouped form is the one that matters: grouping
+        used to happen here, by `e.market`, and a swap `Event` has no `.market`
+        — so a pool venue could not be fed at all, however well the rest of the
+        seam was cut.
+
+        A flat list still means Venus, for the same reason `as_venue` still
+        accepts a plain dict: it is what a flat `RateEvent` list has always
+        meant, and rewriting every fixture to say so differently would be a
+        large diff that changes nothing. It also leaves the Venus pins in
+        `tests/replay/test_allocation.py` untouched, which is the strongest
+        available evidence that this change preserved their behaviour.
+        """
         result = AllocationResult()
-        if not events:
+        by_venue = self._group(events)
+        if not any(by_venue.values()):
             return result
 
+        # Each venue builds its own estimator. `TrailingAprEstimator` and
+        # `PoolAprEstimator` already both conform to `TrailingEstimator`, so this
+        # seam existed before `replay/venues.py` did; it was simply not used.
+        sources = {venue: as_venue(meta) for venue, meta in self.markets.items()}
         estimators = {
-            venue: TrailingAprEstimator(
-                window_seconds=self.apr_window_s,
-                reserve_factor=self.markets[venue].get("reserve_factor", DEFAULT_RESERVE_FACTOR),
-            )
-            for venue in self.markets
+            venue: source.estimator(self.apr_window_s) for venue, source in sources.items()
         }
-        # The last accrual seen per venue, so yield can be accrued from the
-        # accumulator rather than from the estimate.
-        last_index: dict[VenueId, tuple[int, int]] = {}
+        # Opaque per-venue accrual state. It was `(block, borrow_index)` when
+        # every venue was a Venus market; a pool keeps realized totals instead,
+        # and the driver does not need to know which it is holding.
+        accrual_state: dict[VenueId, object] = {}
 
         held: VenueId | None = None
         value = self.capital_quote
         edge_streak = 0
         switches_today = 0
-        day_started = events[0].ts
-        last_switch_ts = events[0].ts
+        sample_times = _sample_times(by_venue, self.sample_interval_s)
+        day_started = sample_times[0]
+        last_switch_ts = sample_times[0]
         hurdles: list[float] = []
-
-        by_venue: dict[VenueId, list[RateEvent]] = {v: [] for v in self.markets}
-        for e in events:
-            if e.market in by_venue:
-                by_venue[e.market].append(e)
 
         cursor = {v: 0 for v in self.markets}
 
-        for sample_ts in _sample_times(events, self.sample_interval_s):
+        for sample_ts in sample_times:
             # Advance every estimator to this decision time and feed it only
             # what happened before it. The guards in `TrailingEstimator` make a
             # mistake here raise rather than silently leak the future.
@@ -304,21 +341,14 @@ class AllocationDriver:
                 rows = by_venue[held]
                 seen = cursor[held]
                 if seen >= 1:
-                    now = rows[seen - 1]
-                    prev = last_index.get(held)
-                    if prev is not None:
-                        prev_block, prev_index = prev
-                        if now.borrow_index > prev_index and prev_index > 0:
-                            growth = now.borrow_index / prev_index - 1.0
-                            fit = estimators[held].fit()
-                            earned = growth * fit.utilisation * (1.0 - fit.reserve_factor)
-                            result.gross_yield_quote += value * earned
-                    last_index[held] = (now.block, now.borrow_index)
+                    earned, accrual_state[held] = sources[held].accrue(
+                        accrual_state.get(held), rows[seen - 1], estimators[held].fit()
+                    )
+                    result.gross_yield_quote += value * earned
 
             quotes = []
             for venue, est in estimators.items():
                 fit = est.fit()
-                meta = self.markets[venue]
                 # Market size as of **this** sample, from the last accrual the
                 # estimator has been allowed to see.
                 #
@@ -333,27 +363,11 @@ class AllocationDriver:
                 # `RateEvent`, so the correct figure needs no new data and no
                 # extra read — only the discipline of taking it from the
                 # trailing edge rather than the end.
-                scale = 10 ** int(meta.get("underlying_decimals", 18))
                 seen = cursor[venue]
-                if seen >= 1:
-                    at = by_venue[venue][seen - 1]
-                    cash = at.cash_prior / scale
-                    supplied = (at.cash_prior + at.total_borrows_prior) / scale
-                else:
-                    # Nothing observed yet: a market of unknown size, which A1
-                    # must treat as unable to absorb anything rather than as
-                    # infinite.
-                    cash = supplied = 0.0
-                quotes.append(
-                    VenueQuote(
-                        venue_id=venue,
-                        apr=fit.supply_apr,
-                        apr_samples=fit.accruals,
-                        apr_is_stale=fit.is_stale,
-                        cash_quote=cash,
-                        supplied_base_quote=supplied,
-                    )
-                )
+                # Nothing observed yet is a venue of unknown size, which A1 must
+                # treat as unable to absorb anything rather than as infinite.
+                last = by_venue[venue][seen - 1] if seen >= 1 else None
+                quotes.append(sources[venue].quote(venue, last, fit))
 
             if sample_ts - day_started >= 86_400:
                 switches_today = 0
@@ -431,8 +445,18 @@ class AllocationDriver:
             # which then describes a position other than the one that was held.
             # A cost is one event; it is charged once and written down once.
             if decision.moves:
+                # A SWITCH always crosses underlyings. An ENTER does so only
+                # when the venue it arrives at demands it — false for a dollar
+                # market, true for a pool, where half the capital has to become
+                # the other token before a range can be opened. Charging a pool
+                # entry as free would flatter it against the lending venues it
+                # is being compared with.
+                target = decision.target_venue
+                arriving = target is not None and sources[target].swaps_on_entry
                 charged = _move_cost(
-                    value, self.costs, swaps=decision.action is AllocationAction.SWITCH
+                    value,
+                    self.costs,
+                    swaps=decision.action is AllocationAction.SWITCH or arriving,
                 )
                 value -= charged
                 result.total_costs += charged
@@ -443,18 +467,24 @@ class AllocationDriver:
                 # before it existed described a different question.
                 edge_streak = 0
                 held = decision.target_venue
-                last_index.pop(held, None)
+                # Rebase, so the first sample of a new position is not paid for
+                # growth that happened before it existed. `accrue` with no state
+                # returns zero and seeds it, which is exactly the rebase.
+                accrual_state.pop(held, None)
                 rows = by_venue[held]
                 if cursor[held] >= 1:
-                    now = rows[cursor[held] - 1]
-                    last_index[held] = (now.block, now.borrow_index)
+                    _, accrual_state[held] = sources[held].accrue(
+                        None, rows[cursor[held] - 1], estimators[held].fit()
+                    )
                 result.entries += 1
             elif decision.action is AllocationAction.SWITCH:
                 held = decision.target_venue
+                accrual_state.pop(held, None)
                 rows = by_venue[held]
                 if cursor[held] >= 1:
-                    now = rows[cursor[held] - 1]
-                    last_index[held] = (now.block, now.borrow_index)
+                    _, accrual_state[held] = sources[held].accrue(
+                        None, rows[cursor[held] - 1], estimators[held].fit()
+                    )
                 result.switches += 1
                 switches_today += 1
                 edge_streak = 0
@@ -490,16 +520,29 @@ def _move_cost(notional: float, costs: SwitchCost, *, swaps: bool) -> float:
     P-18 — "entering from a single asset: half of it has to become the other" —
     and this one had none.
 
-    Entering and exiting hold the underlying they already have. Only moving
-    *between* venues crosses underlyings.
+    Entering and exiting a *lending* venue hold the underlying they already
+    have, so only moving between them crosses underlyings. A pool does not work
+    that way — opening a range needs half the capital in the other token — so
+    the caller asks the venue whether arriving there swaps, rather than
+    inferring it from the action alone.
     """
     fee = notional * costs.slippage_bps / 10_000.0 if swaps else 0.0
     return 2.0 * costs.gas_quote + fee
 
 
-def _sample_times(events: list[RateEvent], interval: int) -> list[int]:
-    """Decision times across the tape, at a fixed cadence."""
-    start, end = events[0].ts, events[-1].ts
+def _sample_times(by_venue: dict[VenueId, list], interval: int) -> list[int]:
+    """Decision times across the tape, at a fixed cadence.
+
+    The span is the **union** of the venues' tapes, not their intersection. Two
+    venues rarely start on the same block, and intersecting would silently throw
+    away the part of a tape the other venue does not cover — deciding, on the
+    reader's behalf, that a period with only one measurable venue is not worth
+    replaying. A venue with nothing yet is stale, and `quotable` drops a stale
+    venue rather than ranking it last, so the union costs nothing but honesty.
+    """
+    starts = [rows[0].ts for rows in by_venue.values() if rows]
+    ends = [rows[-1].ts for rows in by_venue.values() if rows]
+    start, end = min(starts), max(ends)
     if end <= start:
         return [start]
     return list(range(start, end + 1, interval))

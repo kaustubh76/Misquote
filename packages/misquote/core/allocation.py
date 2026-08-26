@@ -91,11 +91,30 @@ class VenueQuote:
     cash_quote: float
     #: Total supplied base, the denominator A1's epsilon applies to.
     supplied_base_quote: float
+    #: Whether `apr` is a lower bound rather than a point estimate.
+    #:
+    #: A lending rate is differenced from an accumulator and is the rate. A pool's
+    #: is fees minus a convexity cost that A10 publishes as an **upper bound** on
+    #: adverse selection, so the subtraction is a lower bound on what the position
+    #: earned — the pessimistic end, never the middle.
+    #:
+    #: It exists because the floor below is right for one of those and wrong for
+    #: the other. Differencing an accumulator genuinely cannot show a supplier
+    #: losing more than they supplied. Annualising can: a range that gives up
+    #: 0.75% of its capital to arbitrage in a day is at a rate of -273% a year,
+    #: which is arithmetic rather than an accounting error, and rejecting it
+    #: would force the pool venue to either clamp — the thing this project is
+    #: named against — or lie about which quantity it had measured.
+    #:
+    #: Ranking a lower bound against a point estimate is conservative, so the
+    #: policy needs no knowledge of it. The card does: it is the difference
+    #: between the two numbers a reader is being shown side by side.
+    apr_is_lower_bound: bool = False
 
     def __post_init__(self) -> None:
         if not self.venue_id:
             raise ValueError("a venue with no id cannot be journalled or rendered")
-        if self.apr < -1.0:
+        if self.apr < -1.0 and not self.apr_is_lower_bound:
             raise ValueError(
                 f"apr={self.apr} is below -100%: a supplied position cannot lose more "
                 f"than it supplied, so this is an accounting error rather than a rate"
