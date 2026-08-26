@@ -674,6 +674,75 @@ instead of them.
 and A19's ceiling at both ends. A sweep that cannot disagree with the derivation it is
 checking is not a check.
 
+## A24 · A pool's rate and a lending rate are not in the same numéraire
+
+**Added 26 Aug 2026.** Router keeps its books in dollars. Every pool this repository has
+badged is quoted in **WBNB** or **TSLAx** — there is no dollar-denominated pool on the
+list — so the moment a PancakeSwap range became a venue Router could choose, the card
+began ranking a BNB-denominated fee rate against a dollar supply rate.
+
+Three quantities cross that boundary and they are not alike:
+
+*The rate itself* is a ratio of two figures in the same units and is carried across
+unconverted. Fees and capital are both measured in the pool's quote token at the same
+instant, so the quotient is numéraire-free to first order.
+
+*The sizes are not.* `supplied_base_quote` is the denominator of A1's ceiling and is
+compared directly against a dollar notional, so it is converted with
+`chain/costs.py::native_price_from_tape` — the last swap on the verified WBNB/USDT pool,
+the same reading the cost model already uses. `PoolVenue` **requires** the price and
+raises without it. There is deliberately no default: P-25 is the record of what a
+silently mixed BNB-and-dollars figure costs, and a default of `1.0` is that bug wearing
+a nicer face. The price used is published on the card as `quote_price_quote`.
+
+*The principal is the part no conversion fixes.* A supplied dollar earns a dollar rate
+and stays a dollar. A range earns a rate measured in the pool's quote token and holds
+two assets whose value moves with the price. These are different products, and no
+arithmetic makes the two numbers interchangeable. So the card states it in words beside
+the table rather than leaving a reader to infer that the larger figure is the better one
+— which is the difference between a comparison and a misquote.
+
+A consequence worth stating: because a pool's net figure is fees minus a convexity cost
+that A10 publishes as an **upper bound**, it is a *lower* bound rather than a point
+estimate, and it can fall below −100% when a short window's adverse selection is
+annualised. `VenueQuote.apr_is_lower_bound` carries that distinction, and the −100% floor
+— correct for a rate differenced out of an accumulator — is applied only to the point
+estimates it was written for. Ranking a lower bound against a point estimate is
+conservative, which is the safe direction, and the asymmetry is disclosed rather than
+quietly evened out.
+
+## A25 · A1 is refused at the decision, not counted after the position exists
+
+**Added 26 Aug 2026.** A1 says a replayed position large enough to move the price it is
+replayed against is fiction rather than a backtest. Router has enforced this by counting
+breaches into `a1_capped` and having `allocation_quote_from_results` refuse the whole
+quote afterwards.
+
+That is the right refusal in the wrong place. `agents/router/policy.py::capped_notional`
+— eps times the venue's size — has existed and been unit-tested since the policy was
+written and **nothing ever called it**. The gate only ever fired once the capital was
+already committed, which makes it a gate structurally unable to prevent anything: the
+same defect `core/allocation.py` records this repository as having shipped twice.
+
+It never bound because every venue was a Venus market holding hundreds of millions, and
+one percent of that is far more than this agent routes. A concentrated-liquidity range is
+the case that exposes it. Depth over ±80 ticks of the flagship pool measures about
+**$218k**, so A1's ceiling is about **$2.2k** against a **$10,000** notional — over by
+four and a half times, and the 0.25% pool at ±400 is over by sixty-four.
+
+`decide_router` now drops a venue that cannot absorb the notional before ranking, and a
+held position that has *outgrown* its venue exits — ahead of the "nothing is measurable,
+so stay put" branch, because that branch is right about an unmeasured venue and wrong
+about one measured as too small. The counter survives as the backstop the gate cannot
+be: depth is measured per sample, and no gate at entry can prevent a venue shrinking
+afterwards.
+
+Two consequences are deliberate. Declining for size is **not** the same as the venue
+paying nothing, so the journal records `reason_a1_no_venue_can_absorb` separately and the
+card can say the yield was there and the size was not. And a pool can pay well and still
+be refused for being too shallow to take the position — which, at this notional, is
+exactly what both badged pools do.
+
 ## What settles versus what is displayed
 
 Two different numbers, deliberately.

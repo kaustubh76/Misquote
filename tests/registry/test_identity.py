@@ -12,6 +12,9 @@ about the implementation behind it.
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 from web3 import Web3
 
@@ -27,6 +30,23 @@ from misquote.registry.identity import (
     IdentityWriter,
     RegistrationNotObserved,
 )
+
+#: `scripts/` is a directory of entrypoints, not an importable package — there
+#: is no `__init__.py` and nothing puts the repository root on `sys.path`, so
+#: `from scripts.register_identity import ...` raises `ModuleNotFoundError`
+#: under `make test`. `tests/test_go_no_go.py` loads its script by path for
+#: exactly this reason; this follows it rather than adding a second convention.
+_REGISTER = Path(__file__).resolve().parents[2] / "scripts" / "register_identity.py"
+
+
+def _register_identity():
+    """The registration script, loaded by path."""
+    spec = importlib.util.spec_from_file_location("misquote_register_identity", _REGISTER)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 BURNER_KEY = "0x" + "11" * 32
 BURNER = "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
@@ -254,10 +274,10 @@ def test_a_re_read_does_not_drop_what_it_cannot_re_derive() -> None:
     once; the first verification after it silently dropped the line, leaving a
     record that looked complete and had quietly lost a transaction hash.
     """
-    from scripts.register_identity import Report, carry_forward  # noqa: PLC0415
+    script = _register_identity()
 
-    report = Report(97)
-    carry_forward(
+    report = script.Report(97)
+    script.carry_forward(
         {"signer": "0xbF4ef75a443E00415Ee2E368caC089e0834930E6", "funding": {"tx": "0xabc"}},
         report,
     )
@@ -269,8 +289,8 @@ def test_a_re_read_does_not_drop_what_it_cannot_re_derive() -> None:
 def test_a_record_with_no_funding_publishes_no_funding_key() -> None:
     """Omitted rather than null, so a record with no funding line is a record
     where none happened rather than one where it is unknown."""
-    from scripts.register_identity import Report, carry_forward  # noqa: PLC0415
+    script = _register_identity()
 
-    report = Report(97)
-    carry_forward({"signer": "0x" + "11" * 20}, report)
+    report = script.Report(97)
+    script.carry_forward({"signer": "0x" + "11" * 20}, report)
     assert "funding" not in report.to_dict()
