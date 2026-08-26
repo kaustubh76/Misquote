@@ -14,6 +14,7 @@
       "cited_by": [
         "addresses.json",
         "advantage.json",
+        "router.json",
         "vetting.json"
       ],
       "id": "A1",
@@ -222,6 +223,7 @@
       ],
       "cited_by": [
         "grid.json",
+        "router.json",
         "sentinel.json",
         "warden.json"
       ],
@@ -626,7 +628,9 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "router.json"
+      ],
       "id": "A21",
       "kind": "assumption",
       "line": 613,
@@ -751,7 +755,9 @@
           "type": "p"
         }
       ],
-      "cited_by": [],
+      "cited_by": [
+        "router.json"
+      ],
       "id": "A23",
       "kind": "assumption",
       "line": 567,
