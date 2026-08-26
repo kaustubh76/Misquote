@@ -495,7 +495,7 @@ export function AgentDetail({
                 still happened; it is just not a second mint. Counting them
                 together is what once rendered one mint as three. */}
             <p className="mt-4 mb-0 text-xs text-dim">
-              {count(d.activity.executed)} executed · {count(d.activity.failed)} failed ·{" "}
+              {count(d.activity.executed)} recorded · {count(d.activity.failed)} failed ·{" "}
               {count(d.activity.dropped)} dropped as stale or capped
             </p>
             {d.activity.read_errors > 0 && (

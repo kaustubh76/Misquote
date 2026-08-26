@@ -829,15 +829,33 @@ def render_markdown(comparisons: list[Comparison], *, source: str, capital: floa
         ]
         lines += _why(c)
 
+    # Conditional on the tape. This paragraph is a claim about chain coverage,
+    # and it was emitted unconditionally — so `AGENT_ADVANTAGE_SHORT.md`, a run
+    # whose header says `Tape: synthetic` and whose every task is withheld, still
+    # told the reader both venues were "indexed from chain over the same
+    # 5,802,928 blocks". A true sentence about the other report.
+    tape_note = (
+        [
+            "- **A longer tape, and a second month.** Thirty days is one regime. The",
+            "  caveat that used to sit here — that free BSC endpoints refuse a multi-day",
+            "  backfill, so the word *real* had not been earned — is no longer true and",
+            "  has been removed: both venues are indexed from chain over the same",
+            "  5,802,928 blocks, and `make go-no-go` checks the coverage rather than the",
+            "  span. What a keyed `BSC_RPC_URL` buys now is speed, not honesty.",
+        ]
+        if source == "chain"
+        else [
+            "- **A chain tape.** This run is `" + source + "`, so nothing below rests on",
+            "  anything that happened. A synthetic tape can show the machinery runs; it",
+            "  cannot support a claim about a venue. Run `make advantage` against an",
+            "  indexed pool for a report that can.",
+        ]
+    )
+
     lines += [
         "## What would make this stronger",
         "",
-        "- **A longer tape, and a second month.** Thirty days is one regime. The",
-        "  caveat that used to sit here — that free BSC endpoints refuse a multi-day",
-        "  backfill, so the word *real* had not been earned — is no longer true and",
-        "  has been removed: both venues are indexed from chain over the same",
-        "  5,802,928 blocks, and `make go-no-go` checks the coverage rather than the",
-        "  span. What a keyed `BSC_RPC_URL` buys now is speed, not honesty.",
+        *tape_note,
         "- **A verdict.** Three tasks is three observations, and `tearsheet.verdict`",
         "  refuses below thirty. The report says *no verdict* across all tasks and",
         "  means it; the per-task bands are what it will stand behind.",

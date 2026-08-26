@@ -197,6 +197,16 @@ def test_the_rendered_card_reports_the_refusals_plainly(tmp_path) -> None:
     assert "held back by" in text and "R2 12" in text
     assert "THINGS THIS NUMBER DOES NOT KNOW" in text
 
+    # The basis, before the number. `docs/TEARSHEET.md` quoted Warden at
+    # +36.88% while `warden.json` quoted the same agent on the same pool at
+    # -52.18%; both were right, and nothing on either said they were different
+    # measurements. A ninety-point contradiction between two of this project's
+    # own outputs is worth one line of provenance.
+    assert "BASIS" in text
+    assert "live journal" in text
+    assert "not the published card" in text
+    assert text.index("BASIS") < text.index("QUOTE"), "the basis has to arrive first"
+
 
 def test_the_artifact_is_json_the_web_app_can_read_without_python(tmp_path) -> None:
     """The Next.js app reads precomputed artifacts, so the site stays statically

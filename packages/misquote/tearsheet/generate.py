@@ -84,6 +84,13 @@ class JournalSummary:
     # stale, failed, or refused by the daily cap. Counted separately because
     # they are outcomes rather than decisions, and folding them into the action
     # counts is what made one mint render as three.
+    #
+    # `make warden` is wired to `RecordingExecutor`, so an action counted here
+    # reached an executor and stopped there — nothing was broadcast. The name is
+    # the loop's own vocabulary and stays. What did not stay is the *rendered*
+    # word: "2 executed" sat on a public card directly above the caveat saying
+    # nothing had been, which is this project's own failure mode appearing on its
+    # own tearsheet. `AgentDetail.tsx` renders "recorded" now.
     executed: int = 0
     failed: int = 0
     dropped: int = 0
@@ -278,9 +285,22 @@ class Tearsheet:
         }
 
     def render(self) -> str:
+        # What this document is a measurement *of*, stated before the number.
+        #
+        # `docs/TEARSHEET.md` published "36.88% to 38.72%" for Warden while
+        # `warden.json` published "-52.18% to -49.92%" for the same agent on the
+        # same pool. Both were correct: this file is quoted from a short live
+        # journal, the card from a 725-hour replay across twenty windows. Nothing
+        # said so, so the only available reading was that one of them was wrong —
+        # a ninety-point contradiction between two of this project's own outputs,
+        # in the project whose entire argument is that its numbers agree.
         lines = [
             f"  {self.agent}",
             f"  {self.pool}",
+            "",
+            f"  BASIS            this agent's live journal, {self.journal.decisions:,} decisions "
+            f"over {self.journal.hours:.1f}h",
+            "                   not the published card, which replays 20 windows of the full tape",
             "",
             f"  QUOTE            {self.quote_line}",
             f"  in range         {self.in_range}",
