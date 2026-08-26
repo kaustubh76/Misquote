@@ -68,3 +68,32 @@ class PositionClosedNotReopened(MisquoteError):
             f"closed position {token_id} but could not reopen: {type(cause).__name__}: "
             f"{str(cause)[:200]}"
         )
+
+
+class PositionCapExceeded(MisquoteError):
+    """A mint would hold more capital than this deployment declared it may.
+
+    `MISQUOTE_POSITION_CAP_QUOTE` was checked by `make go-no-go --mainnet` and by
+    nothing else. The gate read as "capital is capped" and capped nothing: the
+    size actually minted came from `--capital`, bounded only by A1's share of
+    pool liquidity. A checklist item that no code enforces is the same defect as
+    a threshold wired to nothing, and this repository has now shipped three of
+    those.
+
+    So the cap is enforced where the kill switch is enforced — as deep as the
+    transaction, past every caller — and it **refuses rather than clamping**.
+    Clamping is the tempting choice and the wrong one for the same reason A1
+    refuses a breaching quote rather than quoting the smaller position it
+    actually deployed (P-14): a silently resized position is a position the
+    operator did not ask for, reported under a number they did.
+    """
+
+    def __init__(self, value_quote: float, cap_quote: float, symbol: str) -> None:
+        self.value_quote = value_quote
+        self.cap_quote = cap_quote
+        super().__init__(
+            f"this mint would hold {value_quote:,.6f} {symbol}, above the declared cap "
+            f"of {cap_quote:,.6f}. Refusing rather than resizing: raise "
+            f"MISQUOTE_POSITION_CAP_QUOTE if that is what you meant, or size the "
+            f"position smaller."
+        )

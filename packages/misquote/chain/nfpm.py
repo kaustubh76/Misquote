@@ -27,15 +27,25 @@ forgets the second call leaves the money in the contract and reports success.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 
 from web3 import Web3
 
 from misquote.chain.addresses import Deployment
 from misquote.chain.signer import BscSigner, SentTransaction
+from misquote.core.errors import PositionCapExceeded
 from misquote.core.liquidity import get_amounts_for_liquidity, get_liquidity_for_amounts
-from misquote.core.tickmath import get_sqrt_ratio_at_tick
+from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
 from misquote.core.types import PoolMeta, Tick
+
+# The declared ceiling on what one position may hold, in the pool's token1.
+#
+# Read here rather than passed in, for the reason `BscSigner` reads its own key
+# here rather than taking one: a guard supplied by the caller is a guard the
+# caller can decline to supply. Unset means unenforced, and the go/no-go FAILs on
+# unset under --mainnet, so the two halves meet.
+POSITION_CAP_ENV = "MISQUOTE_POSITION_CAP_QUOTE"
 
 MAX_UINT128 = 2**128 - 1
 
@@ -104,6 +114,26 @@ FACTORY_ABI = json.loads("""[
 ]""")
 
 
+def _cap_from_env() -> float | None:
+    """The declared position cap, or None when this deployment declares none.
+
+    Malformed raises rather than reading as absent, the same rule
+    `chain/operator.py::_parse` applies to a mistyped address: `None` is the
+    permissive branch, so a typo that fell into it would disable the check it was
+    set to enable.
+    """
+    raw = os.environ.get(POSITION_CAP_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise ValueError(f"{POSITION_CAP_ENV}={raw!r} is not a number") from error
+    if value <= 0.0:
+        raise ValueError(f"{POSITION_CAP_ENV}={value} must be positive; unset it to disable")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class OnChainPosition:
     """A position as the manager reports it."""
@@ -130,7 +160,15 @@ class OnChainPosition:
 class PositionManager:
     """Builds and sends position transactions through the verified NFPM."""
 
-    __slots__ = ("w3", "signer", "meta", "deployment", "contract", "_slippage_bps")
+    __slots__ = (
+        "w3",
+        "signer",
+        "meta",
+        "deployment",
+        "contract",
+        "_slippage_bps",
+        "_position_cap_quote",
+    )
 
     def __init__(
         self,
@@ -139,6 +177,7 @@ class PositionManager:
         deployment: Deployment,
         *,
         slippage_bps: float = 50.0,
+        position_cap_quote: float | None = None,
     ) -> None:
         if meta.chain_id != signer.chain_id:
             raise ValueError(
@@ -152,6 +191,9 @@ class PositionManager:
             address=Web3.to_checksum_address(deployment.position_manager), abi=NFPM_ABI
         )
         self._slippage_bps = slippage_bps
+        self._position_cap_quote = (
+            position_cap_quote if position_cap_quote is not None else _cap_from_env()
+        )
 
     # --- reads -------------------------------------------------------------
 
@@ -241,7 +283,21 @@ class PositionManager:
     # --- writes ------------------------------------------------------------
 
     def ensure_allowance(self, token: str, amount: int) -> SentTransaction | None:
-        """Approve the manager if it cannot already move enough. Idempotent."""
+        """Approve the manager if it cannot already move enough. Idempotent.
+
+        **Approves `amount`, not `2**256 - 1`.** The infinite approval was the
+        original, and on a wallet holding only capped capital its marginal risk is
+        genuinely small — a compromised manager could take the balance either way.
+        The reason to bound it is not risk arithmetic, it is that this project
+        sells bounded, revocable grants: `sessions/keys.py` refuses to publish a
+        session-key module it cannot verify precisely so that no control here
+        promises more than it delivers. An unbounded standing approval sitting
+        underneath that page would be the same overclaim in the other direction.
+
+        The cost is one approval per mint, since an exact allowance is consumed by
+        the mint that uses it. That is a real gas cost and it is the price of the
+        property.
+        """
         erc20 = self.w3.eth.contract(address=Web3.to_checksum_address(token), abi=ERC20_ABI)
         current = erc20.functions.allowance(
             self.signer.address, Web3.to_checksum_address(self.deployment.position_manager)
@@ -250,7 +306,7 @@ class PositionManager:
             return None
 
         call = erc20.functions.approve(
-            Web3.to_checksum_address(self.deployment.position_manager), 2**256 - 1
+            Web3.to_checksum_address(self.deployment.position_manager), amount
         )
         return self.signer.send(self.signer.build(call))
 
@@ -295,6 +351,7 @@ class PositionManager:
         expected0, expected1 = get_amounts_for_liquidity(
             sqrt_price, sqrt_lower, sqrt_upper, liquidity
         )
+        self._assert_within_cap(expected0, expected1, sqrt_price)
 
         call = self.contract.functions.mint(
             (
@@ -312,6 +369,42 @@ class PositionManager:
             )
         )
         return self.signer.send(self.signer.build(call))
+
+    def _position_value_quote(self, amount0: int, amount1: int, sqrt_price: int) -> float:
+        """What a position holding these amounts is worth, in token1.
+
+        `sqrt_price_x96` squared is token1 per token0 in *raw* units, so the
+        decimal adjustment is `dec0 - dec1` — the same conversion
+        `replay/engine.py::_inventory` makes, and it has to stay the same one or
+        the cap would bind at a different size than the policy believes it sized.
+        """
+        price = ((sqrt_price / Q96) ** 2) * 10.0 ** (self.meta.dec0 - self.meta.dec1)
+        return amount1 / 10.0**self.meta.dec1 + (amount0 / 10.0**self.meta.dec0) * price
+
+    def _assert_within_cap(self, amount0: int, amount1: int, sqrt_price: int) -> None:
+        """Refuse a mint that would hold more than this deployment declared.
+
+        Checked against `expected*` rather than `amount*Desired`, because the
+        curve takes the two tokens in whatever ratio the price dictates: the
+        desired amounts are an offer and the expected ones are what the position
+        will actually hold. Capping the offer would refuse mints that were always
+        going to be within the cap.
+
+        Placed here, below every caller, for the reason the kill switch sits in
+        `signer.send()` — a guard one level up is a guard the next caller forgets.
+        `ChainExecutor`, the Warden entrypoint and any script all reach the chain
+        through this method.
+        """
+        if self._position_cap_quote is None:
+            return
+        value = self._position_value_quote(amount0, amount1, sqrt_price)
+        if value > self._position_cap_quote:
+            # "token1", not a ticker. `quote_symbol` lives on `PoolRef` and this
+            # class holds a `PoolMeta`, and reaching into the pool registry to
+            # prettify an error would couple the write path to the verified-pool
+            # table for the sake of a word. `.env.example` documents the cap's
+            # unit as "the pool's token1", so this is the unit it was set in.
+            raise PositionCapExceeded(value, self._position_cap_quote, "token1")
 
     def _sqrt_price_now(self) -> int:
         pool = self.w3.eth.contract(

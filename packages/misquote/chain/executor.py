@@ -103,9 +103,23 @@ class ChainExecutor:
     # --- the protocol ------------------------------------------------------
 
     def mint(self, lower: Tick, upper: Tick, liquidity: int, ts: int) -> int | None:
-        """Open a position and return its NFPM token id."""
+        """Open a position and return its NFPM token id.
+
+        Approvals first. `ensure_allowance` had three call sites and all of them
+        were tests — the fork fixture approved both tokens before any test ran, so
+        every mint in the suite met an allowance that production would never have
+        set. A first real mint would have failed at `estimate_gas`: loudly, at
+        least, but for a reason that looks like a broken contract rather than a
+        missing step.
+
+        Idempotent, so this costs a read and nothing else once the allowance is
+        already sufficient — which is what the fork fixture's own approvals make
+        it, and what proves the call is harmless where it was already handled.
+        """
         del ts  # the deadline comes from the chain's clock, not the policy's
         amount0, amount1 = self._amounts_for(lower, upper, liquidity)
+        self.manager.ensure_allowance(self.manager.meta.token0, amount0)
+        self.manager.ensure_allowance(self.manager.meta.token1, amount1)
         sent = self.manager.mint(lower, upper, amount0, amount1)
         self.sent.append(sent)
         self._last_mint = self._token_id_from(sent)
