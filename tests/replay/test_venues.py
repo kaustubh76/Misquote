@@ -320,3 +320,42 @@ def test_the_driver_charges_a_swap_on_entering_a_pool_and_not_on_a_market() -> N
     assert pool.entries == 1
     assert pool.total_costs > 0, "opening a range from one asset pays the swap fee"
     assert pool.total_costs == pytest.approx(1.0 * 30.0 / 10_000.0)
+
+
+def test_a_rate_the_agent_could_not_take_stays_off_the_summary_figures() -> None:
+    """Three published numbers rested on "measured" where they needed "choosable".
+
+    A PancakeSwap range at +/-80 measured 189% net on the real tape while A1
+    barred the position from it on every sample, and the card carried that under
+    "Best realized rate seen", a `breakeven_horizon_hours` of 0.0 days derived
+    from it, and a `best_venue_fraction` of 0% — because the venue Router was
+    being scored against was one it was never allowed to hold.
+
+    None of those were false about the pool. All three were false about the
+    agent, which is what a card reports on.
+
+    Here the pool pays far more than the market and is far too small to enter, so
+    a summary computed the old way would report the pool's rate and score Router
+    as never holding the best venue.
+    """
+    events = pool_tape(600)
+    tiny = PoolVenue(POOL, width_ticks=80, capital_quote=1.0, quote_price=PRICE)
+    driver = AllocationDriver(
+        {"pool": tiny},
+        policy=decide_router,
+        params=RouterParams(min_apr_samples=MIN_SWAPS, persistence_samples=1),
+        # Two hundred times the pool's whole depth, so A1 can never clear.
+        capital_quote=1e9,
+        costs=SwitchCost(gas_quote=0.0, slippage_bps=0.0, basis="fixture", derived=False),
+    )
+
+    result = driver.run({"pool": events})
+
+    assert result.entries == 0, "A1 should have refused a position this size"
+    assert result.best_apr_seen == 0.0, (
+        "the pool's rate was real and unreachable, so it is not a rate this agent "
+        "passed up — publishing it would put a return on the card that was never offered"
+    )
+    assert result.breakeven_horizon_hours == 0.0
+    # The venue was measured, and the record says so — the refusal is about size.
+    assert result.venue_sizes["pool"], "it was quotable; the size is what failed"

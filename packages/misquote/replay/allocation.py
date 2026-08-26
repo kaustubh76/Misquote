@@ -417,6 +417,28 @@ class AllocationDriver:
                 edge_streak=edge_streak,
             )
 
+            # The venues this agent could actually have chosen at this sample:
+            # measured, and large enough to take the position.
+            #
+            # One definition, because three summary figures rest on it and they
+            # were drifting apart. Each was computed over "not stale", which is
+            # right while every venue is big enough to enter and wrong the moment
+            # one is not — and a PancakeSwap range is exactly that. On this tape
+            # a +/-80 range measured 189% net and A1 barred the position from it
+            # on every sample, which put 189.047% on the card under "Best
+            # realized rate seen", made `breakeven_horizon_hours` read 0.0 days,
+            # and left `best_venue_fraction` at 0% because the venue Router was
+            # being scored against was one it was never allowed to hold.
+            #
+            # None of those were false about the pool. All three were false about
+            # the agent, which is what a card reports on.
+            takeable = [
+                q
+                for q in quotes
+                if not q.apr_is_stale
+                and value <= self.params.eps_market_share * q.supplied_base_quote
+            ]
+
             # A1: refuse rather than clamp. Counted per sample the position
             # would have exceeded epsilon of the venue it is sitting in.
             for q in quotes:
@@ -442,33 +464,13 @@ class AllocationDriver:
             # those was a claim the run did not support.
             if held is not None:
                 result.max_edge_apr = max(result.max_edge_apr, decision.edge_apr)
-            # Only rates this agent could actually have taken.
-            #
-            # This was every non-stale quote, which is right while every venue
-            # is large enough to enter and wrong the moment one is not. A
-            # PancakeSwap range at +/-80 measured 189% net on this tape and A1
-            # barred the position from it on every sample, so `best_apr_seen`
-            # published a rate the agent was never able to have — under the
-            # heading "Best realized rate seen", with `breakeven_horizon_hours`
-            # derived from it reading 0.0 days.
-            #
-            # The same test A1 applies below, on the same two quantities. A
-            # venue that cannot absorb the position is not a rate that was
-            # passed up; it is a rate that was not on offer.
-            live_now = [
-                q
-                for q in quotes
-                if not q.apr_is_stale
-                and value <= self.params.eps_market_share * q.supplied_base_quote
-            ]
-            if live_now:
-                result.best_apr_seen = max(result.best_apr_seen, max(q.apr for q in live_now))
+            if takeable:
+                result.best_apr_seen = max(result.best_apr_seen, max(q.apr for q in takeable))
 
             if held is not None:
                 result.invested_samples += 1
                 result.venue_held_samples[held] = result.venue_held_samples.get(held, 0) + 1
-                live = [q for q in quotes if not q.apr_is_stale]
-                if live and held == max(live, key=lambda q: q.apr).venue_id:
+                if takeable and held == max(takeable, key=lambda q: q.apr).venue_id:
                     result.best_venue_samples += 1
 
             # The streak counts consecutive samples where the edge cleared, and
