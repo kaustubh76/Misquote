@@ -492,6 +492,16 @@ export interface RouterArtifact {
   caveats: string[];
   /** Present when the agent never moved: why that is the answer, in words. */
   finding?: string;
+  /**
+   * What became of the PancakeSwap ranges, when the card carries any.
+   *
+   * Separate from `finding` because they answer different questions and one
+   * would otherwise swallow the other: `finding` is about the allocation the
+   * agent made, and this is about the venues it considered and did not. A range
+   * declined because the notional exceeds what it can absorb is a result, and a
+   * card that reported only the allocation would have dropped it.
+   */
+  pool_finding?: string;
   /** Where the numbers came from: the journal `make router` writes. */
   provenance?: {
     journal: string;

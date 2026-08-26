@@ -363,6 +363,14 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
               said that they are not the same product: a supplied dollar keeps
               its principal in dollars, and a range does not. Nothing here is a
               number, so nothing here can drift from the artifact. */}
+          {/* What happened to the ranges, above the standing caveat about how
+              they are quoted. This is a result of *this* run; the paragraph
+              below is true of every run, and putting the general statement
+              first would bury the specific one. */}
+          {data.pool_finding && (
+            <p className="mt-4 text-sm leading-relaxed">{data.pool_finding}</p>
+          )}
+
           {hasPool && (
             <p className="mt-4 text-sm leading-relaxed text-muted">
               A range is quoted <strong>net of its convexity cost</strong> — realized

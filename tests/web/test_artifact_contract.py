@@ -199,6 +199,7 @@ ROUTER_FIELDS: dict[str, str] = {
     "quote_symbol": "RouterDetail.tsx",
     "capital_quote": "",
     "finding": "RouterCard.tsx",
+    "pool_finding": "RouterDetail.tsx",
     "caveats": "RouterDetail.tsx",
     "quote.p25": "RouterCard.tsx",
     "quote.p50": "RouterCard.tsx",

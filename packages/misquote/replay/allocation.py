@@ -73,6 +73,22 @@ class AllocationResult:
     gross_yield_quote: float = 0.0
     total_costs: float = 0.0
     a1_capped: int = 0
+    #: Per venue, the sizes A1's ceiling was computed from and how often the
+    #: venue was quotable at all.
+    #:
+    #: Without these a card can say a pool was *offered* and cannot say what
+    #: happened to it. "Router considered two PancakeSwap ranges" and "Router
+    #: considered them and declined both, because $10,000 is four and a half
+    #: times what a +/-80 range on the flagship can absorb" are different
+    #: claims, and only the second answers the question an LP arrived with.
+    #:
+    #: Sizes rather than the ceiling itself, because the ceiling is
+    #: `eps_market_share` times this and the epsilon belongs to whoever is
+    #: reading — a stored product could not be re-derived at another epsilon.
+    venue_sizes: dict[VenueId, list[float]] = field(default_factory=dict)
+    #: Samples each venue spent held. Distinguishes "never chosen" from "never
+    #: measurable", which the totals above cannot.
+    venue_held_samples: dict[VenueId, int] = field(default_factory=dict)
     first_ts: int | None = None
     last_ts: int | None = None
     #: The largest edge the tape ever offered, and the hurdle it was measured
@@ -367,7 +383,14 @@ class AllocationDriver:
                 # Nothing observed yet is a venue of unknown size, which A1 must
                 # treat as unable to absorb anything rather than as infinite.
                 last = by_venue[venue][seen - 1] if seen >= 1 else None
-                quotes.append(sources[venue].quote(venue, last, fit))
+                quote = sources[venue].quote(venue, last, fit)
+                if not quote.apr_is_stale:
+                    # Only while measurable. A venue with no reading has a size
+                    # of zero by construction, and folding those in would drag
+                    # the median toward a number that means "unknown" rather
+                    # than "small".
+                    result.venue_sizes.setdefault(venue, []).append(quote.supplied_base_quote)
+                quotes.append(quote)
 
             if sample_ts - day_started >= 86_400:
                 switches_today = 0
@@ -416,6 +439,7 @@ class AllocationDriver:
 
             if held is not None:
                 result.invested_samples += 1
+                result.venue_held_samples[held] = result.venue_held_samples.get(held, 0) + 1
                 live = [q for q in quotes if not q.apr_is_stale]
                 if live and held == max(live, key=lambda q: q.apr).venue_id:
                     result.best_venue_samples += 1

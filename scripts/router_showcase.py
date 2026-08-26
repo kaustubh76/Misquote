@@ -205,24 +205,40 @@ def _provenance(journal_dir: Path, *, derived_from_replay: bool) -> dict:
     }
 
 
-def _venue_row(key: str, meta) -> dict:
+def _venue_row(key: str, meta, result, eps: float) -> dict:
     """One venue as the card publishes it, in the shape its kind actually has.
 
     A `PoolVenue` already answers `card_fields()`; a Venus market is still the
     plain dict it has always been, and `as_venue` says why. The `venue_id` is
     added here because it is the driver's key rather than anything the venue
     knows about itself.
+
+    Every row also carries what the replay observed about it: A1's ceiling from
+    the venue's own measured size, and how many samples it was actually held.
+    A card that lists a venue and cannot say what became of it has reported an
+    intention rather than a result.
     """
-    if hasattr(meta, "card_fields"):
-        return {"venue_id": key, **meta.card_fields()}
-    return {
-        "venue_id": key,
-        "kind": "lending",
-        "symbol": meta["symbol"],
-        "supplied_base_at_tape_end": round(meta["supplied_base_at_tape_end"], 2),
-        "reserve_factor": meta["reserve_factor"],
-        "reserve_factor_recorded": meta["reserve_factor_recorded"],
-    }
+    row: dict = (
+        {"venue_id": key, **meta.card_fields()}
+        if hasattr(meta, "card_fields")
+        else {
+            "venue_id": key,
+            "kind": "lending",
+            "symbol": meta["symbol"],
+            "supplied_base_at_tape_end": round(meta["supplied_base_at_tape_end"], 2),
+            "reserve_factor": meta["reserve_factor"],
+            "reserve_factor_recorded": meta["reserve_factor_recorded"],
+        }
+    )
+    sizes = sorted(result.venue_sizes.get(key, ()))
+    # The median size the venue was measured at, times the epsilon — not the
+    # size at the end of the tape. A1's ceiling moved every sample and the
+    # decision was taken against the value of the moment, so a figure read off
+    # the last accrual would be describing a gate that never ran.
+    row["a1_ceiling_quote"] = round(eps * sizes[len(sizes) // 2], 2) if sizes else 0.0
+    row["held_samples"] = result.venue_held_samples.get(key, 0)
+    row["quotable_samples"] = len(sizes)
+    return row
 
 
 def _params_dict(p) -> dict:
@@ -581,7 +597,10 @@ def main() -> int:
         # them would have to invent the field the other kind does not have. A
         # lending market has a reserve factor and no width; a range has a width,
         # a fee tier and an LP share of that tier, and no reserve factor.
-        "venues": [_venue_row(key, meta) for key, meta in markets.items()],
+        "venues": [
+            _venue_row(key, meta, full, base_params.eps_market_share)
+            for key, meta in markets.items()
+        ],
         "source": source,
         "counterfactual": True,
         "badge": COUNTERFACTUAL_BADGE,
@@ -626,6 +645,44 @@ def main() -> int:
             *pool_caveats,
         ],
     }
+    # What became of the pools, named rather than implied.
+    #
+    # Offering a venue and reporting what happened to it are different claims,
+    # and only the second is the answer an LP arrived for. A range that was
+    # measured, ranked and then declined because the notional is larger than the
+    # pool can absorb is a *finding*; the same run described as "Router chose
+    # Venus" is the same fact with the useful half removed.
+    if pool_venues:
+        declined = [
+            row
+            for row in payload["venues"]
+            if row.get("kind") == "pool" and not row.get("held_samples")
+        ]
+        if declined and len(declined) == len(pool_venues):
+            detail = "; ".join(
+                f"{row['symbol']} at +/-{row['reference_width_ticks']} ticks tops out at "
+                f"{row['a1_ceiling_quote']:,.0f}"
+                for row in declined
+            )
+            payload["pool_finding"] = (
+                f"Router measured {len(declined)} PancakeSwap range(s) as venues and entered "
+                f"none of them, and the reason is size rather than yield. A1 caps a replayed "
+                f"position at {base_params.eps_market_share:.0%} of the venue it sits in, and "
+                f"against a notional of {args.capital:,.0f} the ceilings are: {detail}. The fee "
+                f"APR was measured and is on the card; what the ranges could not do is absorb "
+                f"this much capital without moving the price the replay is priced against. At a "
+                f"smaller notional the same policy over the same tape reaches a different "
+                f"answer, which is why the ceiling is published beside each range rather than "
+                f"the refusal alone."
+            )
+        else:
+            entered = [row for row in payload["venues"] if row.get("held_samples")]
+            payload["pool_finding"] = (
+                f"Router held {len(entered)} of {len(payload['venues'])} venues at some point "
+                f"over the tape, and PancakeSwap ranges were among the candidates rather than a "
+                f"comparison printed beside them."
+            )
+
     # What the run actually did, in words, because the numbers alone read
     # ambiguously in both directions.
     if full.entries == 0 and full.switches == 0:
