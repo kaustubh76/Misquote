@@ -55,14 +55,18 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "The agent is built and replays on a chain tape; the deployment is not, "
-            "and it needs a funded wallet. Registration writes an identity on chain "
-            "and the x402 path funds it, neither of which this repository will do "
-            "from an unfunded posture — the same gate that keeps `make warden` on "
-            "the recording executor. Two of the vendor's own links are also dead: "
-            "`studio.bnbchain.org` does not resolve, and the npm package's declared "
-            "repository, github.com/bnb-chain/bnbagent-studio, returns 404. The "
-            "artifact is real and signed; its source is not readable."
+            "The agent is built and replays on a chain tape; the Studio deployment "
+            "is not. **The funding half of this blocker has closed**: all four "
+            "agents now hold ERC-8004 identities on chapel — ids 1927-1930, owned "
+            "by the operator, recorded in `vetting/identity/97.json` and "
+            "re-derivable with `make identity-verify` — so 'this repository will "
+            "not register from an unfunded posture' is no longer the reason. What "
+            "remains is the Studio itself and x402 self-funding. Two of the "
+            "vendor's own links are dead: `studio.bnbchain.org` does not resolve, "
+            "and the npm package's declared repository, "
+            "github.com/bnb-chain/bnbagent-studio, returns 404. The artifact is "
+            "real and signed; its source is not readable, which is not a blocker "
+            "a funded wallet can clear."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),

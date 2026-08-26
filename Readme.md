@@ -52,9 +52,20 @@ one click away. Built solo, in public. Audit me.
   - **Router** (Yield) — whitelist APR router, optimal-switching boundary
     (move only when delta > gas+slippage). **Deployed via BNB Agent Studio CLI**
     (native-citizenship proof).
-- **Agent Studio native:** all four register ERC-8004 identities + ERC-8183
-  hire interfaces. The marketplace also indexes the ERC-8004 registry for
-  third-party agents (see D1 decision rule, §8).
+- **Agent Studio native:** the marketplace indexes the ERC-8004 registry for
+  third-party agents (see D1 decision rule, §8), and **all four of our agents are
+  registered on chapel** — ids 1927-1930, owned by the operator, each card
+  byte-identical to the one `cards.py` builds and each passing `erc8004.assess()`
+  as *substantive*, which is the same bar the survey holds third parties to.
+  `vetting/identity/97.json` is the reading; `make identity-verify` re-derives it
+  from chain. **ERC-8183 hire interfaces are not built** — the escrow deployment
+  is verified but nobody here has created, funded, submitted or settled a job on
+  it, and `index.json`'s `not_built` block stays the authority on that half.
+
+  This sentence has now been wrong in both directions. It claimed both as done
+  when neither was; it was then corrected to "planned, not built" against the
+  ledger's text rather than against the chain, which under-claimed a registration
+  that already existed. The chain is the authority, and it says four.
 - **Activation:** Altana session keys, caps subset ONLY (allowlist, spend cap,
   expiry, Keystore, one-tx revoke). No b402, no Altana-escrow flows.
 - **Proof:** Settlement Ledger (chain-state metrics only) → auto-generated
@@ -164,9 +175,13 @@ hardening, README-for-judges. Submit by Sep 9.
   (timestamp asserts), T4 (passive self-consistency ≤ 1 bp) all green on one
   real pool's 30-day history.
 - **sessions:** grant → visible in Keystore → agent tx through session →
-  revoke → agent tx fails. Demonstrated on testnet, scripted.
+  revoke → agent tx fails. **Not met.** `sessions/keys.py` publishes the caps
+  subset as a transaction plan and `SESSION_KEY_MODULE` is deliberately empty,
+  because no Altana module has been verified on either network. There is no
+  Hire button, and `/activate` says so.
 - **registry:** our 4 agents resolvable via ERC-8004 read; hire callable via
-  ERC-8183 from the web app.
+  ERC-8183 from the web app. **Not met** — see above. The registry *read* path
+  is built and surveys 280,287 agent ids; the write path has never been run.
 - **tearsheet:** report generated from ledger with zero hand-entered numbers.
 - **web:** an external tester completes land → quote → activate → revoke with
   no dead end and no instruction.

@@ -37,7 +37,7 @@
       "evidence": "packages/misquote/agents/router/ \u2014 no studio.py",
       "name": "Agent Studio deployment",
       "what": "Router registered and deployed through the BNB Agent Studio CLI, as the native-citizenship proof \u2014 an ERC-8004 identity of its own, an ERC-8183 task interface, and x402 self-funding.",
-      "why": "The agent is built and replays on a chain tape; the deployment is not, and it needs a funded wallet. Registration writes an identity on chain and the x402 path funds it, neither of which this repository will do from an unfunded posture \u2014 the same gate that keeps `make warden` on the recording executor. Two of the vendor's own links are also dead: `studio.bnbchain.org` does not resolve, and the npm package's declared repository, github.com/bnb-chain/bnbagent-studio, returns 404. The artifact is real and signed; its source is not readable."
+      "why": "The agent is built and replays on a chain tape; the Studio deployment is not. **The funding half of this blocker has closed**: all four agents now hold ERC-8004 identities on chapel \u2014 ids 1927-1930, owned by the operator, recorded in `vetting/identity/97.json` and re-derivable with `make identity-verify` \u2014 so 'this repository will not register from an unfunded posture' is no longer the reason. What remains is the Studio itself and x402 self-funding. Two of the vendor's own links are dead: `studio.bnbchain.org` does not resolve, and the npm package's declared repository, github.com/bnb-chain/bnbagent-studio, returns 404. The artifact is real and signed; its source is not readable, which is not a blocker a funded wallet can clear."
     },
     {
       "category": "Activation",
