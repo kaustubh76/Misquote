@@ -232,9 +232,7 @@ def test_every_selector_we_call_exists_in_the_deployed_implementation(chain_id: 
     Offline tests can only check that we believe `register(string)` is there.
     This is the one that would have caught believing it wrongly.
     """
-    from scripts.register_identity import connect  # noqa: PLC0415
-
-    w3 = connect(chain_id)
+    w3 = _register_identity().connect(chain_id)
     code = w3.eth.get_code(Web3.to_checksum_address(IDENTITY_IMPLEMENTATION[chain_id])).hex()
     assert len(code) > 2, "the recorded implementation has no bytecode"
 
