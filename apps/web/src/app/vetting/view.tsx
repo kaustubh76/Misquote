@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card, CardHeader } from "@/components/Card";
@@ -117,9 +118,11 @@ export interface VettingArtifact {
  * is not red either.
  */
 
-
 /** Hours between a recorded read and now, or null before the clock is read. */
-function ageHours(readAt: string | undefined, now: number | null): number | undefined {
+function ageHours(
+  readAt: string | undefined,
+  now: number | null
+): number | undefined {
   if (!readAt || now === null) return undefined;
   const then = Date.parse(readAt);
   return Number.isNaN(then) ? undefined : (now - then) / 3_600_000;
@@ -176,10 +179,10 @@ export function VettingView({
   initialAddresses?: AddressArtifact;
 }) {
   const [state, setState] = useState<Loaded<VettingArtifact> | null>(
-    initialVetting ? { ok: true, value: initialVetting } : null,
+    initialVetting ? { ok: true, value: initialVetting } : null
   );
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
-    initialIndex ? { ok: true, value: initialIndex } : null,
+    initialIndex ? { ok: true, value: initialIndex } : null
   );
   /**
    * When the page is looking, so "N ago" is N ago rather than N at emit time.
@@ -198,7 +201,7 @@ export function VettingView({
   useEffect(() => setNow(Date.now()), []);
 
   const [addrs, setAddrs] = useState<Loaded<AddressArtifact> | null>(
-    initialAddresses ? { ok: true, value: initialAddresses } : null,
+    initialAddresses ? { ok: true, value: initialAddresses } : null
   );
 
   useEffect(() => {
@@ -261,7 +264,9 @@ export function VettingView({
   // now, so a survey nested one level deeper is counted rather than silently
   // dropped the way these two were.
   const everyCheck = [
-    ...(state?.ok ? (state.value.pools ?? []).flatMap((p) => p.checks ?? []) : []),
+    ...(state?.ok
+      ? (state.value.pools ?? []).flatMap((p) => p.checks ?? [])
+      : []),
     ...(addrs?.ok ? checksOf(addrs.value) : []),
   ];
 
@@ -282,7 +287,9 @@ export function VettingView({
 
   /** A subject's checks, narrowed. Kept here so both subjects narrow alike. */
   function narrow<T extends { status: string }>(checks: T[] | undefined): T[] {
-    return verdict === "all" ? (checks ?? []) : (checks ?? []).filter((c) => c.status === verdict);
+    return verdict === "all"
+      ? checks ?? []
+      : (checks ?? []).filter((c) => c.status === verdict);
   }
 
   /**
@@ -296,8 +303,10 @@ export function VettingView({
    */
   const verdictTone = (v?: string) =>
     v === "PASS" ? "pass" : v === "FAIL" ? "fail" : ("unverified" as const);
-  const verdicts = [d?.surveyed ? d.summary.worst : null, a?.surveyed ? a.verdict : null]
-    .filter((v): v is string => Boolean(v));
+  const verdicts = [
+    d?.surveyed ? d.summary.worst : null,
+    a?.surveyed ? a.verdict : null,
+  ].filter((v): v is string => Boolean(v));
   const worstVerdict =
     verdicts.sort((x, y) => RANK.indexOf(y) - RANK.indexOf(x))[0] ?? "UNKNOWN";
 
@@ -322,7 +331,8 @@ export function VettingView({
       (addrs?.ok && addrs.value.surveyed ? 1 : 0) +
       (addrs?.ok && addrs.value.venus?.surveyed ? 1 : 0) +
       (addrs?.ok
-        ? Object.values(addrs.value.erc8183 ?? {}).filter((r) => r.surveyed).length
+        ? Object.values(addrs.value.erc8183 ?? {}).filter((r) => r.surveyed)
+            .length
         : 0),
     checks: everyCheck.length,
     unknown: everyCheck.filter((c) => c.status === "UNKNOWN").length,
@@ -339,10 +349,12 @@ export function VettingView({
           Pools are what an agent provides liquidity to; the addresses below are
           the contracts a signer is aimed at, and a pool can pass every check
           here while the factory constant used to find it points elsewhere. */}
-      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">Due diligence, read from chain</h1>
+      <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
+        Due diligence, read from chain
+      </h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Every pool an agent touches and every address the signer is aimed at, read from
-        chain. Each check names the defect that paid for it.
+        Every pool an agent touches and every address the signer is aimed at,
+        read from chain. Each check names the defect that paid for it.
       </p>
 
       {state === null && (
@@ -358,9 +370,10 @@ export function VettingView({
             detail={state.error.message}
             remedy={
               <>
-                Run <code className="font-mono text-xs">make vet</code> to read the pools,
-                then <code className="font-mono text-xs">make vetting</code> to publish what
-                it found.
+                Run <code className="font-mono text-xs">make vet</code> to read
+                the pools, then{" "}
+                <code className="font-mono text-xs">make vetting</code> to
+                publish what it found.
               </>
             }
           />
@@ -387,7 +400,8 @@ export function VettingView({
       {(d?.surveyed || addressSummary) && (
         <div
           className={`surface mt-8 rounded-md border p-6 ${
-            VERDICT_STYLE[worstVerdict] ?? "border-warn-line bg-warn-bg/50 text-warn"
+            VERDICT_STYLE[worstVerdict] ??
+            "border-warn-line bg-warn-bg/50 text-warn"
           }`}
         >
           {/* The answer, at the size of an answer.
@@ -428,17 +442,20 @@ export function VettingView({
                 <div
                   key={verdict}
                   className={SEGMENT[verdict] ?? "bg-neutral"}
-                  style={{ width: `${(n / Math.max(1, everyCheck.length)) * 100}%` }}
+                  style={{
+                    width: `${(n / Math.max(1, everyCheck.length)) * 100}%`,
+                  }}
                 />
-              ) : null,
+              ) : null
             )}
           </div>
 
           {/* The same figures in words, and the sentence `pages.test.tsx` looks
               up with a singular `getByText`. It stays exactly one text node. */}
           <p className="mt-3 mb-0 text-sm">
-            {count(totals.checks)} checks across {count(totals.subjects)} subjects ·{" "}
-            {count(totals.unknown)} unknown · {count(totals.failed)} failed
+            {count(totals.checks)} checks across {count(totals.subjects)}{" "}
+            subjects · {count(totals.unknown)} unknown · {count(totals.failed)}{" "}
+            failed
           </p>
         </div>
       )}
@@ -463,7 +480,9 @@ export function VettingView({
             ...(addrs?.ok && addrs.value.surveyed
               ? [{ id: "addresses", label: "Addresses" }]
               : []),
-            ...(proofs.length > 0 ? [{ id: "not-proofs", label: "Not proofs" }] : []),
+            ...(proofs.length > 0
+              ? [{ id: "not-proofs", label: "Not proofs" }]
+              : []),
           ]}
         />
       )}
@@ -499,9 +518,15 @@ export function VettingView({
                         {shortAddress(pool.pool)} · chain {d.chain_id}
                       </span>
                     }
-                    title={pool.safe_to_provide ? "Cleared to provide" : "Not cleared"}
+                    title={
+                      pool.safe_to_provide
+                        ? "Cleared to provide"
+                        : "Not cleared"
+                    }
                     aside={
-                      <Pill tone={verdictTone(pool.verdict)}>{pool.verdict}</Pill>
+                      <Pill tone={verdictTone(pool.verdict)}>
+                        {pool.verdict}
+                      </Pill>
                     }
                   />
 
@@ -509,8 +534,10 @@ export function VettingView({
 
                   <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
                     read {timestamp(pool.read_at)}
-                    {now !== null && <> · {hours(ageHours(pool.read_at, now))} ago</>} ·{" "}
-                    {pool.path}
+                    {now !== null && (
+                      <> · {hours(ageHours(pool.read_at, now))} ago</>
+                    )}{" "}
+                    · {pool.path}
                   </p>
                 </Card>
               )}
@@ -535,39 +562,47 @@ export function VettingView({
         </>
       )}
 
-
-        {/* Only when there is something to choose between.
+      {/* Only when there is something to choose between.
             Every check on a clean run carries the same verdict, and a chip row
             reading "All 29 · Pass 29" offers one button that does nothing —
             which is the kind of control this pass exists to remove, not add.
             The count is the useful part, so it is stated in a sentence instead
             and the group appears the moment a second verdict does. */}
-        {everyCheck.length > 0 && verdictChips.length <= 2 && (
-          <p className="mt-8 mb-0 text-sm text-dim">
-            Every one of the {everyCheck.length} checks below returned{" "}
-            <strong className="text-ink">{verdictChips[1]?.value ?? "the same verdict"}</strong>.
-          </p>
-        )}
+      {everyCheck.length > 0 && verdictChips.length <= 2 && (
+        <p className="mt-8 mb-0 text-sm text-dim">
+          Every one of the {everyCheck.length} checks below returned{" "}
+          <strong className="text-ink">
+            {verdictChips[1]?.value ?? "the same verdict"}
+          </strong>
+          .
+        </p>
+      )}
 
-        {everyCheck.length > 0 && verdictChips.length > 2 && (
-          <div className="surface mt-8 rounded-lg border border-glass-line bg-glass p-4">
-            <ChipGroup
-              label="Filter checks by verdict"
-              options={verdictChips}
-              value={verdict}
-              onChange={setVerdict}
-            />
-            {/* Named, because `Loadable` already owns an unnamed `role="status"`
+      {everyCheck.length > 0 && verdictChips.length > 2 && (
+        <div className="surface mt-8 rounded-lg border border-glass-line bg-glass p-4">
+          <ChipGroup
+            label="Filter checks by verdict"
+            options={verdictChips}
+            value={verdict}
+            onChange={setVerdict}
+          />
+          {/* Named, because `Loadable` already owns an unnamed `role="status"`
                 on this page. Two anonymous voices is one too many. */}
-            <p role="status" aria-label="Check filter result" className="mt-3 mb-0 text-xs text-faint">
-              {verdict === "all"
-                ? `All ${everyCheck.length} checks, across every subject below.`
-                : `${everyCheck.filter((c) => c.status === verdict).length} of ${everyCheck.length} checks are ${verdict}.`}
-            </p>
-          </div>
-        )}
+          <p
+            role="status"
+            aria-label="Check filter result"
+            className="mt-3 mb-0 text-xs text-faint"
+          >
+            {verdict === "all"
+              ? `All ${everyCheck.length} checks, across every subject below.`
+              : `${everyCheck.filter((c) => c.status === verdict).length} of ${
+                  everyCheck.length
+                } checks are ${verdict}.`}
+          </p>
+        </div>
+      )}
 
-        {/* The question this page could not answer: not "which pools have
+      {/* The question this page could not answer: not "which pools have
             badges" but "what about *this* one". `/vetting/{address}` sends two
             different 404s for it — a pool we verified and never vetted, and a
             pool we never verified — and collapsing those is what the route's own
@@ -575,91 +610,122 @@ export function VettingView({
 
             No `id` and no rail entry: it needs a live service, so an anchor
             would be dead on the static export. */}
-        <Section
-          title="Ask about an address"
-          className="mt-12"
-          headingClassName="text-lg font-semibold"
-        >
-          <p className="mt-2 mb-4 max-w-[62ch] text-sm text-dim">
-            Recorded badges only — a badge is nine chain readings taken at one block,
-            and one re-read live under a request timeout would be a weaker badge at the
-            same URL with nothing saying so.
-          </p>
-          <BadgeLookup />
-        </Section>
+      <Section
+        title="Ask about an address"
+        className="mt-12"
+        headingClassName="text-lg font-semibold"
+      >
+        <p className="mt-2 mb-4 max-w-[62ch] text-sm text-dim">
+          Recorded badges only — a badge is nine chain readings taken at one
+          block, and one re-read live under a request timeout would be a weaker
+          badge at the same URL with nothing saying so.
+        </p>
+        <BadgeLookup />
+      </Section>
 
-        {/* The addresses the signer is aimed at. Same renderer as the pools
+      {/* The addresses the signer is aimed at. Same renderer as the pools
             above, because they are the same question — named checks, chain
             readings, a verdict — asked about a different subject. */}
-        <Section
-          id="addresses"
-          title="The addresses the signer is pointed at"
-          className="mt-12"
-        >
-          {addrs?.ok && addrs.value.surveyed ? (
-            <Card>
-              <CardHeader
-                eyebrow={
-                  <span className="font-mono">
-                    chain {addrs.value.chain_id}
-                    {addrs.value.block != null && ` · block ${addrs.value.block.toLocaleString("en-US")}`}
-                  </span>
-                }
-                title="Read, and cross-checked against each other"
-                aside={
-                  <Pill tone={verdictTone(addrs.value.verdict)}>
-                    {addrs.value.verdict}
-                  </Pill>
-                }
-              />
-              <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                {/* The claim is that mutual agreement is the strong check —
+      <Section
+        id="addresses"
+        title="The addresses the signer is pointed at"
+        className="mt-12"
+      >
+        {addrs?.ok && addrs.value.surveyed ? (
+          <Card>
+            <CardHeader
+              eyebrow={
+                <span className="font-mono">
+                  chain {addrs.value.chain_id}
+                  {addrs.value.block != null &&
+                    ` · block ${addrs.value.block.toLocaleString("en-US")}`}
+                </span>
+              }
+              title="Read, and cross-checked against each other"
+              aside={
+                <Pill tone={verdictTone(addrs.value.verdict)}>
+                  {addrs.value.verdict}
+                </Pill>
+              }
+            />
+            <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
+              {/* The claim is that mutual agreement is the strong check —
                     the rest was the reasoning behind it. */}
-                The strong checks are the mutual ones: the factory naming the pool that
-                names itself. Agreeing takes being the deployment.
-              </p>
-              <CheckList checks={narrow(addrs.value.checks)} />
+              The strong checks are the mutual ones: the factory naming the pool
+              that names itself. Agreeing takes being the deployment.
+            </p>
+            <CheckList checks={narrow(addrs.value.checks)} />
 
-              {addrs.value.venus?.surveyed && (
-                <div className="mt-6 border-t border-line pt-4">
-                  <Heading className="mt-0 mb-1 text-sm font-semibold">
-                    Venus markets — the Yield category&rsquo;s gate
-                  </Heading>
-                  <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
-                    Router will not quote below two markets that pass all of these. The
-                    strong one is the same shape as above: a market&rsquo;s underlying
-                    matching a token this repository verified from the PancakeSwap side,
-                    months earlier and from the other direction.
-                  </p>
-                  <CheckList checks={narrow(addrs.value.venus.checks)} />
-                </div>
+            {addrs.value.venus?.surveyed && (
+              <div className="mt-6 border-t border-line pt-4">
+                <Heading className="mt-0 mb-1 text-sm font-semibold">
+                  Venus markets — the Yield category&rsquo;s gate
+                </Heading>
+                <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
+                  Router will not quote below two markets that pass all of
+                  these. The strong one is the same shape as above: a
+                  market&rsquo;s underlying matching a token this repository
+                  verified from the PancakeSwap side, months earlier and from
+                  the other direction.
+                </p>
+                <CheckList checks={narrow(addrs.value.venus.checks)} />
+
+                {/* The gate's newest dependant, which this section did not
+                      mention.
+
+                      This heading has read "Venus markets — the Yield
+                      category's gate" since Router had only lending markets to
+                      choose between. Router now allocates to PancakeSwap ranges
+                      as venues, and whether it may enter one is decided by the
+                      badge above rather than by anything in the policy: one
+                      rule, `vetting/badge.py::cleared_to_provide`, shared with
+                      the report that decides which pools this site points a
+                      reader at.
+
+                      Worth saying on this page in particular. Its whole
+                      argument is that due diligence governs what an agent may
+                      touch, and the strongest evidence for that is a case where
+                      it actually refused something — which it has. */}
+                <p className="mt-4 mb-0 max-w-[68ch] text-sm text-dim">
+                  The badge is also what lets Router put capital into a{" "}
+                  <Link href="/venue">PancakeSwap range</Link> at all. The same
+                  rule decides which pools this site points a reader at and
+                  which ones the Yield agent may enter as a venue, and an absent
+                  badge is a refusal rather than a pass — a pool nobody has
+                  checked is one nobody should be steered into, in either
+                  direction.
+                </p>
+              </div>
+            )}
+
+            {addrs.value.erc8183 &&
+              Object.entries(addrs.value.erc8183).map(([chain, record]) =>
+                record?.surveyed ? (
+                  <div key={chain} className="mt-6 border-t border-line pt-4">
+                    <Heading className="mt-0 mb-1 text-sm font-semibold">
+                      ERC-8183 deployment, chain {chain}
+                    </Heading>
+                    <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
+                      These readings are why the hire flow has an address at
+                      all. The registry field in the vendor&rsquo;s table
+                      matches the one this repository verified independently, on
+                      both chains.
+                    </p>
+                    <CheckList checks={narrow(record.checks)} />
+                  </div>
+                ) : null
               )}
 
-              {addrs.value.erc8183 &&
-                Object.entries(addrs.value.erc8183).map(([chain, record]) =>
-                  record?.surveyed ? (
-                    <div key={chain} className="mt-6 border-t border-line pt-4">
-                      <Heading className="mt-0 mb-1 text-sm font-semibold">
-                        ERC-8183 deployment, chain {chain}
-                      </Heading>
-                      <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
-                        These readings are why the hire flow has an address at all. The
-                        registry field in the vendor&rsquo;s table matches the one this
-                        repository verified independently, on both chains.
-                      </p>
-                      <CheckList checks={narrow(record.checks)} />
-                    </div>
-                  ) : null,
-                )}
-
-              <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
-                read {timestamp(addrs.value.read_at)}
-                {now !== null && <> · {hours(ageHours(addrs.value.read_at, now))} ago</>}
-                {addrs.value.record && ` · ${addrs.value.record}`}
-              </p>
-            </Card>
-          ) : addrs === null ? (
-            /* Still loading, which is a third state and was being reported as
+            <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
+              read {timestamp(addrs.value.read_at)}
+              {now !== null && (
+                <> · {hours(ageHours(addrs.value.read_at, now))} ago</>
+              )}
+              {addrs.value.record && ` · ${addrs.value.record}`}
+            </p>
+          </Card>
+        ) : addrs === null ? (
+          /* Still loading, which is a third state and was being reported as
                the second.
                `addrs` is `null` until the fetch resolves, and `null` fell into
                the branch below — so the shipped static HTML told every reader
@@ -670,20 +736,19 @@ export function VettingView({
                checked and an address checked clean look identical once
                rendered". The page did the thing it exists to warn about, to the
                one reader who could not see it corrected a moment later. */
-            <CardSkeleton />
-          ) : (
-            <Refusal
-              title="The addresses were not verified"
-              reason={
-                addrs.ok
-                  ? (addrs.value.reason ?? "no reading was recorded")
-                  : `addresses.json could not be read — ${addrs.error.message}`
-              }
-              floor="an address nobody checked and an address checked clean look identical once rendered"
-            />
-          )}
-        </Section>
-
+          <CardSkeleton />
+        ) : (
+          <Refusal
+            title="The addresses were not verified"
+            reason={
+              addrs.ok
+                ? addrs.value.reason ?? "no reading was recorded"
+                : `addresses.json could not be read — ${addrs.error.message}`
+            }
+            floor="an address nobody checked and an address checked clean look identical once rendered"
+          />
+        )}
+      </Section>
     </Loadable>
   );
 }
