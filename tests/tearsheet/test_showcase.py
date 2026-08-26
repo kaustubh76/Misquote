@@ -30,7 +30,9 @@ from showcase import (  # noqa: E402
 
 @pytest.fixture(scope="module")
 def replayed():
-    events = synthetic_events(400)
+    # 800, not 400: 400 events span 2.83 hours and A20 holds the first mint until
+    # sigma stops being mostly the prior it shrinks toward, which takes three.
+    events = synthetic_events(800)
     return run_agent("Warden", events, capital=1000.0)
 
 

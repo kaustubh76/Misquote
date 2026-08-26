@@ -16,6 +16,18 @@ moves of an existing position.** A first mint is not a rebalance — there was
 nothing to rebalance — so it starts the counter at zero. Spec section 8's cap of
 eight per day is a limit on churn, and refusing to open a position because the
 previous position was moved eight times would be a different rule entirely.
+
+**`reentries_today` counts mints that follow a pull**, and answers to its own cap.
+Both survive a pull, so neither limit can be reset by withdrawing and re-minting —
+the property the single counter was introduced to protect, kept intact while
+splitting it.
+
+Why split at all: a recentre is discretionary and a re-entry is not. Warden's
+toxicity arm withdrew the position and every return then spent a recentre, so on
+the 30-day tape the agent made 249 mints and 249 pulls inside a budget of eight
+moves a day, exhausted that budget early, and sat out of the market 94% of the
+time (P-20). One counter was pricing two behaviours that do not trade off against
+each other.
 """
 
 from __future__ import annotations
@@ -23,6 +35,30 @@ from __future__ import annotations
 from misquote.core.types import Action, PositionState, Tick
 
 SECONDS_PER_DAY = 86_400
+
+
+def _same_day(position: PositionState, now: int) -> bool:
+    """Whether `now` falls in the same UTC day as the position's last move."""
+    if position.last_rebalance_ts <= 0:
+        return True
+    return now // SECONDS_PER_DAY == position.last_rebalance_ts // SECONDS_PER_DAY
+
+
+def reentries_today(position: PositionState, now: int) -> int:
+    """How many re-entries count against today's budget.
+
+    Same rollover rule as `rebalances_today`, and separate from it for the reason
+    recorded on `Params.max_reentries_per_day`: coming back after a defensive
+    withdrawal is not the churn the recentre cap was written to limit, and
+    charging both to one counter is what left Warden out of the market on 94% of
+    the 30-day tape.
+
+    Two counters mean two chances to get the rollover wrong, so both go through
+    `_same_day` rather than each spelling the arithmetic out.
+    """
+    if not _same_day(position, now):
+        return 0
+    return position.reentries_today
 
 
 def rebalances_today(position: PositionState, now: int) -> int:
@@ -42,9 +78,7 @@ def rebalances_today(position: PositionState, now: int) -> int:
     calendar windows would be defensible too, but calendar days are what "per
     day" means to the operator reading the parameter.
     """
-    if position.last_rebalance_ts <= 0:
-        return position.rebalances_today
-    if now // SECONDS_PER_DAY != position.last_rebalance_ts // SECONDS_PER_DAY:
+    if not _same_day(position, now):
         return 0
     return position.rebalances_today
 
@@ -86,13 +120,25 @@ def apply_decision(
             # the count survives it, so an agent cannot reset its own daily
             # limit by pulling and re-minting.
             rebalances_today=rebalances_today(current, ts),
+            reentries_today=reentries_today(current, ts),
         )
 
     if lower is None or upper is None:
         raise ValueError(f"{action} needs a target range")
 
-    # Continue today's count, or start a fresh one if the day has rolled over.
+    # Continue today's counts, or start fresh ones if the day has rolled over.
     prior = rebalances_today(current, ts)
+    prior_reentries = reentries_today(current, ts)
+
+    # Which budget this move spends. Coming back from a pull is a re-entry: the
+    # position was withdrawn, not moved, and `in_market` is the state that tells
+    # the two apart at the moment of acting. A recentre of a live position is a
+    # rebalance and always was.
+    #
+    # `last_rebalance_ts` cannot serve here the way it does for `first_ever`
+    # below — it is set by a pull too, so it says the position has been acted on
+    # without saying whether one currently exists.
+    is_reentry = not current.in_market
 
     # Only a *first ever* entry starts the count at zero. This used to test
     # `current.in_market`, which is false for every re-entry after a pull — so a
@@ -105,6 +151,19 @@ def apply_decision(
     # chain the NFT really is burned. `last_rebalance_ts` is what survives: it is
     # zero only on a position that has never been acted on at all.
     first_ever = current.last_rebalance_ts <= 0
+    if first_ever:
+        rebalances = 0
+        reentries = 0
+    elif is_reentry:
+        # The re-entry spends its own budget and leaves the recentre budget
+        # alone. The comment above still holds: the counts survive the pull, so
+        # this cannot be used to reset either limit.
+        rebalances = prior
+        reentries = prior_reentries + 1
+    else:
+        rebalances = prior + 1
+        reentries = prior_reentries
+
     return PositionState(
         lower=lower,
         upper=upper,
@@ -112,5 +171,6 @@ def apply_decision(
         token_id=token_id if token_id is not None else current.token_id,
         minted_ts=ts,
         last_rebalance_ts=ts,
-        rebalances_today=0 if first_ever else prior + 1,
+        rebalances_today=rebalances,
+        reentries_today=reentries,
     )

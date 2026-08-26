@@ -64,6 +64,7 @@ def observation(**overrides) -> Observation:
         "kappa": 500.0,
         "kappa_r2": 0.9,
         "kappa_is_fallback": False,
+        "sigma_confidence": 0.95,
         "T_t": 24.0,
         "gas_cost_quote": 0.5,
         "slippage_quote": 0.2,
@@ -74,6 +75,7 @@ def observation(**overrides) -> Observation:
         "rebalance_notional_quote": 200.0,
         "cex_gap": None,
         "swap_imbalance_z": 0.0,
+        "swap_imbalance_threshold": 2.5,
         "lvr_rate": 0.0,
         "fee_rate": 1.0,
         "toxic_streak": 0,
@@ -151,6 +153,7 @@ def test_it_will_not_pull_before_it_has_held_the_position() -> None:
     window pulls on its first sample — paying to open and earning nothing."""
     obs = observation(
         swap_imbalance_z=4.0,
+        swap_imbalance_threshold=2.5,
         position=position(minted=99_900),
         t=100_000,
     )
@@ -202,6 +205,7 @@ def test_it_pulls_rather_than_reanchors_when_both_apply() -> None:
     obs = observation(
         tick=-60000,
         swap_imbalance_z=4.0,
+        swap_imbalance_threshold=2.5,
         position=position(lower=-64700, upper=-63700, minted=0),
     )
     assert decide_sentinel(obs, Params(), META).action is Action.PULL
@@ -322,13 +326,13 @@ def test_sentinel_will_not_re_enter_once_the_daily_budget_is_gone() -> None:
     only one of them was edited. It is one function now.
     """
     params = Params()
-    # Same UTC day as the observation's clock (t=100_000). `rebalances_today`
+    # Same UTC day as the observation's clock (t=100_000). `reentries_today`
     # zeroes a count whose last move was yesterday — correctly, it is a per-day
     # cap — so a fixture straddling midnight tests the rollover, not the budget.
     flat = dataclasses.replace(
         OUT_OF_MARKET,
         last_rebalance_ts=99_000,
-        rebalances_today=params.max_rebalances_per_day,
+        reentries_today=params.max_reentries_per_day,
     )
     obs = observation(position=flat, clear_streak=99, swap_imbalance_z=0.0)
 

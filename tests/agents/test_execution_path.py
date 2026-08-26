@@ -29,7 +29,7 @@ from misquote.agents.warden.live import SimulatedExecutor, WardenLive
 from misquote.agents.warden.loop import Journal, WardenLoop
 from misquote.chain.source import TapeChainSource
 from misquote.core.errors import PositionClosedNotReopened
-from misquote.core.types import Action, PositionState
+from misquote.core.types import Action, Params, PositionState
 from misquote.replay.tape import MemoryTape
 
 
@@ -60,12 +60,25 @@ class FailingExecutor:
 def _warden(events, executor):
     source = TapeChainSource(MemoryTape(events))
     source.advance(events[0].ts)
-    return WardenLive(META, source, executor, capital_quote=1000.0)
+    # The horizon matches the fixture, which spans about eight hours. Range width
+    # is floored by the volatility of a `window_hours` move (P-17), so the default
+    # 24-hour horizon opens a range wider than this tape's entire excursion and the
+    # agent correctly never acts again after the first mint — leaving the tests
+    # below with no executed action to fail.
+    return WardenLive(META, source, executor, params=Params(window_hours=1.0), capital_quote=1000.0)
 
 
 def _open_position(warden, events) -> PositionState:
-    """Drive the agent until it holds something, using a working executor."""
-    warden.run_until(events[len(events) // 3].ts, start_ts=events[0].ts)
+    """Drive the agent until it holds something, using a working executor.
+
+    Half the tape rather than a third. A20 makes the agent refuse to open while
+    sigma is still mostly the prior it shrinks toward, which takes 180 one-minute
+    bars — three hours. This fixture spans about eight, so a third of it is 2.7
+    hours and the agent is correctly still waiting. The assertion below would then
+    fail for a reason that has nothing to do with the execution path these tests
+    are about.
+    """
+    warden.run_until(events[len(events) // 2].ts, start_ts=events[0].ts)
     assert warden.engine.position.in_market, "the agent never opened a position"
     return warden.engine.position
 

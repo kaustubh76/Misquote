@@ -73,10 +73,20 @@ def test_l1_holds_across_risk_profiles() -> None:
 
 
 def test_l1_holds_when_the_agent_actually_moves() -> None:
-    """An equality that only holds while both sides do nothing proves nothing."""
+    """An equality that only holds while both sides do nothing proves nothing.
+
+    The horizon is set to match the fixture. Range width is now floored by the
+    volatility of a `window_hours` move (P-17), so a policy sized for 24 hours
+    against a tape that runs for eight opens a range wider than the whole tape's
+    excursion and correctly never needs to recentre — which would leave this test
+    asserting the equality over mints and pulls alone. One hour is commensurate
+    with the fixture and puts recentres back in the comparison, where they are
+    the actions most likely to expose a divergence between the two drivers.
+    """
     events = make_events(1200, swap_size=10**23)
-    live = _live(events)
-    replayed = _replay(events)
+    params = Params(window_hours=1.0)
+    live = _live(events, params=params)
+    replayed = _replay(events, params=params)
 
     moves = [d for d in replayed.decisions if d.action is not Action.HOLD]
     assert len(moves) > 1, "the comparison needs the agent to have done something"
@@ -130,7 +140,13 @@ def test_the_live_loop_signs_nothing_by_construction() -> None:
     for forbidden in ("sign", "send_transaction", "private_key", "account"):
         assert not hasattr(executor, forbidden)
 
-    events = make_events(400, swap_size=10**23)
+    # 800, not 400. The property under test — that the live loop holds no key and
+    # cannot sign — is asserted above and is unaffected by tape length. What needs
+    # the longer tape is the precondition beneath it: A20 holds the first mint
+    # until sigma is mostly measurement rather than its prior, which takes three
+    # hours, and 400 events span 2.83. Without a move, "signs nothing" would pass
+    # vacuously on a loop that never did anything.
+    events = make_events(800, swap_size=10**23)
     source = TapeChainSource(MemoryTape(events))
     warden = WardenLive(META, source, executor, capital_quote=1000.0)
     warden.run_until(events[-1].ts, start_ts=events[0].ts)

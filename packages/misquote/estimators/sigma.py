@@ -31,6 +31,16 @@ DEFAULT_DECAY = 0.5 ** (1.0 / (HALF_LIFE_HOURS * SECONDS_PER_HOUR / BAR_SECONDS)
 # not `ready` and the caller must label whatever it publishes.
 MIN_BARS = 30
 
+# How hard the prior pulls, in units of observations. Named because `confidence`
+# below has to report the same weight `shrink` applies, and a second literal 20.0
+# is a second place for them to disagree.
+#
+# Worth stating what this costs at the readiness threshold: at MIN_BARS the weight
+# on the sample is 30/50 = **0.6**, so a "ready" sigma is still 40% prior. A7 says
+# the prior implies roughly 190% annualised against BNB's typical 50-70%, so on a
+# quiet pool `ready` and *trustworthy* are a long way apart. See A20.
+SHRINK_STRENGTH = 20.0
+
 # A thin pool can print a single swap that moves price several percent and then
 # immediately reverts. Left alone that one bar dominates a six-hour EWMA and the
 # policy widens its range for the rest of the day on the strength of one trade.
@@ -158,7 +168,7 @@ def winsorise(returns: list[float], q: float = WINSOR_QUANTILE) -> list[float]:
     return [max(-limit, min(limit, r)) for r in returns]
 
 
-def shrink(sigma: float, prior: float, n_obs: int, strength: float = 20.0) -> float:
+def shrink(sigma: float, prior: float, n_obs: int, strength: float = SHRINK_STRENGTH) -> float:
     """Pull a thin-sample estimate toward a prior, James-Stein style.
 
     Weight on the sample is n / (n + strength), so a fresh window barely moves
@@ -200,6 +210,7 @@ class SigmaEstimator(TrailingEstimator):
         "_cache_at",
         "_bar_price",
         "_max_bars",
+        "_shrink_n",
     )
 
     def __init__(
@@ -223,6 +234,8 @@ class SigmaEstimator(TrailingEstimator):
         self._cache_at = -1
         self._bar_index: int | None = None
         self._bar_price: float | None = None
+        # Observations behind the most recent `_compute`, for `confidence`.
+        self._shrink_n = 0
 
     def _absorb(self, event: Event) -> None:
         if event.kind != "swap" or event.sqrt_price_x96 <= 0:
@@ -256,6 +269,30 @@ class SigmaEstimator(TrailingEstimator):
     def ready(self) -> bool:
         return len(self._bars) >= MIN_BARS
 
+    @property
+    def confidence(self) -> float:
+        """How much of `value()` is measurement rather than the prior. A20.
+
+        Exactly the weight `shrink` applied — `n / (n + SHRINK_STRENGTH)` — so 0.0
+        means the number returned *is* the prior and 1.0 would mean the prior
+        contributed nothing.
+
+        This exists because `ready` is not the question the policy needs answered.
+        `ready` is a bar count; at MIN_BARS the weight is 0.6, so a ready sigma is
+        still 40% prior, and the prior is roughly 11x this pool's realized
+        volatility (A7 calls it "hot for BNB"). A range sized off it is sized off a
+        constant. Warden opened at +/-14.45% on a pool that moved 11.6% in a month,
+        held it for the whole month because nothing revisits a width, and earned
+        6.7x less in fees than a fixed 200-tick ladder.
+
+        Calls `value()` rather than reading the counter directly, so a caller
+        cannot get a stale confidence by asking in the wrong order. `value()` is
+        cached on the event count, so this is free after the first call.
+        """
+        self.value()
+        n = self._shrink_n
+        return n / (n + SHRINK_STRENGTH) if n > 0 else 0.0
+
     def value(self) -> float:  # noqa: D401 — cached below
         # The estimate cannot change unless an event arrived, and the policy
         # samples every five seconds while a busy pool trades every twenty.
@@ -282,6 +319,7 @@ class SigmaEstimator(TrailingEstimator):
 
         raw = log_returns_with_gaps(bars)
         if not raw:
+            self._shrink_n = 0
             return self._prior
 
         # Normalise to per-bar magnitude before winsorising, so the clip
@@ -293,4 +331,5 @@ class SigmaEstimator(TrailingEstimator):
 
         per_minute = math.sqrt(ewma_variance_over_gaps(returns, self._decay))
         per_sqrt_hour = per_minute * math.sqrt(SECONDS_PER_HOUR / BAR_SECONDS)
-        return shrink(per_sqrt_hour, self._prior, len(returns))
+        self._shrink_n = len(returns)
+        return shrink(per_sqrt_hour, self._prior, self._shrink_n)

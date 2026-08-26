@@ -185,7 +185,13 @@ def tape_coverage_gaps(db_path: Path, first: int, last: int) -> list[tuple[int, 
 
 
 def run_agent(
-    name: str, events: list[Event], *, policy=None, capital: float, jobs: int | None = None
+    name: str,
+    events: list[Event],
+    *,
+    policy=None,
+    policy_factory=None,
+    capital: float,
+    jobs: int | None = None,
 ) -> dict:
     """Replay one agent and price it. Returns the card's raw material.
 
@@ -197,7 +203,12 @@ def run_agent(
     """
     started = time.monotonic()
     print(f"{name}: full replay over {len(events):,} events …", flush=True)
-    driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital, policy=policy)
+    # The full replay runs the agent at its nominal setting; A5's sweep is the
+    # windowed quote below. `policy_factory(1.0)` is that nominal policy, so the
+    # headline replay and the middle of the perturbation band are the same run
+    # rather than two definitions of "unperturbed".
+    nominal = policy if policy_factory is None else policy_factory(1.0)
+    driver = ReplayDriver(META, costs=CostModel(), capital_quote=capital, policy=nominal)
     result = driver.run(MemoryTape(events))
     estimators = read_estimators(driver)
 
@@ -238,6 +249,7 @@ def run_agent(
         capital_quote=capital,
         windows=DEFAULT_WINDOWS,
         policy=policy,
+        policy_factory=policy_factory,
         map_fn=fork_map(jobs) if jobs else None,
         on_progress=progress,
     )
@@ -501,22 +513,25 @@ def main() -> int:
         "DIY (passive)", events, policy=passive_policy, capital=args.capital, jobs=jobs
     )
 
+    # A5 perturbs each agent in the quantity that agent actually reads. Warden
+    # reads `Params`, which `ranges.perturbations` scales for it. Grid and
+    # Sentinel read neither gamma nor kappa, so scaling `Params` moved nothing
+    # they do and the two of them published 20 windows as 60 samples (P-17). The
+    # width is the parameter the sweep is about for both: it is what the strategy
+    # is, and what a user picking one of them would be choosing.
+    def grid_at(scale: float):
+        width = max(1, round(GridParams().rung_width_ticks * scale))
+        params = GridParams(rung_width_ticks=width)
+        return lambda obs, _p, meta: decide_grid(obs, params, meta)
+
+    def sentinel_at(scale: float):
+        band = max(1, round(SentinelParams().band_ticks * scale))
+        return sentinel_policy(SentinelParams(band_ticks=band))
+
     runs = [
         run_agent("Warden", events, capital=args.capital, jobs=jobs),
-        run_agent(
-            "Grid",
-            events,
-            policy=lambda obs, params, meta: decide_grid(obs, GridParams(), meta),
-            capital=args.capital,
-            jobs=jobs,
-        ),
-        run_agent(
-            "Sentinel",
-            events,
-            policy=sentinel_policy(SentinelParams()),
-            capital=args.capital,
-            jobs=jobs,
-        ),
+        run_agent("Grid", events, policy_factory=grid_at, capital=args.capital, jobs=jobs),
+        run_agent("Sentinel", events, policy_factory=sentinel_at, capital=args.capital, jobs=jobs),
     ]
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")

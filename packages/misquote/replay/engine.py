@@ -121,8 +121,17 @@ class Engine:
         # Spec section 3.4's second arm. Previously a hardcoded 0.0 in
         # `_observe`, which made `z_pull` and `M` parameters that traced to
         # nothing and left the policy's imbalance branch unreachable.
+        # The calibration window is the policy's own rolling window expressed in
+        # samples, so "the trailing distribution of |z|" and "the horizon the
+        # policy is reasoning over" are the same span rather than two independent
+        # numbers that could drift.
         self.imbalance = ImbalanceEstimator(
-            dec1=meta.dec1, window_swaps=self.params.imbalance_window
+            dec1=meta.dec1,
+            window_swaps=self.params.imbalance_window,
+            calibration_samples=max(
+                2,
+                int(self.params.window_hours * 3600.0 / self.params.sample_interval_s),
+            ),
         )
         self._lvr: LvrAccountant | None = None
         self._position = PositionState(
@@ -262,6 +271,10 @@ class Engine:
             kappa=self.kappa.value(),
             kappa_r2=self.kappa.fit().r_squared,
             kappa_is_fallback=self.kappa.fit().is_fallback,
+            # A20. Read from the estimator rather than recomputed here: it is the
+            # weight `shrink` actually applied, and a second derivation of it is a
+            # second thing to drift.
+            sigma_confidence=self.sigma.confidence,
             # Spec section 2 calls this "remaining contract window (rolling)"
             # and section 7 says W = 24h rolling. Constant, not decaying: a
             # decaying horizon collapses the range to w_min at each window
@@ -276,12 +289,35 @@ class Engine:
             rebalance_notional_quote=notional,
             cex_gap=market.cex_gap,
             swap_imbalance_z=self.imbalance.value(),
+            swap_imbalance_threshold=self._imbalance_threshold(),
             lvr_rate=lvr_rate,
             fee_rate=fee_rate,
             toxic_streak=self._toxic_streak,
             clear_streak=self._clear_streak,
             position=position,
         )
+
+    def _imbalance_threshold(self) -> float:
+        """The bar |z| is judged against on this sample. Assumption A16.
+
+        The calibrated quantile once the history is long enough to have one, and
+        the spec's published constant until then. The fallback lives here rather
+        than in the policy so that every agent consulting the imbalance arm gets
+        the same answer — the P-12 rule, applied before it had a chance to be
+        broken a third time.
+
+        Clamped below the statistic's own ceiling for the reason `Params` refuses
+        a `z_pull` at or above it: a threshold nothing can cross is a gate wired
+        to nothing. A quantile cannot exceed the largest reading and so cannot
+        exceed sqrt(M), but the clamp says why that is safe rather than leaving
+        it to be re-derived.
+        """
+        if not self.imbalance.threshold_ready:
+            return self.params.z_pull
+        calibrated = self.imbalance.threshold(self.params.z_pull_quantile)
+        if calibrated <= 0.0:
+            return self.params.z_pull
+        return min(calibrated, self.imbalance.ceiling)
 
     def _inventory(
         self, market: MarketState, position: PositionState

@@ -206,3 +206,99 @@ def test_it_inherits_the_look_ahead_guard() -> None:
 def test_a_window_shorter_than_two_is_refused() -> None:
     with pytest.raises(ValueError, match="not a z-score"):
         ImbalanceEstimator(dec1=18, window_swaps=1)
+
+
+# --- A16: the threshold is calibrated to the statistic's own distribution ---
+
+
+def _feed(est, volumes, *, start_ts=1_000_000, step=5):
+    """One swap per sample, advancing the clock the way `Engine.step` does.
+
+    Order matters and is the whole no-look-ahead argument: `set_decision_time`
+    first — which is where a reading is recorded — then the events belonging to
+    that sample. So the history can only ever hold values that were already
+    public when they were recorded.
+    """
+    from misquote.core.types import Event
+
+    ts = start_ts
+    for i, v in enumerate(volumes):
+        ts += step
+        est.set_decision_time(ts)
+        est.ingest(
+            Event(
+                block=1_000_000 + i,
+                log_index=0,
+                ts=ts,
+                kind="swap",
+                tx=f"0x{i:064x}",
+                amount0=-int(v * 10**18),
+                amount1=int(v * 10**18),
+                sqrt_price_x96=1 << 96,
+                liquidity=10**24,
+                tick=0,
+                protocol_fee0=0,
+                protocol_fee1=0,
+            )
+        )
+
+
+def test_the_threshold_falls_back_until_it_has_a_distribution_to_read() -> None:
+    """A quantile of forty numbers is the largest of forty numbers.
+
+    Below the floor the estimator says so rather than returning a threshold the
+    caller cannot tell apart from a calibrated one.
+    """
+    from misquote.estimators.imbalance import MIN_CALIBRATION_SAMPLES, ImbalanceEstimator
+
+    est = ImbalanceEstimator(dec1=18)
+    _feed(est, [1.0, -1.0] * 200)
+
+    assert not est.threshold_ready
+    assert est.threshold(0.95) == 0.0, "an unready quantile must be unmistakable"
+    assert MIN_CALIBRATION_SAMPLES > 200
+
+
+def test_the_threshold_is_the_quantile_of_what_the_pool_actually_produced() -> None:
+    """The point of A16: the bar comes from the measured distribution.
+
+    Balanced two-way flow keeps |z| small, so the 95th percentile of it lands far
+    below the spec's constant 2.5 — and on the real pool it lands far *above*,
+    which is the same mechanism reading a different tape. Either way the number
+    is one the pool produced rather than one transplanted from a distribution
+    this statistic does not have.
+    """
+    import random
+
+    from misquote.estimators.imbalance import MIN_CALIBRATION_SAMPLES, ImbalanceEstimator
+
+    est = ImbalanceEstimator(dec1=18, calibration_samples=4_000, calibration_stride=100)
+    rng = random.Random(11)
+    _feed(est, [rng.choice((1.0, -1.0)) for _ in range(MIN_CALIBRATION_SAMPLES + 500)])
+
+    assert est.threshold_ready
+    bar = est.threshold(0.95)
+
+    assert 0.0 < bar <= est.ceiling
+    # Every reading in the history is bounded by sqrt(M), so the quantile is too.
+    assert est.ceiling == pytest.approx(50**0.5)
+    # And a higher quantile is a higher bar — the property that makes it a knob.
+    assert est.threshold(0.99) >= bar
+
+
+def test_the_quantile_is_deterministic_across_identical_streams() -> None:
+    """T1 compares decisions bitwise and this number reaches them, so two runs
+    over the same prefix must calibrate identically — including *when* they
+    recalibrate, which is why the cache is keyed on the reading count and not on
+    a clock."""
+    import random
+
+    from misquote.estimators.imbalance import MIN_CALIBRATION_SAMPLES, ImbalanceEstimator
+
+    def run() -> float:
+        est = ImbalanceEstimator(dec1=18, calibration_samples=4_000, calibration_stride=100)
+        rng = random.Random(7)
+        _feed(est, [rng.choice((1.0, -1.0, 2.0)) for _ in range(MIN_CALIBRATION_SAMPLES + 300)])
+        return est.threshold(0.95)
+
+    assert run() == run()

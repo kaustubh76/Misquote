@@ -66,6 +66,7 @@ def make_obs(**overrides: object) -> Observation:
         "kappa": 50.0,
         "kappa_r2": 0.81,
         "kappa_is_fallback": False,
+        "sigma_confidence": 0.95,
         "T_t": 24.0,
         "gas_cost_quote": 0.5,
         "slippage_quote": 0.2,
@@ -76,6 +77,7 @@ def make_obs(**overrides: object) -> Observation:
         "rebalance_notional_quote": 200.0,
         "cex_gap": 0.0,
         "swap_imbalance_z": 0.0,
+        "swap_imbalance_threshold": 2.5,
         "lvr_rate": 0.0,
         "fee_rate": 1.0,
         "toxic_streak": 0,
@@ -451,16 +453,30 @@ def test_a_return_after_a_pull_counts_against_todays_budget() -> None:
 
     opened = apply_decision(CLOSED, Action.MINT, 1_000_000, lower=-64400, upper=-64000)
     assert opened.rebalances_today == 0, "a first mint is not a rebalance"
+    assert opened.reentries_today == 0, "nor is it a re-entry — there was nothing to return to"
 
     pulled = apply_decision(opened, Action.PULL, 1_000_100)
     assert pulled.rebalances_today == 0
+    assert pulled.reentries_today == 0
 
     back = apply_decision(pulled, Action.MINT, 1_000_200, lower=-64400, upper=-64000)
-    assert back.rebalances_today == 1, "the return reset the budget it should spend"
+    assert back.reentries_today == 1, "the return reset the budget it should spend"
+    assert back.rebalances_today == 0, (
+        "a return from a pull is not a recentre and must not spend that budget — "
+        "charging both to one counter is what left Warden out of the market 94% "
+        "of the 30-day tape (P-20)"
+    )
 
     out_again = apply_decision(back, Action.PULL, 1_000_300)
     once_more = apply_decision(out_again, Action.MINT, 1_000_400, lower=-64400, upper=-64000)
-    assert once_more.rebalances_today == 2
+    assert once_more.reentries_today == 2
+    assert once_more.rebalances_today == 0
+
+    # The property the single counter existed to protect, kept under the split:
+    # neither budget can be reset by leaving and coming back.
+    moved = apply_decision(once_more, Action.RECENTER, 1_000_500, lower=-64500, upper=-64100)
+    assert moved.rebalances_today == 1
+    assert moved.reentries_today == 2, "the re-entry count survives a recentre"
 
 
 def test_a_first_mint_still_starts_the_count_at_zero() -> None:
@@ -494,7 +510,7 @@ def test_re_entry_is_refused_once_the_daily_budget_is_gone() -> None:
         upper=None,
         liquidity=0,
         token_id=None,
-        rebalances_today=PARAMS.max_rebalances_per_day,
+        reentries_today=PARAMS.max_reentries_per_day,
     )
     obs = make_obs(position=flat, clear_streak=PARAMS.m_clear + 5, swap_imbalance_z=0.0)
 
@@ -505,7 +521,7 @@ def test_re_entry_is_refused_once_the_daily_budget_is_gone() -> None:
 
 def test_re_entry_is_allowed_while_the_budget_lasts() -> None:
     """The other half — a gate that can never open is not a gate."""
-    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None, rebalances_today=0)
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None, reentries_today=0)
     obs = make_obs(position=flat, clear_streak=PARAMS.m_clear + 5, swap_imbalance_z=0.0)
 
     decision = decide(obs, PARAMS, META)
@@ -519,8 +535,158 @@ def test_leaving_is_never_refused_for_want_of_budget() -> None:
     An agent held inside toxic flow because it had run out of budget is worse
     off than one that churns: churn costs gas, and being unable to leave costs
     the position. Exit stays unconditional however much has been spent today.
+
+    The fixture now carries a danger with a *size* — a 2% CEX gap against a
+    position worth 200 — because A17 asks whether the exit pays for itself and
+    that question needs a magnitude to answer. The property under test is
+    unchanged and is specifically about the budget: both counters are run far
+    past their caps and neither is consulted on the way out.
     """
-    held = make_position(rebalances_today=PARAMS.max_rebalances_per_day * 10)
-    obs = make_obs(position=held, swap_imbalance_z=PARAMS.z_pull + 1.0)
+    held = make_position(
+        rebalances_today=PARAMS.max_rebalances_per_day * 10,
+        reentries_today=PARAMS.max_reentries_per_day * 10,
+    )
+    obs = make_obs(
+        position=held,
+        swap_imbalance_z=PARAMS.z_pull + 1.0,
+        cex_gap=0.02,
+        toxic_streak=PARAMS.m_toxic,
+    )
 
     assert decide(obs, PARAMS, META).action is Action.PULL
+
+
+def test_a_pull_that_cannot_pay_for_itself_is_not_made() -> None:
+    """A17. The gate R2 always applied to moving, applied to leaving.
+
+    Nothing priced the exit, so the toxicity arm could cycle the position at
+    whatever rate the daily budget allowed. On the 30-day chain tape it made 653
+    pull-and-return round trips costing 9.6% of deployed capital against 4.8% of
+    fees earned — the round trips, not the strategy, were the loss.
+
+    Here the imbalance arm fires on a pool that is earning fees and has no
+    measured adverse selection at all. There is nothing to escape, and paying a
+    round trip to escape it is the behaviour being removed.
+    """
+    held = make_position()
+    obs = make_obs(
+        position=held,
+        swap_imbalance_z=PARAMS.z_pull + 1.0,
+        cex_gap=0.0,
+        lvr_rate=0.0,
+        fee_rate=1.0,
+    )
+
+    decision = decide(obs, PARAMS, META)
+    reasons = dict(decision.reasons)
+
+    assert decision.action is Action.HOLD
+    assert reasons["toxic"] == 1.0, "the signal still fired; only the response changed"
+    assert reasons["pull_pays"] == 0.0
+    assert reasons["pull_round_trip_cost"] > reasons["pull_saving"]
+
+
+def test_a_leading_gap_is_judged_on_its_own_magnitude_not_on_trailing_damage() -> None:
+    """The CEX-gap arm leads, so trailing realized LVR is the wrong yardstick.
+
+    A gap of `g` against a position worth `V` is arbitraged for about `V*g`, and
+    that is knowable before any of it has happened. Judging the leading arm by
+    damage already done would refuse the pull exactly when the signal is doing
+    its job — which is what the first version of A17's gate did, and what
+    `test_toxicity_outranks_every_other_consideration` caught.
+    """
+    obs = make_obs(
+        position=make_position(),
+        cex_gap=0.02,
+        toxic_streak=PARAMS.m_toxic,
+        lvr_rate=0.0,
+        fee_rate=1.0,
+    )
+
+    decision = decide(obs, PARAMS, META)
+    reasons = dict(decision.reasons)
+
+    assert decision.action is Action.PULL
+    assert reasons["pull_saving_from_gap"] > reasons["pull_saving_from_bleed"]
+    assert reasons["pull_saving_from_bleed"] == 0.0, "nothing has been lost yet"
+
+
+# --- A20: the width is sized once, so it must not be sized on a guess -------
+
+
+def test_a_position_is_not_opened_while_sigma_is_still_the_prior() -> None:
+    """The one decision nothing re-examines must not be made on a constant.
+
+    `estimators.sigma.shrink` returns the prior outright before any returns
+    exist, and A7 records that prior as roughly 190% annualised against BNB's
+    typical 50-70%. On the 30-day chain tape the agent opened at +/-14.45% on a
+    pool that moved 11.6% for the month, held it for the month because no gate
+    revisits a width, and earned 6.7x less in fees than a fixed 200-tick ladder.
+    """
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None)
+    obs = make_obs(position=flat, clear_streak=PARAMS.m_clear + 5, sigma_confidence=0.0)
+
+    decision = decide(obs, PARAMS, META)
+    reasons = dict(decision.reasons)
+
+    assert decision.action is Action.HOLD
+    assert reasons["width_inputs_trustworthy"] == 0.0
+    assert reasons["sigma_confident"] == 0.0
+    assert decision.target_lower is None, "refusing to open must not publish a range"
+
+
+def test_a_position_opens_once_sigma_is_mostly_measurement() -> None:
+    """The other half — a gate that never opens is not a gate, it is an outage."""
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None)
+    obs = make_obs(
+        position=flat,
+        clear_streak=PARAMS.m_clear + 5,
+        sigma_confidence=PARAMS.min_sigma_confidence,
+    )
+
+    decision = decide(obs, PARAMS, META)
+
+    assert decision.action in (Action.MINT, Action.REENTER)
+    assert dict(decision.reasons)["width_inputs_trustworthy"] == 1.0
+
+
+def test_the_benchmark_is_sized_by_the_same_rule_as_the_agent() -> None:
+    """`passive_policy` calls the same `target_range`, so it opened at the same
+    prior-sized width — which cut the baseline's own fees from 0.01753 to 0.00697
+    on the chain tape.
+
+    A comparison is only worth making if both sides are sized by one rule. "The
+    baseline is not a different program" is the claim this benchmark exists to
+    support, and it has to survive a change to how widths are chosen.
+    """
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None)
+
+    early = passive_policy(make_obs(position=flat, sigma_confidence=0.0), PARAMS, META)
+    assert early.action is Action.HOLD, "the baseline must wait too"
+
+    later = passive_policy(
+        make_obs(position=flat, sigma_confidence=PARAMS.min_sigma_confidence), PARAMS, META
+    )
+    assert later.action is Action.MINT
+
+
+def test_a_fallback_kappa_does_not_block_the_open() -> None:
+    """The first version of this gate had kappa backwards, and it matters enough
+    to pin.
+
+    A fallback kappa is the published fit, 3,600.91, at which equation (2) returns
+    about 3 ticks — under the A18 floor, so the floor sets the width and the
+    result is the *safe* case. The +/-14.45% range came from kappa around 7, which
+    is `is_fallback=False`: a real fit, clearing r-squared 0.5, wrong by 500x.
+    Blocking on the flag refuses the safe case and admits the dangerous one, and
+    A19's ceiling is what actually bounds kappa.
+    """
+    flat = make_position(lower=None, upper=None, liquidity=0, token_id=None)
+    obs = make_obs(
+        position=flat,
+        clear_streak=PARAMS.m_clear + 5,
+        sigma_confidence=PARAMS.min_sigma_confidence,
+        kappa_is_fallback=True,
+    )
+
+    assert decide(obs, PARAMS, META).action in (Action.MINT, Action.REENTER)

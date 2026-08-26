@@ -421,3 +421,71 @@ def test_genuinely_different_replays_are_counted_as_such() -> None:
     q = quote_from_results(varied, windows=20, perturbation_count=3)
 
     assert q.distinct_returns == 60
+
+
+# --- A5's sweep has to reach what the agent reads --------------------------
+
+
+def test_the_parameter_sweep_perturbs_both_quantities_a5_names() -> None:
+    """A5 says "(gamma, kappa) +/- 25%". The loop scaled gamma and nothing else.
+
+    Kappa is estimated rather than configured, so there was no field to put the
+    perturbation in and the docstring described a sweep half of which had never
+    run. `Params.kappa_scale` is that field, and this asserts both quantities
+    actually move — the check whose absence let one of them sit at 1.0 for the
+    lifetime of the function.
+    """
+    from misquote.core.types import Params
+    from misquote.replay.ranges import perturbation_scales, perturbations
+
+    base = Params()
+    variants = perturbations(base, 0.25)
+
+    assert len(variants) == 3
+    assert [v.gamma for v in variants] == pytest.approx(
+        [base.gamma * s for s in perturbation_scales(0.25)]
+    )
+    assert [v.kappa_scale for v in variants] == pytest.approx([0.75, 1.0, 1.25])
+    assert len({v.gamma for v in variants}) == 3, "gamma must actually differ"
+    assert len({v.kappa_scale for v in variants}) == 3, "and so must kappa"
+
+
+def test_an_agent_with_its_own_parameters_is_perturbed_in_them() -> None:
+    """Grid and Sentinel read neither gamma nor kappa, so scaling `Params` moved
+    nothing they did: 20 of 20 windows came back identical and `distinct_returns`
+    reported 20 results dressed as 60 (P-17).
+
+    `policy_factory` receives the scale and builds a policy at it. The assertion
+    is that three scales produce three *different* policies, which is the property
+    the sweep needs and the one nothing checked.
+    """
+    from misquote.agents.grid.policy import GridParams, decide_grid
+    from misquote.replay.ranges import perturbation_scales
+
+    seen: list[int] = []
+
+    def grid_at(scale: float):
+        width = max(1, round(GridParams().rung_width_ticks * scale))
+        seen.append(width)
+        params = GridParams(rung_width_ticks=width)
+        return lambda obs, _p, meta: decide_grid(obs, params, meta)
+
+    policies = [grid_at(s) for s in perturbation_scales(0.25)]
+
+    assert len(policies) == 3
+    assert len(set(seen)) == 3, f"three scales produced widths {seen}, not three distinct ones"
+    assert seen == [150, 200, 250]
+
+
+def test_a_policy_and_a_factory_together_are_refused() -> None:
+    """Two sources for one slot is how the sweep would run one policy while
+    reporting the perturbation count of another."""
+    from misquote.replay.ranges import quote
+
+    with pytest.raises(ValueError, match="not both"):
+        quote(
+            meta=None,  # type: ignore[arg-type]
+            tape_factory=lambda *_: None,
+            policy=lambda *_: None,
+            policy_factory=lambda _s: lambda *_: None,
+        )

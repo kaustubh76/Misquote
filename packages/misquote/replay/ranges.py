@@ -194,16 +194,42 @@ def rolling_windows(first_ts: int, last_ts: int, count: int) -> list[tuple[int, 
 EVENTS_PER_SECOND = 1_839.0
 
 
+def perturbation_scales(fraction: float = 0.25) -> tuple[float, ...]:
+    """A5's three multipliers: nominal, and either side of it by `fraction`.
+
+    One definition, because the parameter sweep and the *policy* sweep have to
+    walk the same scales or the perturbation index stops meaning one thing.
+    """
+    return (1.0 - fraction, 1.0, 1.0 + fraction)
+
+
 def perturbations(params: Params, fraction: float = 0.25) -> list[Params]:
     """Gamma and kappa at their nominal values and at +/- `fraction`.
 
     Assumption A5. Kappa is perturbed through the policy's consumed value rather
     than through the estimator, so the sensitivity being measured is the quote's,
     not the fit's.
+
+    That sentence was true of the intent and false of the code for as long as
+    this function existed: the loop scaled `gamma` and nothing else, because
+    kappa is estimated and `Params` had nowhere to hold a perturbation of it.
+    `Params.kappa_scale` is that place, and A5 now perturbs both quantities it
+    says it perturbs.
+
+    It remains only half the fix. Warden reads `Params`; Grid and Sentinel do
+    not read it at all, so scaling it moves nothing they do — 20 of 20 windows
+    came back identical and `distinct_returns` reported 20 results dressed as 60
+    (P-17). `quote(policy_factory=...)` is the other half.
     """
     out = []
-    for gamma_scale in (1.0 - fraction, 1.0, 1.0 + fraction):
-        out.append(dataclasses.replace(params, gamma=params.gamma * gamma_scale))
+    for scale in perturbation_scales(fraction):
+        out.append(
+            dataclasses.replace(
+                params,
+                gamma=params.gamma * scale,
+                kappa_scale=params.kappa_scale * scale,
+            )
+        )
     return out
 
 
@@ -335,7 +361,11 @@ def _replay_one(index: tuple[int, int]) -> ReplayResult:
             params=_FORKED["variants"][variant_index],
             costs=_FORKED["costs"],
             capital_quote=_FORKED["capital_quote"],
-            policy=_FORKED["policy"],
+            # Indexed by the same perturbation index as `variants`. For Warden
+            # this is the same policy three times and the perturbation lands in
+            # `Params`; for an agent with parameters of its own it is three
+            # different closures, which is the only way the sweep can reach them.
+            policy=_FORKED["policies"][variant_index],
         )
         result = driver.run(tape)
     finally:
@@ -361,6 +391,7 @@ def quote(
     windows: int | None = None,
     perturbation_fraction: float = 0.25,
     policy: Policy | None = None,
+    policy_factory: Callable[[float], Policy] | None = None,
     map_fn: Callable[[Callable[..., Any], Iterable[Any]], Iterator[Any]] | None = None,
     on_progress: Callable[[int, int], None] | None = None,
 ) -> Quote:
@@ -392,6 +423,25 @@ def quote(
     base = params or Params()
     window_count = windows or base.replay_windows
     variants = perturbations(base, perturbation_fraction)
+
+    # A5's sweep has to reach whatever the agent actually reads. Warden reads
+    # `Params`, so scaling it is enough and `policies` is one policy repeated.
+    # Grid reads `GridParams` and Sentinel reads `SentinelParams`; neither looks
+    # at `Params` at all, so for them the sweep was a no-op that still counted
+    # each window three times — 20 results published as 60 (P-17). A factory
+    # taking the scale is how those agents get perturbed in the quantity that
+    # matters to them.
+    if policy_factory is not None:
+        if policy is not None:
+            raise ValueError(
+                "pass policy or policy_factory, not both: two sources for the same "
+                "slot is how the sweep would silently run one policy while reporting "
+                "the perturbation count of another"
+            )
+        scales = perturbation_scales(perturbation_fraction)
+        policies = [policy_factory(scale) for scale in scales]
+    else:
+        policies = [policy] * len(variants)
 
     probe = tape_factory(None, None)
     first_ts, last_ts = probe.first_ts, probe.last_ts
@@ -426,7 +476,7 @@ def quote(
         tape_factory=tape_factory,
         costs=costs,
         capital_quote=capital_quote,
-        policy=policy,
+        policies=policies,
     )
     try:
         # `_FORKED` is populated *before* the first result is pulled, because a

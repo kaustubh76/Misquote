@@ -35,6 +35,7 @@ from advantage import (  # noqa: E402
 )
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy  # noqa: E402
 from misquote.core.policy import passive_policy  # noqa: E402
+from misquote.core.types import Params  # noqa: E402
 from misquote.replay.driver import CostModel, ReplayDriver  # noqa: E402
 from misquote.replay.ranges import Quote  # noqa: E402
 from misquote.replay.tape import MemoryTape  # noqa: E402
@@ -232,7 +233,18 @@ def test_the_passive_baseline_mints_once_and_then_holds() -> None:
     """The DIY column has to actually be do-nothing, or the comparison flatters
     the agent by giving its baseline something to do."""
     events = synthetic_events(SMALL)
-    result = ReplayDriver(META, capital_quote=1000.0, policy=passive_policy).run(MemoryTape(events))
+    # A20 holds the first mint until sigma is mostly measurement rather than the
+    # prior — three hours, where SMALL spans well under one. Disabled here rather
+    # than lengthening the tape, because SMALL is shared by a module that runs 61
+    # replays a column and this test is about whether the baseline *does nothing*,
+    # not about when it starts. `tests/core/test_policy.py` covers the warm-up,
+    # including that `passive_policy` waits through it too.
+    result = ReplayDriver(
+        META,
+        params=Params(min_sigma_confidence=0.0),
+        capital_quote=1000.0,
+        policy=passive_policy,
+    ).run(MemoryTape(events))
     assert result.mints == 1
     assert result.rebalances == 0
     assert result.pulls == 0

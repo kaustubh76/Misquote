@@ -105,6 +105,11 @@ class PositionState:
     minted_ts: int
     last_rebalance_ts: int
     rebalances_today: int
+    # Re-entries after a defensive pull, counted separately from recentres
+    # because they answer to a different cap. Defaulted so the many places that
+    # build a position for a test or a first mint do not all have to name a zero;
+    # `core.position.apply_decision` is the only thing that should ever set it.
+    reentries_today: int = 0
 
     @property
     def in_market(self) -> bool:
@@ -143,6 +148,15 @@ class Observation:
     kappa: float  # fee-capture intensity decay, spec section 5.2
     kappa_r2: float
     kappa_is_fallback: bool  # if true, the card must say so
+    # How much of `sigma` is measurement rather than the prior it shrinks toward:
+    # the weight `estimators.sigma.shrink` applied, in [0, 1). Assumption A20.
+    #
+    # `kappa_is_fallback` above is the same kind of signal and rode this class for
+    # a whole round without a single policy reading it — it was a reporting
+    # channel. This one exists to be read: a width sized while sigma is the prior
+    # is a width sized by a constant, and the prior is about 11x this pool's
+    # realized volatility.
+    sigma_confidence: float
     T_t: float  # hours remaining in the rolling window W
 
     gas_cost_quote: float  # trailing median gas x current price, in token1
@@ -158,6 +172,16 @@ class Observation:
 
     cex_gap: float | None  # None means the feed is down; the fallback rule applies
     swap_imbalance_z: float
+    # The threshold `swap_imbalance_z` is judged against on *this* sample: the
+    # trailing quantile of |z| once enough of it has been measured, and
+    # `Params.z_pull` until then. Assumption A16.
+    #
+    # It rides on the observation rather than being read from `Params` by the
+    # policy because it is now data — a measurement of this pool at this moment —
+    # and the engine is where measurements are assembled. Leaving the policy to
+    # choose between a calibrated value and a constant would put the fallback
+    # rule in every policy that consults the arm, which is how P-12 happened.
+    swap_imbalance_threshold: float
     lvr_rate: float  # trailing realized LVR per hour
     fee_rate: float  # trailing realized fees per hour
 
@@ -192,6 +216,11 @@ class Observation:
             raise ValueError(f"T_t must not be negative, got {self.T_t}: the skew would invert")
         if self.sigma < 0.0:
             raise ValueError(f"sigma must not be negative, got {self.sigma}")
+        if not 0.0 <= self.sigma_confidence <= 1.0:
+            raise ValueError(
+                f"sigma_confidence must lie in [0, 1], got {self.sigma_confidence}: "
+                "it is a shrinkage weight, not a volatility"
+            )
         if self.kappa <= 0.0:
             raise ValueError(
                 f"kappa must be positive, got {self.kappa}: equation (2) divides by it"
@@ -200,6 +229,13 @@ class Observation:
             raise ValueError(f"q must lie in [-1, 1] per spec section 2, got {self.q}")
         if self.toxic_streak < 0 or self.clear_streak < 0:
             raise ValueError("streak counters cannot be negative")
+        if self.swap_imbalance_threshold <= 0.0:
+            raise ValueError(
+                f"swap_imbalance_threshold must be positive, got "
+                f"{self.swap_imbalance_threshold}: a threshold at or below zero makes "
+                "the imbalance arm fire on every sample, which is the mirror image of "
+                "the unreachable threshold Params already refuses"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,6 +257,23 @@ class Params:
     window_hours: float = 24.0
     max_rebalances_per_day: int = 8
 
+    # A16: which quantile of trailing |z| the imbalance arm pulls on, once enough
+    # of the distribution has been measured to have quantiles. `z_pull` above is
+    # the fallback until then, not the operative threshold.
+    z_pull_quantile: float = 0.95
+
+    # Re-entering the market after a defensive pull is not churn, and charging it
+    # to the same budget as a recentre is what emptied that budget. On the 30-day
+    # tape Warden made 249 mints and 249 pulls inside a cap of eight moves a day
+    # — every one of those re-mints spent a recentre it then could not make, and
+    # re-entry was refused on 90.2% of HOLD decisions (P-20). Two behaviours with
+    # different economics were sharing one limit.
+    #
+    # Kept as a separate, larger cap rather than made free: an agent that can
+    # re-enter without limit can still be walked round a pull/re-mint cycle by
+    # flow it reads as toxic, which is the churn the original cap was for.
+    max_reentries_per_day: int = 24
+
     # Spec section 8's Δs. Published in the assumption sheet but previously
     # absent from the code, which made that row trace to nothing — and made `m`
     # dimensionless: "3 consecutive samples" only means 15 seconds if the
@@ -232,6 +285,40 @@ class Params:
     replay_windows: int = 20
 
     kappa_r2_floor: float = 0.5
+
+    # A20: how much of sigma must be measurement before the agent will open a
+    # position sized by it. 0.9 is 180 one-minute bars — three hours, or 0.4% of a
+    # 30-day tape — and it is chosen as the point where the prior contributes less
+    # than a tenth of the number the width is derived from.
+    #
+    # It gates *opening* only. A position already held is never forced out by a
+    # confidence that later decays, for the reason `decide` gives about the
+    # re-entry budget: refusing to act is safe and free, refusing to *leave* is
+    # not.
+    min_sigma_confidence: float = 0.9
+
+    # The ceiling on the volatility floor, as a fraction of price. A18.
+    #
+    # `sigma * sqrt(T)` is a random-walk excursion, and flow that oscillates
+    # rather than trends has a high per-sqrt-hour sigma while going nowhere — the
+    # same reversion that makes A10's adverse-selection measure an upper bound
+    # rather than an estimate. Left uncapped the floor answers a 40-tick
+    # oscillation with a 4,330-tick range: technically the width that would hold
+    # a random walk of that volatility, and useless as a position.
+    #
+    # A band this wide is not a concentrated-liquidity position in any meaningful
+    # sense — it earns a passive position's fee density while still paying to be
+    # rebalanced — so past it the strategy has nothing left to say and the width
+    # stops growing. +/-25% of price, which is 2,231 ticks.
+    w_max_price_band: float = 0.25
+
+    # A5 perturbs `(gamma, kappa)` by +/-25%. Gamma is a parameter and could be
+    # scaled directly; kappa is *estimated*, so there was nowhere to put the
+    # perturbation and it was silently never applied — `ranges.perturbations`
+    # documented scaling both and scaled one. This is the missing half: the
+    # policy's consumed kappa, scaled, so the sensitivity measured is the
+    # quote's rather than the fit's, exactly as that docstring always claimed.
+    kappa_scale: float = 1.0
 
     arb_cost_bps: float = 5.0  # G-2
     imbalance_window: int = 50  # G-1
@@ -267,6 +354,31 @@ class Params:
                 f"z_pull={self.z_pull} is unreachable with M={self.imbalance_window}: "
                 f"the z-score cannot exceed sqrt(M)={ceiling:.2f}, so the imbalance "
                 "arm of section 3.4 could never fire"
+            )
+        if not 0.0 < self.z_pull_quantile < 1.0:
+            raise ValueError(
+                f"z_pull_quantile={self.z_pull_quantile} must lie strictly in (0, 1): "
+                "it selects a quantile of the measured |z| distribution, and the "
+                "endpoints name a threshold nothing can cross in one direction or "
+                "everything crosses in the other"
+            )
+        if not 0.0 < self.w_max_price_band < 1.0:
+            raise ValueError(
+                f"w_max_price_band={self.w_max_price_band} must lie strictly in (0, 1): "
+                "it is a fraction of price, and a band of 100% reaches zero on one side"
+            )
+        if not 0.0 <= self.min_sigma_confidence < 1.0:
+            raise ValueError(
+                f"min_sigma_confidence={self.min_sigma_confidence} must lie in [0, 1): "
+                "the weight approaches 1 asymptotically and never reaches it, so a "
+                "threshold of 1.0 is an agent that never opens a position"
+            )
+        if self.kappa_scale <= 0:
+            raise ValueError("kappa_scale must be positive: equation (2) divides by kappa")
+        if self.max_reentries_per_day < 1:
+            raise ValueError(
+                "an agent that may never re-enter after a pull is an agent that "
+                "withdraws once and stops"
             )
 
 

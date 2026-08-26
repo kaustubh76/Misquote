@@ -20,7 +20,7 @@ from _helpers import META, POOL_LIQUIDITY, START_TS, fingerprint, make_events
 
 from misquote.core.errors import LookAheadError, OutOfOrderError
 from misquote.core.tickmath import get_sqrt_ratio_at_tick
-from misquote.core.types import Action, Event
+from misquote.core.types import Action, Event, Params
 from misquote.replay.driver import CostModel, ReplayDriver
 from misquote.replay.engine import Engine, MarketState
 from misquote.replay.tape import MemoryTape
@@ -196,7 +196,13 @@ def test_t2_credited_fees_never_exceed_the_pool_fee_times_our_share() -> None:
 def test_t2_would_fail_if_the_protocol_cut_were_ignored() -> None:
     """The bound is only meaningful because it is tight enough to be violated."""
     events = make_events(400)
-    result = ReplayDriver(META, capital_quote=1000.0).run(MemoryTape(events))
+    # A20's warm-up is not what this test is about: the fixture is shorter
+    # than the three hours sigma needs to stop being mostly its prior, and
+    # padding it would slow the suite to restate a property tested in
+    # tests/core/test_policy.py.
+    result = ReplayDriver(META, params=Params(min_sigma_confidence=0.0), capital_quote=1000.0).run(
+        MemoryTape(events)
+    )
 
     lp_share = 1.0 - META.fee_protocol / 10_000.0
     assert result.total_fees > 0
@@ -306,8 +312,14 @@ def test_r2_is_a_live_gate_rather_than_a_dead_one() -> None:
     forever however far price drifts. That reads as admirable discipline in a
     summary and is actually a gate wired to nothing.
     """
+    # One-hour horizon, matching the fixture's span. Range width is now floored
+    # by the volatility of a `window_hours` move (P-17), so the default 24-hour
+    # horizon opens a range wider than this tape ever travels — R1 then never
+    # asks R2 anything and the gate looks dead again for an unrelated reason.
     events = make_events(2000, swap_size=10**23)
-    result = ReplayDriver(META, capital_quote=1000.0).run(MemoryTape(events))
+    result = ReplayDriver(META, params=Params(window_hours=1.0), capital_quote=1000.0).run(
+        MemoryTape(events)
+    )
 
     assert result.mints >= 1
     assert result.rebalances > 0, "R2 never fired: expected fee gain is not reaching it"

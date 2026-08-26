@@ -61,6 +61,33 @@ Amounts are gross of fee, which biases each magnitude by the fee tier — 0.05%
 here, in the same direction for both terms of the ratio. It is far below the
 resolution of a threshold set at 2.5, and correcting it would mean reconstructing
 per-swap fees for a statistic that is scale-free by construction.
+
+## Why the threshold is calibrated rather than constant
+
+Because the paragraph above is true — this is not N(0,1) — a threshold chosen as
+though it were is not a threshold at all. Spec section 8 sets `z_pull = 2.5`,
+which reads like a two-and-a-half-sigma event and is not one. Measured over
+252,874 samples of the flagship pool the median |z| is **2.179**, so the spec's
+rule fires on **41.94%** of samples, and it fires on 42.8% of a pool eighty-four
+times shallower (P-19, P-23). A screen that fires on two samples in five is not
+selecting; it is describing BSC.
+
+That is a mis-specification of the same kind as V-1, where kappa's per-tick and
+per-log-price readings differed by 10,000x: a number correct for a quantity that
+is not the one it is applied to. The fix is the same shape too — apply the
+threshold in the units the statistic actually has. Here that means a quantile of
+the statistic's own trailing distribution, measured on the same pool by the same
+estimator, rather than a constant transplanted from a distribution it does not
+have.
+
+`z_pull` survives as the fallback for the first `MIN_CALIBRATION_SAMPLES`
+readings, so the spec's number still traces to something and the rule is defined
+from the first sample. Published as assumption A16.
+
+**This is not tuning.** The quantile is of the *input* distribution and is blind
+to whether the resulting pull earned or lost anything: it never sees fees, gas,
+LVR, or the position. Calibrating a threshold against outcomes would be the thing
+P-23 refuses, and it would look nothing like this.
 """
 
 from __future__ import annotations
@@ -74,6 +101,22 @@ from misquote.estimators.base import TrailingEstimator
 # Spec section 3.4's M, published as gap item G-1. Long enough for the sign
 # pattern to mean something, short enough to react within minutes on a busy pool.
 DEFAULT_WINDOW_SWAPS = 50
+
+# How many trailing samples the threshold is calibrated over, and how often that
+# calibration is redone. A day of 5-second samples, recalibrated hourly.
+#
+# The stride exists for cost, not for semantics: the quantile is exact when it is
+# computed, and between computations it is up to an hour stale. An hour-old
+# quantile of a day-long window differs from a fresh one in its last decimals,
+# and paying a sort per 5-second sample to chase that would multiply the replay's
+# cost for no change in any decision.
+DEFAULT_CALIBRATION_SAMPLES = 17_280
+DEFAULT_CALIBRATION_STRIDE = 720
+
+# Below this many readings the empirical quantile is not a quantile — it is the
+# largest of a handful of numbers. The caller is told `threshold_ready` is false
+# and falls back to the published constant rather than acting on it.
+MIN_CALIBRATION_SAMPLES = 2_000
 
 
 def imbalance_z(signed_volumes: list[float]) -> float:
@@ -114,21 +157,129 @@ class ImbalanceEstimator(TrailingEstimator):
     in their last bits — and test T1 compares decisions bitwise.
     """
 
-    __slots__ = ("_volumes", "_window", "_dec1")
+    __slots__ = (
+        "_volumes",
+        "_window",
+        "_dec1",
+        "_history",
+        "_stride",
+        "_since_calibration",
+        "_cached_quantile",
+        "_cached_at",
+        "_last_z",
+        "_z_dirty",
+    )
 
-    def __init__(self, *, dec1: int, window_swaps: int = DEFAULT_WINDOW_SWAPS) -> None:
+    def __init__(
+        self,
+        *,
+        dec1: int,
+        window_swaps: int = DEFAULT_WINDOW_SWAPS,
+        calibration_samples: int = DEFAULT_CALIBRATION_SAMPLES,
+        calibration_stride: int = DEFAULT_CALIBRATION_STRIDE,
+    ) -> None:
         super().__init__()
         if window_swaps < 2:
             raise ValueError("a z-score over fewer than two swaps is not a z-score")
+        if calibration_samples < 2:
+            raise ValueError("a quantile over fewer than two readings is not a quantile")
+        if calibration_stride < 1:
+            raise ValueError("calibration stride must be at least one sample")
         self._window = window_swaps
         self._dec1 = dec1
         self._volumes: deque[float] = deque(maxlen=window_swaps)
+        # Trailing |z| readings, one per decision sample. See `_on_time_advanced`
+        # for why recording them there is what makes this trailing-only.
+        self._history: deque[float] = deque(maxlen=calibration_samples)
+        self._stride = calibration_stride
+        self._since_calibration = calibration_stride
+        self._cached_quantile = 0.0
+        self._cached_at = 0
+        # The z-score as of the last `value()`, and whether a swap has arrived
+        # since. `_on_time_advanced` wants exactly the number the previous
+        # decision was shown, and recomputing it is a second `fsum` over the
+        # window on every one of a 500,000-sample replay's steps.
+        self._last_z = 0.0
+        self._z_dirty = True
+
+    @property
+    def ceiling(self) -> float:
+        """`sqrt(M)` — the largest |z| this statistic can produce.
+
+        Published because it is the only principled upper bound on a threshold:
+        `Params` refuses a `z_pull` at or above it, and a calibrated quantile is
+        checked against it for the same reason.
+        """
+        return math.sqrt(self._window)
+
+    def _on_time_advanced(self) -> None:
+        """Record the previous sample's |z| into the calibration history.
+
+        This runs from `set_decision_time`, which `Engine.step` calls *before*
+        ingesting the events belonging to the new sample. So the reading captured
+        here is the one the previous decision saw, and the history can only ever
+        contain values that were already public when they were recorded. That
+        ordering is the whole no-look-ahead argument for the calibrated threshold,
+        and it is why this lives in the hook rather than in `value()`.
+
+        Nothing is recorded before the swap window fills, because `value()`
+        returns 0.0 as "no verdict" until then and a run of manufactured zeros
+        would drag the quantile down exactly when the pool is quietest.
+        """
+        if not self.ready:
+            return
+        self._history.append(abs(self._current_z()))
+        self._since_calibration += 1
+
+    @property
+    def threshold_ready(self) -> bool:
+        """Whether the history is long enough to be read as a distribution."""
+        return len(self._history) >= MIN_CALIBRATION_SAMPLES
+
+    def threshold(self, quantile: float) -> float:
+        """The empirical `quantile` of trailing |z|, recomputed every stride.
+
+        Nearest-rank on the sorted window: with 17,280 readings the difference
+        between interpolation methods is far below the resolution of the decision
+        this feeds, and nearest-rank has the property that the value returned is
+        one the pool actually produced rather than an average of two it did not.
+
+        Cached between strides. The cache key is the number of readings taken,
+        not a clock, so two runs over the same prefix recalibrate at the same
+        samples and produce the same thresholds — which is what test T1 needs,
+        since this number reaches `Decision.reasons`.
+        """
+        if not 0.0 < quantile < 1.0:
+            raise ValueError(f"quantile must lie strictly in (0, 1), got {quantile}")
+        if not self.threshold_ready:
+            return 0.0
+        if self._since_calibration >= self._stride or self._cached_at == 0:
+            ordered = sorted(self._history)
+            rank = min(len(ordered) - 1, int(math.ceil(quantile * len(ordered))) - 1)
+            self._cached_quantile = ordered[max(0, rank)]
+            self._cached_at = len(self._history)
+            self._since_calibration = 0
+        return self._cached_quantile
+
+    def _current_z(self) -> float:
+        """The z-score over the window as it stands, computed at most once.
+
+        Recomputed only when a swap has arrived since the last read. The value is
+        a pure function of `_volumes`, so caching it cannot change a result — and
+        it must not, because test T1 compares decisions bitwise and this number
+        reaches every one of them.
+        """
+        if self._z_dirty:
+            self._last_z = imbalance_z(list(self._volumes))
+            self._z_dirty = False
+        return self._last_z
 
     def _absorb(self, event: Event) -> None:
         if event.kind != "swap":
             return
         # Signed quote volume, straight from the event's own sign convention.
         self._volumes.append(event.amount1 / 10.0**self._dec1)
+        self._z_dirty = True
 
     @property
     def ready(self) -> bool:
@@ -145,4 +296,4 @@ class ImbalanceEstimator(TrailingEstimator):
         """The z-score, or 0.0 — meaning no verdict — before the window fills."""
         if not self.ready:
             return 0.0
-        return imbalance_z(list(self._volumes))
+        return self._current_z()
