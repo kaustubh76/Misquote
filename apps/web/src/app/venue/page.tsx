@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { VenueView, type BadgeSurvey, type VenueArtifact } from "./view";
+import { VenueView, type BadgeSurvey, type PoolsArtifact, type VenueArtifact } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
 
 export const metadata: Metadata = {
@@ -16,6 +16,8 @@ export default function VenuePage() {
     <VenueView
       initial={readArtifact<VenueArtifact>("venue.json")}
       initialBadges={readArtifact<BadgeSurvey>("vetting.json")}
+      // Absent on a clean checkout: `make artifacts` does not build the ladder.
+      initialPools={readArtifact<PoolsArtifact>("pools.json")}
     />
   );
 }

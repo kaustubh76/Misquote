@@ -14,6 +14,7 @@ import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
 import VenuePage from "./venue/page";
+import { VenueView, type VenueArtifact } from "./venue/view";
 import VettingPage from "./vetting/page";
 import { AgentDetail } from "@/components/AgentDetail";
 
@@ -963,6 +964,103 @@ describe("Venue: what has been checked, and what has not", () => {
     for (const pool of covered) {
       expect(rows.find((t) => t.includes(pool.label))).toContain("nine checks passed");
     }
+  });
+});
+
+/**
+ * The width ladder, which existed for a while and reached no page.
+ *
+ * `pools.json` was emitted by `make pools`, covered by tests and served by
+ * `GET /pools`, and nothing rendered it. That is the one failure mode this
+ * repository is least entitled to: a measurement nobody can see is not a
+ * benefit delivered, it is a benefit claimed.
+ *
+ * Everything here is asserted from the artifact, so it holds whichever pools
+ * were measured and whichever widths cleared the floor.
+ */
+describe("Venue: which pool, and how wide", () => {
+  interface Ladder {
+    pools: {
+      label: string;
+      address: string;
+      verdict: string;
+      best_width_ticks: number | null;
+      ladder: { width_ticks: number; sufficient: boolean; observations: number }[];
+      demand: { swaps: number; fee_per_unit_liquidity: number; volume_quote: number };
+    }[];
+  }
+
+  it("renders the engine's verdict verbatim, overlap clause and all", async () => {
+    // Verbatim is the whole point. The load-bearing half of the sentence is the
+    // clause saying the lead is *not separated at this sample size*, and a page
+    // that recomputed a winner from the medians would drop exactly that and
+    // publish the leaderboard this project is named against.
+    const measured = readArtifact<Ladder>("pools.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Which pool, and how wide" });
+
+    for (const pool of measured.pools) {
+      expect(screen.getByText(pool.verdict)).toBeInTheDocument();
+    }
+  });
+
+  it("shows a row per width that cleared the floor, and none that did not", async () => {
+    const measured = readArtifact<Ladder>("pools.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Which pool, and how wide" });
+
+    const rows = [...document.querySelectorAll("tr")].map((r) => r.textContent ?? "");
+    for (const pool of measured.pools) {
+      for (const band of pool.ladder) {
+        const present = rows.some((t) => t.includes(`\u00b1${band.width_ticks} ticks`));
+        if (band.sufficient) {
+          expect(present, `+/-${band.width_ticks} cleared the floor and is not rendered`).toBe(
+            true,
+          );
+        }
+      }
+    }
+  });
+
+  it("says a pool has no verdict rather than drawing it as a blank", async () => {
+    // A pool below the evidence floor is the case that most needs saying out
+    // loud: "we have no idea" and "it pays nothing" must not render the same,
+    // and the second is what an empty row means to a reader.
+    const measured = readArtifact<Ladder>("pools.json");
+    const silent = measured.pools.filter((p) => !p.ladder.some((b) => b.sufficient));
+    if (silent.length === 0) return;
+
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Which pool, and how wide" });
+
+    const text = document.body.textContent ?? "";
+    for (const pool of silent) {
+      // `getAllByText`, not `getByText`: the pool table further up this page
+      // lists the same label, and a singular query would fail on the ambiguity
+      // rather than on the thing under test.
+      expect(screen.getAllByText(pool.label).length).toBeGreaterThan(0);
+    }
+    expect(text).toContain("No width on the ladder cleared");
+  });
+
+  it("stays a complete page when the ladder was never measured", async () => {
+    // `make artifacts` does not build `pools`, so a clean checkout has no
+    // ladder at all. The section has to degrade into the command that would
+    // produce it rather than vanishing or throwing.
+    //
+    // `VenueView` directly rather than `VenuePage`, and the difference is the
+    // point: the page reads the artifact off disk at build time, so a fetch
+    // stubbed as missing would still be handed the file this repository
+    // happens to have. Only the view can be asked what it does without one.
+    serveArtifacts({ missing: ["pools.json"] });
+    render(<VenueView initial={readArtifact<VenueArtifact>("venue.json")} />);
+    await screen.findByRole("heading", { name: "Which pool, and how wide" });
+
+    expect(document.body.textContent ?? "").toContain("No width ladder has been measured");
+    // The rest of the page is unaffected — this section is additive.
+    expect(
+      screen.getByRole("heading", { name: "The pools we actually read" }),
+    ).toBeInTheDocument();
   });
 });
 
