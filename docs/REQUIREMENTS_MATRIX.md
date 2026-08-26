@@ -492,6 +492,65 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-26 · Three thresholds were numbers correct for quantities they were not applied to — **25 Aug 2026**
+
+Prompted by an audit against the PancakeSwap track's criterion — *"the agent must deliver a real
+benefit to PancakeSwap traders or liquidity providers"* — which the published cards did not meet:
+Warden **−64.31pp** against a passive baseline, Sentinel **−37.07pp**, Grid's **+13.35pp**
+unclaimable because its bands overlap.
+
+Reviewing P-17, P-20 and P-23 together makes them one defect wearing three hats. Each is a constant
+chosen against a distribution or a unit that is not the one it governs — the same shape as **V-1**,
+where kappa's per-tick and per-log-price readings differed by 10,000x. That is a correctness class,
+not a tuning class, and it is the reason this reverses P-23's "flag it, do not tune it".
+
+**1. `z_pull = 2.5` gates a statistic that is not N(0,1).** P-23 measured it: median `|z|` **2.179**,
+firing on **41.94%** of samples. The estimator's own docstring states the statistic is a permutation
+null bounded by `sqrt(M)` and *"not N(0,1) in small samples"*. A threshold chosen as though it were
+is not a strict reading of the spec — it is an arithmetic error the spec happens to contain.
+
+*Fixed:* the operative threshold is the trailing **95th percentile of `|z|`**, measured on the same
+pool by the same estimator over the policy's own `window_hours`. `z_pull` remains the fallback for
+the first 2,000 readings. Recorded in `Observation.swap_imbalance_threshold` and on every decision.
+Published as **A16**.
+
+*Why this is not what P-23 refused:* the quantile is of the **input** distribution and never sees an
+outcome — not fees, not gas, not LVR, not the position. It calibrates identically on a tape where
+the agent loses. Fitting a parameter to a result would look nothing like this.
+
+**2. `w_min = 4 x tick_spacing` is 0.795 sigmas of a 24-hour move.** P-17 established that equation
+(2) returns 2.86–4.75 ticks against a floor of 40, so the floor set the width and the model
+contributed nothing. What P-17 did not compute is what that floor *is* in the units that matter: at
+the measured sigma it is **0.795 sigmas** over the horizon, and the probability a driftless walk
+never leaves such a band is **18.5%**. The measured in-range fraction was 6.1%. The floor was not a
+conservative choice; it was a band the price leaves four times in five.
+
+*Fixed:* the floor is derived by inverting the two-sided first-passage series at G-3's published
+in-range floor — **1.4395 sigmas at 70%** — and capped at +/-25% of price, because `sigma*sqrt(T)`
+is a random-walk excursion and reverting flow produces a large sigma while going nowhere. Published
+as **A18**. No new constant: the multiplier is a function of a number already on the assumption
+sheet.
+
+**3. One budget was pricing two behaviours.** P-20 found re-entry refused on 90.2% of HOLD
+decisions. The cause is that `reentry_affordable` spent `max_rebalances_per_day`, so every return
+from a defensive pull consumed a recentre the agent then could not make.
+
+*Fixed:* `PositionState.reentries_today` and `Params.max_reentries_per_day = 24`. Both counters
+still survive a pull, so the property the single counter existed to protect — that neither limit can
+be reset by leaving and coming back — is kept, and now tested for both.
+
+**Also fixed, found while doing the above:** `ranges.perturbations` documented perturbing
+"(gamma, kappa)" and scaled **only gamma**, because kappa is estimated and `Params` had nowhere to
+hold a perturbation of it. So A5's parameter sweep was half-missing for Warden and entirely inert
+for Grid and Sentinel, which read neither — the mechanism behind P-17's "20/20 windows identical".
+`Params.kappa_scale` supplies the missing half and `quote(policy_factory=...)` lets an agent be
+perturbed in its own parameters.
+
+*Still true after all of this:* equation (2) still returns 2.88 ticks and is still dominated by the
+floor. A9 remains open — the equation prices no adverse selection — and widening the floor does not
+close it. What changed is that the floor is now derived from a published quantity instead of hiding
+a known defect behind an unrelated constant.
+
 ### P-25 · Router's entire published behaviour was a statement about two constants nobody measured — **22 Aug 2026**
 
 `replay/allocation.SwitchCost` shipped as two bare literals:
@@ -654,7 +713,13 @@ of `Σs`, and a threshold chosen against that null classifies ordinary condition
 intended to catch exceptional adverse selection fires on nearly half of all market conditions, the
 position spends 94% of its life withdrawn, and the re-entry cost is charged every time.
 
-**Resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec — *"if code and spec
+**Resolution: superseded by P-26 (25 Aug 2026).** The reasoning below stands as the record of what
+was decided on 21 Aug and why. What changed is the classification, not the discipline: `z_pull` is
+not a parameter that produced an unflattering result, it is a constant applied to a distribution it
+does not describe — the V-1 class. The threshold is now a quantile of the measured distribution, and
+the quantile is blind to outcomes. The original resolution follows.
+
+**Original resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec — *"if code and spec
 conflict, the spec wins; flag it"* — and `docs/FOR_JUDGES.md` states the stronger rule that moving a
 parameter because it produced an unflattering result is the fitting this project exists to refuse.
 So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the

@@ -434,9 +434,136 @@
       "cited_by": [],
       "id": "A15",
       "kind": "assumption",
-      "line": 389,
+      "line": 393,
       "source": "docs/ASSUMPTIONS.md",
       "title": "An interactive quote runs fewer windows than a published card"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Changed.** Spec \u00a73.4's second arm fires when `|z| > z_pull`, with \u00a78 setting `z_pull = 2.5`. That reads like a two-and-a-half-sigma event. It is not one, and the estimator's own docstring says why: `z = \u03a3s / \u221a\u03a3s\u00b2` is a **permutation-null statistic bounded by \u221aM**, not a normal score. Under that null it is not N(0,1) in small samples, so a threshold chosen as though it were is a number correct for a quantity that is not the one it is applied to.",
+          "type": "p"
+        },
+        {
+          "text": "*What it cost:* measured over 252,874 samples of the flagship pool, the median `|z|` is **2.179** \u2014 so the rule fires on **41.94%** of samples, and on **42.8%** of a pool eighty-four times shallower (P-19, P-23). A screen that fires on two samples in five is not selecting; it is describing BSC. Downstream, Warden withdrew and re-minted 249 times in 30 days, held a position 6.1% of the window, and paid gas equal to 55% of deployed capital.",
+          "type": "p"
+        },
+        {
+          "text": "*The change:* the threshold is now the **trailing quantile of `|z|` measured on the same pool by the same estimator** \u2014 `z_pull_quantile`, default the 95th percentile \u2014 over a window equal to the policy's own `window_hours`. `z_pull` remains the fallback for the first 2,000 readings, so the spec's number still traces to something and the rule is defined from the first sample. The reading and the bar it was judged against are both recorded on every decision.",
+          "type": "p"
+        },
+        {
+          "text": "*Why this is not tuning:* the quantile is of the **input** distribution and is blind to outcomes. It never sees fees, gas, LVR, or the position; the same calibration runs on a tape where the agent loses money. Calibrating a threshold against results is the thing P-23 refuses, and it would look nothing like this. This is the same class of correction as V-1, where \u03ba's per-tick and per-log-price readings differed by 10,000\u00d7.",
+          "type": "p"
+        },
+        {
+          "text": "*Direction of the error:* **toward holding the position**. A quantile threshold fires less often than one set below the median, so the agent withdraws less. That is a real exposure change and it is the point: the previous behaviour was not caution, it was a gate reading noise as signal.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A16",
+      "kind": "assumption",
+      "line": 416,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The imbalance pull is calibrated to its own distribution, not to 2.5"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** Spec \u00a73.3's gate R2 refuses a recentre unless the expected fee gain clears gas, slippage and the MEV haircut. Nothing asked the same question of \u00a73.4's withdrawal, so the toxicity arm could cycle the position at whatever rate the daily budget allowed.",
+          "type": "p"
+        },
+        {
+          "text": "*What it cost:* on the 30-day chain tape, after A16 and A18 put the position in range 76% of the time, Warden made **653 pull-and-return round trips** \u2014 costing **9.6% of deployed capital** against **4.8%** of fees earned. The round trips, not the strategy, were the loss. Raising the re-entry budget (A16) made this worse rather than better, which is what identified it: 653 over 30.2 days is 21.6 a day against a cap of 24, so the agent churned up to exactly whatever it was allowed.",
+          "type": "p"
+        },
+        {
+          "text": "*The test:* leaving saves the larger of two estimates, because \u00a73.4's two arms know different things.",
+          "type": "p"
+        },
+        {
+          "items": [
+            "The **CEX-gap arm leads** and carries a magnitude: a gap of `g` against a position worth `V` is arbitraged for about `V\u00b7g`, and that is knowable before any of it happens. Judging this arm by trailing realized LVR would refuse the pull precisely when the signal is doing its job.",
+            "The **fallback and imbalance arms lag** and carry no magnitude at all, so the only honest yardstick is the bleed already measured: `(lvr_rate \u2212 fee_rate)` over the `m_clear` samples a re-entry needs."
+          ],
+          "type": "ul"
+        },
+        {
+          "text": "Against that, a full exit now and a full entry later. The MEV haircut falls on the whole position rather than A4's rebalanced notional, because a pull unwinds all of it.",
+          "type": "p"
+        },
+        {
+          "text": "*Why this does not contradict the exit being unconditional.* `core/policy.py::decide` argues the budget \"gates coming back, never leaving\", since an agent forbidden to exit is held inside the flow the rule exists to escape. That reasoning stands and no budget is consulted on the way out. A budget refuses on an allowance already spent, which says nothing about the danger; this refuses only when the pool is not measurably costing more than it pays. If flow is genuinely toxic the bleed is large, the gate opens on the first sample, and nothing is held anywhere. What it blocks is the speculative pull \u2014 signal fired, pool not actually hurting.",
+          "type": "p"
+        },
+        {
+          "text": "*Direction of the error:* **toward staying in the market.** That is a real exposure change, and A10 is what makes it conservative rather than dangerous: `lvr_rate` is an *upper bound* on adverse selection, so the bleed this compares against is overstated and the gate opens **sooner** than a truer measure would open it.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A17",
+      "kind": "assumption",
+      "line": 492,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "A withdrawal has to pay for itself, the way a recentre does"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** The range's width floor is now derived from `\u03c3\u221aT` at the published in-range floor (see the parameter table). `\u03c3\u221aT` is a **random-walk** excursion, and flow that oscillates rather than trends has a large per-\u221ahour \u03c3 while going nowhere \u2014 the same reversion that makes A10 an upper bound rather than an estimate. Left uncapped the floor answers a 40-tick oscillation with a **4,330-tick** range.",
+          "type": "p"
+        },
+        {
+          "text": "*The cap:* `w_max_price_band = 0.25`, so no more than \u00b125% of price, which is 2,231 ticks. Past that a band is not a concentrated-liquidity position in any meaningful sense \u2014 it earns a passive position's fee density while still paying to be rebalanced \u2014 so the strategy has nothing left to say and the width stops growing.",
+          "type": "p"
+        },
+        {
+          "text": "*Where it binds:* on oscillating tapes, and **not** on the flagship pool, where the floor is 72 ticks against a ceiling of 2,231.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A18",
+      "kind": "assumption",
+      "line": 446,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The volatility floor is capped at a \u00b125% band"
+    },
+    {
+      "blocks": [
+        {
+          "text": "**Added.** A18 derives the narrowest range that can hold G-3's in-range floor. This is the same derivation read at the other end, and it exists because the floor turned out not to be what was setting the width.",
+          "type": "p"
+        },
+        {
+          "text": "*What it cost:* equation (2)'s half-width is dominated by \u03ba, and \u03ba is not stable to within an order of magnitude. Fitted on the flagship pool it is **3,600.91** per log-price over the 30-day tape and about **7** over a 40,000-swap slice of the *same pool* \u2014 a 500\u00d7 swing that moves the half-width from **3.1 ticks to 1,353**. A8 already records that the estimator fits a functional form the data does not have; this is that defect setting the position rather than only being disclosed on the card.",
+          "type": "p"
+        },
+        {
+          "text": "On the real tape the consequence was a range of **\u00b114.45% opened against a pool that moved 11.6% for the whole month**. The position never left it, never had cause to recentre, sat in range 100% of the time, and earned **2.4\u00d7 less in fees than the passive baseline it had become** \u2014 0.00727 against 0.01753. An agent that has turned into its own benchmark is not a rebalancing agent.",
+          "type": "p"
+        },
+        {
+          "text": "*The ceiling:* `sigmas_for_inrange(0.99)` \u2014 **2.807\u03c3** of a horizon move, against the floor's 1.4395\u03c3 at 70%. Between those two widths, widening buys measurable in-range time. Past the ceiling it does not: the position already has the time, and the only thing a wider band changes is that each swap pays it less. `IN_RANGE_SATURATION` is that 0.99, and like the floor it is read through the same inversion rather than chosen as a tick count.",
+          "type": "p"
+        },
+        {
+          "text": "*What this is not:* a cap on \u03ba, or a correction to it. \u03ba still chooses the width \u2014 the band is where its choice is economically meaningful. On the flagship pool the band is **130 to 240 ticks**, and \u03ba's 500\u00d7 swing moves the width by 1.8\u00d7 inside it instead of 34\u00d7 outside it.",
+          "type": "p"
+        },
+        {
+          "text": "*Direction of the error:* **toward narrower ranges**, so toward more time out of range and more recentring. That is the opposite of A18's direction, and the two are meant to bracket rather than agree \u2014 a floor that only ever widened would have no way to be wrong.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [],
+      "id": "A19",
+      "kind": "assumption",
+      "line": 461,
+      "source": "docs/ASSUMPTIONS.md",
+      "title": "The width has a ceiling as well as a floor, and \u03ba chooses between them"
     },
     {
       "blocks": [
@@ -754,7 +881,7 @@
       ],
       "id": "G-1",
       "kind": "gap",
-      "line": 1641,
+      "line": 1706,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -789,7 +916,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 1642,
+      "line": 1707,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -826,7 +953,7 @@
       ],
       "id": "G-3",
       "kind": "gap",
-      "line": 1643,
+      "line": 1708,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -861,7 +988,7 @@
       "cited_by": [],
       "id": "G-4",
       "kind": "gap",
-      "line": 1644,
+      "line": 1709,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -980,7 +1107,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 1592,
+      "line": 1657,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -1047,7 +1174,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 1547,
+      "line": 1612,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -1161,7 +1288,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 1481,
+      "line": 1546,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1232,7 +1359,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 1420,
+      "line": 1485,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1274,7 +1401,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 1379,
+      "line": 1444,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1443,7 +1570,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 1274,
+      "line": 1339,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1534,7 +1661,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 1220,
+      "line": 1285,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -1605,7 +1732,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 1169,
+      "line": 1234,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -1664,7 +1791,7 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 1129,
+      "line": 1194,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
@@ -1739,7 +1866,7 @@
       "cited_by": [],
       "id": "P-15",
       "kind": "correction",
-      "line": 1085,
+      "line": 1150,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
@@ -1825,7 +1952,7 @@
       "cited_by": [],
       "id": "P-16",
       "kind": "correction",
-      "line": 1037,
+      "line": 1102,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) clamps the holdings *and* the price; only one of those is right \u2014 **fixed 18 Aug 2026**"
     },
@@ -1927,7 +2054,7 @@
       "cited_by": [],
       "id": "P-17",
       "kind": "correction",
-      "line": 985,
+      "line": 1050,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The Avellaneda\u2013Stoikov half-width never reaches the anti-dust floor \u2014 **18 Aug 2026**"
     },
@@ -2009,7 +2136,7 @@
       ],
       "id": "P-18",
       "kind": "correction",
-      "line": 913,
+      "line": 978,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The one ERC-8183 escrow we had verified does not implement ERC-8183 \u2014 **19 Aug 2026**"
     },
@@ -2074,7 +2201,7 @@
       "cited_by": [],
       "id": "P-19",
       "kind": "correction",
-      "line": 863,
+      "line": 928,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "On real flow, \u00a73.4's imbalance screen does not separate two venues \u2014 **19 Aug 2026**"
     },
@@ -2195,7 +2322,7 @@
       "cited_by": [],
       "id": "P-20",
       "kind": "correction",
-      "line": 786,
+      "line": 851,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent spends its whole daily budget leaving, and cannot afford to come back \u2014 **20 Aug 2026**"
     },
@@ -2305,7 +2432,7 @@
       "cited_by": [],
       "id": "P-21",
       "kind": "correction",
-      "line": 715,
+      "line": 780,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "D1 was decided against a number nobody had read, and the survey that would have read it was gated on a key it did not need \u2014 **20 Aug 2026**"
     },
@@ -2373,7 +2500,7 @@
       ],
       "id": "P-22",
       "kind": "correction",
-      "line": 672,
+      "line": 737,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The yield number every lending frontend quotes depends on a constant that is not on chain \u2014 **21 Aug 2026**"
     },
@@ -2480,7 +2607,11 @@
           "type": "p"
         },
         {
-          "text": "**Resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec \u2014 *\"if code and spec conflict, the spec wins; flag it\"* \u2014 and `docs/FOR_JUDGES.md` states the stronger rule that moving a parameter because it produced an unflattering result is the fitting this project exists to refuse. So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the explanation rather than an excuse**: the loss is real, and its cause is a threshold whose null does not describe the data.",
+          "text": "**Resolution: superseded by P-26 (25 Aug 2026).** The reasoning below stands as the record of what was decided on 21 Aug and why. What changed is the classification, not the discipline: `z_pull` is not a parameter that produced an unflattering result, it is a constant applied to a distribution it does not describe \u2014 the V-1 class. The threshold is now a quantile of the measured distribution, and the quantile is blind to outcomes. The original resolution follows.",
+          "type": "p"
+        },
+        {
+          "text": "**Original resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec \u2014 *\"if code and spec conflict, the spec wins; flag it\"* \u2014 and `docs/FOR_JUDGES.md` states the stronger rule that moving a parameter because it produced an unflattering result is the fitting this project exists to refuse. So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the explanation rather than an excuse**: the loss is real, and its cause is a threshold whose null does not describe the data.",
           "type": "p"
         },
         {
@@ -2495,7 +2626,7 @@
       "cited_by": [],
       "id": "P-23",
       "kind": "correction",
-      "line": 616,
+      "line": 675,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity threshold was calibrated against a null that real flow violates, and it is why the agent loses \u2014 **21 Aug 2026**"
     },
@@ -2589,7 +2720,7 @@
       ],
       "id": "P-24",
       "kind": "correction",
-      "line": 563,
+      "line": 622,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "There was a verified ERC-8183 deployment the whole time, and nobody had looked \u2014 **21 Aug 2026**"
     },
@@ -2677,9 +2808,65 @@
       "cited_by": [],
       "id": "P-25",
       "kind": "correction",
-      "line": 495,
+      "line": 554,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Router's entire published behaviour was a statement about two constants nobody measured \u2014 **22 Aug 2026**"
+    },
+    {
+      "blocks": [
+        {
+          "text": "Prompted by an audit against the PancakeSwap track's criterion \u2014 *\"the agent must deliver a real benefit to PancakeSwap traders or liquidity providers\"* \u2014 which the published cards did not meet: Warden **\u221264.31pp** against a passive baseline, Sentinel **\u221237.07pp**, Grid's **+13.35pp** unclaimable because its bands overlap.",
+          "type": "p"
+        },
+        {
+          "text": "Reviewing P-17, P-20 and P-23 together makes them one defect wearing three hats. Each is a constant chosen against a distribution or a unit that is not the one it governs \u2014 the same shape as **V-1**, where kappa's per-tick and per-log-price readings differed by 10,000x. That is a correctness class, not a tuning class, and it is the reason this reverses P-23's \"flag it, do not tune it\".",
+          "type": "p"
+        },
+        {
+          "text": "**1. `z_pull = 2.5` gates a statistic that is not N(0,1).** P-23 measured it: median `|z|` **2.179**, firing on **41.94%** of samples. The estimator's own docstring states the statistic is a permutation null bounded by `sqrt(M)` and *\"not N(0,1) in small samples\"*. A threshold chosen as though it were is not a strict reading of the spec \u2014 it is an arithmetic error the spec happens to contain.",
+          "type": "p"
+        },
+        {
+          "text": "*Fixed:* the operative threshold is the trailing **95th percentile of `|z|`**, measured on the same pool by the same estimator over the policy's own `window_hours`. `z_pull` remains the fallback for the first 2,000 readings. Recorded in `Observation.swap_imbalance_threshold` and on every decision. Published as **A16**.",
+          "type": "p"
+        },
+        {
+          "text": "*Why this is not what P-23 refused:* the quantile is of the **input** distribution and never sees an outcome \u2014 not fees, not gas, not LVR, not the position. It calibrates identically on a tape where the agent loses. Fitting a parameter to a result would look nothing like this.",
+          "type": "p"
+        },
+        {
+          "text": "**2. `w_min = 4 x tick_spacing` is 0.795 sigmas of a 24-hour move.** P-17 established that equation (2) returns 2.86\u20134.75 ticks against a floor of 40, so the floor set the width and the model contributed nothing. What P-17 did not compute is what that floor *is* in the units that matter: at the measured sigma it is **0.795 sigmas** over the horizon, and the probability a driftless walk never leaves such a band is **18.5%**. The measured in-range fraction was 6.1%. The floor was not a conservative choice; it was a band the price leaves four times in five.",
+          "type": "p"
+        },
+        {
+          "text": "*Fixed:* the floor is derived by inverting the two-sided first-passage series at G-3's published in-range floor \u2014 **1.4395 sigmas at 70%** \u2014 and capped at +/-25% of price, because `sigma*sqrt(T)` is a random-walk excursion and reverting flow produces a large sigma while going nowhere. Published as **A18**. No new constant: the multiplier is a function of a number already on the assumption sheet.",
+          "type": "p"
+        },
+        {
+          "text": "**3. One budget was pricing two behaviours.** P-20 found re-entry refused on 90.2% of HOLD decisions. The cause is that `reentry_affordable` spent `max_rebalances_per_day`, so every return from a defensive pull consumed a recentre the agent then could not make.",
+          "type": "p"
+        },
+        {
+          "text": "*Fixed:* `PositionState.reentries_today` and `Params.max_reentries_per_day = 24`. Both counters still survive a pull, so the property the single counter existed to protect \u2014 that neither limit can be reset by leaving and coming back \u2014 is kept, and now tested for both.",
+          "type": "p"
+        },
+        {
+          "text": "**Also fixed, found while doing the above:** `ranges.perturbations` documented perturbing \"(gamma, kappa)\" and scaled **only gamma**, because kappa is estimated and `Params` had nowhere to hold a perturbation of it. So A5's parameter sweep was half-missing for Warden and entirely inert for Grid and Sentinel, which read neither \u2014 the mechanism behind P-17's \"20/20 windows identical\". `Params.kappa_scale` supplies the missing half and `quote(policy_factory=...)` lets an agent be perturbed in its own parameters.",
+          "type": "p"
+        },
+        {
+          "text": "*Still true after all of this:* equation (2) still returns 2.88 ticks and is still dominated by the floor. A9 remains open \u2014 the equation prices no adverse selection \u2014 and widening the floor does not close it. What changed is that the floor is now derived from a published quantity instead of hiding a known defect behind an unrelated constant.",
+          "type": "p"
+        }
+      ],
+      "cited_by": [
+        "registry.json"
+      ],
+      "id": "P-26",
+      "kind": "correction",
+      "line": 495,
+      "source": "docs/REQUIREMENTS_MATRIX.md",
+      "title": "Three thresholds were numbers correct for quantities they were not applied to \u2014 **25 Aug 2026**"
     },
     {
       "blocks": [
@@ -3077,10 +3264,22 @@
             "spec \u00a78, anti-churn"
           ],
           [
-            "Minimum half-width",
+            "Minimum half-width (dust)",
             "w_min",
             "**4 \u00d7 tick spacing**",
             "spec \u00a78, anti-dust"
+          ],
+          [
+            "Minimum half-width (volatility)",
+            "\u2014",
+            "**\u03c3\u221aT at the InRange floor** \u2192 1.4395\u03c3, 72 ticks on the flagship",
+            "**A18** \u2014 derived from N below, not chosen"
+          ],
+          [
+            "Maximum half-width",
+            "`w_max_price_band`",
+            "**\u00b125% of price** (2,231 ticks)",
+            "**A18** \u2014 \u03c3\u221aT overstates a reverting excursion"
           ],
           [
             "MEV haircut",
@@ -3089,10 +3288,18 @@
             "A4"
           ],
           [
-            "Toxicity z-threshold",
+            "Toxicity z-threshold (fallback)",
             "z_pull",
             "**2.5**",
-            "spec \u00a78"
+            "spec \u00a78 \u2014 used for the first 2,000 readings only"
+          ],
+          [
+            "Toxicity z-threshold (operative)",
+            "`z_pull_quantile`",
+            "**95th percentile of trailing \\",
+            "z\\",
+            "**",
+            "**A16** \u2014 the spec's constant fires on 41.94% of real samples"
           ],
           [
             "Toxic samples to pull",
@@ -3125,6 +3332,12 @@
             "spec \u00a78, gas discipline"
           ],
           [
+            "Max re-entries per day",
+            "`max_reentries_per_day`",
+            "**24**",
+            "**A16** \u2014 returning from a pull is not the churn \u00a78's cap was written against (P-20)"
+          ],
+          [
             "Imbalance window",
             "M",
             "**50 swaps**",
@@ -3140,7 +3353,7 @@
             "InRange floor",
             "N",
             "**70%**",
-            "**G-3** \u2014 unspecified in spec, proposed here"
+            "**G-3** \u2014 unspecified in spec, proposed here; **A18** also derives w_min from it"
           ],
           [
             "\u03c3 estimator",

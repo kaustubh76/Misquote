@@ -279,17 +279,21 @@ fixed and published.
 | Replay liquidity cap | ε | **1%** | A1 |
 | Recenter drift threshold | θ | **0.5** × half-width | spec §8 |
 | Rebalance cooldown | τ_cool | **2h** | spec §8, anti-churn |
-| Minimum half-width | w_min | **4 × tick spacing** | spec §8, anti-dust |
+| Minimum half-width (dust) | w_min | **4 × tick spacing** | spec §8, anti-dust |
+| Minimum half-width (volatility) | — | **σ√T at the InRange floor** → 1.4395σ, 72 ticks on the flagship | **A18** — derived from N below, not chosen |
+| Maximum half-width | `w_max_price_band` | **±25% of price** (2,231 ticks) | **A18** — σ√T overstates a reverting excursion |
 | MEV haircut | h | **10 bps** | A4 |
-| Toxicity z-threshold | z_pull | **2.5** | spec §8 |
+| Toxicity z-threshold (fallback) | z_pull | **2.5** | spec §8 — used for the first 2,000 readings only |
+| Toxicity z-threshold (operative) | `z_pull_quantile` | **95th percentile of trailing \|z\|** | **A16** — the spec's constant fires on 41.94% of real samples |
 | Toxic samples to pull | m | **3** | spec §8 |
 | Clear samples to re-enter | m_clear | **10** | spec §8 |
 | Signal sample interval | Δs | **5s** | spec §8 |
 | Replay sub-windows | K | **≥ 20** | A5 |
 | Max rebalances per day | — | **8** | spec §8, gas discipline |
+| Max re-entries per day | `max_reentries_per_day` | **24** | **A16** — returning from a pull is not the churn §8's cap was written against (P-20) |
 | Imbalance window | M | **50 swaps** | **G-1** — unspecified in spec, proposed here |
 | Arbitrage round-trip cost | arb_cost_bps | **5 bps** | **G-2** — unspecified in spec, proposed here |
-| InRange floor | N | **70%** | **G-3** — unspecified in spec, proposed here |
+| InRange floor | N | **70%** | **G-3** — unspecified in spec, proposed here; **A18** also derives w_min from it |
 | σ estimator | — | EWMA of 1-min log returns, **6h half-life**, per-√hour | spec §5.1 |
 | κ estimator | — | least squares on trailing **7d** swap depth buckets, refit daily | spec §5.2 |
 | κ fallback trigger | — | **r² < 0.5** → κ_default, **labeled on the card** | spec §5.2 |
@@ -408,6 +412,118 @@ one looks like disagreement between the agents when it is disagreement between t
 
 *What does not change:* the windows themselves, the perturbations, the floors, and every assumption
 above. This entry is about how many times the same arithmetic is run, not about the arithmetic.
+
+## A16 · The imbalance pull is calibrated to its own distribution, not to 2.5
+
+**Changed.** Spec §3.4's second arm fires when `|z| > z_pull`, with §8 setting `z_pull = 2.5`. That
+reads like a two-and-a-half-sigma event. It is not one, and the estimator's own docstring says why:
+`z = Σs / √Σs²` is a **permutation-null statistic bounded by √M**, not a normal score. Under that
+null it is not N(0,1) in small samples, so a threshold chosen as though it were is a number correct
+for a quantity that is not the one it is applied to.
+
+*What it cost:* measured over 252,874 samples of the flagship pool, the median `|z|` is **2.179** —
+so the rule fires on **41.94%** of samples, and on **42.8%** of a pool eighty-four times shallower
+(P-19, P-23). A screen that fires on two samples in five is not selecting; it is describing BSC.
+Downstream, Warden withdrew and re-minted 249 times in 30 days, held a position 6.1% of the window,
+and paid gas equal to 55% of deployed capital.
+
+*The change:* the threshold is now the **trailing quantile of `|z|` measured on the same pool by the
+same estimator** — `z_pull_quantile`, default the 95th percentile — over a window equal to the
+policy's own `window_hours`. `z_pull` remains the fallback for the first 2,000 readings, so the
+spec's number still traces to something and the rule is defined from the first sample. The reading
+and the bar it was judged against are both recorded on every decision.
+
+*Why this is not tuning:* the quantile is of the **input** distribution and is blind to outcomes. It
+never sees fees, gas, LVR, or the position; the same calibration runs on a tape where the agent
+loses money. Calibrating a threshold against results is the thing P-23 refuses, and it would look
+nothing like this. This is the same class of correction as V-1, where κ's per-tick and per-log-price
+readings differed by 10,000×.
+
+*Direction of the error:* **toward holding the position**. A quantile threshold fires less often than
+one set below the median, so the agent withdraws less. That is a real exposure change and it is the
+point: the previous behaviour was not caution, it was a gate reading noise as signal.
+
+## A18 · The volatility floor is capped at a ±25% band
+
+**Added.** The range's width floor is now derived from `σ√T` at the published in-range floor (see the
+parameter table). `σ√T` is a **random-walk** excursion, and flow that oscillates rather than trends
+has a large per-√hour σ while going nowhere — the same reversion that makes A10 an upper bound rather
+than an estimate. Left uncapped the floor answers a 40-tick oscillation with a **4,330-tick** range.
+
+*The cap:* `w_max_price_band = 0.25`, so no more than ±25% of price, which is 2,231 ticks. Past that
+a band is not a concentrated-liquidity position in any meaningful sense — it earns a passive
+position's fee density while still paying to be rebalanced — so the strategy has nothing left to say
+and the width stops growing.
+
+*Where it binds:* on oscillating tapes, and **not** on the flagship pool, where the floor is 72 ticks
+against a ceiling of 2,231.
+
+## A19 · The width has a ceiling as well as a floor, and κ chooses between them
+
+**Added.** A18 derives the narrowest range that can hold G-3's in-range floor. This is the same
+derivation read at the other end, and it exists because the floor turned out not to be what was
+setting the width.
+
+*What it cost:* equation (2)'s half-width is dominated by κ, and κ is not stable to within an order
+of magnitude. Fitted on the flagship pool it is **3,600.91** per log-price over the 30-day tape and
+about **7** over a 40,000-swap slice of the *same pool* — a 500× swing that moves the half-width from
+**3.1 ticks to 1,353**. A8 already records that the estimator fits a functional form the data does
+not have; this is that defect setting the position rather than only being disclosed on the card.
+
+On the real tape the consequence was a range of **±14.45% opened against a pool that moved 11.6% for
+the whole month**. The position never left it, never had cause to recentre, sat in range 100% of the
+time, and earned **2.4× less in fees than the passive baseline it had become** — 0.00727 against
+0.01753. An agent that has turned into its own benchmark is not a rebalancing agent.
+
+*The ceiling:* `sigmas_for_inrange(0.99)` — **2.807σ** of a horizon move, against the floor's
+1.4395σ at 70%. Between those two widths, widening buys measurable in-range time. Past the ceiling it
+does not: the position already has the time, and the only thing a wider band changes is that each
+swap pays it less. `IN_RANGE_SATURATION` is that 0.99, and like the floor it is read through the
+same inversion rather than chosen as a tick count.
+
+*What this is not:* a cap on κ, or a correction to it. κ still chooses the width — the band is where
+its choice is economically meaningful. On the flagship pool the band is **130 to 240 ticks**, and κ's
+500× swing moves the width by 1.8× inside it instead of 34× outside it.
+
+*Direction of the error:* **toward narrower ranges**, so toward more time out of range and more
+recentring. That is the opposite of A18's direction, and the two are meant to bracket rather than
+agree — a floor that only ever widened would have no way to be wrong.
+
+## A17 · A withdrawal has to pay for itself, the way a recentre does
+
+**Added.** Spec §3.3's gate R2 refuses a recentre unless the expected fee gain clears gas, slippage
+and the MEV haircut. Nothing asked the same question of §3.4's withdrawal, so the toxicity arm could
+cycle the position at whatever rate the daily budget allowed.
+
+*What it cost:* on the 30-day chain tape, after A16 and A18 put the position in range 76% of the
+time, Warden made **653 pull-and-return round trips** — costing **9.6% of deployed capital** against
+**4.8%** of fees earned. The round trips, not the strategy, were the loss. Raising the re-entry
+budget (A16) made this worse rather than better, which is what identified it: 653 over 30.2 days is
+21.6 a day against a cap of 24, so the agent churned up to exactly whatever it was allowed.
+
+*The test:* leaving saves the larger of two estimates, because §3.4's two arms know different things.
+
+- The **CEX-gap arm leads** and carries a magnitude: a gap of `g` against a position worth `V` is
+  arbitraged for about `V·g`, and that is knowable before any of it happens. Judging this arm by
+  trailing realized LVR would refuse the pull precisely when the signal is doing its job.
+- The **fallback and imbalance arms lag** and carry no magnitude at all, so the only honest yardstick
+  is the bleed already measured: `(lvr_rate − fee_rate)` over the `m_clear` samples a re-entry needs.
+
+Against that, a full exit now and a full entry later. The MEV haircut falls on the whole position
+rather than A4's rebalanced notional, because a pull unwinds all of it.
+
+*Why this does not contradict the exit being unconditional.* `core/policy.py::decide` argues the
+budget "gates coming back, never leaving", since an agent forbidden to exit is held inside the flow
+the rule exists to escape. That reasoning stands and no budget is consulted on the way out. A budget
+refuses on an allowance already spent, which says nothing about the danger; this refuses only when
+the pool is not measurably costing more than it pays. If flow is genuinely toxic the bleed is large,
+the gate opens on the first sample, and nothing is held anywhere. What it blocks is the speculative
+pull — signal fired, pool not actually hurting.
+
+*Direction of the error:* **toward staying in the market.** That is a real exposure change, and A10
+is what makes it conservative rather than dangerous: `lvr_rate` is an *upper bound* on adverse
+selection, so the bleed this compares against is overstated and the gate opens **sooner** than a
+truer measure would open it.
 
 ## What settles versus what is displayed
 
