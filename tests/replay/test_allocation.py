@@ -373,7 +373,18 @@ def test_a_venue_too_small_for_the_position_is_never_entered() -> None:
     # Not the same as the venue paying nothing: the rate was there and the size
     # was not, and a card that could not tell those apart would report a market
     # with a real yield as one with none.
-    assert result.best_apr_seen > 0
+    #
+    # Asserted on the journal rather than on `best_apr_seen`, which deliberately
+    # no longer carries it. That field is the best rate the agent could actually
+    # have taken, so a venue barred by A1 is excluded from it — otherwise a card
+    # publishes a return under "best realized rate seen" that was never on offer.
+    # The distinction lives where the decision was made: quotable, and not
+    # absorbing.
+    quotable = [dict(d.reasons).get("venues_quotable", 0) for d in result.decisions]
+    absorbing = [dict(d.reasons).get("venues_absorbing", 0) for d in result.decisions]
+    assert max(quotable) > 0, "the market was measurable, and the rate was real"
+    assert max(absorbing) == 0, "and no sample found it able to take the position"
+    assert result.venue_sizes[A], "the size it was judged against is on the record"
 
 
 def test_a_venue_that_shrinks_under_a_held_position_is_counted_and_refused() -> None:

@@ -294,7 +294,12 @@ class AllocationDriver:
                 grouped[e.market].append(e)
         return grouped
 
-    def run(self, events: list[RateEvent] | dict[VenueId, list]) -> AllocationResult:
+    def run(
+        self,
+        events: list[RateEvent] | dict[VenueId, list],
+        *,
+        span: tuple[int, int] | None = None,
+    ) -> AllocationResult:
         """Replay the tape.
 
         Takes either every market's accruals in ts order, or the tapes already
@@ -309,6 +314,10 @@ class AllocationDriver:
         large diff that changes nothing. It also leaves the Venus pins in
         `tests/replay/test_allocation.py` untouched, which is the strongest
         available evidence that this change preserved their behaviour.
+
+        `span` narrows the replay to a period the caller knows every venue was
+        actually being watched over. See `_sample_times` for why that is not
+        something this can work out for itself.
         """
         result = AllocationResult()
         by_venue = self._group(events)
@@ -331,7 +340,7 @@ class AllocationDriver:
         value = self.capital_quote
         edge_streak = 0
         switches_today = 0
-        sample_times = _sample_times(by_venue, self.sample_interval_s)
+        sample_times = _sample_times(by_venue, self.sample_interval_s, span)
         day_started = sample_times[0]
         last_switch_ts = sample_times[0]
         hurdles: list[float] = []
@@ -433,7 +442,25 @@ class AllocationDriver:
             # those was a claim the run did not support.
             if held is not None:
                 result.max_edge_apr = max(result.max_edge_apr, decision.edge_apr)
-            live_now = [q for q in quotes if not q.apr_is_stale]
+            # Only rates this agent could actually have taken.
+            #
+            # This was every non-stale quote, which is right while every venue
+            # is large enough to enter and wrong the moment one is not. A
+            # PancakeSwap range at +/-80 measured 189% net on this tape and A1
+            # barred the position from it on every sample, so `best_apr_seen`
+            # published a rate the agent was never able to have — under the
+            # heading "Best realized rate seen", with `breakeven_horizon_hours`
+            # derived from it reading 0.0 days.
+            #
+            # The same test A1 applies below, on the same two quantities. A
+            # venue that cannot absorb the position is not a rate that was
+            # passed up; it is a rate that was not on offer.
+            live_now = [
+                q
+                for q in quotes
+                if not q.apr_is_stale
+                and value <= self.params.eps_market_share * q.supplied_base_quote
+            ]
             if live_now:
                 result.best_apr_seen = max(result.best_apr_seen, max(q.apr for q in live_now))
 
@@ -554,19 +581,44 @@ def _move_cost(notional: float, costs: SwitchCost, *, swaps: bool) -> float:
     return 2.0 * costs.gas_quote + fee
 
 
-def _sample_times(by_venue: dict[VenueId, list], interval: int) -> list[int]:
+def _sample_times(
+    by_venue: dict[VenueId, list], interval: int, span: tuple[int, int] | None = None
+) -> list[int]:
     """Decision times across the tape, at a fixed cadence.
 
-    The span is the **union** of the venues' tapes, not their intersection. Two
-    venues rarely start on the same block, and intersecting would silently throw
-    away the part of a tape the other venue does not cover — deciding, on the
-    reader's behalf, that a period with only one measurable venue is not worth
-    replaying. A venue with nothing yet is stale, and `quotable` drops a stale
-    venue rather than ranking it last, so the union costs nothing but honesty.
+    Spans every venue's events by default, or `span` when the caller knows
+    better — and on real tapes the caller does.
+
+    A gap in one venue's events is ambiguous in a way the driver cannot resolve.
+    It means either *the market went quiet*, which the policy must see and react
+    to by leaving, or *we stopped indexing it*, which the policy must never see
+    at all. Both look identical from here: a tape that has no more rows.
+
+    Left to itself this replays everything, which keeps the first reading — a
+    venue that stops accruing goes stale and the position leaves it, which is
+    real behaviour with a test on it. But the second reading is what the real
+    tapes hold: the lending accruals run 384 hours and the swap tapes 726,
+    because they were indexed by different commands on different days. Replayed
+    across the union, Router spent 55% of its samples flat — not because holding
+    was the better call but because the markets it would have compared were
+    merely unobserved — and the published quote fell from 1.91% to 0.74% on that
+    alone. That is `app/view.tsx`'s argument about drawing a 404'd card as a zero,
+    arriving through the time axis: reporting the agent as idle through a period
+    nobody watched states a fact about our coverage as though it were a fact
+    about the strategy.
+
+    Which of the two a gap means is knowledge the emitter has and this does not,
+    so the emitter passes the period every tape genuinely covers and the default
+    stays as it was.
     """
-    starts = [rows[0].ts for rows in by_venue.values() if rows]
-    ends = [rows[-1].ts for rows in by_venue.values() if rows]
-    start, end = min(starts), max(ends)
+    if span is not None:
+        start, end = span
+    else:
+        starts = [rows[0].ts for rows in by_venue.values() if rows]
+        ends = [rows[-1].ts for rows in by_venue.values() if rows]
+        if not starts:
+            return []
+        start, end = min(starts), max(ends)
     if end <= start:
         return [start]
     return list(range(start, end + 1, interval))

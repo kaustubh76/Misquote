@@ -73,7 +73,27 @@ WINDOWS = DEFAULT_WINDOWS
 COST_PERTURBATIONS = (0.75, 1.0, 1.25)
 
 
-def sub_windows(tapes: dict[str, list], count: int):
+def covered_span(tapes: dict[str, list]) -> tuple[int, int]:
+    """The period every venue was actually being watched over.
+
+    The tapes here come from different commands run on different days — `make
+    venus` reads accruals, `make indexer` reads swaps — so where one ends and
+    another continues says nothing about the markets and everything about what
+    was indexed. Replayed across the union of them Router sits flat through
+    every hour the lending tape does not reach, and a card would report that
+    idleness as a decision.
+
+    So the replay is bounded by the last tape to start and the first to end. It
+    is the period in which a comparison between these venues is a comparison at
+    all; outside it the honest answer is not a worse number, it is no number.
+    """
+    covered = [rows for rows in tapes.values() if rows]
+    if not covered:
+        return 0, 0
+    return max(r[0].ts for r in covered), min(r[-1].ts for r in covered)
+
+
+def sub_windows(tapes: dict[str, list], count: int, covered: tuple[int, int]):
     """`count` overlapping windows, each half the span, sliced across every venue.
 
     Takes the per-venue tapes and returns per-venue slices, because a window is
@@ -82,23 +102,19 @@ def sub_windows(tapes: dict[str, list], count: int):
     period and quietly compare a lending market over one fortnight against a
     pool over another.
     """
-    starts = [rows[0].ts for rows in tapes.values() if len(rows) >= 2]
-    ends = [rows[-1].ts for rows in tapes.values() if len(rows) >= 2]
-    if not starts:
+    start, end = covered
+    total = end - start
+    if total <= 0:
         return []
-    start, end = min(starts), max(ends)
-    span = end - start
-    if span <= 0:
-        return []
-    width = span // 2
-    step = (span - width) / max(1, count - 1)
+    width = total // 2
+    step = (total - width) / max(1, count - 1)
     out = []
     for i in range(count):
         lo = int(start + i * step)
         hi = lo + width
         window = {v: [e for e in rows if lo <= e.ts <= hi] for v, rows in tapes.items()}
         if sum(len(rows) for rows in window.values()) >= 2:
-            out.append(window)
+            out.append((window, (lo, hi)))
     return out
 
 
@@ -470,9 +486,13 @@ def main() -> int:
         return 0
 
     source = "chain"
-    starts = [rows[0].ts for rows in tapes.values() if rows]
-    ends = [rows[-1].ts for rows in tapes.values() if rows]
-    span_h = (max(ends) - min(starts)) / 3600.0
+    covered = covered_span(tapes)
+    if covered[1] <= covered[0]:
+        print("the tapes do not overlap — no period every venue covers.")
+        print("Writing a withheld card. Run `make venus` and `make indexer`.")
+        _write_withheld(Path(args.out), command, lending_count)
+        return 0
+    span_h = (covered[1] - covered[0]) / 3600.0
     rows_total = sum(len(rows) for rows in tapes.values())
     pool_count = len(markets) - lending_count
     print(
@@ -497,7 +517,7 @@ def main() -> int:
             basis=f"{costs.basis} [x{scale:g}]",
         )
 
-    def run(window, params, policy=decide_router, cost_model=None) -> object:
+    def run(window, params, policy=decide_router, cost_model=None, span=None) -> object:
         driver = AllocationDriver(
             markets,
             policy=policy,
@@ -505,23 +525,25 @@ def main() -> int:
             capital_quote=args.capital,
             costs=cost_model if cost_model is not None else costs,
         )
-        return driver.run(window)
+        return driver.run(window, span=span)
 
-    full = run(tapes, base_params)
+    full = run(tapes, base_params, span=covered)
     # The number the card is implicitly claiming to beat. Same driver, same
     # tape, same cost model — only the decision function differs, which is what
     # makes the delta a claim about the policy. See `park_policy`.
-    baseline_full = run(tapes, base_params, park_policy)
-    windows = sub_windows(tapes, WINDOWS)
+    baseline_full = run(tapes, base_params, park_policy, span=covered)
+    windows = sub_windows(tapes, WINDOWS, covered)
     results = []
-    for window in windows:
+    for window, bounds in windows:
         for scale in COST_PERTURBATIONS:
-            results.append(run(window, base_params, cost_model=scaled(scale)))
+            results.append(run(window, base_params, cost_model=scaled(scale), span=bounds))
 
     baseline_results = []
-    for window in windows:
+    for window, bounds in windows:
         for scale in COST_PERTURBATIONS:
-            baseline_results.append(run(window, base_params, park_policy, cost_model=scaled(scale)))
+            baseline_results.append(
+                run(window, base_params, park_policy, cost_model=scaled(scale), span=bounds)
+            )
 
     quote = allocation_quote_from_results(
         results,
