@@ -50,6 +50,11 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
   // third. Named for what it is now that `pct` is imported and means percent.
   const rate = (x: number) => `${(100 * x).toFixed(3)}%`;
 
+  // Whether any venue on this card is a concentrated-liquidity range. Drives
+  // the prose beside the table, which would be noise on a Venus-only card and
+  // is load-bearing the moment a range appears next to a lending market.
+  const hasPool = data.venues.some((v) => v.kind === "pool");
+
   // Built from what renders. `advantage`, `cost_model` and `provenance` are all
   // optional on this artifact, and a pill pointing at a section a withheld run
   // never drew is a dead anchor — the defect `AgentDetail` had, found in the
@@ -322,19 +327,55 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
       <Section
         id="venues"
         title="Venues"
-        intro="Verified three ways; sizes are as at the end of the tape."
+        intro={
+          hasPool
+            ? "Two kinds of venue, verified the same way — and not the same risk."
+            : "Verified three ways; sizes are as at the end of the tape."
+        }
       >
         <Card>
           <DataTable
-            caption="The Venus markets Router is allowed to choose between"
-            rows={data.venues.map((v) => ({
-              label: v.symbol,
-              value: `${count(v.supplied_base_at_tape_end)} supplied`,
-              note: `reserve factor ${v.reserve_factor}${
-                v.reserve_factor_recorded ? "" : " (not on tape)"
-              }`,
-            }))}
+            caption="The venues Router is allowed to choose between"
+            rows={data.venues.map((v) =>
+              v.kind === "pool"
+                ? {
+                    label: v.symbol,
+                    // The width, on the row, because there is no width-free fee
+                    // APR: two LPs in this pool at this moment earn differently
+                    // because they chose differently (A21).
+                    value: `range at ±${count(v.reference_width_ticks)} ticks`,
+                    note: `${pct(v.fee_pips / 1_000_000)} fee tier, LPs keep ${pct(
+                      v.lp_fee_share,
+                    )}`,
+                  }
+                : {
+                    label: v.symbol,
+                    value: `${count(v.supplied_base_at_tape_end)} supplied`,
+                    note: `reserve factor ${v.reserve_factor}${
+                      v.reserve_factor_recorded ? "" : " (not on tape)"
+                    }`,
+                  },
+            )}
           />
+          {/* The asymmetry, in words, beside the numbers rather than left for a
+              reader to infer. Every figure on this page is one net rate ranked
+              against another, and ranking them is only honest if it is also
+              said that they are not the same product: a supplied dollar keeps
+              its principal in dollars, and a range does not. Nothing here is a
+              number, so nothing here can drift from the artifact. */}
+          {hasPool && (
+            <p className="mt-4 text-sm leading-relaxed text-muted">
+              A range is quoted <strong>net of its convexity cost</strong> — realized
+              fees minus the adverse selection the same window booked — because the
+              gross fee figure is the one every other venue quotes, and ranking it
+              against a lending market&rsquo;s net supply rate would let it win on a
+              subtraction it had not made. Even so the two are not the same risk. A
+              supplied dollar earns a dollar rate and stays a dollar; a range earns a
+              rate measured in the pool&rsquo;s own quote token and holds two assets
+              whose value moves with the price. A higher number here is not simply a
+              better one.
+            </p>
+          )}
         </Card>
       </Section>
 

@@ -31,10 +31,16 @@ move this project is named after.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 PASS, WARN, FAIL, UNKNOWN = "PASS", "WARN", "FAIL", "UNKNOWN"
+
+#: Where `make vet` leaves what it read. One location, so a caller cannot check
+#: a different directory from the one the badges were written to.
+DEFAULT_BADGE_DIR = Path(__file__).resolve().parents[3] / "vetting" / "badges"
 
 # What Pancake's factory returned when this was recorded, kept as a **cross-check
 # against chain** rather than as the source — the same posture `chain/addresses.py`
@@ -476,3 +482,28 @@ def _check_tokens_are_contracts(badge: Badge, r: PoolReadings) -> None:
             f"{r.token0_code_size:,} and {r.token1_code_size:,} bytes",
             provenance,
         )
+
+
+def cleared_to_provide(address: str, badge_dir: Path | None = None) -> tuple[bool, str]:
+    """Whether the vetting layer will let an agent point capital at this pool.
+
+    **An absent badge is a refusal, not a pass.** The whole argument of this
+    module is that a pool nobody checked is a pool nobody should be steered
+    into, and defaulting to True here would quietly invert it.
+
+    Lives beside the badge rather than in the emitter that first needed it. It
+    began in `scripts/pools_report.py`, and the moment Router could enter a pool
+    there were two callers for one rule — at which point the second copy is the
+    one that drifts, and what it decides is which pools a reader's money is
+    pointed at. `Readme.md` §1 states the rule once; so does this.
+
+    Returns the verdict and, when it is no, a sentence saying what to do.
+    """
+    directory = badge_dir if badge_dir is not None else DEFAULT_BADGE_DIR
+    path = directory / f"{address.lower()}.json"
+    if not path.exists():
+        return False, "no badge on disk — run `make vet`"
+    badge = json.loads(path.read_text())
+    if not badge.get("safe_to_provide"):
+        return False, f"badge verdict {badge.get('verdict', 'unknown')}"
+    return True, ""

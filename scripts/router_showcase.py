@@ -35,14 +35,18 @@ from pathlib import Path
 
 from misquote.agents.router.policy import RouterParams, decide_router, park_policy
 from misquote.chain import costs as chain_costs
+from misquote.chain.addresses import known_pools_on
 from misquote.chain.venus import markets_on
-from misquote.core.types import DEFAULT_RESERVE_FACTOR
+from misquote.core.types import DEFAULT_RESERVE_FACTOR, PoolMeta
+from misquote.estimators.pool_apr import MIN_SWAPS
 from misquote.indexer import store, venus
 from misquote.replay.allocation import AllocationDriver, allocation_quote_from_results
 from misquote.replay.ranges import DEFAULT_WINDOWS
+from misquote.replay.venues import PoolVenue
 from misquote.tearsheet import ledger, provenance
 from misquote.tearsheet.advantage import MATERIAL_PP
 from misquote.tearsheet.generate import read_journal
+from misquote.vetting.badge import cleared_to_provide
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = REPO / "apps" / "web" / "public" / "artifacts"
@@ -69,11 +73,20 @@ WINDOWS = DEFAULT_WINDOWS
 COST_PERTURBATIONS = (0.75, 1.0, 1.25)
 
 
-def sub_windows(events, count: int):
-    """`count` overlapping windows, each half the tape's span."""
-    if len(events) < 2:
+def sub_windows(tapes: dict[str, list], count: int):
+    """`count` overlapping windows, each half the span, sliced across every venue.
+
+    Takes the per-venue tapes and returns per-venue slices, because a window is
+    a period of time rather than a subsequence of one venue's events. Cutting
+    the venues on their own event indices would give each of them a different
+    period and quietly compare a lending market over one fortnight against a
+    pool over another.
+    """
+    starts = [rows[0].ts for rows in tapes.values() if len(rows) >= 2]
+    ends = [rows[-1].ts for rows in tapes.values() if len(rows) >= 2]
+    if not starts:
         return []
-    start, end = events[0].ts, events[-1].ts
+    start, end = min(starts), max(ends)
     span = end - start
     if span <= 0:
         return []
@@ -83,10 +96,84 @@ def sub_windows(events, count: int):
     for i in range(count):
         lo = int(start + i * step)
         hi = lo + width
-        window = [e for e in events if lo <= e.ts <= hi]
-        if len(window) >= 2:
+        window = {v: [e for e in rows if lo <= e.ts <= hi] for v, rows in tapes.items()}
+        if sum(len(rows) for rows in window.values()) >= 2:
             out.append(window)
     return out
+
+
+def _pool_venue(conn, ref, *, capital_quote: float, price: float | None):
+    """A badged pool as a venue Router may enter, or the reason it is not one.
+
+    Four things have to be true, and each refusal is a sentence rather than a
+    silent skip, because a pool missing from the card for an unstated reason is
+    indistinguishable from a pool that was never considered.
+    """
+    cleared, why = cleared_to_provide(ref.address)
+    if not cleared:
+        return None, [], f"{ref.label}: {why}"
+    if price is None:
+        # Sizes cross from the pool's quote token into the router's dollars, and
+        # A1's ceiling is one of them. Guessing the rate is P-25 exactly.
+        return None, [], f"{ref.label}: no BNB price on the tape to convert sizes with"
+
+    tape = list(store.read_swaps(conn, ref.address))
+    if len(tape) < MIN_SWAPS:
+        return None, [], f"{ref.label}: {len(tape)} swaps on the tape, below the {MIN_SWAPS} floor"
+
+    # The width is measured, not chosen here. `pools.json` ran the ladder over
+    # this same tape and published which width led and whether the lead was
+    # separated; A21 says there is no width-free fee APR, so a venue that picked
+    # a constant would be quoting a position nobody had a reason to hold.
+    width = _measured_width(ref.address)
+    if width is None:
+        return (
+            None,
+            [],
+            (f"{ref.label}: no measured width — run `make pools` to publish the ladder"),
+        )
+
+    venue = PoolVenue(
+        _pool_meta(ref),
+        width_ticks=width,
+        # The router's dollars, expressed in the numeraire the pool prices in.
+        # The estimator divides fees by this to get a rate and `LvrAccountant`
+        # dilutes our fee share by it, so passing dollars to a pool that counts
+        # in BNB would be wrong by the price of BNB in both.
+        capital_quote=capital_quote / price,
+        quote_price=price,
+        label=ref.label,
+    )
+    return venue, tape, ""
+
+
+def _measured_width(address: str) -> int | None:
+    """The leading width `make pools` measured for this pool, or nothing."""
+    path = DEFAULT_OUT / "pools.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    for pool in data.get("pools", []):
+        if pool.get("address", "").lower() != address.lower():
+            continue
+        width = pool.get("best_width_ticks")
+        return int(width) if width else None
+    return None
+
+
+def _pool_meta(ref) -> PoolMeta:
+    """The pool as the engine sees it. Every field read, none defaulted."""
+    return PoolMeta(
+        address=ref.address,
+        chain_id=ref.chain_id,
+        token0=ref.token0,
+        token1=ref.token1,
+        dec0=ref.dec0,
+        dec1=ref.dec1,
+        fee_pips=ref.fee_pips,
+        tick_spacing=ref.tick_spacing,
+        fee_protocol=ref.fee_protocol,
+    )
 
 
 def _provenance(journal_dir: Path, *, derived_from_replay: bool) -> dict:
@@ -115,6 +202,26 @@ def _provenance(journal_dir: Path, *, derived_from_replay: bool) -> dict:
         "journal_rows": summary.rows,
         "hours_covered": round(summary.hours, 2),
         "every_number_derived": derived_from_replay,
+    }
+
+
+def _venue_row(key: str, meta) -> dict:
+    """One venue as the card publishes it, in the shape its kind actually has.
+
+    A `PoolVenue` already answers `card_fields()`; a Venus market is still the
+    plain dict it has always been, and `as_venue` says why. The `venue_id` is
+    added here because it is the driver's key rather than anything the venue
+    knows about itself.
+    """
+    if hasattr(meta, "card_fields"):
+        return {"venue_id": key, **meta.card_fields()}
+    return {
+        "venue_id": key,
+        "kind": "lending",
+        "symbol": meta["symbol"],
+        "supplied_base_at_tape_end": round(meta["supplied_base_at_tape_end"], 2),
+        "reserve_factor": meta["reserve_factor"],
+        "reserve_factor_recorded": meta["reserve_factor_recorded"],
     }
 
 
@@ -257,20 +364,38 @@ def main() -> int:
     ap.add_argument("--db", default=str(REPO / "data" / "misquote.db"))
     ap.add_argument("--capital", type=float, default=10_000.0)
     ap.add_argument("--out", default=str(DEFAULT_OUT))
+    ap.add_argument(
+        "--no-pools",
+        dest="pools",
+        action="store_false",
+        help=(
+            "replay Venus markets only. The pool venues are what let Router "
+            "answer the PancakeSwap question at all, so this is a speed switch "
+            "for local iteration and not a mode anything published should use: "
+            "a card built with it silently claims Router considered lending "
+            "alone."
+        ),
+    )
+    ap.set_defaults(pools=True)
     args = ap.parse_args()
 
     command = "python scripts/router_showcase.py"
     refs = markets_on(args.chain)
     conn = store.connect(args.db)
 
-    events = []
-    markets: dict[str, dict] = {}
+    # Tapes per venue rather than one flat list. `AllocationDriver.run` used to
+    # take everything sorted together and group it by `RateEvent.market`, which a
+    # swap `Event` does not have — so a pool could not be fed however well the
+    # rest of the seam was cut. Grouping here also removes a round trip: this
+    # loaded per-market lists, flattened them, and let the driver undo it.
+    tapes: dict[str, list] = {}
+    markets: dict[str, object] = {}
     coverage_gaps = 0
     for ref in refs:
         rows = venus.load_accruals(conn, ref.key)
         if not rows:
             continue
-        events.extend(rows)
+        tapes[ref.key] = rows
         last = rows[-1]
         recorded = venus.reserve_factor_at(conn, ref.key, last.block)
         if recorded is None:
@@ -292,7 +417,24 @@ def main() -> int:
             "symbol": ref.symbol,
         }
 
-    if len(markets) < 2:
+    lending_count = len(markets)
+    price_quote = chain_costs.native_price_from_tape(conn)
+    pool_notes: list[str] = []
+    if args.pools:
+        for ref in known_pools_on(args.chain):
+            venue, tape, note = _pool_venue(
+                conn, ref, capital_quote=args.capital, price=price_quote
+            )
+            if venue is None:
+                pool_notes.append(note)
+                continue
+            markets[ref.address] = venue
+            tapes[ref.address] = tape
+            print(f"pool   {ref.label} at +/-{venue.width_ticks} ticks, {len(tape):,} swaps")
+    for note in pool_notes:
+        print(f"       {note}")
+
+    if lending_count < 2:
         # Withheld, not aborted.
         #
         # `artifacts:` lists this target, so returning non-zero stopped the whole
@@ -306,15 +448,21 @@ def main() -> int:
         # `check_rate_tape` answers UNVERIFIED, `read_survey` returns a reason.
         # The fourth category stays visible with the reason on it rather than
         # vanishing — the failure this repo already shipped once.
-        print(f"only {len(markets)} market(s) have a tape — a router needs two.")
+        print(f"only {lending_count} market(s) have a tape — a router needs two.")
         print("Writing a withheld card. Run `make venus` to quote it.")
-        _write_withheld(Path(args.out), command, len(markets))
+        _write_withheld(Path(args.out), command, lending_count)
         return 0
 
-    events.sort(key=lambda e: (e.ts, e.block, e.log_index))
     source = "chain"
-    span_h = (events[-1].ts - events[0].ts) / 3600.0
-    print(f"tape   {len(events):,} accruals, {len(markets)} markets, {span_h:.1f}h  [{source}]")
+    starts = [rows[0].ts for rows in tapes.values() if rows]
+    ends = [rows[-1].ts for rows in tapes.values() if rows]
+    span_h = (max(ends) - min(starts)) / 3600.0
+    rows_total = sum(len(rows) for rows in tapes.values())
+    pool_count = len(markets) - lending_count
+    print(
+        f"tape   {rows_total:,} events, {lending_count} market(s) + {pool_count} pool(s), "
+        f"{span_h:.1f}h  [{source}]"
+    )
 
     base_params = RouterParams()
     # Derived, not declared. Every input is a reading and the card records
@@ -343,12 +491,12 @@ def main() -> int:
         )
         return driver.run(window)
 
-    full = run(events, base_params)
+    full = run(tapes, base_params)
     # The number the card is implicitly claiming to beat. Same driver, same
     # tape, same cost model — only the decision function differs, which is what
     # makes the delta a claim about the policy. See `park_policy`.
-    baseline_full = run(events, base_params, park_policy)
-    windows = sub_windows(events, WINDOWS)
+    baseline_full = run(tapes, base_params, park_policy)
+    windows = sub_windows(tapes, WINDOWS)
     results = []
     for window in windows:
         for scale in COST_PERTURBATIONS:
@@ -383,6 +531,44 @@ def main() -> int:
             f"{full.breakeven_horizon_hours / 24:.1f} days"
         )
 
+    pool_venues = [m for m in markets.values() if getattr(m, "kind", "lending") == "pool"]
+    if pool_venues:
+        widths = ", ".join(f"+/-{v.width_ticks}" for v in pool_venues)
+        venue_label = (
+            f"Venus Core Pool (BSC) dollar markets and "
+            f"{len(pool_venues)} PancakeSwap v3 range(s) at {widths} ticks"
+        )
+    else:
+        venue_label = "Venus Core Pool (BSC) — dollar markets only"
+
+    # What a reader has to know before reading a pool row beside a lending one.
+    # Only when there is a pool row: a caveat about a venue the card does not
+    # carry is noise, and noise is how the ones that matter stop being read.
+    pool_caveats: list[str] = []
+    if pool_venues:
+        pool_caveats = [
+            "A pool venue is quoted NET of its convexity cost — realized fees minus "
+            "the LVR the same window actually booked. The gross fee APR is the "
+            "number every other venue quotes, and ranking it against a lending "
+            "market's net supply rate would let it win on a subtraction it had "
+            "not made (A10, A21).",
+            "These are not the same risk. A supplied dollar earns a dollar rate and "
+            "its principal stays a dollar. An LP range earns a rate measured in the "
+            "pool's own quote token, and its principal is two assets whose value "
+            "moves with the price — so a higher figure is not simply better, and "
+            "the two numbers are not interchangeable however carefully each is "
+            "derived.",
+            "There is no width-free fee APR: two LPs in one pool at one moment earn "
+            "differently because they chose differently. Each range here is quoted "
+            "at the width `make pools` measured as the leader over this tape, and "
+            "`pools.json` records that the lead is not separated at this sample "
+            "size (A21, A23).",
+            f"A window holding fewer than {MIN_SWAPS} swaps has no verdict rather "
+            f"than a small number, and A1's ceiling is a fraction of the pool's own "
+            f"depth over the quoted range — so a range can pay well and still be "
+            f"refused for being too shallow to take the position.",
+        ]
+
     payload = {
         "agent": "Router",
         "category": "Yield",
@@ -390,17 +576,12 @@ def main() -> int:
         # `lp_range` and carry fees, LVR and an in-range fraction; this one has
         # none of those and must not render a zero in their place.
         "kind": "allocation",
-        "venue": "Venus Core Pool (BSC) — dollar markets only",
-        "venues": [
-            {
-                "venue_id": key,
-                "symbol": meta["symbol"],
-                "supplied_base_at_tape_end": round(meta["supplied_base_at_tape_end"], 2),
-                "reserve_factor": meta["reserve_factor"],
-                "reserve_factor_recorded": meta["reserve_factor_recorded"],
-            }
-            for key, meta in markets.items()
-        ],
+        "venue": venue_label,
+        # Two shapes, because the venues are two kinds and a row that flattened
+        # them would have to invent the field the other kind does not have. A
+        # lending market has a reserve factor and no width; a range has a width,
+        # a fee tier and an LP share of that tier, and no reserve factor.
+        "venues": [_venue_row(key, meta) for key, meta in markets.items()],
         "source": source,
         "counterfactual": True,
         "badge": COUNTERFACTUAL_BADGE,
@@ -442,6 +623,7 @@ def main() -> int:
             "published margin. It is not a solved free boundary (A13).",
             "Switch cost uses the full pool fee, not the LP's share of it: a "
             "router paying to swap pays PancakeSwap's protocol cut too (P-1).",
+            *pool_caveats,
         ],
     }
     # What the run actually did, in words, because the numbers alone read

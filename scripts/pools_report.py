@@ -44,9 +44,9 @@ from misquote.tearsheet.pools import (
     demand_for_pool,
     ladder_for_pool,
 )
+from misquote.vetting.badge import cleared_to_provide
 
 REPO = Path(__file__).resolve().parents[1]
-BADGE_DIR = REPO / "vetting" / "badges"
 
 
 def meta_for(pool: PoolRef) -> PoolMeta:
@@ -67,17 +67,13 @@ def meta_for(pool: PoolRef) -> PoolMeta:
 def badge_clears(address: str) -> tuple[bool, str]:
     """Whether the vetting layer will let us point a reader at this pool.
 
-    An absent badge is a refusal, not a pass. The whole argument of the vetting
-    layer is that a pool nobody checked is a pool nobody should be steered into,
-    and defaulting to True here would quietly invert it.
+    The rule itself lives in `vetting/badge.py` beside the badge it reads, since
+    Router now gates on the same thing before it will enter a pool as a venue.
+    Two copies of "an absent badge is a refusal" is one copy too many: the second
+    is the one that drifts, and what it decides is which pools a reader's money
+    is pointed at.
     """
-    path = BADGE_DIR / f"{address.lower()}.json"
-    if not path.exists():
-        return False, "no badge on disk — run `make vet`"
-    badge = json.loads(path.read_text())
-    if not badge.get("safe_to_provide"):
-        return False, f"badge verdict {badge.get('verdict', 'unknown')}"
-    return True, ""
+    return cleared_to_provide(address)
 
 
 def row_for(conn: Any, pool: PoolRef, *, capital: float) -> dict[str, Any]:

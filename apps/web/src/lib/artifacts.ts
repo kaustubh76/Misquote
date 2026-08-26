@@ -386,26 +386,68 @@ export interface AgentArtifact {
  * `kind` is the discriminator. The Python emitter writes `"allocation"` here and
  * `"lp_range"` on the other three.
  */
+/** A Venus market as the Router card publishes it. */
+export interface RouterLendingVenue {
+  kind: "lending";
+  venue_id: string;
+  symbol: string;
+  /**
+   * The market's size at the **end** of the tape, descriptive only.
+   *
+   * Named for when it was measured because the replay does not use it: the
+   * driver derives size per sample from the accrual it has seen. Passing one
+   * fixed figure in was a look-ahead leak — a window replayed on day one was
+   * sized by a market measured on day seven.
+   */
+  supplied_base_at_tape_end: number;
+  reserve_factor: number;
+  reserve_factor_recorded: boolean;
+}
+
+/**
+ * A PancakeSwap v3 range as the Router card publishes it.
+ *
+ * `reference_width_ticks` is not decoration and is not optional. Two LPs in one
+ * pool at one moment earn different returns because they chose different widths,
+ * so a range rendered without its width would be quoting a number that is not
+ * about any position a reader could hold (A21).
+ */
+export interface RouterPoolVenue {
+  kind: "pool";
+  venue_id: string;
+  symbol: string;
+  fee_pips: number;
+  reference_width_ticks: number;
+  /** What LPs keep of the fee after the protocol's cut — read, never modelled. */
+  lp_fee_share: number;
+  /**
+   * The price used to convert this pool's sizes into the router's units.
+   *
+   * Published because the comparison is not unit-clean: the pool prices in its
+   * own quote token and Router keeps its books in dollars, and this is the
+   * number that reconciled them. P-25 is what an unrecorded conversion costs.
+   */
+  quote_price_quote: number;
+}
+
 export interface RouterArtifact {
   agent: string;
   kind: "allocation";
   category: string;
   venue: string;
-  venues: {
-    venue_id: string;
-    symbol: string;
-    /**
-     * The market's size at the **end** of the tape, descriptive only.
-     *
-     * Named for when it was measured because the replay does not use it: the
-     * driver derives size per sample from the accrual it has seen. Passing one
-     * fixed figure in was a look-ahead leak — a window replayed on day one was
-     * sized by a market measured on day seven.
-     */
-    supplied_base_at_tape_end: number;
-    reserve_factor: number;
-    reserve_factor_recorded: boolean;
-  }[];
+  /**
+   * The venues Router chose between, which are no longer all one kind.
+   *
+   * A union rather than one widened record with optional fields everywhere.
+   * `kind` is the discriminator, exactly as it is on the artifact itself, and it
+   * means a renderer cannot reach `reserve_factor` on a range or a width on a
+   * lending market without TypeScript stopping it. The emitter builds these two
+   * shapes from `LendingVenue.card_fields` and `PoolVenue.card_fields`, and the
+   * fields genuinely do not correspond: a supplied market has a reserve factor
+   * and no width; a concentrated range has a width, a fee tier and an LP share
+   * of that tier, and nothing that plays the reserve factor's part.
+   */
+  venues: (RouterLendingVenue | RouterPoolVenue)[];
   source: string;
   counterfactual: boolean;
   badge: string;
