@@ -190,15 +190,61 @@ def decide_router(
     `VenueQuote`, and inventing a `VenueMeta` to fill the slot would be shape
     for its own sake.
     """
-    live = [v for v in obs.venues if quotable(v, params)]
+    quoted = [v for v in obs.venues if quotable(v, params)]
+    # A1, at the point of decision rather than in the post-mortem.
+    #
+    # `capped_notional` has existed and been tested since this policy was
+    # written and nothing ever called it. The driver counted breaches into
+    # `a1_capped` *after* the position was already there, and
+    # `allocation_quote_from_results` then refused the whole quote. That is the
+    # right refusal in the wrong place: a gate that only fires once the capital
+    # has been committed is a gate structurally unable to prevent anything,
+    # which is the defect `core/allocation.py` says this repo has shipped twice.
+    #
+    # It never bound because every venue was a Venus market holding hundreds of
+    # millions, and one percent of that is far more than this agent routes. A
+    # concentrated-liquidity range is the case that shows it: depth over +/-80
+    # ticks of the flagship pool is ~$218k, so A1's ceiling is ~$2.2k and a
+    # $10,000 notional is over it — not marginally, but by four and a half
+    # times. Supplying it would move the very rate it was chosen for.
+    #
+    # Declining is not the same as the venue being poor, and the reason code
+    # says which, so a card can report "the yield was there and the size was
+    # not" rather than leaving a reader to infer a rate that never existed.
+    live = [v for v in quoted if capped_notional(v, params) >= obs.notional_quote]
     hurdle = hurdle_apr(obs, params)
 
     reasons: list[tuple[str, float]] = [
         ("venues_observed", float(len(obs.venues))),
-        ("venues_quotable", float(len(live))),
+        ("venues_quotable", float(len(quoted))),
+        ("venues_absorbing", float(len(live))),
         ("hurdle_apr", hurdle),
         ("notional_quote", obs.notional_quote),
     ]
+    if quoted and not live:
+        reasons.append(("reason_a1_no_venue_can_absorb", 1.0))
+
+    # Leaving a venue the position has outgrown comes before everything else,
+    # including the "nothing is measurable, so stay put" branch below.
+    #
+    # That branch is right about an *unmeasured* venue — moving on a guess is
+    # worse than staying — and wrong about this one, which is measured and
+    # measured as too small. Ordering it second would mean a position that had
+    # outgrown the only venue on offer would be held there indefinitely, still
+    # breaching the ceiling every sample, because no alternative was quotable.
+    outgrown = obs.held_quote is not None and (
+        capped_notional(obs.held_quote, params) < obs.notional_quote
+    )
+    if outgrown:
+        reasons += [("held", 1.0), ("held_outgrew_venue", 1.0), ("reason_exit_a1_outgrown", 1.0)]
+        return AllocationDecision(
+            action=AllocationAction.EXIT,
+            target_venue=None,
+            held_venue=obs.held,
+            edge_apr=0.0,
+            hurdle_apr=hurdle,
+            reasons=tuple(reasons),
+        )
 
     if not live:
         # Every venue unmeasured. Not the same as every venue being poor, and
@@ -249,6 +295,10 @@ def decide_router(
 
     # Held, and the held venue may itself have gone stale — in which case it is
     # not in `live` and cannot be compared, so leaving is the only honest move.
+    #
+    # The A1 counterpart of this exit is handled above, before the "nothing is
+    # measurable" branch, because a position that has outgrown its venue must
+    # leave whether or not anything else is quotable.
     if not quotable(held, params):
         reasons += [("held", 1.0), ("held_stale", 1.0), ("reason_exit_unmeasurable", 1.0)]
         return AllocationDecision(

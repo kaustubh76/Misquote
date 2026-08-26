@@ -341,21 +341,57 @@ def test_zero_cost_means_zero_hurdle_and_a_positive_rate_enters() -> None:
 # --- A1: refuse rather than clamp -------------------------------------------
 
 
-def test_a_position_above_the_epsilon_ceiling_is_counted_and_the_quote_refused() -> None:
-    """P-14, in the venue the same argument applies to.
+def test_a_venue_too_small_for_the_position_is_never_entered() -> None:
+    """P-14, moved to where it can actually prevent something.
 
     Supplying moves utilisation and therefore the rate, so a position larger
-    than eps of the market's supplied base is not a replay of that market. A1
-    says such a quote is refused rather than rendered.
+    than eps of the market's supplied base is not a replay of that market.
+
+    This used to assert `a1_capped > 0` — the breach counted *after* the capital
+    was already committed, with `allocation_quote_from_results` then refusing the
+    whole quote. `capped_notional` existed the entire time and nothing called it.
+    The ceiling now binds at the decision, so on this tape there is no breach to
+    count: the agent looks at a market of 2,000 against a notional of 10,000 and
+    declines. Refusing to take the position is strictly better than taking it and
+    refusing to quote it afterwards.
     """
     params = RouterParams(eps_market_share=0.01, min_apr_samples=2, persistence_samples=1)
-    # Market size now comes from the tape, not from the markets dict — that is
-    # the whole point of the look-ahead fix below. A tiny market against a large
-    # position: supplied base is 2,000 and 1% of it is 20, against 10,000.
+    # A tiny market against a large position: supplied base is 2,000 and 1% of
+    # it is 20, against 10,000.
     events = growing_tape(A, hours=72, cash_start=1_000.0, cash_end=1_000.0)
     result = driver(markets(A), params=params, capital=10_000.0).run(events)
 
-    assert result.a1_capped > 0, "the ceiling was breached and nothing counted it"
+    assert result.entries == 0, "the ceiling was four hundred times under and it entered anyway"
+    assert result.a1_capped == 0, "nothing was held, so there was no breach to count"
+
+    declined = [
+        d
+        for d in result.decisions
+        if any(k == "reason_a1_no_venue_can_absorb" for k, _ in d.reasons)
+    ]
+    assert declined, "it declined, and the journal has to say A1 is why"
+    # Not the same as the venue paying nothing: the rate was there and the size
+    # was not, and a card that could not tell those apart would report a market
+    # with a real yield as one with none.
+    assert result.best_apr_seen > 0
+
+
+def test_a_venue_that_shrinks_under_a_held_position_is_counted_and_refused() -> None:
+    """The counter survives as the backstop the gate cannot be.
+
+    Depth is measured per sample, so a venue inside the ceiling when the position
+    was opened can fall outside it later — and no gate at entry can prevent that,
+    because it had not happened yet. The breach is counted for the samples it was
+    real, the quote is refused, and the policy then exits.
+    """
+    params = RouterParams(eps_market_share=0.01, min_apr_samples=2, persistence_samples=1)
+    # Enters against a market of 2e8 and ends against one of 1,000.
+    events = growing_tape(A, hours=72, cash_start=1e8, cash_end=500.0)
+    result = driver(markets(A), params=params, capital=10_000.0).run(events)
+
+    assert result.entries > 0, "it has to get in before shrinking can matter"
+    assert result.a1_capped > 0, "the market shrank under the position and nothing counted it"
+    assert result.exits > 0, "and having noticed, it left"
 
     quote = allocation_quote_from_results(
         [result], windows=1, perturbation_count=1, capital_quote=10_000.0
