@@ -311,6 +311,14 @@ def _write_withheld(out_dir: Path, command: str, markets_found: int) -> None:
         "kind": "allocation",
         "venue": "Venus Core Pool (BSC) — dollar markets only",
         "venues": [],
+        # Present and empty-handed rather than absent. The quoted card publishes
+        # this, and a refusal that drops a field its sibling carries is an
+        # artifact that fails the contract the rest of the repository is held to.
+        "pool_finding": (
+            "No venue was replayed at all, so nothing can be said about the "
+            "PancakeSwap ranges either. The same command quotes them once there "
+            "is a rate tape to compare them against."
+        ),
         "source": "none",
         "counterfactual": True,
         "badge": COUNTERFACTUAL_BADGE,
@@ -674,6 +682,16 @@ def main() -> int:
     # measured, ranked and then declined because the notional is larger than the
     # pool can absorb is a *finding*; the same run described as "Router chose
     # Venus" is the same fact with the useful half removed.
+    # Emitted unconditionally, because the withheld card has to carry every field
+    # the quoted one does — a clean checkout that writes a refusal must not write
+    # an artifact failing this repository's own contract. `--no-pools` is the
+    # other way in: a card built without ranges still has to say that it was.
+    payload["pool_finding"] = (
+        "No PancakeSwap range was offered as a venue in this run. Either no badged "
+        "pool has a measured width — `make pools` publishes the ladder — or the run "
+        "was built with `--no-pools`, which is a speed switch for local iteration "
+        "rather than a claim that lending was the only option considered."
+    )
     if pool_venues:
         declined = [
             row

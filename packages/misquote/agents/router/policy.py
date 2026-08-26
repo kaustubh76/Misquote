@@ -381,10 +381,26 @@ def park_policy(
     prove only that lending pays more than not lending — which nobody disputes
     and which the agent is not for.
     """
-    live = [v for v in obs.venues if quotable(v, params)]
+    quoted = [v for v in obs.venues if quotable(v, params)]
+    # A1 binds the baseline too, and for a stronger reason than it binds the
+    # agent: this is what a person does *without* the agent, and a person cannot
+    # put ten thousand dollars into a range that holds two thousand either.
+    #
+    # The gate was added to `decide_router` and not here, and the real tape found
+    # it immediately. Parking picks the highest rate on offer, which on this tape
+    # is a PancakeSwap range, and it took the position regardless — booking
+    # 252.28 of fees on a $10,000 notional that A1 says is fiction, whereupon
+    # `allocation_quote_from_results` refused the baseline outright and the whole
+    # "vs doing it yourself" comparison went withheld.
+    #
+    # Refusing was correct. Never taking the position is better: the honest
+    # baseline is a person supplying to the best venue they could actually have
+    # used, which is a comparison rather than an absence.
+    live = [v for v in quoted if capped_notional(v, params) >= obs.notional_quote]
     reasons: list[tuple[str, float]] = [
         ("park", 1.0),
-        ("venues_quotable", float(len(live))),
+        ("venues_quotable", float(len(quoted))),
+        ("venues_absorbing", float(len(live))),
     ]
 
     if obs.held is not None or not live:

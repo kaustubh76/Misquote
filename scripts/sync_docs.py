@@ -256,6 +256,28 @@ def mechanism_block() -> list[str] | None:
     return ["```", *rows, "```", ""]
 
 
+def _venue_mix(card: dict) -> str:
+    """What Router actually replayed over, counted from the card.
+
+    This read "{hours}h of Venus accruals", which was true while Venus was the
+    only kind of venue and stopped being true the moment a PancakeSwap range
+    became one. The row is in the document a judge is pointed at first, and it
+    named one of the two venue types the run considered.
+
+    Counted rather than described, so it cannot go stale the same way twice.
+    """
+    hours = card.get("replay", {}).get("hours", 0)
+    venues = card.get("venues", [])
+    lending = sum(1 for v in venues if v.get("kind") != "pool")
+    pools = sum(1 for v in venues if v.get("kind") == "pool")
+    parts = []
+    if lending:
+        parts.append(f"{lending} Venus market{'s' if lending != 1 else ''}")
+    if pools:
+        parts.append(f"{pools} PancakeSwap v3 range{'s' if pools != 1 else ''}")
+    return f"{hours:.0f}h across {' and '.join(parts)}" if parts else f"{hours:.0f}h"
+
+
 def router_block() -> list[str] | None:
     """Router's figures, read from its card instead of retyped into prose.
 
@@ -286,7 +308,7 @@ def router_block() -> list[str] | None:
     return [
         "| | |",
         "|---|---|",
-        f"| Tape | {replay.get('hours', 0):.0f}h of Venus accruals |",
+        f"| Tape | {_venue_mix(card)} |",
         f"| Net return on supplied capital | **{band}** ({period}) |",
         f"| Best realized rate seen | {pct(replay.get('best_apr_seen', 0))} |",
         f"| Round-trip hurdle | {pct(replay.get('hurdle_apr_p50', 0))} |",

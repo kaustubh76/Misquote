@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from misquote.agents.router.policy import RouterParams, decide_router
+from misquote.agents.router.policy import RouterParams, decide_router, park_policy
 from misquote.core.types import Event, PoolMeta
 from misquote.estimators.pool_apr import MIN_SWAPS, PoolAprFit
 from misquote.replay.allocation import AllocationDriver, SwitchCost
@@ -359,3 +359,35 @@ def test_a_rate_the_agent_could_not_take_stays_off_the_summary_figures() -> None
     assert result.breakeven_horizon_hours == 0.0
     # The venue was measured, and the record says so — the refusal is about size.
     assert result.venue_sizes["pool"], "it was quotable; the size is what failed"
+
+
+def test_the_do_it_yourself_baseline_cannot_park_where_a_person_could_not() -> None:
+    """A1 binds the benchmark for a stronger reason than it binds the agent.
+
+    `park_policy` is what somebody does *without* this agent: supply to the
+    highest rate on offer and leave it. On a tape where the highest rate is a
+    PancakeSwap range far too small for the notional, an ungated baseline takes
+    the position anyway — and then `allocation_quote_from_results` refuses the
+    whole baseline, so "vs doing it yourself" renders as withheld.
+
+    Refusing was right. Not taking it is better: a person cannot put ten thousand
+    dollars into a range that holds two thousand either, so the honest benchmark
+    parks in the best venue they could actually have used.
+    """
+    events = pool_tape(600)
+    driver = AllocationDriver(
+        {"pool": PoolVenue(POOL, width_ticks=80, capital_quote=1.0, quote_price=PRICE)},
+        policy=park_policy,
+        params=RouterParams(min_apr_samples=MIN_SWAPS, persistence_samples=1),
+        capital_quote=1e9,
+        costs=SwitchCost(gas_quote=0.0, slippage_bps=0.0, basis="fixture", derived=False),
+    )
+
+    result = driver.run({"pool": events})
+
+    assert result.entries == 0, "the baseline parked in a venue it could not fit into"
+    assert result.a1_capped == 0, "so there is no breach, and the comparison stays quotable"
+    assert result.gross_yield_quote == 0.0, (
+        "and it booked none of the fees that position would have earned — which is "
+        "the number A1 exists to refuse"
+    )
