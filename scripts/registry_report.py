@@ -29,6 +29,7 @@ import os
 import random
 import sys
 from dataclasses import asdict, is_dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -557,6 +558,40 @@ def fetch_scan(census: bool = True) -> dict[str, Any]:
     return payload
 
 
+def ours() -> dict[str, Any]:
+    """The four registrations this project made, as recorded on disk.
+
+    Read, never re-derived. `scripts/register_identity.py` is the half that
+    touches a chain and `make artifacts` must not — the same split
+    `addresses_report.read_record` makes, for the same reason its docstring
+    gives: a build that could reach the network is a build that can overwrite a
+    real reading with a refusal.
+
+    Freshness comes from the file's mtime rather than from a field inside it,
+    again following `addresses_report`: the record says when the chain was read,
+    and the file says when we last asked.
+    """
+    path = REPO / "vetting" / "identity" / "97.json"
+    if not path.exists():
+        return {
+            "surveyed": False,
+            "reason": (
+                "no agent of ours has been registered. `Readme.md` says all four "
+                "do; until this file exists that is a claim rather than a reading."
+            ),
+            "chain_id": 97,
+            "agents": [],
+            "checks": [],
+        }
+
+    record: dict[str, Any] = json.loads(path.read_text())
+    read_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+    record["read_at"] = read_at.isoformat(timespec="seconds")
+    record["age_hours"] = round((datetime.now(UTC) - read_at).total_seconds() / 3600, 1)
+    record["record"] = str(path.relative_to(REPO))
+    return record
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -613,6 +648,10 @@ def main() -> int:
 
     payload = {
         "hire_flow": hire_flow(),
+        # Ours, before the survey of everybody else's. A marketplace that
+        # measures four hundred strangers and cannot point at its own row in the
+        # same registry is measuring other people.
+        "ours": ours(),
         "hire_flow_contracts": hire_flow_contracts(),
         "identity": identity,
         "aacp": aacp_overlap(),

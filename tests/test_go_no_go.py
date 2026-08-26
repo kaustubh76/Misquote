@@ -487,3 +487,112 @@ def test_the_gate_is_reachable_when_everything_lines_up(tmp_path, monkeypatch) -
 
     check = gng.check_badge_coverage()
     assert check.status == gng.PASS, check.detail
+
+
+# --- the signer gate, which used to end on a manual step -------------------
+#
+# Its last line was "a key is set; verify by hand that it is not a main wallet".
+# A gate whose remedy is a human is the gate in front of the write path that
+# nobody runs. These are the branches that replaced it.
+
+# A key and the address it signs for. Written out rather than derived, so a
+# change in `eth_account` shows up here as a failure rather than as agreement
+# between two calls to the same function.
+GATE_KEY = "0x" + "11" * 32
+GATE_ADDRESS = "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
+
+
+def test_the_signer_gate_passes_when_the_key_signs_for_the_declared_operator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", GATE_ADDRESS.lower())
+    monkeypatch.delenv("MISQUOTE_SIGNER_ADDRESS", raising=False)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.PASS
+    assert GATE_ADDRESS in check.detail
+
+
+def test_the_signer_gate_fails_when_the_key_signs_for_somebody_else(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The case this gate exists for, and the case this checkout is in."""
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0x" + "22" * 20)
+    monkeypatch.delenv("MISQUOTE_SIGNER_ADDRESS", raising=False)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.FAIL
+    # Both addresses, because "the key is wrong" and "the declaration is wrong"
+    # are different repairs and the gate cannot know which one is meant.
+    assert GATE_ADDRESS in check.detail
+    assert "0x" + "22" * 20 in check.detail.lower()
+
+
+def test_the_signer_gate_stays_amber_when_nothing_is_declared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unchanged for anyone who has not opted in — and it says what would make
+    it green, which the sentence it replaced did not."""
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.delenv("MISQUOTE_OPERATOR_ADDRESS", raising=False)
+    monkeypatch.delenv("MISQUOTE_SIGNER_ADDRESS", raising=False)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.UNVERIFIED
+    assert "MISQUOTE_OPERATOR_ADDRESS" in check.remedy
+
+
+def test_a_malformed_declaration_fails_rather_than_going_amber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Amber and red mean different things to whoever reads this.
+
+    Amber is "nobody has set this up yet" and is expected on most runs. A typed
+    declaration that does not parse is a misconfiguration, and reporting it as
+    amber would file it under the one status a reader is used to waving through.
+    """
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0xnope")
+    monkeypatch.delenv("MISQUOTE_SIGNER_ADDRESS", raising=False)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.FAIL
+
+
+def test_an_unparseable_key_fails_the_gate_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`go_no_go.py` is a checklist. A gate that raises takes the whole
+    checklist down and reports nothing about the other twenty."""
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", "not-a-key")
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", GATE_ADDRESS)
+    monkeypatch.delenv("MISQUOTE_SIGNER_ADDRESS", raising=False)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.FAIL
+    assert "not a key" in check.detail
+
+
+def test_the_signer_gate_is_amber_when_a_delegate_signs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nothing is misconfigured — the key is exactly what was declared — and it
+    still is not green. A green tick here reads as "the operator signed this",
+    and what happened is "a wallet the operator nominated signed this"."""
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0x" + "22" * 20)
+    monkeypatch.setenv("MISQUOTE_SIGNER_ADDRESS", GATE_ADDRESS)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.UNVERIFIED
+    assert "delegate" in check.detail
+    assert check.data["operator"] != check.data["signing_for"]
+
+
+def test_a_delegate_declaration_that_does_not_match_the_key_still_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The property the second variable must not cost. Naming another wallet is
+    the escape hatch; naming none is not."""
+    monkeypatch.setenv("MISQUOTE_PRIVATE_KEY", GATE_KEY)
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0x" + "22" * 20)
+    monkeypatch.setenv("MISQUOTE_SIGNER_ADDRESS", "0x" + "33" * 20)
+    check = gng.check_signer_configured(True)
+    assert check.status == gng.FAIL
+    assert "MISQUOTE_SIGNER_ADDRESS" in check.detail

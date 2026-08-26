@@ -1,11 +1,18 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify router router-card og
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
 ENV    ?= testnet
 N      ?= 2000
 CHAIN  ?= 56
+# Chapel. Registering our own agents is a testnet rehearsal of a mainnet action,
+# and a real one: the implementation behind both registries is the same address
+# (`erc8004.IDENTITY_IMPLEMENTATION`), so what passes here is not a different
+# contract from the one that would run on 56.
+IDENTITY_CHAIN ?= 97
+# Empty plans and estimates; `BROADCAST=--broadcast` sends.
+BROADCAST ?=
 # How many registry ids `make registry-survey` reads. See the target.
 SAMPLE ?= 400
 # Passed through to `make registry-scan`. `SCAN_ARGS=--no-census` takes the
@@ -266,6 +273,20 @@ vectors-report:  ## publish the vector corpus, and whatever replay was recorded
 	# is what lets it sit inside `make artifacts`.
 	$(UV) run python scripts/vectors_report.py
 
+identity-register:  ## register our four agents on chapel. WRITES. needs a funded signer.
+	# The reading/writing half, like `vet-addresses` — `make identity` republishes
+	# whatever this leaves on disk and needs nothing.
+	#
+	# No MISQUOTE_DRY_RUN here on purpose. Without --broadcast this plans and
+	# estimates against the live registry and sends nothing, which is the form
+	# worth running by default; broadcasting is
+	#   MISQUOTE_DRY_RUN=0 make identity-register BROADCAST=--broadcast
+	# and the variable belongs on that one command rather than in .env.
+	$(UV) run python scripts/register_identity.py --chain $(IDENTITY_CHAIN) $(BROADCAST)
+
+identity-verify:  ## re-read our registrations from chain and rewrite the checks
+	$(UV) run python scripts/register_identity.py --chain $(IDENTITY_CHAIN) --verify-only
+
 registry:  ## republish the recorded registry survey as the site's artifact
 	# Reads no chain. `make registry-survey` does the reading; this publishes
 	# what it left behind — the same split as `make vet` / `make vetting`.
@@ -308,6 +329,16 @@ registry-survey:  ## read the ERC-8004 registry and record a sample. usage: make
 
 venue:  ## PancakeSwap as an integration: where the fork is not the original (offline)
 	$(UV) run python scripts/venue_report.py
+
+pools:  ## which Pancake pool, at what width, as P25-P75 bands. reads the tape.
+	# The reading half is `make indexer` and the badging half is `make vet`; this
+	# publishes what they left behind, the same split as `make vet` / `make vetting`.
+	#
+	# Slow on purpose. `rolling_windows` makes each window half the tape, so a
+	# seven-width ladder over three pools replays the accountant across ~126,000
+	# swaps a window. Shortening the windows would buy speed by breaking A5's
+	# floor, which is the one trade this file will not make.
+	$(UV) run python scripts/pools_report.py
 
 # `assumptions` runs late, and the order is load-bearing. The sheet's
 # `cited_by` is built by globbing every *other* artifact in the output

@@ -59,6 +59,45 @@ IDENTITY_ABI = json.loads("""[
   "inputs":[{"type":"uint256"}],"outputs":[{"type":"address"}]}
 ]""")
 
+#: Where the registry's behaviour actually lives, per chain.
+#:
+#: `IDENTITY_REGISTRY` is 130 bytes on both chains — an EIP-1967 proxy, which is
+#: why `registry_report.py` binary-searches `ownerOf` instead of calling
+#: `totalSupply()`. The proxy forwards, so a selector that decides whether this
+#: repository can register anything is present or absent *there*, not here.
+#:
+#: Read from the EIP-1967 implementation slot rather than from a block explorer,
+#: for the reason `addresses.py` states about everything in it: nothing was taken
+#: on trust from documentation. See `IDENTITY_IMPLEMENTATION_EVIDENCE`.
+IDENTITY_IMPLEMENTATION = {
+    56: "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
+    97: "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
+}
+
+#: The EIP-1967 slot the two addresses above were read out of.
+#: `keccak256("eip1967.proxy.implementation") - 1`.
+IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+
+#: What was read to justify each entry, and when. Modelled on
+#: `erc8183.py::JOB_ESCROW_EVIDENCE` — an address without its readings is a
+#: number somebody typed.
+IDENTITY_IMPLEMENTATION_EVIDENCE: dict[int, tuple[str, ...]] = {
+    56: (
+        "Read 2026-08-25 at block 117,999,514 from the EIP-1967 implementation "
+        "slot of 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432.",
+        "14,474 bytes of code at the implementation, against 130 at the proxy.",
+        "Carries register(string), safeTransferFrom, ownerOf and tokenURI.",
+    ),
+    97: (
+        "Read 2026-08-25 at block 127,142,901 from the same slot of "
+        "0x8004A818BFB912233c491871b3d84c89A494BD9e.",
+        "Byte-identical implementation address to chain 56 — the same "
+        "deterministic deployment on both networks, which is the reading that "
+        "makes a chapel rehearsal evidence about mainnet rather than about chapel.",
+        "Same four selectors present.",
+    ),
+}
+
 ERC8004_SCHEMA = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"
 
 MAX_CARD_BYTES = 256 * 1024

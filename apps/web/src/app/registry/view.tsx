@@ -10,6 +10,7 @@ import { DataTable } from "@/components/DataTable";
 import { SectionRail } from "@/components/SectionRail";
 import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
+import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
@@ -140,7 +141,49 @@ function ThirdPartyListings({
   );
 }
 
+/** One agent of ours, as `scripts/register_identity.py` recorded it. */
+export interface OwnIdentity {
+  agent: string;
+  name: string;
+  agent_id: number;
+  token_uri_bytes: number;
+  register_tx: string;
+  transfer_tx: string;
+  register_url: string;
+  transfer_url: string;
+  agent_url: string;
+  gas_used: number;
+}
+
+/**
+ * The registrations this project made in the registry it surveys.
+ *
+ * `surveyed: false` is the ordinary state of a checkout that has not run
+ * `make identity-register`, and it renders as the service's own refusal rather
+ * than as an empty table — the distinction `/vetting` draws between a subject
+ * nobody checked and a subject that came back clean.
+ *
+ * `checks` is the same `{name, status, detail, provenance}` shape every other
+ * chain reading on this site publishes, so `CheckList` renders it unchanged.
+ */
+export interface OwnIdentities {
+  surveyed: boolean;
+  reason?: string;
+  chain_id: number;
+  verdict?: string;
+  owner?: string;
+  signer?: string;
+  registry?: string;
+  block?: number | null;
+  explorer?: string;
+  read_at?: string;
+  record?: string;
+  agents: OwnIdentity[];
+  checks: CheckRow[];
+}
+
 export interface RegistryArtifact {
+  ours?: OwnIdentities;
   hire_flow: {
     steps: Step[];
     transaction_count: number;
@@ -414,6 +457,7 @@ export function RegistryView({
             label="On this page"
             items={[
               ...(gate ? [{ id: "deliverable", label: "Deliverable" }] : []),
+              { id: "ours", label: "Our agents" },
               { id: "hiring", label: "Hiring" },
               { id: "escrow", label: "Escrow" },
               { id: "identity", label: "Identity" },
@@ -456,6 +500,31 @@ export function RegistryView({
           )}
 
           {/* ------------------------------------------------- the hire flow -- */}
+          {/* ------------------------------------------------ our own row -- */}
+          {/* Above the survey of everybody else's agents, deliberately. This
+              page's argument is that a registry row proves nothing and a
+              resolvable card proves a little — an argument made entirely about
+              strangers until this section existed. Putting our own four first
+              means the reader meets the standard being applied before they meet
+              the four hundred it was applied to. */}
+          <Section
+            id="ours"
+            title="Our own agents, in the registry we survey"
+            className="mt-10"
+            headingClassName="mb-2 text-lg font-semibold"
+            intro={
+              <>
+                Every other number on this page is about somebody else&rsquo;s agent.
+                These four are ours, registered on BSC testnet and transferred to
+                the address this project publishes as its own &mdash; and held to{" "}
+                <em>the same</em> <code className="font-mono text-xs">assess()</code>{" "}
+                that decides whether a stranger&rsquo;s listing counts as substantive.
+              </>
+            }
+          >
+            <OurAgents ours={d.ours} />
+          </Section>
+
           <Section id="hiring" title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
             <p className="mb-5 max-w-[68ch] text-sm text-dim">
               The number that matters is the second one.
@@ -956,5 +1025,128 @@ export function RegistryView({
         </>
       )}
     </Loadable>
+  );
+}
+
+/**
+ * The four registrations, their transactions, and what a re-read found.
+ *
+ * The transaction links are the first on this site. Everything published here
+ * until now was a *reading* of chain state — a pool's fee tier, an escrow's
+ * bytecode — and a reading is a claim about the present that has to be trusted
+ * to have been taken honestly. A transaction hash is different: it is a
+ * permanent, third-party-hosted record of an action, and the reader checks it
+ * without this page's cooperation. That is why both hashes are shown rather
+ * than only the outcome. The mint and the handover are separately visible, so
+ * "this address owns these agents" needs nothing from us.
+ */
+function OurAgents({ ours }: { ours?: OwnIdentities }) {
+  // Not an empty table. An artifact from a checkout that never registered
+  // anything and an artifact from a run that registered nothing must not look
+  // alike — the distinction `/vetting`'s two 404s exist to preserve.
+  if (!ours || !ours.surveyed) {
+    return (
+      <Refusal
+        title="No agent of ours is registered"
+        reason={
+          ours?.reason ||
+          "Nothing has been recorded, so this is not a claim that the registry holds none of ours — it is a claim that nobody has looked."
+        }
+        floor="make identity-register"
+      />
+    );
+  }
+
+  const explorer = ours.explorer || "https://testnet.bscscan.com";
+
+  return (
+    <>
+      <Card>
+        <CardHeader
+          title={`${count(ours.agents.length)} identit${ours.agents.length === 1 ? "y" : "ies"} on chain`}
+          eyebrow={
+            <span className="font-mono normal-case">
+              chain {ours.chain_id}
+              {ours.block != null && ` · block ${ours.block.toLocaleString("en-US")}`}
+            </span>
+          }
+          aside={<Pill tone={statusTone(ours.verdict || "UNKNOWN")}>{ours.verdict || "UNKNOWN"}</Pill>}
+        />
+        {ours.owner && (
+          <p className="m-0 text-sm text-dim">
+            Owned by{" "}
+            <a
+              className="font-mono text-xs"
+              href={`${explorer}/address/${ours.owner}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {shortAddress(ours.owner)}
+            </a>
+            {ours.signer && ours.signer.toLowerCase() !== ours.owner.toLowerCase() && (
+              <>
+                {" "}
+                &mdash; registered by{" "}
+                <a
+                  className="font-mono text-xs"
+                  href={`${explorer}/address/${ours.signer}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {shortAddress(ours.signer)}
+                </a>
+                , which holds the key, and handed over in a second transaction.
+              </>
+            )}
+          </p>
+        )}
+
+        <div className="mt-4 grid gap-3">
+          {ours.agents.map((agent) => (
+            <div
+              key={agent.agent}
+              className="rounded-md border border-glass-line bg-glass p-3"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <strong className="text-ink">{agent.name}</strong>
+                <a
+                  className="font-mono text-xs"
+                  href={agent.agent_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  #{agent.agent_id}
+                </a>
+              </div>
+              <p className="mt-1 mb-0 text-xs text-faint">
+                {count(agent.token_uri_bytes)} byte card, held on chain ·{" "}
+                {count(agent.gas_used)} gas
+              </p>
+              <p className="mt-2 mb-0 flex flex-wrap gap-x-4 font-mono text-[11px]">
+                <a href={agent.register_url} target="_blank" rel="noreferrer">
+                  register {shortAddress(agent.register_tx)}
+                </a>
+                <a href={agent.transfer_url} target="_blank" rel="noreferrer">
+                  transfer {shortAddress(agent.transfer_tx)}
+                </a>
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {ours.read_at && (
+          <p className="mt-4 mb-0 text-xs text-faint">
+            read back {ours.read_at}
+            {ours.record && ` · ${ours.record}`}
+          </p>
+        )}
+      </Card>
+
+      {ours.checks.length > 0 && (
+        <div className="mt-4">
+          <CheckList checks={ours.checks} />
+        </div>
+      )}
+    </>
   );
 }

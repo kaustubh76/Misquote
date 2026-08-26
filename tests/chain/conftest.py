@@ -107,6 +107,16 @@ def manager(tmp_path_factory):
     w3.provider.make_request("anvil_stopImpersonatingAccount", [whale])
 
     os.environ["MISQUOTE_DRY_RUN"] = "0"  # this fixture broadcasts, on a fork
+    # …and it broadcasts as anvil, not as the operator. `chain/operator.py`
+    # refuses a key that does not sign for the declared wallet whenever
+    # broadcasting is on, which is right for a real network and meaningless for
+    # a funded fork account. Cleared rather than matched: making this fixture
+    # depend on a developer's exported declaration would fail `make fork-diff`
+    # on a machine whose only crime is having a configured .env.
+    declarations = {
+        name: os.environ.pop(name, None)
+        for name in ("MISQUOTE_OPERATOR_ADDRESS", "MISQUOTE_SIGNER_ADDRESS")
+    }
     kill_file = tmp_path_factory.mktemp("ops") / "KILL"
     signer = BscSigner(w3, ANVIL_KEY, kill_file=kill_file)
     pm = PositionManager(signer, META, MAINNET)
@@ -123,6 +133,9 @@ def manager(tmp_path_factory):
         # and a forked anvil looks completely idle while it does. Nothing in the
         # suite would ever mention it.
         os.environ["MISQUOTE_DRY_RUN"] = "1"
+        for name, value in declarations.items():
+            if value is not None:
+                os.environ[name] = value
         proc.terminate()
         try:
             proc.wait(timeout=30)

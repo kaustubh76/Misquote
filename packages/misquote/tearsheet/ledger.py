@@ -66,7 +66,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "and the npm package's declared repository, "
             "github.com/bnb-chain/bnbagent-studio, returns 404. The artifact is "
             "real and signed; its source is not readable, which is not a blocker "
-            "a funded wallet can clear."
+            "a funded wallet can clear. Nor would registering harder help: "
+            "TermiX's production config returns chainId 56 and their own module "
+            "here records that there is no testnet, so the chapel identities are "
+            "invisible to them by construction rather than by omission."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),

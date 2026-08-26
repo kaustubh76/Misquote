@@ -42,6 +42,11 @@ ARTIFACTS = REPO / "apps" / "web" / "public" / "artifacts"
 
 PASS, FAIL, UNVERIFIED = "PASS", "FAIL", "UNVERIFIED"
 
+#: What `vetting/` records call a reading that did not happen. This module
+#: calls the same state UNVERIFIED; the two vocabularies meet here rather
+#: than in a bare string comparison inside a gate.
+UNVERIFIED_ON_DISK = "UNKNOWN"
+
 
 @dataclass(slots=True)
 class Check:
@@ -670,7 +675,173 @@ def check_signer_configured(mainnet: bool) -> Check:
             "MISQUOTE_PRIVATE_KEY is unset",
             "set it to a DEDICATED hot wallet holding only the capped capital",
         )
-    return Check("signer", UNVERIFIED, "a key is set; verify by hand that it is not a main wallet")
+
+    # This gate used to end here, on "a key is set; verify by hand that it is
+    # not a main wallet". A checklist that executes should not have a manual
+    # step as its last instruction, and this one sits directly in front of the
+    # only code path that can spend anything.
+    #
+    # `MISQUOTE_OPERATOR_ADDRESS` is what makes it checkable: the key derives an
+    # address, the operator declares one, and they agree or they do not. Still
+    # not a claim that the wallet is dedicated — nothing on chain distinguishes
+    # a hot wallet from a main one — but "the key is the one you said it would
+    # be" is a different and stronger statement than "somebody looked".
+    try:
+        from misquote.chain.operator import (
+            OPERATOR_ENV,
+            ROLE_ENV,
+            SIGNER_ENV,
+            declared_operator,
+            declared_wallets,
+            role_for,
+        )
+    except ImportError as error:  # pragma: no cover — the package is a dependency
+        return Check("signer", UNVERIFIED, f"cannot read the declaration: {error}")
+
+    try:
+        wallets = declared_wallets()
+        operator = declared_operator()
+    except ValueError as error:
+        # Malformed, not absent. The parser raises rather than returning None
+        # precisely so this lands on FAIL instead of quietly taking the amber
+        # branch below.
+        return Check("signer", FAIL, str(error), "fix or unset the declaration")
+
+    if not wallets:
+        return Check(
+            "signer",
+            UNVERIFIED,
+            f"a key is set; {OPERATOR_ENV} is not, so nothing checked which wallet it is",
+            f"declare the wallet with {OPERATOR_ENV} and this gate compares it against the key",
+        )
+
+    try:
+        from eth_account import Account
+
+        signing_for = Account.from_key(key).address
+    except (ValueError, TypeError) as error:
+        return Check("signer", FAIL, f"MISQUOTE_PRIVATE_KEY is not a key: {error}")
+
+    # Read off the guard rather than compared again here. Two implementations of
+    # "is this key allowed" drift, and the one in the gate is the copy nobody
+    # notices going stale — it is not the one standing in front of `send()`.
+    role = role_for(signing_for)
+    facts = {"signing_for": signing_for, "role": role or "undeclared", "declared": wallets}
+    if operator is not None:
+        facts["operator"] = operator
+
+    if role is None:
+        named = ", ".join(f"{ROLE_ENV[r]}={a}" for r, a in sorted(wallets.items()))
+        return Check(
+            "signer",
+            FAIL,
+            f"the key signs for {signing_for}, which is neither declared wallet ({named})",
+            "one of them is wrong; broadcasting would spend from an undeclared wallet",
+            data=facts,
+        )
+
+    if role != "operator":
+        # Amber, and this is the whole reason the two variables are separate.
+        # The key matches what was declared, so nothing is misconfigured — but
+        # what a green tick here would imply is "the operator signed this", and
+        # what actually happened is "a wallet the operator nominated signed
+        # this". Those are different claims to anyone reading the ledger, and
+        # the weaker one does not get the stronger one's colour.
+        return Check(
+            "signer",
+            UNVERIFIED,
+            f"the key signs for {signing_for}, declared as a delegate of {operator}",
+            f"green needs the operator's own key; unset {SIGNER_ENV} if that is what you meant",
+            data=facts,
+        )
+
+    return Check(
+        "signer",
+        PASS,
+        f"the key signs for the declared operator {signing_for}",
+        data=facts,
+    )
+
+
+def check_identities_registered() -> Check:
+    """The README's four-agent claim, as a check that runs.
+
+    `Readme.md` has said all four agents "register ERC-8004 identities" since
+    before any of them existed, and for the whole of that time the registry
+    package could only read. A claim in a README is not a gate; this is.
+
+    Reads the record rather than the chain, following every other gate here —
+    `scripts/register_identity.py --verify-only` is the step that re-reads, and
+    a checklist that opened four RPC connections would be a checklist people
+    stop running. What it does insist on is that the record's own verdict came
+    from those re-reads: a file whose checks are empty is UNVERIFIED, not PASS.
+    """
+    record = REPO / "vetting" / "identity" / "97.json"
+    if not record.exists():
+        return Check(
+            "agent identities",
+            UNVERIFIED,
+            "no agent has been registered on chain",
+            "MISQUOTE_DRY_RUN=0 uv run python scripts/register_identity.py --chain 97 --broadcast",
+        )
+
+    try:
+        payload = json.loads(record.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return Check("agent identities", FAIL, f"unreadable: {error}")
+
+    agents = payload.get("agents") or []
+    checks = payload.get("checks") or []
+    owner = str(payload.get("owner") or "")
+
+    if not checks:
+        return Check(
+            "agent identities",
+            UNVERIFIED,
+            f"{len(agents)} registered, and nothing has been read back from chain",
+            "uv run python scripts/register_identity.py --chain 97 --verify-only",
+        )
+
+    # Four, because four is what the marketplace lists and what the README
+    # claims. Three registered agents is not "mostly true", it is a different
+    # claim that nobody has made.
+    expected = 4
+    if len(agents) < expected:
+        return Check(
+            "agent identities",
+            FAIL,
+            f"{len(agents)} of {expected} agents registered: "
+            f"{', '.join(a.get('agent', '?') for a in agents) or 'none'}",
+            "the README says all four; register the rest or change the README",
+            data={"agents": agents, "owner": owner},
+        )
+
+    failed = [c["name"] for c in checks if c.get("status") == FAIL]
+    if failed:
+        return Check(
+            "agent identities",
+            FAIL,
+            f"{len(failed)} chain read-back(s) failed: {', '.join(short(n) for n in failed[:3])}",
+            "a registration that fails our own listing bar is worse than none",
+            data={"agents": agents, "owner": owner},
+        )
+
+    unknown = [c["name"] for c in checks if c.get("status") == UNVERIFIED_ON_DISK]
+    if unknown:
+        return Check(
+            "agent identities",
+            UNVERIFIED,
+            f"{len(unknown)} read-back(s) could not be made: {short(unknown[0])}",
+            "uv run python scripts/register_identity.py --chain 97 --verify-only",
+            data={"agents": agents, "owner": owner},
+        )
+
+    return Check(
+        "agent identities",
+        PASS,
+        f"{len(agents)} agents registered on chapel and owned by {owner}",
+        data={"agents": agents, "owner": owner},
+    )
 
 
 def check_position_cap(mainnet: bool) -> Check:
@@ -765,6 +936,7 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
         check_docs_current(),
         check_agent_advantage_report(),
         check_artifact_freshness(),
+        check_identities_registered(),
         check_burn_in(),
         check_signer_configured(mainnet),
         check_position_cap(mainnet),

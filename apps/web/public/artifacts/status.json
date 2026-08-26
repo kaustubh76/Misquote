@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-08-26T05:23:48+00:00",
+  "generated_at": "2026-08-26T11:21:29+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --fast --json",
     "source": "local checks",
-    "generated_at": "2026-08-26T05:23:48+00:00",
-    "git_sha": "5ca54a1",
+    "generated_at": "2026-08-26T11:21:29+00:00",
+    "git_sha": "a1a8af3",
     "git_dirty": true
   },
   "mainnet": false,
@@ -18,7 +18,7 @@
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 199 deselected, 1 warning in 2.42s",
+      "detail": "7 passed, 206 deselected, 1 warning in 5.19s",
       "remedy": "",
       "blocking": false
     },
@@ -73,10 +73,10 @@
     },
     {
       "name": "judge document current",
-      "status": "UNVERIFIED",
-      "detail": "quickstart test count -> 1845; headline counts -> 1885: 1845 offline, 40 chain; packages/misquote/core/policy.py -> 871 lines",
-      "remedy": "make judges \u2014 the numbers a judge reads must be the numbers we published",
-      "blocking": true
+      "status": "PASS",
+      "detail": "every derived figure matches its artifact",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "agent advantage report",
@@ -88,45 +88,20 @@
     {
       "name": "artifacts match the engine",
       "status": "UNVERIFIED",
-      "detail": "build.json is 2 engine commit(s) behind eb040ed; warden.json is 2 engine commit(s) behind eb040ed; grid.json is 2 engine commit(s) behind eb040ed; sentinel.json is 2 engine commit(s) behind eb040ed; router.json is 1 engine commit(s) behind 99a32f6; advantage.json is 2 engine commit(s) behind 237c678; advantage_short.json is 2 engine commit(s) behind eb040ed",
+      "detail": "advantage.json is 4 engine commit(s) behind 237c678; advantage_short.json is 4 engine commit(s) behind eb040ed",
       "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
       "blocking": true,
       "data": {
         "behind": [
           {
-            "artifact": "build.json",
-            "recorded_sha": "eb040ed",
-            "commits": 2
-          },
-          {
-            "artifact": "warden.json",
-            "recorded_sha": "eb040ed",
-            "commits": 2
-          },
-          {
-            "artifact": "grid.json",
-            "recorded_sha": "eb040ed",
-            "commits": 2
-          },
-          {
-            "artifact": "sentinel.json",
-            "recorded_sha": "eb040ed",
-            "commits": 2
-          },
-          {
-            "artifact": "router.json",
-            "recorded_sha": "99a32f6",
-            "commits": 1
-          },
-          {
             "artifact": "advantage.json",
             "recorded_sha": "237c678",
-            "commits": 2
+            "commits": 4
           },
           {
             "artifact": "advantage_short.json",
             "recorded_sha": "eb040ed",
-            "commits": 2
+            "commits": 4
           }
         ],
         "unstamped": []
@@ -144,53 +119,61 @@
             "agent": "warden",
             "agent_id": 1927,
             "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1927",
-            "gas_used": 727801,
+            "gas_used": 1056614,
             "name": "Warden",
             "register_block": 127277574,
             "register_tx": "0xd800eff09b59114c86742f80065d53add78d5cc9e7097a0c395d527ee7d711d3",
             "register_url": "https://testnet.bscscan.com/tx/0xd800eff09b59114c86742f80065d53add78d5cc9e7097a0c395d527ee7d711d3",
-            "token_uri_bytes": 721,
+            "token_uri_bytes": 969,
             "transfer_tx": "0xd9dd7c359a4d3b8185bd3c142c419621b8f98a4f644ee2e403a3ccca07d3c7b2",
-            "transfer_url": "https://testnet.bscscan.com/tx/0xd9dd7c359a4d3b8185bd3c142c419621b8f98a4f644ee2e403a3ccca07d3c7b2"
+            "transfer_url": "https://testnet.bscscan.com/tx/0xd9dd7c359a4d3b8185bd3c142c419621b8f98a4f644ee2e403a3ccca07d3c7b2",
+            "upgrade_tx": "0x58435ecaaf3d6452ea64796e4d053f166b344bd68dd1bd8e62a2b2994513fb88",
+            "upgrade_url": "https://testnet.bscscan.com/tx/0x58435ecaaf3d6452ea64796e4d053f166b344bd68dd1bd8e62a2b2994513fb88"
           },
           {
             "agent": "grid",
             "agent_id": 1928,
             "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1928",
-            "gas_used": 710557,
+            "gas_used": 1016593,
             "name": "Grid",
             "register_block": 127277612,
             "register_tx": "0x2a383102c15ad8c6da427a39e62d907db74b2c6dabd5a1bf3ca17bf9ba4149c4",
             "register_url": "https://testnet.bscscan.com/tx/0x2a383102c15ad8c6da427a39e62d907db74b2c6dabd5a1bf3ca17bf9ba4149c4",
-            "token_uri_bytes": 709,
+            "token_uri_bytes": 953,
             "transfer_tx": "0x02ad58ba0009175b3eb08fde459a69efe830d19f19373895cbd4bac2fd133053",
-            "transfer_url": "https://testnet.bscscan.com/tx/0x02ad58ba0009175b3eb08fde459a69efe830d19f19373895cbd4bac2fd133053"
+            "transfer_url": "https://testnet.bscscan.com/tx/0x02ad58ba0009175b3eb08fde459a69efe830d19f19373895cbd4bac2fd133053",
+            "upgrade_tx": "0x279d07a18bb32cc2693e4377d0c4130eacdddd6514b4cad3c527aca8784205cf",
+            "upgrade_url": "https://testnet.bscscan.com/tx/0x279d07a18bb32cc2693e4377d0c4130eacdddd6514b4cad3c527aca8784205cf"
           },
           {
             "agent": "sentinel",
             "agent_id": 1929,
             "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1929",
-            "gas_used": 710749,
+            "gas_used": 1039562,
             "name": "Sentinel",
             "register_block": 127277651,
             "register_tx": "0x29a6d8ec79a439283968be97e96ee8e276d629da78d3c0832f6b7fd9bd0b2405",
             "register_url": "https://testnet.bscscan.com/tx/0x29a6d8ec79a439283968be97e96ee8e276d629da78d3c0832f6b7fd9bd0b2405",
-            "token_uri_bytes": 725,
+            "token_uri_bytes": 969,
             "transfer_tx": "0x201a04e7250846179e8d448a357e2a4dd512c9e80585f7f28da1b5a6a757906c",
-            "transfer_url": "https://testnet.bscscan.com/tx/0x201a04e7250846179e8d448a357e2a4dd512c9e80585f7f28da1b5a6a757906c"
+            "transfer_url": "https://testnet.bscscan.com/tx/0x201a04e7250846179e8d448a357e2a4dd512c9e80585f7f28da1b5a6a757906c",
+            "upgrade_tx": "0x3b0d6458e43eeacaed6616bc5d84ecc6393714856732632f5f9fa749b2a36c24",
+            "upgrade_url": "https://testnet.bscscan.com/tx/0x3b0d6458e43eeacaed6616bc5d84ecc6393714856732632f5f9fa749b2a36c24"
           },
           {
             "agent": "router",
             "agent_id": 1930,
             "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1930",
-            "gas_used": 710653,
+            "gas_used": 1039370,
             "name": "Router",
             "register_block": 127277677,
             "register_tx": "0x4f514f821fa18fe64da658b670da317a4f6cc03613191da81841e289605f0737",
             "register_url": "https://testnet.bscscan.com/tx/0x4f514f821fa18fe64da658b670da317a4f6cc03613191da81841e289605f0737",
-            "token_uri_bytes": 717,
+            "token_uri_bytes": 961,
             "transfer_tx": "0xaf82b3d06db593fe763bf7ceb62d3eb25d11e05e8c93ef47b12caba55dd166d2",
-            "transfer_url": "https://testnet.bscscan.com/tx/0xaf82b3d06db593fe763bf7ceb62d3eb25d11e05e8c93ef47b12caba55dd166d2"
+            "transfer_url": "https://testnet.bscscan.com/tx/0xaf82b3d06db593fe763bf7ceb62d3eb25d11e05e8c93ef47b12caba55dd166d2",
+            "upgrade_tx": "0x10b3e462f37bf37fca0bca6f4207b7bb44fd0540dec389446463a17b228bb3c6",
+            "upgrade_url": "https://testnet.bscscan.com/tx/0x10b3e462f37bf37fca0bca6f4207b7bb44fd0540dec389446463a17b228bb3c6"
           }
         ],
         "owner": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
@@ -219,9 +202,9 @@
     }
   ],
   "summary": {
-    "pass": 10,
+    "pass": 11,
     "fail": 0,
-    "unverified": 5,
+    "unverified": 4,
     "total": 15
   },
   "outcome": "NOT YET",

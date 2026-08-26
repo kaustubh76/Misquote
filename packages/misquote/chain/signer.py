@@ -34,6 +34,7 @@ from typing import Any
 from eth_account import Account
 from web3 import Web3
 
+from misquote.chain.operator import assert_signs_for_operator
 from misquote.indexer.reader import is_transient, rpc_retry
 
 SUPPORTED_CHAINS = (56, 97)  # BSC mainnet, chapel testnet
@@ -116,6 +117,19 @@ class BscSigner:
         self.kill_file = Path(kill_file)
         self._receipt_timeout = receipt_timeout
         self._dry_run = os.environ.get("MISQUOTE_DRY_RUN", "1") != "0"
+
+        # Only when this signer can actually broadcast.
+        #
+        # Under dry run there is nothing to protect and a great deal to break:
+        # the offline suite constructs signers with a burner key, and the fork
+        # fixtures use anvil's funded accounts, neither of which is the address
+        # a deployment declares as its own. Checking here rather than in
+        # `send()` means the refusal arrives while the process is starting up
+        # instead of after it has built a transaction it was never allowed to
+        # send — and `MISQUOTE_DRY_RUN=0` is the moment the declaration starts
+        # to mean something.
+        if not self._dry_run:
+            assert_signs_for_operator(self.account.address)
 
     @property
     def address(self) -> str:

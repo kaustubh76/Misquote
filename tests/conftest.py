@@ -1,8 +1,9 @@
 """Test-suite safety rails.
 
 This project signs transactions that move real capital and appends to a journal
-that is submission evidence. Three fixtures make it impossible for a test to do
-either by accident. They are autouse and unconditional: opting out is an
+that is submission evidence. Four fixtures make it impossible for a test to do
+either by accident, and a fourth keeps the machine's own configuration out
+of the results. They are autouse and unconditional: opting out is an
 explicit marker on the test, visible in the source and in `-v` output, never a
 default.
 
@@ -18,6 +19,27 @@ from pathlib import Path
 import pytest
 
 DEAD_RPC = "http://127.0.0.1:1/blackhole"
+
+
+@pytest.fixture(autouse=True)
+def _no_declared_wallets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test inherits the developer's `.env`.
+
+    `chain/operator.py` reads two variables, and both change what the write path
+    and the go/no-go do. A shell with `.env` exported — which is how every
+    `make` target that touches a chain is meant to be run — therefore decided
+    the branch for any test that had not thought to clear *both*. The suite
+    passed on a clean shell and failed on a configured one, which is the worst
+    version of a test failure: it appears when someone finishes setting the
+    project up.
+
+    Cleared rather than set to a fixture value. "Nothing declared" is the
+    permissive branch, so this fixture cannot mask a guard that should have
+    fired; a test that wants a declaration states it, and the statement is
+    visible in the test rather than inherited from the machine.
+    """
+    for name in ("MISQUOTE_OPERATOR_ADDRESS", "MISQUOTE_SIGNER_ADDRESS"):
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)

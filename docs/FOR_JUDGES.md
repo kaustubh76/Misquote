@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 1,715 tests, no network, ~35s
+make test                     # 1,926 tests, no network, ~35s
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -49,7 +49,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**1753 tests: 1715 offline, 38 against a live chain or a fork.**
+**1966 tests: 1926 offline, 40 against a live chain or a fork.**
 
 ---
 
@@ -353,9 +353,15 @@ project exists to argue against.
   chunks, zero refused, 62 minutes, **no key**. The same read built the Venus
   rate tape — 159,956 accruals over seven days, 269 chunks, 29.6 minutes.
 
-- **κ is still a provisional default.** It is meant to be fitted on that tape and
-  published as gap item G-4. Until then it traces to a stated basis rather than
-  to data, and the go/no-go reports it amber.
+- **κ has been fitted.** This bullet said "still a provisional default" for a
+  round after it stopped being true. It was fitted on the 30-day tape on 17 Aug
+  2026 — **3,600.91 per log-price, r² = 0.847 over 8,096 swaps** — and the
+  go/no-go's `no provisional constants` gate now compares that constant against
+  the κ the card independently fitted and fails if they disagree by more than
+  10%. See A8 and matrix G-4. A8 is unchanged on the part that matters: the
+  exponential is still the wrong functional form, and an r² of 0.85 is what pure
+  Brownian noise produces, so the fit is a measurement rather than a
+  vindication.
 - **No 24-hour burn-in — but the loop has run, and the executor is proven.**
   `make warden` runs the real policy against real BSC state and writes a real
   journal; verified at 139 decisions over fifteen minutes, 0 polls refused.
@@ -390,6 +396,103 @@ project exists to argue against.
 
 - **Nothing has traded with real money**, and the go/no-go will not let it until
   the above are green.
+- **Why TermiX's dashboard reads zero, which is the answer to the obvious
+  question.** Four agents are registered and owned, and their platform shows
+  *0 agents, 0 requests, 0 orders*. Three separate reasons, only one of which is
+  fixable by registering harder:
+
+  1. **TermiX has no testnet.** Their production config, read live at
+     `platform-backend.prod.termix.live/api/v1/config/contracts`, returns
+     `chainId: 56`. Our four sit in `0x8004A818…BD9e` on chapel — a different
+     contract on a chain their backend has no base URL for. This repository
+     *already knew*: `registry/aacp.py` carries the comment "there is no chain
+     97 entry because there is no testnet deployment", and
+     `tests/registry/test_aacp.py` enumerates 97 by name as a chain that raises.
+     Chapel was chosen anyway. Recorded here rather than quietly corrected.
+  2. **Their explorer would have found us on mainnet, with no platform flow at
+     all.** `/api/v1/explorer/agents` reports **304,790** agents against a
+     mainnet high-water id of **304,927** — a gap of 137, which is indexing lag.
+     It indexes the registry, not their own sign-up funnel. So mainnet
+     registration is sufficient to appear there, and it is deferred rather than
+     blocked.
+  3. **"Orders" is not downstream of registration at all.** TermiX's orders are
+     keyed by `chainOrderId`, a bytes32 minted by their own platform, held in a
+     separate escrow per settlement currency. There is no path from an ERC-8004
+     identity to an order id. That counter moves when somebody hires an agent
+     through the ERC-8183 flow, which needs five signed client transactions and
+     real USDC and is on the not-built ledger.
+
+  The listing-side half — their authenticated API — is also on that ledger,
+  blocked on a wallet-signed nonce exchanged for a session JWT.
+
+- **The four agents are registered on ERC-8004, and the wallet that owns them is
+  declared.** `Readme.md` has said all four "register ERC-8004 identities" since
+  before any of them existed. Until this pass the registry package could only
+  read: `IDENTITY_ABI` was four `view` functions and no registration call
+  existed anywhere in `packages/`. The marketplace that surveyed four hundred
+  agents in that registry, counted how few resolve, and published the interval
+  had never appeared in it — which made the survey a thing done *to* other
+  people.
+
+  It is now four rows on chapel, owned by
+  [`0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE`](https://testnet.bscscan.com/address/0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE),
+  and `/registry` carries the first transaction links this site has ever
+  published. Everything here before them was a *reading* of chain state, which
+  has to be trusted to have been taken honestly; a transaction hash is a
+  third-party-hosted record of an action, checkable without this page's
+  cooperation.
+
+  **Two transactions per agent, and the shape is the point.** The wallet holding
+  a key on the build machine is a burn-in wallet, not the address this project
+  publishes as its own. So each agent is registered by the signer and handed
+  over with `safeTransferFrom`. The alternative was putting the submission key
+  on a laptop that runs `make`; this way the mint and the handover are
+  separately visible, so "that address owns these agents" needs nothing from us.
+
+  **The cards carry what a listing actually reads.** They were registered and
+  handed over before anyone had looked at what an indexer renders, so the first
+  version had no `image` (a blank avatar beside every agent that has one) and no
+  `registrations` back-reference (a card that, found on its own, could be about
+  anybody). `setAgentURI` is owner-only, so correcting them after the handover
+  needed the operator's key — the exact cost of completing a card *after*
+  transferring it rather than before. Four more transactions; the ordering for
+  anything future is register → setAgentURI → transfer.
+
+  **The cards are held to our own bar.** `erc8004.assess()` is what decides
+  whether a *stranger's* listing counts as substantive on `/registry`, and
+  `scripts/register_identity.py --verify-only` re-reads our four from chain and
+  runs the same function over them — not a copy of its rules, which would drift.
+  A registration of ours that fails our own test is recorded as a FAIL. The
+  cards are `data:` URIs, so they resolve by construction rather than for as
+  long as this project pays for a domain.
+
+  **What this is not.** Chapel, not mainnet — though the registry proxy on both
+  chains forwards to the *same* implementation address
+  (`erc8004.IDENTITY_IMPLEMENTATION`, read from the EIP-1967 slot on each), so
+  what passed here is not a different contract from the one on 56. And a row in
+  a registry proves nothing on its own: agent 1000's tokenURI is the literal
+  string `user-8abd198e`. That is exactly why `assess()` exists, and why being
+  registered is reported beside what the card actually contains rather than
+  instead of it.
+
+  `tests/registry/test_cards.py`, `tests/registry/test_identity.py`,
+  `make go-no-go` (the `agent identities` gate).
+
+- **The signer gate stopped ending on a manual step.** It read "a key is set;
+  verify by hand that it is not a main wallet" — a checklist whose last
+  instruction is a human, in front of the only code that can spend anything.
+  `MISQUOTE_OPERATOR_ADDRESS` now declares who the project is and
+  `MISQUOTE_SIGNER_ADDRESS` declares which wallet holds the key, and
+  `check_signer_configured` compares the key against the declaration instead of
+  asking.
+
+  It reports **amber**, and that is the honest colour rather than an unfinished
+  setup: the burn-in wallet signed, the operator did not, and a delegate
+  spending is a weaker claim than the operator spending. A key matching *neither*
+  declaration is still a hard refusal — `chain/signer.py` will not construct
+  once `MISQUOTE_DRY_RUN=0`. The escape hatch is a second declaration, never an
+  absent one.
+
 - **Session keys and the ERC-8183 hire flow** are not built. **Router now is** —
   the fourth category, and with it all four the main track asks for at equal
   depth.
@@ -572,6 +675,6 @@ the checking.**
 | The claim, frozen | [`WARDEN_SPEC_v1.0_FROZEN.md`](WARDEN_SPEC_v1.0_FROZEN.md) |
 | Every deviation, with arithmetic | [`REQUIREMENTS_MATRIX.md`](REQUIREMENTS_MATRIX.md) |
 | Every assumption, published | [`ASSUMPTIONS.md`](ASSUMPTIONS.md) |
-| The policy, 525 lines, pure | `packages/misquote/core/policy.py` |
+| The policy, 871 lines, pure | `packages/misquote/core/policy.py` |
 | Why look-ahead is structural | `packages/misquote/replay/tape.py` |
 | The tests that carry the claim | `tests/replay/`, `tests/chain/` |

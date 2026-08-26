@@ -92,6 +92,66 @@ def test_a_missing_key_is_an_error_not_a_default(monkeypatch) -> None:
         BscSigner(FakeW3(), None)
 
 
+# --- the declared operator -------------------------------------------------
+#
+# `chain/operator.py` owns the parsing and is tested directly in
+# `test_operator.py`. What is checked here is only the wiring: which of the
+# signer's two modes consults it, and that the refusal happens at construction
+# rather than at `send()`.
+
+
+def _burner_address() -> str:
+    from eth_account import Account
+
+    return Account.from_key(BURNER_KEY).address
+
+
+def test_dry_run_does_not_consult_the_declaration(monkeypatch) -> None:
+    """The offline suite and every read-only run construct signers with keys
+    that are nobody's declared operator. A guard that fired here would make the
+    declaration unusable for the one case it exists for."""
+    monkeypatch.setenv("MISQUOTE_DRY_RUN", "1")
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0x" + "22" * 20)
+    signer = BscSigner(FakeW3(), BURNER_KEY)
+    assert signer.dry_run is True
+
+
+@pytest.mark.live_signing
+def test_broadcasting_from_an_undeclared_wallet_is_refused_at_construction(monkeypatch) -> None:
+    """The failure this exists for.
+
+    A checkout can easily hold a burn-in key for one address while declaring
+    another as its own — this one does. `MISQUOTE_DRY_RUN=0` is then the only
+    thing between that and a transaction from a wallet nobody wrote down.
+
+    Refused while the object is being built, for the same reason the unknown
+    chain is: there must be no window in which a correctly configured-looking
+    signer exists pointing at the wrong wallet.
+    """
+    from misquote.chain.operator import OperatorMismatch
+
+    monkeypatch.setenv("MISQUOTE_DRY_RUN", "0")
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", "0x" + "22" * 20)
+    with pytest.raises(OperatorMismatch, match="neither wallet this deployment declared"):
+        BscSigner(FakeW3(), BURNER_KEY)
+
+
+@pytest.mark.live_signing
+def test_broadcasting_with_no_declaration_is_left_alone(monkeypatch) -> None:
+    """Unchanged behaviour for anyone who has not opted in — notably the fork
+    fixtures, which broadcast as one of anvil's own funded accounts."""
+    monkeypatch.setenv("MISQUOTE_DRY_RUN", "0")
+    monkeypatch.delenv("MISQUOTE_OPERATOR_ADDRESS", raising=False)
+    assert BscSigner(FakeW3(), BURNER_KEY).dry_run is False
+
+
+@pytest.mark.live_signing
+def test_a_matching_declaration_broadcasts(monkeypatch) -> None:
+    monkeypatch.setenv("MISQUOTE_DRY_RUN", "0")
+    monkeypatch.setenv("MISQUOTE_OPERATOR_ADDRESS", _burner_address().lower())
+    assert BscSigner(FakeW3(), BURNER_KEY).dry_run is False
+
+
 # --- the kill switch -------------------------------------------------------
 
 

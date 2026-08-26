@@ -1131,13 +1131,20 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
   });
 
   it("reads the gate's verdict rather than forming its own", async () => {
+    // Scoped to the section, for the reason the TermiX test below gives. A bare
+    // `getByText("PASS")` was unique only while the deliverable held the page's
+    // only verdict pill; the section listing our own ERC-8004 registrations
+    // carries one too, and an unscoped match then finds two and throws. Scoping
+    // is also the stronger assertion — it says *this* gate reads PASS rather
+    // than "the word PASS appears somewhere on the page".
     const status = readArtifact<Status>("status.json");
     const gate = status.checks.find((c) => c.name === "agent advantage report")!;
     render(<RegistryPage />);
-    await screen.findByRole("heading", { name: "The judged deliverable" });
+    const heading = await screen.findByRole("heading", { name: "The judged deliverable" });
+    const section = heading.closest("section")!;
 
-    expect(screen.getByText(gate.status)).toBeInTheDocument();
-    expect(screen.getByText(gate.detail)).toBeInTheDocument();
+    expect(within(section).getByText(gate.status)).toBeInTheDocument();
+    expect(within(section).getByText(gate.detail)).toBeInTheDocument();
   });
 
   it("shows what the artifact was built from", async () => {
@@ -1192,6 +1199,74 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     // same paint, and this page grew a list of third-party agent cards between
     // them. A synchronous assertion here was passing on render timing.
     expect(await screen.findByText(/no deployment for chain 97/)).toBeInTheDocument();
+  });
+
+  it("refuses rather than showing an empty table when we have registered nothing", async () => {
+    // The distinction /vetting's two 404s exist to preserve, applied here: a
+    // checkout that never ran `make identity-register` and a run that found
+    // nothing must not render alike. An empty grid would read as "we looked and
+    // there are none", which is the opposite of what the artifact says.
+    const reg = readArtifact<Reg>("registry.json");
+    serveArtifacts({
+      overrides: {
+        "registry.json": {
+          ...reg,
+          ours: { surveyed: false, reason: "nobody has looked", chain_id: 97, agents: [], checks: [] },
+        },
+      },
+    });
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: /Our own agents/ });
+    expect(await screen.findByText(/nobody has looked/)).toBeInTheDocument();
+  });
+
+  it("links both transactions for every agent of ours, not just the outcome", async () => {
+    // The mint and the handover are separately checkable, and that is the whole
+    // reason the two-transaction shape was chosen over putting the operator's
+    // key on this machine. Rendering only the result would throw away the half
+    // that lets a reader verify ownership without trusting this page.
+    const reg = readArtifact<Reg>("registry.json");
+    const agent = {
+      agent: "warden",
+      name: "Warden",
+      agent_id: 1913,
+      token_uri_bytes: 721,
+      gas_used: 700000,
+      register_tx: "0xaaaa000000000000000000000000000000000000000000000000000000000001",
+      transfer_tx: "0xbbbb000000000000000000000000000000000000000000000000000000000002",
+      register_url: "https://testnet.bscscan.com/tx/0xaaaa",
+      transfer_url: "https://testnet.bscscan.com/tx/0xbbbb",
+      agent_url: "https://testnet.bscscan.com/token/0xreg?a=1913",
+    };
+    serveArtifacts({
+      overrides: {
+        "registry.json": {
+          ...reg,
+          ours: {
+            surveyed: true,
+            chain_id: 97,
+            verdict: "PASS",
+            owner: "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+            signer: "0xbF4ef75a443E00415Ee2E368caC089e0834930E6",
+            explorer: "https://testnet.bscscan.com",
+            agents: [agent],
+            checks: [],
+          },
+        },
+      },
+    });
+    render(<RegistryPage />);
+    const heading = await screen.findByRole("heading", { name: /Our own agents/ });
+    const section = heading.closest("section")!;
+
+    expect(within(section).getByRole("link", { name: /register/ })).toHaveAttribute(
+      "href",
+      agent.register_url,
+    );
+    expect(within(section).getByRole("link", { name: /transfer/ })).toHaveAttribute(
+      "href",
+      agent.transfer_url,
+    );
   });
 
   it("names the contract each call goes to", async () => {
