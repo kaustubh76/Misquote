@@ -410,3 +410,84 @@ def test_the_command_render_runs_reaches_the_app_it_names() -> None:
     # `exec`, so Render's SIGTERM reaches uvicorn rather than a shell that would
     # have to forward it.
     assert "exec uvicorn" in script
+
+
+def test_the_index_advertises_every_route_this_service_registers() -> None:
+    """A route nobody can find is a route nobody has.
+
+    `/pools` and `/pools/{address}` were registered here, unit-tested, and served
+    — and named in neither of this service's two self-descriptions: `index()`'s
+    routes map, nor `api.json`, which is what `/tape` renders for a reader
+    looking for the API surface. `api/tape.py` exists because of the milder
+    version of this: a route that *was* advertised and had no caller. This was
+    worse, and nothing failed.
+
+    The whole list, both directions. Advertising a route that does not exist is
+    the same defect wearing the other face, and a hand-kept map drifts from a
+    hand-kept registration by default rather than by accident.
+    """
+    registered = {
+        route.path
+        for route in api.app.routes
+        if hasattr(route, "path")
+        and hasattr(route, "endpoint")
+        # This package's own handlers only: FastAPI's `/docs`, `/redoc` and
+        # `/openapi.json` are excluded by where they come from rather than by
+        # name, so a future built-in does not fail us.
+        and getattr(route.endpoint, "__module__", "").startswith("misquote.")
+    }
+    # The POST is advertised with its verb, since that is what a caller types.
+    advertised = {path.removeprefix("POST ") for path in api.index()["routes"]}
+    # The index does not list itself. A reader holding this response has already
+    # found it, and an entry for "/" would describe the thing they are reading.
+    registered.discard("/")
+
+    unadvertised = registered - advertised
+    assert not unadvertised, (
+        "these routes are served and named in no self-description, so nothing "
+        f"pointing a reader at this API can mention them: {sorted(unadvertised)}"
+    )
+
+    phantom = advertised - registered
+    assert not phantom, (
+        f"the index advertises routes this service does not serve: {sorted(phantom)}"
+    )
+
+
+def test_the_published_api_config_advertises_the_same_routes() -> None:
+    """`api.json` is the map a *page* reads, and it drifted from the service.
+
+    `index()` answers a caller who already found the API. `api.json` is how the
+    site tells a reader it exists at all — `/tape` renders that map — so a route
+    missing here is missing from the only surface most readers will see.
+
+    Subset rather than equality: the config deliberately publishes fewer entries
+    than the service serves, because `/artifacts/{name}` and friends are the
+    static surface every page already reads from disk. What it must not do is
+    advertise something that is not there.
+    """
+    import importlib.util  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    source = Path(__file__).resolve().parents[2] / "scripts" / "emit_api_config.py"
+    spec = importlib.util.spec_from_file_location("misquote_emit_api_config", source)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    registered = {
+        route.path
+        for route in api.app.routes
+        if hasattr(route, "path") and hasattr(route, "endpoint")
+    }
+    published = {path.removeprefix("POST ") for path in module.config(base="")["routes"].values()}
+
+    phantom = published - registered
+    assert not phantom, (
+        f"api.json points readers at routes this service does not serve: {sorted(phantom)}"
+    )
+    for path in ("/pools", "/pools/{address}"):
+        assert path in published, (
+            f"{path} is served and unadvertised — the failure `api/tape.py`'s own "
+            "docstring describes, one step further along"
+        )

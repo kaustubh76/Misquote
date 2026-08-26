@@ -62,6 +62,11 @@ def config(base: str | None) -> dict[str, Any]:
             "tape": "/tape",
             "journal": "/journal/{agent}",
             "vetting": "/vetting/{address}",
+            # An unquotable pool answers 200 with its refusal rather than a 4xx:
+            # a pool with too little tape has no ranking, and that is a result
+            # rather than a failure. A client must read the body either way.
+            "pools": "/pools",
+            "pool": "/pools/{address}",
             "registry": "/registry/agents",
             "eligibility": "/quote/eligibility/{address}",
             "quote": "POST /quote",

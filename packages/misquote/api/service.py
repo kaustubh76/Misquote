@@ -273,6 +273,8 @@ def index() -> dict[str, Any]:
             "/journal/{agent}": "one agent's decisions, as appended",
             "/vetting": "which pools carry a due-diligence badge, and which do not",
             "/vetting/{address}": "one pool's recorded badge",
+            "/pools": "which pool, at what width, as P25-P75 bands over the tape",
+            "/pools/{address}": "one pool's width ladder and demand, refusal included",
             "/registry/agents": "search the surveyed agents, with the coverage that search had",
             "/registry/agents/{agent_id}": "one agent, from the survey or from chain",
             "/wallet/{address}/positions": "a wallet's v3 positions, and which we could replay",
