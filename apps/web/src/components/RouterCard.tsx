@@ -3,7 +3,15 @@ import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { CompareToggle } from "@/components/CompareToggle";
 import { Band } from "@/components/Band";
-import { count, fraction, pct, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import {
+  count,
+  fraction,
+  money,
+  pct,
+  signed,
+  SIGN_CLASS,
+  signOf,
+} from "@/lib/format";
 import type { AgentRef, RouterArtifact } from "@/lib/artifacts";
 
 /**
@@ -20,7 +28,13 @@ import type { AgentRef, RouterArtifact } from "@/lib/artifacts";
  * The card leads with the boundary rather than the return, because on this tape
  * the return is zero and the boundary is the finding.
  */
-export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifact }) {
+export function RouterCard({
+  ref_,
+  data,
+}: {
+  ref_: AgentRef;
+  data: RouterArtifact;
+}) {
   const r = data.replay;
   const q = data.quote;
   const adv = data.advantage;
@@ -31,6 +45,7 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
   // and means something else. `RouterDetail.tsx` hit exactly this collision and
   // renamed its local to `rate`; this file kept it for one more commit.
   const rate = (x: number) => fraction(x, 2);
+  const unit = data.quote_symbol;
 
   return (
     <Card as="article" className="min-w-0">
@@ -70,7 +85,13 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
         series={
           q.sufficient
             ? [
-                { label: data.agent, p25: q.p25, p50: q.p50, p75: q.p75, tone: "agent" },
+                {
+                  label: data.agent,
+                  p25: q.p25,
+                  p50: q.p50,
+                  p75: q.p75,
+                  tone: "agent",
+                },
                 ...(adv?.quotable
                   ? [
                       {
@@ -93,7 +114,8 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
       {q.sufficient && (
         <p className="mt-3 mb-0 text-xs text-faint">
           median <span className="tabular text-dim">{pct(q.p50)}</span> ·{" "}
-          {count(q.net_positive)} of {count(q.samples)} windows finished in profit
+          {count(q.net_positive)} of {count(q.samples)} windows finished in
+          profit
         </p>
       )}
 
@@ -110,10 +132,56 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
         <dd className="tabular mb-0">{count(r.samples)}</dd>
       </dl>
 
+      {/* The venues, and what each could take.
+
+          This card showed the return, the hurdle and the moves, and never once
+          said what Router was choosing between. That was survivable while every
+          venue was a Venus market and the eyebrow's `data.venue` string covered
+          it. It stopped being survivable when a PancakeSwap range became a
+          venue: the answer to "can this agent find me a better yield" is now a
+          per-venue ceiling, and it lived only on the detail page.
+
+          A range shows its width and what it can absorb; a market shows what it
+          holds. Neither borrows the other's column — the fields genuinely do not
+          correspond, which is why the artifact publishes two shapes. */}
+      {data.venues.length > 0 && (
+        <ul className="mt-4 mb-0 grid list-none gap-1 p-0 text-sm">
+          {data.venues.map((v) => (
+            <li
+              key={v.venue_id}
+              className="flex flex-wrap items-baseline justify-between gap-x-3"
+            >
+              <span className="min-w-0 text-dim">
+                {v.symbol}
+                {v.kind === "pool" && (
+                  <span className="text-faint">
+                    {" "}
+                    · ±{count(v.reference_width_ticks)} ticks
+                  </span>
+                )}
+              </span>
+              <span className="tabular text-xs text-faint">
+                {/* The ceiling, not the size. A1 bounds the position at a
+                    fraction of the venue, and the fraction is the number that
+                    decided whether this venue could be used at all. */}
+                {money(v.a1_ceiling_quote, unit)} ceiling
+                {v.held_samples > 0
+                  ? ` · held ${count(v.held_samples)}`
+                  : " · never entered"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {adv && (
         <p className="mt-4 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm">
           <span className="text-faint">vs doing it yourself: </span>
-          <span className={`tabular font-semibold ${SIGN_CLASS[signOf(adv.delta_pp)]}`}>
+          <span
+            className={`tabular font-semibold ${
+              SIGN_CLASS[signOf(adv.delta_pp)]
+            }`}
+          >
             {signed(adv.delta_pp, 2, "pp")}
           </span>
           <span className="text-dim"> — {adv.verdict}</span>
@@ -123,6 +191,20 @@ export function RouterCard({ ref_, data }: { ref_: AgentRef; data: RouterArtifac
       {data.finding && (
         <p className="mt-4 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm leading-relaxed">
           {data.finding}
+        </p>
+      )}
+
+      {/* What became of the ranges, beside what the agent allocated.
+
+          Two findings rather than one, because they answer different questions:
+          `finding` is about the venue Router chose, and this is about the ones it
+          considered and did not. A card carrying only the first reports that
+          Router picked a lending market and leaves a reader to assume PancakeSwap
+          was never on the table — when it was measured on every sample and turned
+          down on size. */}
+      {data.pool_finding && (
+        <p className="mt-3 mb-0 rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm leading-relaxed text-dim">
+          {data.pool_finding}
         </p>
       )}
 

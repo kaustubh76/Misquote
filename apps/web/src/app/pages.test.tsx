@@ -1,8 +1,18 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts, textFrom } from "@/test/harness";
-import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
+import type {
+  AdvantageArtifact,
+  AgentArtifact,
+  IndexArtifact,
+} from "@/lib/artifacts";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { money, signed } from "@/lib/format";
@@ -36,13 +46,103 @@ afterEach(() => {
  * paint: a typecheck passes on a component that throws on its first render, and
  * a static export returns 200 for a page whose body is a skeleton forever.
  */
+/**
+ * Router's answer to the PancakeSwap question, on the page people land on.
+ *
+ * The venue seam, the A1 ceilings and `pool_finding` all shipped to
+ * `/agent/router` and stopped there. `/` and `/category/yield` render
+ * `RouterCard`, and it showed the return, the hurdle and the moves without ever
+ * saying what Router was choosing between — so the entire finding was one click
+ * away from every reader who did not already know to look for it.
+ */
+describe("Overview: Router's venues, and what became of them", () => {
+  interface Router {
+    pool_finding?: string;
+    quote_symbol?: string;
+    venues: {
+      kind: string;
+      symbol: string;
+      a1_ceiling_quote: number;
+      held_samples: number;
+      reference_width_ticks?: number;
+    }[];
+  }
+
+  it("names every venue Router chose between, not just the one it held", async () => {
+    const card = readArtifact<Router>("router.json");
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: "Router" });
+
+    for (const venue of card.venues) {
+      expect(
+        screen.getAllByText(textFrom(venue.symbol)).length,
+        `${venue.symbol} is a venue this run considered and the card does not name it`
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("publishes each venue's A1 ceiling, which is what decided the choice", async () => {
+    // The ceiling is the whole answer for a range: the yield was measured and
+    // the size is what failed. A card naming the venue and omitting the ceiling
+    // reports that Router picked a lending market and leaves the reason out.
+    const card = readArtifact<Router>("router.json");
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: "Router" });
+
+    const text = document.body.textContent ?? "";
+    for (const venue of card.venues) {
+      expect(text, `no ceiling rendered for ${venue.symbol}`).toContain(
+        money(venue.a1_ceiling_quote, card.quote_symbol)
+      );
+    }
+  });
+
+  it("says what became of the ranges, beside what it allocated", async () => {
+    const card = readArtifact<Router>("router.json");
+    if (!card.pool_finding) return;
+
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: "Router" });
+    expect(screen.getByText(card.pool_finding)).toBeInTheDocument();
+  });
+
+  it("still renders a card with no ranges on it at all", async () => {
+    // `--no-pools` and the withheld card both produce this shape, and a clean
+    // checkout emits the second. A venue list that assumed a range would take
+    // the landing page down with it.
+    const card = readArtifact<Record<string, unknown>>("router.json");
+    serveArtifacts({
+      overrides: {
+        "router.json": {
+          ...card,
+          // `venue` as well as `venues`: the emitter builds that label from the
+          // pool venues it offered, so a card with none carries the Venus-only
+          // string. Overriding one and not the other would be a shape the
+          // emitter cannot produce, and the test would be about nothing.
+          venue: "Venus Core Pool (BSC) — dollar markets only",
+          venues: (card.venues as Record<string, unknown>[]).filter(
+            (v) => v.kind !== "pool"
+          ),
+          pool_finding: "",
+        },
+      },
+    });
+
+    render(<OverviewPage />);
+    await screen.findByRole("heading", { name: "Router" });
+    expect(screen.queryByText(/ticks/)).not.toBeInTheDocument();
+  });
+});
+
 describe("Overview", () => {
   it("renders a card per agent, from the index", async () => {
     const index = readArtifact<IndexArtifact>("index.json");
     render(<OverviewPage />);
 
     for (const agent of index.agents) {
-      expect(await screen.findByRole("heading", { name: agent.name })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: agent.name })
+      ).toBeInTheDocument();
     }
   });
 
@@ -56,9 +156,13 @@ describe("Overview", () => {
     render(<OverviewPage />);
 
     const expected =
-      index.source === "chain" ? /Indexed chain history/ : /Synthetic tape — not chain data/;
+      index.source === "chain"
+        ? /Indexed chain history/
+        : /Synthetic tape — not chain data/;
     const forbidden =
-      index.source === "chain" ? /Synthetic tape — not chain data/ : /Indexed chain history/;
+      index.source === "chain"
+        ? /Synthetic tape — not chain data/
+        : /Indexed chain history/;
 
     expect(await screen.findByText(expected)).toBeInTheDocument();
     expect(screen.queryByText(forbidden)).not.toBeInTheDocument();
@@ -66,14 +170,18 @@ describe("Overview", () => {
 
   it("shows the fourth category as not built instead of omitting it", async () => {
     render(<OverviewPage />);
-    expect(await screen.findByRole("heading", { name: "Router" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Router" })
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Not built").length).toBeGreaterThan(0);
   });
 
   it("stops loading — the skeleton is not the final state", async () => {
     const { container } = render(<OverviewPage />);
     await waitFor(() =>
-      expect(container.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
+      expect(
+        container.querySelector("[aria-busy='true']")
+      ).not.toBeInTheDocument()
     );
   });
 });
@@ -94,15 +202,18 @@ describe("Overview leads with the comparison", () => {
     // reader to notice four cards above three rows.
     const comparable = index.agents.filter((a) => a.slug !== "router");
     for (const agent of comparable) {
-      expect(within(panel).getByRole("link", { name: agent.name })).toHaveAttribute(
-        "href",
-        `/agent/${agent.slug}`,
-      );
+      expect(
+        within(panel).getByRole("link", { name: agent.name })
+      ).toHaveAttribute("href", `/agent/${agent.slug}`);
     }
     const excluded = index.agents.filter((a) => a.slug === "router");
     for (const agent of excluded) {
-      expect(within(panel).queryByRole("link", { name: agent.name })).toBeNull();
-      expect(screen.getByText(new RegExp(`${agent.name}.*not on this table`, "s"))).toBeTruthy();
+      expect(
+        within(panel).queryByRole("link", { name: agent.name })
+      ).toBeNull();
+      expect(
+        screen.getByText(new RegExp(`${agent.name}.*not on this table`, "s"))
+      ).toBeTruthy();
     }
   });
 
@@ -120,11 +231,11 @@ describe("Overview leads with the comparison", () => {
     // every CostBars bar inside the three cards below, whose widths differ
     // anyway — so the assertion passed with all three comparison bars pinned to
     // 100%, which a mutation run caught.
-    const panel = (await screen.findByText(/longest bar is the largest/)).closest(
-      "div",
-    )!;
-    const bars = [...panel.querySelectorAll<HTMLElement>("li div > div")].map((el) =>
-      parseFloat(el.style.width),
+    const panel = (
+      await screen.findByText(/longest bar is the largest/)
+    ).closest("div")!;
+    const bars = [...panel.querySelectorAll<HTMLElement>("li div > div")].map(
+      (el) => parseFloat(el.style.width)
     );
     expect(bars).toHaveLength(3);
 
@@ -169,7 +280,9 @@ describe("Overview leads with the comparison", () => {
     const caption = await screen.findByText(/longest bar is the largest/);
 
     // Never typed: the floor is one of the five `/methods` publishes.
-    expect(caption.textContent).toContain(`${Math.round(100 * warden.floors.in_range_floor)}%`);
+    expect(caption.textContent).toContain(
+      `${Math.round(100 * warden.floors.in_range_floor)}%`
+    );
   });
 
   it("omits an agent whose artifact failed rather than drawing it as zero", async () => {
@@ -179,8 +292,12 @@ describe("Overview leads with the comparison", () => {
     const caption = await screen.findByText(/longest bar is the largest/);
     const panel = caption.closest("div")!;
 
-    expect(within(panel).queryByRole("link", { name: "Grid" })).not.toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: "Warden" })).toBeInTheDocument();
+    expect(
+      within(panel).queryByRole("link", { name: "Grid" })
+    ).not.toBeInTheDocument();
+    expect(
+      within(panel).getByRole("link", { name: "Warden" })
+    ).toBeInTheDocument();
   });
 });
 
@@ -191,8 +308,12 @@ describe("Overview, when one agent artifact is missing", () => {
     serveArtifacts({ missing: ["grid.json"] });
     render(<OverviewPage />);
 
-    expect(await screen.findByRole("heading", { name: "Warden" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sentinel" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Warden" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Sentinel" })
+    ).toBeInTheDocument();
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(/Grid card could not be loaded/);
@@ -205,11 +326,17 @@ describe("Agent detail", () => {
   it("renders the blocks the card page dropped", async () => {
     render(<AgentDetail slug="warden" />);
 
-    expect(await screen.findByRole("heading", { name: "Warden" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Why it held" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Provenance" })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "The parameters behind the range" }),
+      await screen.findByRole("heading", { name: "Warden" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Why it held" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Provenance" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "The parameters behind the range" })
     ).toBeInTheDocument();
   });
 
@@ -220,7 +347,9 @@ describe("Agent detail", () => {
 
     const label = warden.estimators.kappa_label;
     if (warden.estimators.kappa_is_fallback && label) {
-      expect(screen.getByText(/κ was not fitted on this run/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/κ was not fitted on this run/)
+      ).toBeInTheDocument();
       expect(screen.getByText(textFrom(label))).toBeInTheDocument();
     }
   });
@@ -258,12 +387,20 @@ describe("Agent detail", () => {
     // green while each card still said only "n = 60".
     if (warden.verdicts.in_range.n === warden.replay.samples) {
       expect(
-        screen.getByText(new RegExp(`n = ${warden.replay.samples.toLocaleString("en-US")} replay decisions`)),
+        screen.getByText(
+          new RegExp(
+            `n = ${warden.replay.samples.toLocaleString(
+              "en-US"
+            )} replay decisions`
+          )
+        )
       ).toBeInTheDocument();
     }
     if (warden.verdicts.profitable.n === warden.quote_detail?.samples) {
       expect(
-        screen.getByText(new RegExp(`n = ${warden.quote_detail.samples} window returns`)),
+        screen.getByText(
+          new RegExp(`n = ${warden.quote_detail.samples} window returns`)
+        )
       ).toBeInTheDocument();
     }
   });
@@ -277,7 +414,9 @@ describe("Agent detail", () => {
     await screen.findByRole("heading", { name: "Why it held" });
 
     expect(
-      screen.getByRole("heading", { name: /What it did, and what it would have done/ }),
+      screen.getByRole("heading", {
+        name: /What it did, and what it would have done/,
+      })
     ).toBeInTheDocument();
     expect(screen.getByText(/of tape/)).toBeInTheDocument();
     expect(screen.getByText(/journalled/)).toBeInTheDocument();
@@ -287,7 +426,8 @@ describe("Agent detail", () => {
     const gates = Object.values(warden.activity.held_by_gate);
     if (gates.length > 0 && warden.activity.decisions > 0) {
       expect(
-        screen.getAllByText(new RegExp(`of ${warden.activity.decisions}\\b`)).length,
+        screen.getAllByText(new RegExp(`of ${warden.activity.decisions}\\b`))
+          .length
       ).toBeGreaterThan(0);
     }
   });
@@ -299,7 +439,9 @@ describe("Advantage", () => {
     render(<AdvantagePage />);
 
     for (const task of d.tasks) {
-      expect(await screen.findByRole("heading", { name: task.task })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: task.task })
+      ).toBeInTheDocument();
     }
   });
 
@@ -319,10 +461,14 @@ describe("Advantage", () => {
     const short = readArtifact<AdvantageArtifact>("advantage_short.json");
     render(<AdvantagePage />);
 
-    await screen.findByRole("heading", { name: /same report, on too little history/i });
+    await screen.findByRole("heading", {
+      name: /same report, on too little history/i,
+    });
     expect(short.summary.withheld).toBe(short.summary.tasks);
     expect(
-      await screen.findByText(`${short.summary.withheld} of ${short.summary.tasks} withheld`),
+      await screen.findByText(
+        `${short.summary.withheld} of ${short.summary.tasks} withheld`
+      )
     ).toBeInTheDocument();
   });
 
@@ -339,7 +485,9 @@ describe("Advantage", () => {
     // screen-inch from the one Python wrote, which is the thing this codebase
     // refuses to do in `Band.tsx`.
     const d = readArtifact<AdvantageArtifact>("advantage.json");
-    const losing = d.tasks.filter((t) => t.quotable && t.verdict.includes("loses to"));
+    const losing = d.tasks.filter(
+      (t) => t.quotable && t.verdict.includes("loses to")
+    );
     expect(losing.length).toBeGreaterThan(0);
     render(<AdvantagePage />);
 
@@ -399,10 +547,14 @@ describe("Methods", () => {
     const warden = readArtifact<AgentArtifact>("warden.json");
     render(<MethodsPage />);
 
-    const heading = await screen.findByRole("heading", { name: /Why the quote says/ });
+    const heading = await screen.findByRole("heading", {
+      name: /Why the quote says/,
+    });
     // Both numbers, in one sentence, so the card can stop appearing to
     // contradict itself.
-    expect(heading).toHaveTextContent(warden.quote_detail!.hours_per_window.toFixed(1));
+    expect(heading).toHaveTextContent(
+      warden.quote_detail!.hours_per_window.toFixed(1)
+    );
     expect(heading).toHaveTextContent(warden.replay.hours.toFixed(1));
   });
 
@@ -447,7 +599,12 @@ describe("Assumptions", () => {
 describe("Registry: the escrow claims only what was recorded", () => {
   interface Reg {
     hire_flow: {
-      escrow: { available: boolean; address?: string; reason?: string; evidence?: string[] };
+      escrow: {
+        available: boolean;
+        address?: string;
+        reason?: string;
+        evidence?: string[];
+      };
     };
     identity: { surveyed: boolean; agents?: { agent_id: number }[] };
   }
@@ -493,7 +650,9 @@ describe("Registry: the escrow claims only what was recorded", () => {
     // rather than by whole string: a caveat renders its "NOT VERIFIED" prefix
     // in its own <strong>, so the line is two nodes and a full-text match on it
     // would silently never fire.
-    const items = [...document.querySelectorAll("li")].map((li) => li.textContent ?? "");
+    const items = [...document.querySelectorAll("li")].map(
+      (li) => li.textContent ?? ""
+    );
     for (const finding of escrow.evidence ?? []) {
       const tail = finding.slice(-40);
       expect(items.some((text) => text.includes(tail))).toBe(true);
@@ -510,7 +669,10 @@ describe("Registry: the escrow claims only what was recorded", () => {
       // `registry/erc8183.py::escrow_address` raises rather than returning a
       // plausible address — why it raises is the finding, and it names the
       // contract that was carried here and removed.
-      expect(escrow.reason, "an unavailable escrow with no reason is a silent absence").toBeTruthy();
+      expect(
+        escrow.reason,
+        "an unavailable escrow with no reason is a silent absence"
+      ).toBeTruthy();
       expect(screen.getByText(escrow.reason as string)).toBeInTheDocument();
       expect(screen.getByText(/erc8183\.py/)).toBeInTheDocument();
       return;
@@ -524,7 +686,7 @@ describe("Registry: the escrow claims only what was recorded", () => {
 
     expect(
       caveats.length,
-      "an address published with no caveat against it is the green tick again",
+      "an address published with no caveat against it is the green tick again"
     ).toBeGreaterThan(0);
 
     for (const caveat of caveats) {
@@ -557,9 +719,13 @@ describe("Registry", () => {
     await screen.findByRole("heading", { name: "ERC-8004 identity registry" });
 
     if (reg.identity.surveyed) {
-      expect(await screen.findByText(/substantive agent cards/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/substantive agent cards/i)
+      ).toBeInTheDocument();
     } else {
-      expect(await screen.findByText(/registry was not surveyed/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/registry was not surveyed/i)
+      ).toBeInTheDocument();
     }
   });
 
@@ -571,7 +737,9 @@ describe("Registry", () => {
     if (!reg.identity.surveyed || !(reg.identity.agents ?? []).length) return;
 
     render(<RegistryPage />);
-    const notes = await screen.findAllByText(/cannot replay a policy we do not have/i);
+    const notes = await screen.findAllByText(
+      /cannot replay a policy we do not have/i
+    );
     expect(notes.length).toBe((reg.identity.agents ?? []).length);
   });
 });
@@ -587,15 +755,21 @@ describe("Status", () => {
 
     render(<StatusPage />);
     expect(await screen.findByText(status.outcome)).toBeInTheDocument();
-    expect(screen.getByText(`exit code ${status.exit_code}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`exit code ${status.exit_code}`)
+    ).toBeInTheDocument();
 
     for (const check of status.checks) {
-      expect(screen.getByRole("heading", { name: check.name })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: check.name })
+      ).toBeInTheDocument();
     }
   });
 
   it("names the gates --fast skipped rather than omitting them", async () => {
-    const status = readArtifact<{ fast: boolean; skipped: string[] }>("status.json");
+    const status = readArtifact<{ fast: boolean; skipped: string[] }>(
+      "status.json"
+    );
     render(<StatusPage />);
     await screen.findByRole("heading", { name: "Gates" });
 
@@ -620,12 +794,20 @@ describe("Methods states no figure it has not loaded", () => {
 
     await screen.findByRole("alert");
 
-    for (const literal of [/~?31h/, /62\.2h/, /\b20 usable/, /\b24h per window/,
-                           /\b168h before/, /\b30 observations/]) {
+    for (const literal of [
+      /~?31h/,
+      /62\.2h/,
+      /\b20 usable/,
+      /\b24h per window/,
+      /\b168h before/,
+      /\b30 observations/,
+    ]) {
       expect(screen.queryByText(literal)).not.toBeInTheDocument();
     }
     expect(
-      screen.getByRole("heading", { name: /quote window is shorter than the tape/ }),
+      screen.getByRole("heading", {
+        name: /quote window is shorter than the tape/,
+      })
     ).toBeInTheDocument();
   });
 
@@ -642,8 +824,12 @@ describe("Methods states no figure it has not loaded", () => {
     render(<MethodsPage />);
 
     // If these were literals the page would still read "20" and "30".
-    expect(await screen.findByText(/999 usable sub-windows/)).toBeInTheDocument();
-    expect(screen.getByText(/777 observations before a verdict/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/999 usable sub-windows/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/777 observations before a verdict/)
+    ).toBeInTheDocument();
     expect(screen.queryByText(/20 usable sub-windows/)).not.toBeInTheDocument();
   });
 });
@@ -655,7 +841,9 @@ describe("Overview never shows a bare region", () => {
     // The invariant: at no observed moment is the page done loading while
     // having nothing to show. Gating on index alone broke exactly this.
     await waitFor(() =>
-      expect(container.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
+      expect(
+        container.querySelector("[aria-busy='true']")
+      ).not.toBeInTheDocument()
     );
     expect(screen.getByRole("heading", { name: "Warden" })).toBeInTheDocument();
   });
@@ -677,12 +865,14 @@ function renderedChecks(record: {
   erc8183?: Record<string, unknown>;
 }): { status: string }[] {
   if (!record?.surveyed) return [];
-  const nested = record.venus as Parameters<typeof renderedChecks>[0] | undefined;
+  const nested = record.venus as
+    | Parameters<typeof renderedChecks>[0]
+    | undefined;
   return [
     ...(record.checks ?? []),
     ...(nested ? renderedChecks(nested) : []),
     ...Object.values(record.erc8183 ?? {}).flatMap((chain) =>
-      renderedChecks(chain as Parameters<typeof renderedChecks>[0]),
+      renderedChecks(chain as Parameters<typeof renderedChecks>[0])
     ),
   ];
 }
@@ -707,11 +897,15 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     const section = heading.closest("[data-heading-scope]") as HTMLElement;
 
     if (!a.surveyed) {
-      expect(within(section).getByText(/were not verified/)).toBeInTheDocument();
+      expect(
+        within(section).getByText(/were not verified/)
+      ).toBeInTheDocument();
       return;
     }
     for (const check of a.checks ?? []) {
-      expect(within(section).getByRole("heading", { name: check.name })).toBeInTheDocument();
+      expect(
+        within(section).getByRole("heading", { name: check.name })
+      ).toBeInTheDocument();
     }
   });
 
@@ -742,9 +936,11 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     // skeleton is what renders until it does. This passed only because the
     // second fetch happened to win, and stopped when `vetting.json` grew from
     // two badged pools to three.
-    expect(await within(section).findByText(/were not verified/)).toBeInTheDocument();
     expect(
-      within(section).getByText(/no address verification has been recorded/),
+      await within(section).findByText(/were not verified/)
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByText(/no address verification has been recorded/)
     ).toBeInTheDocument();
     // A refusal, not an error. Nothing broke.
     expect(within(section).queryByRole("alert")).not.toBeInTheDocument();
@@ -778,7 +974,9 @@ describe("Vetting: the addresses the signer is pointed at", () => {
 
     if (a.surveyed) {
       for (const check of a.checks ?? []) {
-        expect(within(section).getByRole("heading", { name: check.name })).toBeInTheDocument();
+        expect(
+          within(section).getByRole("heading", { name: check.name })
+        ).toBeInTheDocument();
       }
     }
   });
@@ -793,16 +991,22 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     // did. The address record nests a `venus` survey and one `erc8183` record
     // per chain, all rendered — so the page said 38 above 78. Counted the way
     // the view counts now, which is what lets the two disagree.
-    const v = readArtifact<{ surveyed: boolean; pools: { checks: { status: string }[] }[] }>(
-      "vetting.json",
-    );
+    const v = readArtifact<{
+      surveyed: boolean;
+      pools: { checks: { status: string }[] }[];
+    }>("vetting.json");
     const a = readArtifact<Addrs>("addresses.json");
     render(<VettingPage />);
-    await screen.findByRole("heading", { name: /addresses the signer is pointed at/i });
+    await screen.findByRole("heading", {
+      name: /addresses the signer is pointed at/i,
+    });
 
     const expected =
-      (v.surveyed ? v.pools.flatMap((p) => p.checks).length : 0) + renderedChecks(a).length;
-    expect(screen.getByText(new RegExp(`${expected} checks across`))).toBeInTheDocument();
+      (v.surveyed ? v.pools.flatMap((p) => p.checks).length : 0) +
+      renderedChecks(a).length;
+    expect(
+      screen.getByText(new RegExp(`${expected} checks across`))
+    ).toBeInTheDocument();
   });
 
   it("survives the artifact being absent entirely", async () => {
@@ -817,25 +1021,29 @@ describe("Vetting: the addresses the signer is pointed at", () => {
     // finding the heading says nothing about whether the second fetch has
     // resolved. It passed only while that fetch happened to win the race.
     expect(
-      await within(heading.closest("[data-heading-scope]") as HTMLElement).findByText(
+      await within(
+        heading.closest("[data-heading-scope]") as HTMLElement
+      ).findByText(
         // Was `/has not been generated/`, which the page said about a file it
         // had merely not fetched yet. It now reports what it knows: the read
         // failed, and why.
-        /could not be read/,
-      ),
+        /could not be read/
+      )
     ).toBeInTheDocument();
   });
 });
 
 describe("Vetting", () => {
   it("renders a section per pool with its checks", async () => {
-    const d = readArtifact<{ pools: { label: string; checks?: { name: string }[] }[] }>(
-      "vetting.json",
-    );
+    const d = readArtifact<{
+      pools: { label: string; checks?: { name: string }[] }[];
+    }>("vetting.json");
     render(<VettingPage />);
 
     for (const pool of d.pools) {
-      expect(await screen.findByRole("heading", { name: pool.label })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: pool.label })
+      ).toBeInTheDocument();
     }
     // Scoped to one pool: every pool runs the same nine checks, so the names
     // are deliberately not unique across the page.
@@ -843,7 +1051,9 @@ describe("Vetting", () => {
       .getByRole("heading", { name: d.pools[0]!.label })
       .closest("[data-heading-scope]") as HTMLElement;
     for (const check of d.pools[0]?.checks ?? []) {
-      expect(within(first).getByRole("heading", { name: check.name })).toBeInTheDocument();
+      expect(
+        within(first).getByRole("heading", { name: check.name })
+      ).toBeInTheDocument();
     }
   });
 
@@ -866,12 +1076,14 @@ describe("Vetting", () => {
               },
             ],
           }
-        : p,
+        : p
     );
     serveArtifacts({ overrides: { "vetting.json": { ...d, pools } } });
     render(<VettingPage />);
 
-    expect(await screen.findByText("the node did not answer")).toBeInTheDocument();
+    expect(
+      await screen.findByText("the node did not answer")
+    ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -890,7 +1102,9 @@ describe("Vetting", () => {
     });
     render(<VettingPage />);
 
-    expect(await screen.findByText(/No pool has been badged/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/No pool has been badged/)
+    ).toBeInTheDocument();
     // A refusal, not an error: nothing broke, nothing was read.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -928,7 +1142,7 @@ describe("Venue: what has been checked, and what has not", () => {
   const badged = new Set(
     readArtifact<Badges>("vetting.json")
       .pools.filter((p) => p.badged && p.pool)
-      .map((p) => (p.pool as string).toLowerCase()),
+      .map((p) => (p.pool as string).toLowerCase())
   );
   const covered = pools.filter((p) => badged.has(p.address.toLowerCase()));
 
@@ -939,7 +1153,7 @@ describe("Venue: what has been checked, and what has not", () => {
     expect(covered.length).toBeGreaterThan(0);
     expect(
       covered.length,
-      "every listed pool is badged now — the overstatement is unreachable, retarget this",
+      "every listed pool is badged now — the overstatement is unreachable, retarget this"
     ).toBeLessThan(pools.length);
 
     render(<VenuePage />);
@@ -955,14 +1169,18 @@ describe("Venue: what has been checked, and what has not", () => {
     render(<VenuePage />);
     await screen.findByRole("heading", { name: "The pools we actually read" });
 
-    const rows = [...document.querySelectorAll("tr")].map((r) => r.textContent ?? "");
+    const rows = [...document.querySelectorAll("tr")].map(
+      (r) => r.textContent ?? ""
+    );
     for (const pool of unchecked) {
       const row = rows.find((t) => t.includes(pool.label));
       expect(row, `${pool.label} is not in the table at all`).toBeTruthy();
       expect(row).toContain("not checked");
     }
     for (const pool of covered) {
-      expect(rows.find((t) => t.includes(pool.label))).toContain("nine checks passed");
+      expect(rows.find((t) => t.includes(pool.label))).toContain(
+        "nine checks passed"
+      );
     }
   });
 });
@@ -985,8 +1203,16 @@ describe("Venue: which pool, and how wide", () => {
       address: string;
       verdict: string;
       best_width_ticks: number | null;
-      ladder: { width_ticks: number; sufficient: boolean; observations: number }[];
-      demand: { swaps: number; fee_per_unit_liquidity: number; volume_quote: number };
+      ladder: {
+        width_ticks: number;
+        sufficient: boolean;
+        observations: number;
+      }[];
+      demand: {
+        swaps: number;
+        fee_per_unit_liquidity: number;
+        volume_quote: number;
+      };
     }[];
   }
 
@@ -1009,14 +1235,19 @@ describe("Venue: which pool, and how wide", () => {
     render(<VenuePage />);
     await screen.findByRole("heading", { name: "Which pool, and how wide" });
 
-    const rows = [...document.querySelectorAll("tr")].map((r) => r.textContent ?? "");
+    const rows = [...document.querySelectorAll("tr")].map(
+      (r) => r.textContent ?? ""
+    );
     for (const pool of measured.pools) {
       for (const band of pool.ladder) {
-        const present = rows.some((t) => t.includes(`\u00b1${band.width_ticks} ticks`));
+        const present = rows.some((t) =>
+          t.includes(`\u00b1${band.width_ticks} ticks`)
+        );
         if (band.sufficient) {
-          expect(present, `+/-${band.width_ticks} cleared the floor and is not rendered`).toBe(
-            true,
-          );
+          expect(
+            present,
+            `+/-${band.width_ticks} cleared the floor and is not rendered`
+          ).toBe(true);
         }
       }
     }
@@ -1027,7 +1258,9 @@ describe("Venue: which pool, and how wide", () => {
     // loud: "we have no idea" and "it pays nothing" must not render the same,
     // and the second is what an empty row means to a reader.
     const measured = readArtifact<Ladder>("pools.json");
-    const silent = measured.pools.filter((p) => !p.ladder.some((b) => b.sufficient));
+    const silent = measured.pools.filter(
+      (p) => !p.ladder.some((b) => b.sufficient)
+    );
     if (silent.length === 0) return;
 
     render(<VenuePage />);
@@ -1056,10 +1289,12 @@ describe("Venue: which pool, and how wide", () => {
     render(<VenueView initial={readArtifact<VenueArtifact>("venue.json")} />);
     await screen.findByRole("heading", { name: "Which pool, and how wide" });
 
-    expect(document.body.textContent ?? "").toContain("No width ladder has been measured");
+    expect(document.body.textContent ?? "").toContain(
+      "No width ladder has been measured"
+    );
     // The rest of the page is unaffected — this section is additive.
     expect(
-      screen.getByRole("heading", { name: "The pools we actually read" }),
+      screen.getByRole("heading", { name: "The pools we actually read" })
     ).toBeInTheDocument();
   });
 });
@@ -1131,7 +1366,9 @@ describe("Venue: the divergences, not the pool label", () => {
     render(<VenuePage />);
     await screen.findByRole("heading", { name: "The pools we actually read" });
 
-    expect(screen.getByText(`${venue.uniswap_only_tier}\u219260`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${venue.uniswap_only_tier}\u219260`)
+    ).toBeInTheDocument();
   });
 });
 
@@ -1160,7 +1397,9 @@ describe("Overview routes the two integrations", () => {
     // the status string is `status.json`'s own — so this cannot read green
     // while the checklist reads amber.
     const status = readArtifact<Status>("status.json");
-    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    const gate = status.checks.find(
+      (c) => c.name === "agent advantage report"
+    )!;
     render(<OverviewPage />);
     const card = await screen.findByRole("link", { name: /The track/ });
 
@@ -1174,12 +1413,17 @@ describe("Overview routes the two integrations", () => {
     // positional read would start reporting a different gate's verdict the day
     // one is inserted, and it would look right.
     const status = readArtifact<Status>("status.json");
-    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    const gate = status.checks.find(
+      (c) => c.name === "agent advantage report"
+    )!;
     serveArtifacts({
       overrides: {
         "status.json": {
           ...status,
-          checks: [{ name: "a new gate", status: "PASS", detail: "inserted first" }, ...status.checks],
+          checks: [
+            { name: "a new gate", status: "PASS", detail: "inserted first" },
+            ...status.checks,
+          ],
         },
       },
     });
@@ -1224,7 +1468,7 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
 
     const titles = screen.getAllByRole("heading").map((h) => h.textContent);
     expect(titles.indexOf("The judged deliverable")).toBeLessThan(
-      titles.indexOf("Hiring an agent, end to end"),
+      titles.indexOf("Hiring an agent, end to end")
     );
   });
 
@@ -1236,9 +1480,13 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     // is also the stronger assertion — it says *this* gate reads PASS rather
     // than "the word PASS appears somewhere on the page".
     const status = readArtifact<Status>("status.json");
-    const gate = status.checks.find((c) => c.name === "agent advantage report")!;
+    const gate = status.checks.find(
+      (c) => c.name === "agent advantage report"
+    )!;
     render(<RegistryPage />);
-    const heading = await screen.findByRole("heading", { name: "The judged deliverable" });
+    const heading = await screen.findByRole("heading", {
+      name: "The judged deliverable",
+    });
     const section = heading.closest("section")!;
 
     expect(within(section).getByText(gate.status)).toBeInTheDocument();
@@ -1261,7 +1509,9 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     const stamp = screen
       .getByText(new RegExp(reg.build.git_sha!))
       .closest("p, div") as HTMLElement;
-    expect(within(stamp).getByText(new RegExp(reg.build.source!))).toBeInTheDocument();
+    expect(
+      within(stamp).getByText(new RegExp(reg.build.source!))
+    ).toBeInTheDocument();
   });
 
   it("names the chain the TermiX table belongs to", async () => {
@@ -1273,7 +1523,7 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     // unscoped match found two and would have passed on the wrong one.
     const section = heading.closest("section")!;
     expect(
-      within(section).getByText(new RegExp(`chain ${reg.aacp.chain_id}`)),
+      within(section).getByText(new RegExp(`chain ${reg.aacp.chain_id}`))
     ).toBeInTheDocument();
   });
 
@@ -1296,7 +1546,9 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     // Awaited: the heading and the refusal come from the same fetch but not the
     // same paint, and this page grew a list of third-party agent cards between
     // them. A synchronous assertion here was passing on render timing.
-    expect(await screen.findByText(/no deployment for chain 97/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/no deployment for chain 97/)
+    ).toBeInTheDocument();
   });
 
   it("refuses rather than showing an empty table when we have registered nothing", async () => {
@@ -1309,7 +1561,13 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
       overrides: {
         "registry.json": {
           ...reg,
-          ours: { surveyed: false, reason: "nobody has looked", chain_id: 97, agents: [], checks: [] },
+          ours: {
+            surveyed: false,
+            reason: "nobody has looked",
+            chain_id: 97,
+            agents: [],
+            checks: [],
+          },
         },
       },
     });
@@ -1330,8 +1588,10 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
       agent_id: 1913,
       token_uri_bytes: 721,
       gas_used: 700000,
-      register_tx: "0xaaaa000000000000000000000000000000000000000000000000000000000001",
-      transfer_tx: "0xbbbb000000000000000000000000000000000000000000000000000000000002",
+      register_tx:
+        "0xaaaa000000000000000000000000000000000000000000000000000000000001",
+      transfer_tx:
+        "0xbbbb000000000000000000000000000000000000000000000000000000000002",
       register_url: "https://testnet.bscscan.com/tx/0xaaaa",
       transfer_url: "https://testnet.bscscan.com/tx/0xbbbb",
       agent_url: "https://testnet.bscscan.com/token/0xreg?a=1913",
@@ -1354,17 +1614,17 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
       },
     });
     render(<RegistryPage />);
-    const heading = await screen.findByRole("heading", { name: /Our own agents/ });
+    const heading = await screen.findByRole("heading", {
+      name: /Our own agents/,
+    });
     const section = heading.closest("section")!;
 
-    expect(within(section).getByRole("link", { name: /register/ })).toHaveAttribute(
-      "href",
-      agent.register_url,
-    );
-    expect(within(section).getByRole("link", { name: /transfer/ })).toHaveAttribute(
-      "href",
-      agent.transfer_url,
-    );
+    expect(
+      within(section).getByRole("link", { name: /register/ })
+    ).toHaveAttribute("href", agent.register_url);
+    expect(
+      within(section).getByRole("link", { name: /transfer/ })
+    ).toHaveAttribute("href", agent.transfer_url);
   });
 
   it("names the contract each call goes to", async () => {
@@ -1375,7 +1635,9 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
     await screen.findByRole("heading", { name: "Hiring an agent, end to end" });
 
     const erc20 = reg.hire_flow.steps.find((s) => s.contract !== "escrow")!;
-    expect(screen.getByText(new RegExp(erc20.contract, "i"))).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(erc20.contract, "i"))
+    ).toBeInTheDocument();
   });
 });
 
@@ -1391,7 +1653,9 @@ describe("an artifact missing its estimator block renders rather than throwing",
     // in render escapes to Next's root handler and replaces the document, nav
     // and all. So the fix is not to catch it, it is not to throw.
     const warden = readArtifact<AgentArtifact>("warden.json");
-    serveArtifacts({ overrides: { "warden.json": { ...warden, estimators: {} } } });
+    serveArtifacts({
+      overrides: { "warden.json": { ...warden, estimators: {} } },
+    });
     render(<AgentDetail slug="warden" />);
 
     const heading = await screen.findByRole("heading", {
@@ -1415,7 +1679,9 @@ describe("Vetting distinguishes not-yet-read from not-generated", () => {
 
     expect(screen.queryByText(/has not been generated/)).toBeNull();
 
-    await screen.findByRole("heading", { name: /The addresses the signer is pointed at/ });
+    await screen.findByRole("heading", {
+      name: /The addresses the signer is pointed at/,
+    });
     expect(screen.queryByText(/has not been generated/)).toBeNull();
   });
 
@@ -1425,9 +1691,11 @@ describe("Vetting distinguishes not-yet-read from not-generated", () => {
     serveArtifacts({ missing: ["addresses.json"] });
     render(<VettingPage />);
 
-    expect(await screen.findByText(/addresses\.json could not be read/)).toBeInTheDocument();
     expect(
-      screen.getByText(/an address nobody checked and an address checked clean/),
+      await screen.findByText(/addresses\.json could not be read/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/an address nobody checked and an address checked clean/)
     ).toBeInTheDocument();
   });
 });
@@ -1444,7 +1712,9 @@ describe("the agent page is rendered before JavaScript runs", () => {
     // anyway. That is the whole claim.
     render(<AgentDetail slug="warden" initial={warden} />);
 
-    expect(screen.getByRole("heading", { name: warden.agent })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: warden.agent })
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Loading/)).toBeNull();
   });
 
@@ -1454,13 +1724,17 @@ describe("the agent page is rendered before JavaScript runs", () => {
     // it — the build is the first paint, the fetch is the truth.
     const warden = readArtifact<AgentArtifact>("warden.json");
     serveArtifacts({
-      overrides: { "warden.json": { ...warden, agent: "Warden (from the fetch)" } },
+      overrides: {
+        "warden.json": { ...warden, agent: "Warden (from the fetch)" },
+      },
     });
     render(<AgentDetail slug="warden" initial={warden} />);
 
-    expect(screen.getByRole("heading", { name: warden.agent })).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Warden (from the fetch)" }),
+      screen.getByRole("heading", { name: warden.agent })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Warden (from the fetch)" })
     ).toBeInTheDocument();
   });
 
@@ -1486,12 +1760,18 @@ describe("Status can be narrowed to what nobody checked", () => {
     // checks themselves — and a filter whose label disagrees with the list
     // under it is worse than no filter.
     const status = readArtifact<Status>("status.json");
-    const unverified = status.checks.filter((c) => c.status === "UNVERIFIED").length;
+    const unverified = status.checks.filter(
+      (c) => c.status === "UNVERIFIED"
+    ).length;
     render(<StatusPage />);
     await screen.findByRole("heading", { name: "Gates" });
 
-    expect(screen.getByRole("radio", { name: `All ${status.checks.length}` })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: `Unverified ${unverified}` })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: `All ${status.checks.length}` })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: `Unverified ${unverified}` })
+    ).toBeInTheDocument();
   });
 
   it("narrows the list and says by how much", async () => {
@@ -1505,7 +1785,9 @@ describe("Status can be narrowed to what nobody checked", () => {
 
     // The gates that remain are exactly the unverified ones.
     for (const check of unverified) {
-      expect(screen.getByRole("heading", { name: check.name })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: check.name })
+      ).toBeInTheDocument();
     }
     for (const check of status.checks.filter((c) => c.status === "PASS")) {
       expect(screen.queryByRole("heading", { name: check.name })).toBeNull();
@@ -1513,7 +1795,7 @@ describe("Status can be narrowed to what nobody checked", () => {
 
     // Announced, because the cards it removed are below the fold.
     expect(screen.getByLabelText("Filter result")).toHaveTextContent(
-      `${unverified.length} of ${status.checks.length} gates unverified.`,
+      `${unverified.length} of ${status.checks.length} gates unverified.`
     );
   });
 
@@ -1550,14 +1832,19 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     // useful part; the control is not.
     const vetting = readArtifact<Vetting>("vetting.json");
     const addrs = readArtifact<Addrs>("addresses.json");
-    const all = [...vetting.pools.flatMap((p) => p.checks), ...renderedChecks(addrs)];
+    const all = [
+      ...vetting.pools.flatMap((p) => p.checks),
+      ...renderedChecks(addrs),
+    ];
     const verdicts = new Set(all.map((c) => c.status));
     render(<VettingPage />);
     await screen.findByRole("heading", { name: /Due diligence/ });
 
     if (verdicts.size === 1) {
       expect(
-        await screen.findByText(new RegExp(`Every one of the ${all.length} checks`)),
+        await screen.findByText(
+          new RegExp(`Every one of the ${all.length} checks`)
+        )
       ).toBeInTheDocument();
       expect(screen.queryByRole("radio", { name: /^All/ })).toBeNull();
     }
@@ -1572,7 +1859,14 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     const doctored = {
       ...vetting,
       pools: vetting.pools.map((p, i) =>
-        i === 0 ? { ...p, checks: p.checks.map((c, j) => (j === 0 ? { ...c, status: "FAIL" } : c)) } : p,
+        i === 0
+          ? {
+              ...p,
+              checks: p.checks.map((c, j) =>
+                j === 0 ? { ...c, status: "FAIL" } : c
+              ),
+            }
+          : p
       ),
     };
     serveArtifacts({ overrides: { "vetting.json": doctored } });
@@ -1581,12 +1875,15 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
     await screen.findByRole("heading", { name: /Due diligence/ });
 
     const total =
-      doctored.pools.flatMap((p) => p.checks).length + renderedChecks(addrs).length;
-    expect(await screen.findByRole("radio", { name: `All ${total}` })).toBeInTheDocument();
+      doctored.pools.flatMap((p) => p.checks).length +
+      renderedChecks(addrs).length;
+    expect(
+      await screen.findByRole("radio", { name: `All ${total}` })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /^Fail/ }));
     expect(screen.getByLabelText("Check filter result")).toHaveTextContent(
-      `1 of ${total} checks are FAIL.`,
+      `1 of ${total} checks are FAIL.`
     );
   });
 });
@@ -1611,10 +1908,14 @@ describe("Two runs, one question", () => {
 
   /** The report's row for an agent, by the same rule `lib/counterpart` uses. */
   const taskFor = (name: string) =>
-    report.tasks.find((t) => t.with_agent.toLowerCase().startsWith(name.toLowerCase()));
+    report.tasks.find((t) =>
+      t.with_agent.toLowerCase().startsWith(name.toLowerCase())
+    );
 
   const sourceLabel = (source: string) =>
-    source === "chain" ? /Indexed chain history/ : /Synthetic tape — not chain data/;
+    source === "chain"
+      ? /Indexed chain history/
+      : /Synthetic tape — not chain data/;
 
   it("says which tape it read before it says what the tape showed", async () => {
     // The defect was position, not absence. `source` was on this page the whole
@@ -1632,34 +1933,45 @@ describe("Two runs, one question", () => {
     // the test went green on a page where the source had been pushed halfway
     // down again. The first heading is where the claims start.
     const headings = screen.getAllByRole("heading");
-    expect(headings.length, "the card renders no headings — retarget this").toBeGreaterThan(1);
-    expect(card.advantage, "sentinel.json publishes no advantage — retarget this").toBeTruthy();
+    expect(
+      headings.length,
+      "the card renders no headings — retarget this"
+    ).toBeGreaterThan(1);
+    expect(
+      card.advantage,
+      "sentinel.json publishes no advantage — retarget this"
+    ).toBeTruthy();
 
     for (const claim of [
       headings[1]!,
       screen.getAllByText(signed(card.advantage!.delta_pp, 2, "pp"))[0]!,
     ]) {
       expect(
-        banner.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING,
-        `"${claim.textContent}" is stated before the page says which tape it read`,
+        banner.compareDocumentPosition(claim) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        `"${claim.textContent}" is stated before the page says which tape it read`
       ).toBeTruthy();
     }
   });
 
   it("carries the other run's answer, its figure, and a way to reach it", async () => {
     const task = taskFor("Sentinel");
-    expect(task, "the report has no Sentinel task — retarget this test").toBeTruthy();
+    expect(
+      task,
+      "the report has no Sentinel task — retarget this test"
+    ).toBeTruthy();
 
     render(<AgentDetail slug="sentinel" />);
     await screen.findByRole("heading", { name: "Sentinel" });
 
     // The figure is read from the report, not restated: change `advantage.json`
     // and this must change with it.
-    expect(screen.getByText(signed(task!.delta_pp, 2, "pp"))).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: `${task!.task} →` })).toHaveAttribute(
-      "href",
-      "/advantage",
-    );
+    expect(
+      screen.getByText(signed(task!.delta_pp, 2, "pp"))
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: `${task!.task} →` })
+    ).toHaveAttribute("href", "/advantage");
   });
 
   it("renders no cross-reference for an agent the report does not judge", async () => {
@@ -1668,7 +1980,10 @@ describe("Two runs, one question", () => {
     // So two of the six pairings resolve to nothing, and nothing must render as
     // nothing rather than as an empty box or a link to a page that would answer
     // a different question.
-    expect(taskFor("Grid"), "the report now judges Grid — retarget this test").toBeUndefined();
+    expect(
+      taskFor("Grid"),
+      "the report now judges Grid — retarget this test"
+    ).toBeUndefined();
 
     const card = readArtifact<AgentArtifact>("grid.json");
     render(<AgentDetail slug="grid" />);
@@ -1677,8 +1992,8 @@ describe("Two runs, one question", () => {
     expect(screen.getByText(sourceLabel(card.source))).toBeInTheDocument();
     expect(
       screen.queryAllByText((_, el) =>
-        (el?.textContent ?? "").includes("The same task, replayed over"),
-      ),
+        (el?.textContent ?? "").includes("The same task, replayed over")
+      )
     ).toEqual([]);
     expect(document.querySelectorAll('a[href="/advantage"]')).toHaveLength(0);
   });
@@ -1689,19 +2004,20 @@ describe("Two runs, one question", () => {
 
     for (const task of report.tasks) {
       const agent = index.agents.find((a) =>
-        task.with_agent.toLowerCase().startsWith(a.name.toLowerCase()),
+        task.with_agent.toLowerCase().startsWith(a.name.toLowerCase())
       );
 
       if (agent) {
-        expect(screen.getByRole("link", { name: task.with_agent })).toHaveAttribute(
-          "href",
-          `/agent/${agent.slug}`,
-        );
+        expect(
+          screen.getByRole("link", { name: task.with_agent })
+        ).toHaveAttribute("href", `/agent/${agent.slug}`);
       } else {
         // Still named, just not linked. A slug guessed from the name would
         // resolve in dev and 404 on the static export, where only the slugs
         // `index.json` lists are built.
-        expect(screen.queryByRole("link", { name: task.with_agent })).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: task.with_agent })
+        ).not.toBeInTheDocument();
         expect(screen.getAllByText(task.with_agent).length).toBeGreaterThan(0);
       }
     }
@@ -1717,7 +2033,9 @@ describe("Two runs, one question", () => {
     render(<AdvantagePage />);
     await screen.findByRole("heading", { name: /^The \d+ tasks$/ });
 
-    const lines = [...document.querySelectorAll("p")].map((p) => p.textContent ?? "");
+    const lines = [...document.querySelectorAll("p")].map(
+      (p) => p.textContent ?? ""
+    );
     expect(lines.some((t) => t.includes("of capital"))).toBe(true);
     expect(lines.filter((t) => t.includes("on — of capital"))).toEqual([]);
 
@@ -1725,8 +2043,10 @@ describe("Two runs, one question", () => {
       if (!task.quotable) continue;
       const basis = task.capital_quote ?? report.capital_quote;
       expect(
-        lines.some((t) => t.includes(`on ${money(basis, report.quote_symbol)} of capital`)),
-        `${task.task} is not quoted on its own capital`,
+        lines.some((t) =>
+          t.includes(`on ${money(basis, report.quote_symbol)} of capital`)
+        ),
+        `${task.task} is not quoted on its own capital`
       ).toBe(true);
     }
   });
@@ -1749,7 +2069,9 @@ describe("Two runs, one question", () => {
  */
 describe("Status says how current its gates are", () => {
   const dir = join(process.cwd(), "public", "artifacts");
-  const files = readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
+  const files = readdirSync(dir)
+    .filter((n) => n.endsWith(".json"))
+    .sort();
   const EXEMPT = ["assumptions.json"];
 
   const shaOf = (name: string) => {
@@ -1765,9 +2087,10 @@ describe("Status says how current its gates are", () => {
     // Both halves. A census reporting zero unstamped artifacts would be the
     // more comfortable page and, on this tree, a false one — every file behind
     // `/`, `/advantage` and the three agent cards records nothing.
-    expect(unstamped.length, "every artifact is stamped — this notice is now moot").toBeGreaterThan(
-      0,
-    );
+    expect(
+      unstamped.length,
+      "every artifact is stamped — this notice is now moot"
+    ).toBeGreaterThan(0);
 
     render(<StatusPage />);
     const notice = await screen.findByText(/How current this is/);
@@ -1800,11 +2123,18 @@ describe("Status says how current its gates are", () => {
   });
 
   it("reports the run's own commit, from the artifact", async () => {
-    const status = readArtifact<{ build?: { git_sha?: string } }>("status.json");
-    expect(status.build?.git_sha, "status.json records no commit — retarget this").toBeTruthy();
+    const status = readArtifact<{ build?: { git_sha?: string } }>(
+      "status.json"
+    );
+    expect(
+      status.build?.git_sha,
+      "status.json records no commit — retarget this"
+    ).toBeTruthy();
 
     render(<StatusPage />);
     const notice = await screen.findByText(/How current this is/);
-    expect(notice.closest("div")?.textContent).toContain(status.build!.git_sha!);
+    expect(notice.closest("div")?.textContent).toContain(
+      status.build!.git_sha!
+    );
   });
 });

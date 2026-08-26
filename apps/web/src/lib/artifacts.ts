@@ -72,7 +72,7 @@ export class ArtifactError extends Error {
      * one field the UI acts on. See `RefusalError` in `lib/api.ts`; the union
      * shape is unchanged, so every existing `switch` on `kind` still compiles.
      */
-    readonly kind: "http" | "parse" | "network" | "shape" | "refused",
+    readonly kind: "http" | "parse" | "network" | "shape" | "refused"
   ) {
     super(message);
     this.name = "ArtifactError";
@@ -104,7 +104,7 @@ async function getJSON<T>(name: string): Promise<T> {
     throw new ArtifactError(
       `Could not reach ${url}. If this page was opened from the filesystem, serve it over HTTP instead — run \`make web\`.`,
       url,
-      "network",
+      "network"
     );
   }
 
@@ -112,7 +112,7 @@ async function getJSON<T>(name: string): Promise<T> {
     throw new ArtifactError(
       `${url} returned ${res.status} ${res.statusText}.`,
       url,
-      "http",
+      "http"
     );
   }
 
@@ -121,7 +121,7 @@ async function getJSON<T>(name: string): Promise<T> {
     throw new ArtifactError(
       `${url} responded with "${type || "no content-type"}" rather than JSON.`,
       url,
-      "parse",
+      "parse"
     );
   }
 
@@ -133,7 +133,9 @@ async function getJSON<T>(name: string): Promise<T> {
 }
 
 /** A load that either produced a value or produced a reason. Never both, never neither. */
-export type Loaded<T> = { ok: true; value: T } | { ok: false; error: ArtifactError };
+export type Loaded<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: ArtifactError };
 
 export async function load<T>(name: string): Promise<Loaded<T>> {
   try {
@@ -157,10 +159,10 @@ export async function load<T>(name: string): Promise<Loaded<T>> {
  * which agent is missing instead of implying none were ever generated.
  */
 export async function loadAgents(
-  agents: readonly AgentRef[],
+  agents: readonly AgentRef[]
 ): Promise<{ slug: string; name: string; result: Loaded<AgentArtifact> }[]> {
   const settled = await Promise.allSettled(
-    agents.map((a) => load<AgentArtifact>(`${a.slug}.json`)),
+    agents.map((a) => load<AgentArtifact>(`${a.slug}.json`))
   );
 
   return agents.map((a, i) => {
@@ -168,7 +170,8 @@ export async function loadAgents(
     if (outcome && outcome.status === "fulfilled") {
       return { slug: a.slug, name: a.name, result: outcome.value };
     }
-    const reason = outcome && outcome.status === "rejected" ? outcome.reason : "unknown";
+    const reason =
+      outcome && outcome.status === "rejected" ? outcome.reason : "unknown";
     return {
       slug: a.slug,
       name: a.name,
@@ -386,11 +389,36 @@ export interface AgentArtifact {
  * `kind` is the discriminator. The Python emitter writes `"allocation"` here and
  * `"lp_range"` on the other three.
  */
-/** A Venus market as the Router card publishes it. */
-export interface RouterLendingVenue {
-  kind: "lending";
+/**
+ * What every venue row carries, whatever kind it is.
+ *
+ * These three came from the replay rather than from the venue's own facts, and
+ * they were added to the emitter without ever reaching this file — invisible
+ * because `test_artifact_contract.py`'s `flatten` stops at a list, so `venues`
+ * is one leaf and the fields inside it are not contracted individually. The
+ * type is the only thing that checks them, and it was not being asked to.
+ */
+interface RouterVenueBase {
   venue_id: string;
   symbol: string;
+  /**
+   * A1's ceiling for this venue, in the card's quote units.
+   *
+   * `eps_market_share` times the **median** size the venue was measured at
+   * across the run — not its size at the end of the tape, because the gate ran
+   * against the value of the moment and a figure read off the last sample would
+   * describe a gate that never ran.
+   */
+  a1_ceiling_quote: number;
+  /** Samples this venue was actually held for. Zero means never entered. */
+  held_samples: number;
+  /** Samples it was measurable at all, which is what makes zero above a choice. */
+  quotable_samples: number;
+}
+
+/** A Venus market as the Router card publishes it. */
+export interface RouterLendingVenue extends RouterVenueBase {
+  kind: "lending";
   /**
    * The market's size at the **end** of the tape, descriptive only.
    *
@@ -412,10 +440,8 @@ export interface RouterLendingVenue {
  * so a range rendered without its width would be quoting a number that is not
  * about any position a reader could hold (A21).
  */
-export interface RouterPoolVenue {
+export interface RouterPoolVenue extends RouterVenueBase {
   kind: "pool";
-  venue_id: string;
-  symbol: string;
   fee_pips: number;
   reference_width_ticks: number;
   /** What LPs keep of the fee after the protocol's cut — read, never modelled. */
@@ -538,7 +564,12 @@ export interface RouterArtifact {
       net_quote: number;
     };
   };
-  build?: { command: string; source: string; generated_at: string; git_sha: string | null };
+  build?: {
+    command: string;
+    source: string;
+    generated_at: string;
+    git_sha: string | null;
+  };
 }
 
 export interface AdvantageTask {

@@ -81,10 +81,10 @@ export function OverviewView({
   evidence: Record<string, EvidenceEntry | null>;
 }) {
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
-    initialIndex ? { ok: true, value: initialIndex } : null,
+    initialIndex ? { ok: true, value: initialIndex } : null
   );
   const [build, setBuild] = useState<Loaded<BuildArtifact> | null>(
-    initialBuild ? { ok: true, value: initialBuild } : null,
+    initialBuild ? { ok: true, value: initialBuild } : null
   );
   const [agents, setAgents] = useState<AgentSlot[] | null>(null);
   const [venue, setVenue] = useState<Loaded<VenueSummary> | null>(null);
@@ -145,7 +145,11 @@ export function OverviewView({
           // LVR, and a zero in either column would read as "never out of range,
           // lost nothing to adverse selection" — the same argument that keeps a
           // 404'd card out of this table instead of drawing it as a zero.
-          if ((slot.result.value as unknown as { kind?: string }).kind === "allocation") return [];
+          if (
+            (slot.result.value as unknown as { kind?: string }).kind ===
+            "allocation"
+          )
+            return [];
           return [{ ref, data: slot.result.value }];
         })
       : [];
@@ -163,7 +167,8 @@ export function OverviewView({
       ? agents.flatMap((slot) => {
           const ref = index.value.agents.find((a) => a.slug === slot.slug);
           if (!ref || !slot.result.ok) return [];
-          return (slot.result.value as unknown as { kind?: string }).kind === "allocation"
+          return (slot.result.value as unknown as { kind?: string }).kind ===
+            "allocation"
             ? [ref.name]
             : [];
         })
@@ -213,13 +218,16 @@ export function OverviewView({
             and every figure links to its assumption. What only prose can say is
             what the alternative does — so that is what is left. */}
         <p className="rise-3 mt-4 max-w-[60ch] text-md text-dim">
-          Others rank agents by star ratings. Every number here traces to chain state or a{" "}
-          <Link href="/assumptions">published assumption</Link>, and where the evidence is
-          thin it <strong className="text-ink">says nothing instead</strong>.
+          Others rank agents by star ratings. Every number here traces to chain
+          state or a <Link href="/assumptions">published assumption</Link>, and
+          where the evidence is thin it{" "}
+          <strong className="text-ink">says nothing instead</strong>.
         </p>
 
         <div className="rise-4 mt-6 flex flex-wrap gap-3">
-          <Button href="/advantage">Does hiring an agent beat doing it yourself?</Button>
+          <Button href="/advantage">
+            Does hiring an agent beat doing it yourself?
+          </Button>
           <Button href="/methods" tone="secondary">
             How a quote is made
           </Button>
@@ -244,7 +252,14 @@ export function OverviewView({
             agent cards the landing page actually renders. */}
         <StaleNotice
           behind={behind}
-          artifacts={["index.json", "build.json", "warden.json", "grid.json", "sentinel.json", "router.json"]}
+          artifacts={[
+            "index.json",
+            "build.json",
+            "warden.json",
+            "grid.json",
+            "sentinel.json",
+            "router.json",
+          ]}
           className="mb-8"
         />
 
@@ -256,10 +271,10 @@ export function OverviewView({
               index.error.kind === "http" ? (
                 <>
                   Nothing has generated the cards yet. Run{" "}
-                  <code className="font-mono text-xs">make showcase-demo</code> for a
-                  labelled synthetic tape, or{" "}
-                  <code className="font-mono text-xs">make showcase</code> against an
-                  indexed one.
+                  <code className="font-mono text-xs">make showcase-demo</code>{" "}
+                  for a labelled synthetic tape, or{" "}
+                  <code className="font-mono text-xs">make showcase</code>{" "}
+                  against an indexed one.
                 </>
               ) : undefined
             }
@@ -295,13 +310,30 @@ export function OverviewView({
         {compared.length > 0 && (
           <div className="mb-8">
             <AgentComparison agents={compared} inRangeFloor={inRangeFloor} />
+            {/* Why the fourth agent is off the table, stated accurately.
+
+                  This read "it supplies to a lending market rather than
+                  providing liquidity, so there is no in-range fraction and no
+                  adverse-selection cost to compare". The first clause is no
+                  longer the whole truth and the second is simply wrong: Router
+                  evaluates PancakeSwap ranges as venues and derives a convexity
+                  cost for every one of them — that subtraction is the reason its
+                  pool figures are net rather than gross.
+
+                  The real reason it cannot join this table is narrower and does
+                  not change: it holds no range of its own, so there is nothing
+                  to be in or out of, and the columns here measure a position
+                  this agent does not take. */}
             {notCompared.length > 0 && (
               <p className="mt-3 mb-0 text-xs text-faint">
-                {notCompared.join(", ")} {notCompared.length === 1 ? "is" : "are"} not on this
-                table. {notCompared.length === 1 ? "It supplies" : "They supply"} to a lending
-                market rather than providing liquidity, so there is no in-range fraction and no
-                adverse-selection cost to compare — and a zero in those columns would read as a
-                claim rather than an absence.
+                {notCompared.join(", ")}{" "}
+                {notCompared.length === 1 ? "is" : "are"} not on this table.{" "}
+                {notCompared.length === 1 ? "It holds" : "They hold"} no range
+                of its own — it chooses which venue to put capital in, so there
+                is no in-range fraction to report and a zero in that column
+                would read as a claim rather than an absence. It does price
+                adverse selection: every PancakeSwap range it considers is
+                quoted net of the convexity cost measured over the same window.
               </p>
             )}
           </div>
@@ -331,7 +363,10 @@ export function OverviewView({
               // artifact's own `kind` rather than on the slug keeps the list of
               // which agents are which in one place — the emitter — instead of
               // two that have to agree.
-              if ((slot.result.value as unknown as { kind?: string }).kind === "allocation") {
+              if (
+                (slot.result.value as unknown as { kind?: string }).kind ===
+                "allocation"
+              ) {
                 return (
                   <RouterCard
                     key={slot.slug}
@@ -354,14 +389,18 @@ export function OverviewView({
         )}
 
         {index?.ok && index.value.not_built.length > 0 && (
-          <Section title="Advertised, and not built" className="mt-12" headingClassName="text-lg font-semibold">
+          <Section
+            title="Advertised, and not built"
+            className="mt-12"
+            headingClassName="text-lg font-semibold"
+          >
             {/* Sentences 2-3 restated the heading directly above and the
                 "Not built" badge on every card below. And "four" was typed
                 against a `not_built` list of five — a hardcoded count of the
                 artifact it introduces. The count is read now, or omitted. */}
             <p className="mt-2 mb-5 max-w-[64ch] text-sm text-dim">
-              {count(index.value.not_built.length)} capabilities the README advertises and
-              this repository does not contain.
+              {count(index.value.not_built.length)} capabilities the README
+              advertises and this repository does not contain.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {index.value.not_built.map((entry) => (
@@ -402,7 +441,9 @@ export function OverviewView({
           <BuildStamp
             className="mt-2"
             build={build.value}
-            extra={`${build.value.events.toLocaleString("en-US")} events over ${build.value.span_hours}h`}
+            extra={`${build.value.events.toLocaleString("en-US")} events over ${
+              build.value.span_hours
+            }h`}
           />
         )}
       </footer>
