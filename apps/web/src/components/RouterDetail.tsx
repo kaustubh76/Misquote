@@ -600,6 +600,16 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
           entry — see its own docstring. It is the last piece of evidence on the
           page and it is about a different run from everything above it. */}
       <AgentJournal agent="router" />
+
+      {/* The same edge as `AgentDetail`'s, for the fourth card. Router is the
+          one agent reachable only through the marketplace path, so leaving it
+          out would break the journey on exactly the category the Agent Studio
+          CLI deployment is about. */}
+      <p className="mt-10 text-sm text-dim">
+        <Link href="/activate">
+          What hiring this agent would involve, and why there is no button →
+        </Link>
+      </p>
     </div>
   );
 }

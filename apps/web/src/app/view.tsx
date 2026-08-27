@@ -211,9 +211,23 @@ export function OverviewView({
           <strong className="text-ink">says nothing instead</strong>.
         </p>
 
+        {/* The marketplace path first, and that is a correction rather than a
+            preference.
+
+            Both buttons here pointed at evidence routes — `/advantage` and
+            `/methods`. They are the right two links and they were the *only*
+            two, so the journey this site is judged on (land, find an agent by
+            category, understand it, activate it) had its first edge existing
+            nowhere but the top nav. A reader who does not read nav bands could
+            reach the argument for the product and never the product.
+
+            The evidence keeps a button, because "does hiring an agent beat
+            doing it yourself" is the question this whole site exists to answer
+            and burying it under a browse link would be the opposite mistake. */}
         <div className="rise-4 mt-6 flex flex-wrap gap-3">
-          <Button href="/advantage">
-            Does hiring an agent beat doing it yourself?
+          <Button href="/category">Find an agent by what you need done</Button>
+          <Button href="/advantage" tone="secondary">
+            Does hiring one beat doing it yourself?
           </Button>
           <Button href="/methods" tone="secondary">
             How a quote is made

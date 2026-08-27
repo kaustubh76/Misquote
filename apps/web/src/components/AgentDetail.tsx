@@ -510,10 +510,30 @@ export function AgentDetail({
       </Section>
 
       {/* Only warden and router have ever written one; `agent_names()` reads
-          the directory rather than the four agents we ship, and this renders
-          nothing for an agent with no journal rather than a section reading
-          zero. Live, so it adds no anchor and no rail entry. */}
+          the directory rather than the four agents we ship. It renders the
+          service's own refusal for an agent that has never run, and falls back
+          to the recorded summary when nothing answers — so unlike when this
+          comment was written, it is not silent on the exported site. */}
       <AgentJournal agent={slug} />
+
+      {/* The last edge of the journey, which existed only in the nav.
+          A reader arrives here to understand one agent and then has nowhere to
+          go: a repo-wide grep for `/activate` found two mentions outside
+          `lib/routes.ts`, both in comments. No card, no detail page, no
+          category page offered a route to it.
+
+          It is deliberately not a Hire button and must never become one.
+          `/activate` opens "There is no Hire button on this site" because no
+          Altana session-key module has been verified on either network, and
+          `check-pages.mjs` keeps a needle on that sentence so it cannot be
+          softened. The gap this closes is that a reader could not *reach* the
+          honest refusal — which is a worse failure than the refusal itself, and
+          the only one of the two this branch is entitled to fix. */}
+      <p className="mt-10 text-sm text-dim">
+        <Link href="/activate">
+          What hiring this agent would involve, and why there is no button →
+        </Link>
+      </p>
     </div>
   );
 }
