@@ -89,13 +89,40 @@ FRAMEWORK = frozenset(
 EXPORTED_FUNCTION = re.compile(r"^export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)", re.M)
 
 
+#: TypeScript that is part of this app and does not live under `src`.
+#:
+#: The corpus a reference may come *from* is wider than the corpus whose exports
+#: are checked, and conflating the two produced a false accusation:
+#: `test/harness.tsx` exports `prerenderedArtifact`, `vitest.setup.ts` is the
+#: only caller — it is where `vi.mock` has to be declared — and the scan could
+#: not see the file. The instruction printed was "wire it up or drop the
+#: export", and it was already wired; following it would have deleted a working
+#: reference to satisfy a scan that was looking in the wrong place.
+#:
+#: Named rather than globbed from the app root, so `node_modules` and build
+#: output stay out and a new config file is a deliberate addition here.
+CONFIG = ("vitest.setup.ts", "vitest.config.ts", "next.config.ts", "eslint.config.mjs")
+
+
 def sources() -> dict[Path, str]:
+    """Where exports are *found*: `src` only."""
     return {
         path: path.read_text() for path in sorted(SRC.rglob("*")) if path.suffix in {".ts", ".tsx"}
     }
 
 
+def referrers() -> dict[Path, str]:
+    """Where a reference may come *from*: `src`, plus the app's own config."""
+    found = dict(sources())
+    for name in CONFIG:
+        path = SRC.parent / name
+        if path.exists():
+            found[path] = path.read_text()
+    return found
+
+
 FILES = sources()
+REFERRERS = referrers()
 
 
 def exported_functions() -> list[tuple[Path, str]]:
@@ -126,11 +153,7 @@ def test_the_survey_found_something_to_check() -> None:
 @pytest.mark.parametrize("path,name", CASES, ids=[f"{p.relative_to(SRC)}:{n}" for p, n in CASES])
 def test_every_exported_function_is_named_somewhere_else(path: Path, name: str) -> None:
     ident = re.compile(rf"\b{re.escape(name)}\b")
-    importers = [
-        other.relative_to(SRC)
-        for other, text in FILES.items()
-        if other != path and ident.search(text)
-    ]
+    importers = [other for other, text in REFERRERS.items() if other != path and ident.search(text)]
 
     assert importers, (
         f"{path.relative_to(SRC)} exports `{name}` and no other file mentions it.\n"
