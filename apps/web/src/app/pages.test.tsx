@@ -22,6 +22,7 @@ import AssumptionsPage from "./assumptions/page";
 import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
+import { RegistryView, type StatusSummary } from "./registry/view";
 import StatusPage from "./status/page";
 import VenuePage from "./venue/page";
 import { VenueView, type VenueArtifact } from "./venue/view";
@@ -1613,7 +1614,23 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
         },
       },
     });
-    render(<RegistryPage />);
+    // `RegistryView` with no prerendered artifact, not `RegistryPage`.
+    //
+    // The page passes `readArtifact("registry.json")` from disk, so it paints
+    // the *real* registry — four agents, four "register" links — before the
+    // overridden fetch lands. "Our own agents" is in that first paint, so
+    // awaiting the heading returns immediately and the query below then finds
+    // four links where the fixture declares one. Whether it fails is a race the
+    // test cannot win reliably: three failures in eight runs of this file once
+    // enough other work shared the event loop.
+    //
+    // The same shape as `app/vectors/view.test.tsx`, fixed the same way. A test
+    // that overrides an artifact must not be handed the one on disk.
+    render(
+      <RegistryView
+        initialStatus={readArtifact<StatusSummary>("status.json")}
+      />
+    );
     const heading = await screen.findByRole("heading", {
       name: /Our own agents/,
     });

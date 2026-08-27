@@ -1,13 +1,26 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts } from "@/test/harness";
-import VectorsPage from "./page";
+import { VectorsView } from "./view";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/vectors" }));
 
 interface Artifact {
-  corpus: { cases: number; groups: { group: string; cases: number }[]; pins: unknown[] };
-  verification: { replay: Record<string, unknown>; differential: Record<string, unknown> };
+  corpus: {
+    cases: number;
+    groups: { group: string; cases: number }[];
+    pins: unknown[];
+  };
+  verification: {
+    replay: Record<string, unknown>;
+    differential: Record<string, unknown>;
+  };
   build: unknown;
 }
 
@@ -33,14 +46,28 @@ afterEach(() => {
 });
 
 async function loaded() {
-  render(<VectorsPage />);
-  // Waits for the *loaded* state, not the h1. The heading renders before the
-  // fetch resolves — it sits outside the `{d && …}` guard — so awaiting it
-  // returns while the page is still a skeleton, and every assertion after it
-  // races the artifact. That produced exactly one failure in four full runs,
-  // which is the worst possible amount.
+  // `VectorsView` without `initial`, not `VectorsPage`, and that is the whole
+  // fix rather than a stylistic preference.
+  //
+  // The page prerenders: `page.tsx` passes `readArtifact("vectors.json")` from
+  // disk, so `state` is already loaded on first paint and `aria-busy` is false
+  // immediately. The wait below then returns **before** the client fetch — the
+  // one `serveArtifacts` overrides — has resolved, and every assertion runs
+  // against whatever this repository's real artifact happens to say. Where that
+  // agrees with the override the test passes by luck; where it does not, it
+  // fails. Measured at one failure in five runs of this file.
+  //
+  // The comment this replaces already recorded the symptom — "exactly one
+  // failure in four full runs, which is the worst possible amount" — and fixed
+  // the wrong half of it, moving from the h1 to `aria-busy` while the render
+  // still supplied the data the wait was meant to be waiting for.
+  //
+  // With no `initial`, the page starts busy and the wait means what it says. A
+  // test wanting the published artifact still gets it: `serveArtifacts()` serves
+  // the real files unless something is overridden.
+  render(<VectorsView />);
   await waitFor(() =>
-    expect(document.querySelector("[aria-busy='true']")).not.toBeInTheDocument(),
+    expect(document.querySelector("[aria-busy='true']")).not.toBeInTheDocument()
   );
 }
 
@@ -58,22 +85,28 @@ const card = (title: string) =>
 describe("the corpus is stated as a corpus", () => {
   it("shows every group and its case count from the artifact", async () => {
     await loaded();
-    const region = screen.getByRole("region", { name: /Recorded vectors by function/ });
+    const region = screen.getByRole("region", {
+      name: /Recorded vectors by function/,
+    });
 
     for (const g of real().corpus.groups) {
       expect(within(region).getByText(g.group)).toBeInTheDocument();
     }
     // Read, never written into the page. `docs/FOR_JUDGES.md` quotes 19,546
     // and the two must not be able to disagree.
-    expect(within(region).getAllByText(real().corpus.cases.toLocaleString("en-US")).length)
-      .toBeGreaterThan(0);
+    expect(
+      within(region).getAllByText(real().corpus.cases.toLocaleString("en-US"))
+        .length
+    ).toBeGreaterThan(0);
   });
 
   it("names the upstream commits it was recorded against", async () => {
     // "Checked against Uniswap" decays quietly: the sentence stays
     // true-sounding while the code it referred to moves on.
     await loaded();
-    expect(screen.getByRole("region", { name: /Pinned reference/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /Pinned reference/ })
+    ).toBeInTheDocument();
     expect(screen.getByText("v3-core")).toBeInTheDocument();
   });
 });
@@ -91,7 +124,9 @@ describe("a verification nobody ran", () => {
     await loaded();
 
     const replay = within(card("Replay"));
-    expect(replay.getByText(/Nothing has been recorded for this check/)).toBeInTheDocument();
+    expect(
+      replay.getByText(/Nothing has been recorded for this check/)
+    ).toBeInTheDocument();
     expect(replay.getByText(/run `make vectors-verify`/)).toBeInTheDocument();
     // A refusal, not an error: nothing broke and nothing failed. `Refusal` and
     // `ErrorNotice` look different on purpose, and only the latter alerts.
@@ -103,11 +138,15 @@ describe("a verification nobody ran", () => {
     // counting 19,546, and printing "19,546 comparisons, zero mismatches" —
     // a result nothing observed.
     serveArtifacts({
-      overrides: { "vectors.json": withReplay({ recorded: false, reason: "not run" }) },
+      overrides: {
+        "vectors.json": withReplay({ recorded: false, reason: "not run" }),
+      },
     });
     await loaded();
 
-    expect(screen.queryByRole("region", { name: /Replay run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /Replay run/ })
+    ).not.toBeInTheDocument();
     expect(within(card("Replay")).queryByText("PASS")).not.toBeInTheDocument();
   });
 
@@ -124,14 +163,17 @@ describe("a verification nobody ran", () => {
       overrides: {
         "vectors.json": withDifferential({
           recorded: false,
-          reason: "no differential run has been recorded — `make vectors-check` needs foundry",
+          reason:
+            "no differential run has been recorded — `make vectors-check` needs foundry",
         }),
       },
     });
     await loaded();
 
     const differential = within(card("Differential"));
-    expect(differential.getByText(/Nothing has been recorded for this check/)).toBeInTheDocument();
+    expect(
+      differential.getByText(/Nothing has been recorded for this check/)
+    ).toBeInTheDocument();
     expect(differential.getByText(/make vectors-check/)).toBeInTheDocument();
     // The replay is recorded in this fixture and must not lend its pass across.
     expect(differential.queryByText("PASS")).not.toBeInTheDocument();
@@ -150,18 +192,34 @@ describe("a verification nobody ran", () => {
         "vectors.json": {
           ...real(),
           verification: {
-            replay: { recorded: true, corpus_matches: false, corpus_moved: ["constants"] },
-            differential: { recorded: true, corpus_matches: false, corpus_moved: ["constants"] },
+            replay: {
+              recorded: true,
+              corpus_matches: false,
+              corpus_moved: ["constants"],
+            },
+            differential: {
+              recorded: true,
+              corpus_matches: false,
+              corpus_moved: ["constants"],
+            },
           },
         },
       },
     });
     await loaded();
 
-    expect(within(card("Replay")).getByText(/make vectors-verify/)).toBeInTheDocument();
-    expect(within(card("Replay")).queryByText(/make vectors-check/)).not.toBeInTheDocument();
-    expect(within(card("Differential")).getByText(/make vectors-check/)).toBeInTheDocument();
-    expect(within(card("Differential")).queryByText(/make vectors-verify/)).not.toBeInTheDocument();
+    expect(
+      within(card("Replay")).getByText(/make vectors-verify/)
+    ).toBeInTheDocument();
+    expect(
+      within(card("Replay")).queryByText(/make vectors-check/)
+    ).not.toBeInTheDocument();
+    expect(
+      within(card("Differential")).getByText(/make vectors-check/)
+    ).toBeInTheDocument();
+    expect(
+      within(card("Differential")).queryByText(/make vectors-verify/)
+    ).not.toBeInTheDocument();
   });
 
   it("does not attribute the differential's summary to pytest", async () => {
@@ -174,7 +232,9 @@ describe("a verification nobody ran", () => {
 
     await loaded();
     expect(within(card("Replay")).getByText("pytest said")).toBeInTheDocument();
-    expect(within(card("Differential")).queryByText("pytest said")).not.toBeInTheDocument();
+    expect(
+      within(card("Differential")).queryByText("pytest said")
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -185,7 +245,9 @@ describe("a recorded run", () => {
     if (!replay.recorded) return; // no receipt committed; the withheld tests cover it
 
     expect(screen.getByText(String(replay.summary_line))).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Replay run/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /Replay run/ })
+    ).toBeInTheDocument();
   });
 
   it("refuses when the corpus has moved under the receipt", async () => {
@@ -205,10 +267,14 @@ describe("a recorded run", () => {
     });
     await loaded();
 
-    expect(screen.getByText(/recorded run was against a different corpus/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/recorded run was against a different corpus/)
+    ).toBeInTheDocument();
     expect(screen.getByText(/constants, tokens_owed/)).toBeInTheDocument();
     // And it must not also be showing the stale PASS beside the refusal.
-    expect(screen.queryByRole("region", { name: /Replay run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /Replay run/ })
+    ).not.toBeInTheDocument();
   });
 
   it("presents a failing replay as a finding, not as a refusal", async () => {
@@ -229,10 +295,14 @@ describe("a recorded run", () => {
     await loaded();
 
     const replay = within(card("Replay"));
-    expect(replay.getByText(/does not reproduce the recorded answers/)).toBeInTheDocument();
+    expect(
+      replay.getByText(/does not reproduce the recorded answers/)
+    ).toBeInTheDocument();
     expect(replay.getByText("1 failed, 9 passed")).toBeInTheDocument();
     // Scoped, because both cards render through one component and an unscoped
     // query cannot say which one it found.
-    expect(replay.queryByText(/Nothing has been recorded/)).not.toBeInTheDocument();
+    expect(
+      replay.queryByText(/Nothing has been recorded/)
+    ).not.toBeInTheDocument();
   });
 });
