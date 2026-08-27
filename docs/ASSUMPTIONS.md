@@ -743,6 +743,48 @@ card can say the yield was there and the size was not. And a pool can pay well a
 be refused for being too shallow to take the position — which, at this notional, is
 exactly what both badged pools do.
 
+## A26 · A monotonic book pays a pool position; the trailing window only quotes it
+
+**Added 27 Aug 2026.** Router shows a venue one number and pays a held position a
+different one, and keeping those apart is the whole reason a replay is not marking
+its own homework. `estimators/apr.py` differences Venus's `borrowIndex` — an
+accumulator the chain maintains — while `TrailingAprEstimator` supplies the rate
+the policy ranks on. A pool has no accumulator on chain, and the first version of
+`PoolVenue.accrue` reached for the nearest thing to hand: the totals of its own
+**trailing window**.
+
+Those do not accumulate. A window that slides an hour gains an hour of swaps and
+drops an hour of swaps, so the difference between two samples is
+(entering − leaving) — mean-zero over a long hold, not the interval's earnings.
+Flooring it at zero, on the argument that a window rolling backwards is "the
+window moving, not a loss", kept only the positive half of a mean-zero series.
+Holding the flagship at ±80 for 120 hours paid **109.8% annualised** where the
+same estimator quoted **23.40%**, and the error grew with the holding period
+rather than staying put — the signature of a ratchet rather than a rate.
+
+So a pool position is paid from **its own book**. The range is fixed when the
+position opens — the spacing-aligned centre and the width chosen at that moment,
+sized through `core/liquidity.py` exactly as the estimator sizes it — and an
+`LvrAccountant` absorbs every swap since, `l_pool_includes_self=False`, so the
+position is diluted by its own liquidity. `total_fees` and `total_lvr` only grow,
+so differencing them is the interval and nothing else. `replay/driver.py` has
+held a real range this way since it was written; this is that, behind the venue
+seam.
+
+Two consequences are deliberate. **The range is not re-centred under the holder**:
+an LP who opened at ±80 around one tick still holds that range when the price
+moves, and re-deriving the centre each sample is precisely how the window's drift
+leaked into the payment. And **a losing interval is charged**: a concentrated
+range really can give up more than it earns — that is what the convexity cost is,
+and A10 publishes it as an upper bound because it is real. An accrual that cannot
+go negative describes a position that only ever gains.
+
+Nothing published carried the error. At the notional Router is quoted on, A1
+refuses every badged range (A25), so no pool was ever held and the pool
+contribution to `gross_yield_quote` was zero. It would have become wrong at the
+first notional small enough to open a position — which is exactly what this
+repository then went on to publish, so it was fixed first.
+
 ## What settles versus what is displayed
 
 Two different numbers, deliberately.

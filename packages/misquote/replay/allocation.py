@@ -351,6 +351,15 @@ class AllocationDriver:
             # Advance every estimator to this decision time and feed it only
             # what happened before it. The guards in `TrailingEstimator` make a
             # mistake here raise rather than silently leak the future.
+            # Where each venue's cursor stood before this sample consumed
+            # anything, so the interval's rows can be handed to `accrue`.
+            #
+            # A lending venue wants only the last of them — `borrowIndex` is an
+            # accumulator and one reading stands for every accrual before it. A
+            # pool has no such number: what a range earned is a function of each
+            # swap in the interval, and passing only the last is what made the
+            # first pool accrual pay a ratchet instead of the fees.
+            before = dict(cursor)
             for venue, est in estimators.items():
                 est.set_decision_time(sample_ts)
                 rows = by_venue[venue]
@@ -364,10 +373,10 @@ class AllocationDriver:
             # sample, from the accumulator.
             if held is not None:
                 rows = by_venue[held]
-                seen = cursor[held]
-                if seen >= 1:
+                fresh = rows[before[held] : cursor[held]]
+                if cursor[held] >= 1:
                     earned, accrual_state[held] = sources[held].accrue(
-                        accrual_state.get(held), rows[seen - 1], estimators[held].fit()
+                        accrual_state.get(held), fresh, estimators[held].fit()
                     )
                     result.gross_yield_quote += value * earned
 
@@ -527,7 +536,7 @@ class AllocationDriver:
                 rows = by_venue[held]
                 if cursor[held] >= 1:
                     _, accrual_state[held] = sources[held].accrue(
-                        None, rows[cursor[held] - 1], estimators[held].fit()
+                        None, rows[cursor[held] - 1 : cursor[held]], estimators[held].fit()
                     )
                 result.entries += 1
             elif decision.action is AllocationAction.SWITCH:
@@ -536,7 +545,7 @@ class AllocationDriver:
                 rows = by_venue[held]
                 if cursor[held] >= 1:
                     _, accrual_state[held] = sources[held].accrue(
-                        None, rows[cursor[held] - 1], estimators[held].fit()
+                        None, rows[cursor[held] - 1 : cursor[held]], estimators[held].fit()
                     )
                 result.switches += 1
                 switches_today += 1

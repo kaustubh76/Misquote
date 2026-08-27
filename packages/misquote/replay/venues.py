@@ -41,6 +41,7 @@ from misquote.core.types import PoolMeta
 from misquote.estimators.apr import DEFAULT_RESERVE_FACTOR, TrailingAprEstimator
 from misquote.estimators.base import TrailingEstimator
 from misquote.estimators.pool_apr import PoolAprEstimator
+from misquote.lvr.accountant import LvrAccountant
 
 
 @runtime_checkable
@@ -64,12 +65,21 @@ class VenueSource(Protocol):
 
     def quote(self, venue_id: VenueId, last_event: Any, fit: Any) -> VenueQuote: ...
 
-    def accrue(self, state: Any, last_event: Any, fit: Any) -> tuple[float, Any]:
+    def accrue(self, state: Any, events: Any, fit: Any) -> tuple[float, Any]:
         """The fraction of held capital earned since `state` was taken.
 
         Returns `(fraction, new_state)`. `state` is opaque to the driver — it was
         a `(block, borrow_index)` tuple when Venus was the only venue, and
         generalising it is the one change that reshapes driver state.
+
+        `events` is every row consumed since the previous sample, not just the
+        last one. A lending market only needs the last, because `borrowIndex` is
+        an accumulator and one reading of it summarises everything before it. A
+        pool has no such number on chain: what a range earned over an interval is
+        a function of **each** swap in it, so the rows have to arrive.
+
+        Passing only the last row is what made the first pool accrual wrong. See
+        `PoolVenue.accrue`.
         """
         ...
 
@@ -115,12 +125,17 @@ class LendingVenue:
             supplied_base_quote=supplied,
         )
 
-    def accrue(self, state: Any, last_event: Any, fit: Any) -> tuple[float, Any]:
+    def accrue(self, state: Any, events: Any, fit: Any) -> tuple[float, Any]:
         """Pay the accumulator, not the estimate.
 
         The module's central claim, unchanged: `borrowIndex` is what the market
         actually did, and the trailing estimate is only what the policy was shown.
+
+        Takes the last of `events` and ignores the rest, which is not laziness:
+        an accumulator's whole purpose is that one reading of it stands for every
+        accrual before it. That property is exactly what a pool does not have.
         """
+        last_event = events[-1] if events else None
         if last_event is None:
             return 0.0, state
         now = (last_event.block, last_event.borrow_index)
@@ -230,30 +245,98 @@ class PoolVenue:
             apr_is_lower_bound=True,
         )
 
-    def accrue(self, state: Any, last_event: Any, fit: Any) -> tuple[float, Any]:
-        """Realized fees minus realized convexity cost, since the last sample.
+    def accrue(self, state: Any, events: Any, fit: Any) -> tuple[float, Any]:
+        """What the range actually earned over the interval, from its own book.
 
-        Paid from what the accountant actually booked over the window rather than
-        from the annualised rate the policy was shown — the same discipline the
-        lending venue applies to `borrowIndex`, for the same reason: a rate is an
-        estimate and a total is a fact.
+        ## The first version of this paid a ratchet
+
+        It differenced `fit.fees_quote - fit.convexity_cost_quote` between
+        samples — the totals of a **trailing window**. Those do not accumulate.
+        As the window slides an hour it gains an hour of swaps and drops an hour
+        of swaps, so the delta is (entering − leaving), which is mean-zero over
+        a long hold rather than the interval's earnings. Flooring it at zero,
+        which I justified as "the window moving, not a loss", then kept only the
+        positive half of a mean-zero series. It drifted upward without bound, and
+        the longer a position was held the worse it got:
+
+            120h hold, flagship at +/-80
+              this method       1.5034% of capital  ->  109.8% annualised
+              the same fit      net                     23.40% annualised
+
+        Nothing published carried it: at the notional Router is quoted on, A1
+        refuses every range, so no pool was ever held and the pool contribution
+        to `gross_yield_quote` was zero. It would have become wrong the moment a
+        position was small enough to open.
+
+        ## What pays instead
+
+        A position, which is what an LP holds. The range is fixed at entry — the
+        centre and width chosen then — and an `LvrAccountant` absorbs every swap
+        since. Its `total_fees` and `total_lvr` only grow, so differencing them
+        is the interval's earnings and nothing else.
+
+        That restores the split `LendingVenue` already had and this did not: **a
+        monotonic accumulator pays, a trailing window estimates.** Venus
+        differences `borrowIndex` and quotes from a trailing fit; this
+        differences an accountant and quotes from the same fit. `replay/driver.py`
+        holds a real range exactly this way, and the reason is the same one —
+        `l_pool_includes_self=False`, so the position is diluted by its own
+        liquidity rather than earning as though it were not there.
         """
-        del last_event
-        if not fit.is_ready or self.capital_quote <= 0:
+        if self.capital_quote <= 0:
             return 0.0, state
-        booked = fit.fees_quote - fit.convexity_cost_quote
+        swaps = [e for e in (events or ()) if e.kind == "swap"]
+
         if state is None:
-            # Seed and pay nothing. The accountant's totals cover the whole
-            # trailing window, most of which happened before this position
-            # existed; treating an absent state as zero would pay the newcomer
-            # for every fee the window remembers. `LendingVenue.accrue` returns
-            # zero on its first call for the same reason, and it is the reason
-            # ENTER and SWITCH drop the state before re-seeding it.
-            return 0.0, booked
-        earned = (booked - state) / self.capital_quote
-        # A window that rolled can book less than it did a sample ago. That is
-        # the window moving, not a loss, so it is floored rather than charged.
-        return max(0.0, earned), booked
+            # Opening. The range is chosen once, here, from the price this swap
+            # left behind — and never re-derived, because an LP who opened at
+            # +/-80 around one tick still holds that range when the price moves.
+            # Re-centring it every sample is what let the window's own drift
+            # leak into the payment.
+            if not swaps:
+                return 0.0, None
+            book = self._open_at(swaps[-1])
+            if book is None:
+                return 0.0, None
+            return 0.0, (book, 0.0)
+
+        book, paid = state
+        for event in swaps:
+            book.absorb(event)
+        booked = book.total_fees - book.total_lvr
+        # Charged in both directions. A range really can lose over an interval —
+        # that is what the convexity cost is — and flooring it here is exactly
+        # the mistake this method is written against.
+        return (booked - paid) / self.capital_quote, (book, booked)
+
+    def _open_at(self, event: Any) -> LvrAccountant | None:
+        """The book for a range opened around this swap, or nothing.
+
+        Mirrors `PoolAprEstimator.fit`'s sizing so the position paid for is the
+        position quoted: the same spacing-aligned centre, the same width, and the
+        same capital converted to liquidity by `core/liquidity.py`.
+        """
+        spacing = self.pool.tick_spacing
+        centre = (event.tick // spacing) * spacing
+        lower, upper = centre - self.width_ticks, centre + self.width_ticks
+        liquidity = self._liquidity_for(event.sqrt_price_x96, lower, upper)
+        if liquidity <= 0:
+            return None
+        return LvrAccountant(lower, upper, liquidity, self.pool, l_pool_includes_self=False)
+
+    def _liquidity_for(self, sqrt_price: int, lower: int, upper: int) -> int:
+        """How much liquidity this venue's capital buys at this price and width.
+
+        Delegated to the estimator rather than reimplemented: a second copy of
+        the sizing would be a second answer to "what position is this", and the
+        payment and the quote have to be about the same one.
+        """
+        est = PoolAprEstimator(
+            self.pool,
+            reference_width_ticks=self.width_ticks,
+            capital_quote=self.capital_quote,
+        )
+        return est._liquidity_for_capital(sqrt_price, lower, upper)  # noqa: SLF001
 
     def card_fields(self) -> dict[str, Any]:
         return {

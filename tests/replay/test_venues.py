@@ -199,34 +199,51 @@ def test_a1s_ceiling_is_the_pools_depth_in_dollars_not_our_own_capital() -> None
 # --- accrual --------------------------------------------------------------
 
 
-def test_a_pool_is_paid_realized_totals_not_the_annualised_rate() -> None:
+def test_a_pool_is_paid_from_its_own_book_not_the_annualised_rate() -> None:
     """The same discipline the lending venue applies to `borrowIndex`.
 
     A rate is an estimate and a total is a fact, so the driver is paid the
-    difference between what the accountant had booked then and now.
+    difference between what the position had booked then and now.
+
+    This used to difference `fit.fees_quote` — the trailing window's totals —
+    and passed because it accrued exactly twice, which is the one length at
+    which a sliding window and an accumulator agree. The fit is no longer
+    consulted for payment at all, so it is not even constructed here.
     """
+    events = pool_tape(120)
     venue = PoolVenue(POOL, width_ticks=80, capital_quote=2.0, quote_price=PRICE)
 
-    earned, state = venue.accrue(None, None, fit(apr=0.2, cost=0.05))
-    assert earned == 0.0, "the first sample seeds state and pays nothing"
+    earned, state = venue.accrue(None, events[:1], None)
+    assert earned == 0.0, "opening the position pays nothing"
+    assert state is not None
 
-    later = PoolAprFit(0.2, 80, 0.05, 0.30, 0.10, 2.0, 40, 24.0, True)
-    earned, _ = venue.accrue(state, None, later)
-    # booked went from (0.2 - 0.05) to (0.30 - 0.10); over capital of 2.0.
-    assert earned == pytest.approx(((0.30 - 0.10) - (0.20 - 0.05)) / 2.0)
+    earned, _ = venue.accrue(state, events[1:], None)
+
+    book, _ = state
+    assert earned == pytest.approx((book.total_fees - book.total_lvr) / 2.0)
+    assert earned > 0, "a range that saw a hundred swaps in range earned something"
 
 
-def test_a_window_that_rolled_is_not_charged_as_a_loss() -> None:
-    """The trailing window drops old swaps, so booked totals can fall.
+def test_the_position_is_not_recentred_under_the_holder() -> None:
+    """An LP who opened at +/-80 around one tick still holds that range later.
 
-    That is the window moving, not the position losing, and charging it would
-    invent a cost the LP never paid.
+    The range is fixed when the position opens and never re-derived, and this is
+    the property whose absence produced the ratchet: re-centring every sample let
+    the trailing window's own drift arrive as earnings. Two accruals from the
+    same opening state must book against the same range whatever the price did.
     """
+    events = pool_tape(300)
     venue = PoolVenue(POOL, width_ticks=80, capital_quote=1.0, quote_price=PRICE)
-    _, state = venue.accrue(None, None, fit(apr=0.5, cost=0.1))
-    earned, _ = venue.accrue(state, None, fit(apr=0.2, cost=0.1))
 
-    assert earned == 0.0
+    _, state = venue.accrue(None, events[:1], None)
+    book, _ = state
+    lower, upper, liquidity = book.lower, book.upper, book.liquidity
+
+    venue.accrue(state, events[1:150], None)
+    venue.accrue(state, events[150:], None)
+
+    assert (book.lower, book.upper) == (lower, upper), "the range moved under the holder"
+    assert book.liquidity == liquidity, "the position was resized mid-hold"
 
 
 # --- a pool inside a real driver run ---------------------------------------
@@ -391,3 +408,79 @@ def test_the_do_it_yourself_baseline_cannot_park_where_a_person_could_not() -> N
         "and it booked none of the fees that position would have earned — which is "
         "the number A1 exists to refuse"
     )
+
+
+def test_a_long_hold_is_paid_what_an_accountant_books_over_the_same_interval() -> None:
+    """The ratchet, and the test whose absence let it ship.
+
+    The first `PoolVenue.accrue` differenced the totals of a **trailing window**.
+    Those do not accumulate: as the window slides it gains swaps at one end and
+    drops them at the other, so the delta is (entering − leaving) — mean-zero
+    over a long hold rather than the interval's earnings. Flooring it at zero
+    kept only the positive half of that, and it drifted upward without bound.
+    Measured on the real tape at 109.8% annualised where the fit said 23.40%.
+
+    Every accrual test before this one called `accrue` **twice**, and twice is
+    the one length at which a ratchet and an accumulator agree. So this holds a
+    position across many samples and checks the total against the accountant a
+    real LP's position would have kept — the same range, the same width, the
+    same capital, every swap absorbed once.
+    """
+    events = pool_tape(900, step=120)
+    capital = 2.0
+    venue = PoolVenue(POOL, width_ticks=80, capital_quote=capital, quote_price=PRICE)
+
+    est = venue.estimator(24 * 3600)
+    state, total, seen = None, 0.0, 0
+    # Hourly samples, exactly as the driver takes them.
+    for t in range(events[0].ts, events[-1].ts + 1, 3600):
+        est.set_decision_time(t)
+        start = seen
+        while seen < len(events) and events[seen].ts <= t:
+            est.ingest(events[seen])
+            seen += 1
+        earned, state = venue.accrue(state, events[start:seen], est.fit())
+        total += earned
+
+    # What the position itself booked: opened at the first swap the venue saw,
+    # never re-centred, every later swap absorbed once.
+    #
+    # `events[1:seen]`, not `events[1:]`. The sampling loop stops at the last
+    # whole hour, so the tail after it is never consumed — comparing against the
+    # whole tape would fail on rows the driver was never handed, which is a
+    # statement about the fixture rather than about the accrual.
+    opened = venue._open_at(events[0])  # noqa: SLF001
+    assert opened is not None
+    for event in events[1:seen]:
+        opened.absorb(event)
+    expected = (opened.total_fees - opened.total_lvr) / capital
+
+    assert total == pytest.approx(expected, rel=1e-9), (
+        f"the driver paid {total:.6%} of capital where the position booked "
+        f"{expected:.6%} — a difference means the accrual is not reading the "
+        f"book it claims to"
+    )
+
+
+def test_a_range_that_loses_over_an_interval_is_charged_for_it() -> None:
+    """Flooring at zero is the mistake, not the safeguard.
+
+    A concentrated range really can go backwards over an interval: that is what
+    the convexity cost is, and A10 publishes it as an upper bound precisely
+    because it is real. An accrual that refuses to charge it reports a position
+    that only ever gains, which is the shape of the ratchet.
+    """
+    venue = PoolVenue(POOL, width_ticks=80, capital_quote=1.0, quote_price=PRICE)
+    events = pool_tape(200)
+
+    _, state = venue.accrue(None, events[:1], None)
+    assert state is not None, "the position opened"
+
+    book, _ = state
+    # Book a loss directly: the accountant is the thing being differenced, and
+    # driving it through a tape that happens to lose would test the tape.
+    book.total_lvr = book.total_fees + 0.25
+    earned, _ = venue.accrue(state, [], None)
+
+    assert earned < 0, "a range that gave up more than it earned was paid as flat"
+    assert earned == pytest.approx(-0.25)
