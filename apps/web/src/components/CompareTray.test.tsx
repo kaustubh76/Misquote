@@ -53,8 +53,12 @@ describe("a tray with one agent", () => {
 
     await screen.findByRole("region", { name: "Compare tray" });
     expect(await screen.findByText("Warden")).toBeInTheDocument();
-    expect(screen.getByLabelText("Comparison state")).toHaveTextContent("pick one more");
-    expect(screen.queryByRole("button", { name: "Compare" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Comparison state")).toHaveTextContent(
+      "pick one more"
+    );
+    expect(
+      screen.queryByRole("button", { name: "Compare" })
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -65,7 +69,11 @@ describe("two liquidity agents", () => {
     const user = userEvent.setup();
     render(<CompareTray />);
 
-    const button = await screen.findByRole("button", { name: "Compare" }, { timeout: 5000 });
+    const button = await screen.findByRole(
+      "button",
+      { name: "Compare" },
+      { timeout: 5000 }
+    );
     await user.click(button);
 
     // `ComparisonTable`'s caption names both sides, so the table is attributed
@@ -83,13 +91,27 @@ describe("an allocation agent beside a liquidity one", () => {
     // as the live-region state and once as the refusal's own heading — and a
     // bare text query cannot tell a status line from an explanation.
     expect(
-      await screen.findByRole("heading", { name: /not comparable/i }, { timeout: 5000 }),
+      await screen.findByRole(
+        "heading",
+        { name: /not comparable/i },
+        { timeout: 5000 }
+      )
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Comparison state")).toHaveTextContent("not comparable");
-    expect(await screen.findByText(/lending market/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Comparison state")).toHaveTextContent(
+      "not comparable"
+    );
+    // The reason, asserted on the property rather than on a phrase. This pinned
+    // "lending market", which described the allocation agent by the venue it
+    // happened to be holding — and went stale the moment Router could also
+    // choose a PancakeSwap range. What makes the pair incomparable is that one
+    // side holds no range, and that does not change.
+    expect(await screen.findByText(/no range of its own/)).toBeInTheDocument();
+    expect(screen.getByText(/in-range fraction/)).toBeInTheDocument();
 
     // And it must not offer the comparison it just refused.
-    expect(screen.queryByRole("button", { name: "Compare" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Compare" })
+    ).not.toBeInTheDocument();
   });
 
   it("is a refusal, not an error", async () => {
@@ -98,7 +120,13 @@ describe("an allocation agent beside a liquidity one", () => {
     stubStorage(["warden", "router"]);
     render(<CompareTray />);
 
-    await screen.findByRole("heading", { name: /not comparable/i }, { timeout: 5000 });
-    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    await screen.findByRole(
+      "heading",
+      { name: /not comparable/i },
+      { timeout: 5000 }
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    );
   });
 });

@@ -36,7 +36,12 @@ import {
   type IndexArtifact,
   type Loaded,
 } from "@/lib/artifacts";
-import { COMPARE_KEY, readCompare, storeCompare, toggleCompare } from "@/lib/compare";
+import {
+  COMPARE_KEY,
+  readCompare,
+  storeCompare,
+  toggleCompare,
+} from "@/lib/compare";
 
 /**
  * Two agents, side by side, kept across pages.
@@ -72,7 +77,9 @@ export function CompareTray() {
   const [mounted, setMounted] = useState(false);
   const [slugs, setSlugs] = useState<string[]>([]);
   const [index, setIndex] = useState<IndexArtifact | undefined>();
-  const [cards, setCards] = useState<{ slug: string; result: Loaded<AgentArtifact> }[]>([]);
+  const [cards, setCards] = useState<
+    { slug: string; result: Loaded<AgentArtifact> }[]
+  >([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -102,7 +109,9 @@ export function CompareTray() {
     if (!mounted || slugs.length === 0) return;
     let live = true;
     (async () => {
-      const idx = index ? { ok: true as const, value: index } : await load<IndexArtifact>("index.json");
+      const idx = index
+        ? { ok: true as const, value: index }
+        : await load<IndexArtifact>("index.json");
       if (!live || !idx.ok) return;
       setIndex(idx.value);
 
@@ -140,13 +149,15 @@ export function CompareTray() {
     data: cards.find((c) => c.slug === slug)?.result,
   }));
 
-  const loaded = named.filter((n) => n.data?.ok).map((n) => ({
-    ...n,
-    value: (n.data as { ok: true; value: AgentArtifact }).value,
-  }));
+  const loaded = named
+    .filter((n) => n.data?.ok)
+    .map((n) => ({
+      ...n,
+      value: (n.data as { ok: true; value: AgentArtifact }).value,
+    }));
 
   const kinds = new Set(
-    loaded.map((n) => (n.value as unknown as { kind?: string }).kind ?? "lp"),
+    loaded.map((n) => (n.value as unknown as { kind?: string }).kind ?? "lp")
   );
   const mixed = kinds.size > 1;
   const ready = loaded.length === 2 && !mixed;
@@ -165,98 +176,111 @@ export function CompareTray() {
           cannot opt out of would be a bar sliding up over their content. */}
       <MotionConfig reducedMotion="user">
         <AnimatePresence>
-        {showing && (
-          <m.div
-            key="tray"
-            role="region"
-            aria-label="Compare tray"
-            // Transform only, so the bar composites instead of relaying out the
-            // fixed strip on every frame. `--motion-enter` decelerates hard at
-            // the end: the tray arrives and settles rather than sliding to a
-            // stop.
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-line bg-glass backdrop-blur"
-          >
-            <div className="mx-auto max-w-6xl px-5 py-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-mono text-xs tracking-widest text-faint uppercase">
-                Comparing
-              </span>
+          {showing && (
+            <m.div
+              key="tray"
+              role="region"
+              aria-label="Compare tray"
+              // Transform only, so the bar composites instead of relaying out the
+              // fixed strip on every frame. `--motion-enter` decelerates hard at
+              // the end: the tray arrives and settles rather than sliding to a
+              // stop.
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-line bg-glass backdrop-blur"
+            >
+              <div className="mx-auto max-w-6xl px-5 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-xs tracking-widest text-faint uppercase">
+                    Comparing
+                  </span>
 
-              <ul className="flex min-w-0 flex-wrap items-center gap-2">
-                {named.map((entry) => (
-                  <li key={entry.slug}>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-line bg-brand-bg px-2.5 py-1 text-sm text-brand">
-                      {entry.name}
-                      <button
-                        type="button"
-                        onClick={() => remove(entry.slug)}
-                        aria-label={`Remove ${entry.name} from the comparison`}
-                        className="rounded-full px-1 leading-none hover:text-ink"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                  <ul className="flex min-w-0 flex-wrap items-center gap-2">
+                    {named.map((entry) => (
+                      <li key={entry.slug}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-line bg-brand-bg px-2.5 py-1 text-sm text-brand">
+                          {entry.name}
+                          <button
+                            type="button"
+                            onClick={() => remove(entry.slug)}
+                            aria-label={`Remove ${entry.name} from the comparison`}
+                            className="rounded-full px-1 leading-none hover:text-ink"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
 
-              {ready && (
-                <button
-                  type="button"
-                  onClick={() => setOpen((v) => !v)}
-                  aria-expanded={open}
-                  className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90"
-                >
-                  {open ? "Hide" : "Compare"}
-                </button>
-              )}
+                  {ready && (
+                    <button
+                      type="button"
+                      onClick={() => setOpen((v) => !v)}
+                      aria-expanded={open}
+                      className="rounded-md border border-transparent bg-brand px-3 py-1.5 text-sm font-medium text-brand-ink transition-opacity hover:opacity-90"
+                    >
+                      {open ? "Hide" : "Compare"}
+                    </button>
+                  )}
 
-              {/* Named, because `Loadable` already owns an unnamed `role="status"`
+                  {/* Named, because `Loadable` already owns an unnamed `role="status"`
                   on most pages and two anonymous voices is one too many. */}
-              <p role="status" aria-label="Comparison state" className="m-0 text-xs text-faint">
-                {mixed
-                  ? "not comparable"
-                  : slugs.length < 2
-                    ? "pick one more"
-                    : loaded.length < 2
+                  <p
+                    role="status"
+                    aria-label="Comparison state"
+                    className="m-0 text-xs text-faint"
+                  >
+                    {mixed
+                      ? "not comparable"
+                      : slugs.length < 2
+                      ? "pick one more"
+                      : loaded.length < 2
                       ? "loading"
                       : ""}
-              </p>
-            </div>
+                  </p>
+                </div>
 
-            {mixed && (
-              <div className="mt-3 max-h-[40vh] overflow-y-auto">
-                <Refusal
-                  title="These two are not comparable"
-                  reason="One of these supplies to a lending market and the other provides liquidity to a pool. There is no in-range fraction and no adverse-selection cost on a lending position, so the rows below it would be blank — and a blank under a row labelled 'in range' reads as a measurement that came out empty rather than one that does not exist."
-                  floor="Compare two liquidity agents, or read the allocation card on its own."
-                />
-          </div>
-        )}
+                {mixed && (
+                  <div className="mt-3 max-h-[40vh] overflow-y-auto">
+                    <Refusal
+                      title="These two are not comparable"
+                      // The same correction `app/view.tsx` carries, in the component
+                      // that says it to a reader who has just tried the comparison.
+                      // "One of these supplies to a lending market" described the
+                      // allocation agent by the venue it happened to hold; it
+                      // chooses between venues, PancakeSwap ranges among them, and
+                      // prices adverse selection for every range it considers. What
+                      // makes the comparison impossible is narrower and permanent:
+                      // it holds no range of its own, so the columns here measure a
+                      // position it does not take.
+                      reason="One of these holds a range and the other chooses which venue to put capital in. An allocation agent has no range of its own, so there is no in-range fraction to report and the rows below would be blank — and a blank under a row labelled 'in range' reads as a measurement that came out empty rather than one that does not exist."
+                      floor="Compare two liquidity agents, or read the allocation card on its own."
+                    />
+                  </div>
+                )}
 
-        {open && ready && left && right && (
-          <div className="mt-3 max-h-[45vh] overflow-y-auto">
-            <ComparisonTable
-              caption={`${left.name} against ${right.name}`}
-              agentLabel={left.name}
-              baselineLabel={right.name}
-              agent={sideOf(left.value)}
-              baseline={sideOf(right.value)}
-              unit={left.value.quote_symbol}
-            />
-            <p className="mt-2 mb-0 text-xs text-faint">
-              Both replayed over the same tape.{" "}
-              <Link href="/methods">How a quote is made →</Link>
-            </p>
-          </div>
-        )}
-          </div>
-          </m.div>
-        )}
+                {open && ready && left && right && (
+                  <div className="mt-3 max-h-[45vh] overflow-y-auto">
+                    <ComparisonTable
+                      caption={`${left.name} against ${right.name}`}
+                      agentLabel={left.name}
+                      baselineLabel={right.name}
+                      agent={sideOf(left.value)}
+                      baseline={sideOf(right.value)}
+                      unit={left.value.quote_symbol}
+                    />
+                    <p className="mt-2 mb-0 text-xs text-faint">
+                      Both replayed over the same tape.{" "}
+                      <Link href="/methods">How a quote is made →</Link>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </m.div>
+          )}
         </AnimatePresence>
       </MotionConfig>
     </LazyMotion>
