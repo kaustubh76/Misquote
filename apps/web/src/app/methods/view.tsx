@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
 import { Cite } from "@/components/Cite";
 import { FloorGauge } from "@/components/FloorGauge";
+import { ObservationGrid } from "@/components/ObservationGrid";
 import { DataTable } from "@/components/DataTable";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -107,6 +108,25 @@ export function MethodsView({ initial }: {
             <strong className="text-ink">{count(q?.windows)}</strong> overlapping
             sub-windows and the policy is replayed in each.
           </p>
+
+          {/* The chain drawn, above the chain written.
+              The table below is a multiplication whose operators are in its
+              row labels — "× 0.5", "× perturbations", "= observations" — so a
+              reader does the arithmetic to see the shape of it. The grid is
+              that arithmetic as one unit: `windows` columns, `perturbations`
+              deep, and the product is what you are looking at. The rows stay,
+              because they carry the hours and the notes the grid cannot. */}
+          {q && floors && (
+            <div className="my-5">
+              <ObservationGrid
+                windows={q.windows}
+                perturbations={q.perturbations}
+                samples={q.samples}
+                floor={floors.min_observations}
+                caption="every verdict on this site divides by this"
+              />
+            </div>
+          )}
 
           <div className="my-5">
             <DataTable

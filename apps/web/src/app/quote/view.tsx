@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Band } from "@/components/Band";
+import { ObservationGrid } from "@/components/ObservationGrid";
 import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { Section } from "@/components/Heading";
@@ -628,10 +629,29 @@ function RunProgress({ job }: { job: JobView }) {
                 Drawn only when both are known; a gauge against a floor this
                 file invented would be a fabricated number under a refusal. */}
             {isNum(job.refusal.windows) && isNum(job.refusal.samples) && (
-              <p className="tabular mt-3 mb-0 font-mono text-xs text-faint">
-                {count(job.refusal.samples)} observations from{" "}
-                {count(job.refusal.windows)} windows
-              </p>
+              <div className="mt-3">
+                {/* The shortfall drawn, not only counted. A grid that visibly
+                    does not fill is the refusal — on the one screen where
+                    somebody has just asked for a number and is being told no.
+                    Same component draws the quote that succeeded below, so the
+                    two are one picture with a different amount filled in.
+
+                    No `floor` is passed: this page does not read the floors
+                    artifact, and a threshold invented here would be a
+                    fabricated number under a refusal — the objection `Band`'s
+                    withheld branch already makes about guessing one. The
+                    engine's own sentence above says what the floor was. */}
+                <ObservationGrid
+                  windows={job.refusal.windows}
+                  perturbations={
+                    job.refusal.samples > 0 && job.refusal.windows > 0
+                      ? Math.max(1, Math.round(job.refusal.samples / job.refusal.windows))
+                      : 1
+                  }
+                  samples={job.refusal.samples}
+                  caption="what the tape could support"
+                />
+              </div>
             )}
           </Refusal>
         </div>
