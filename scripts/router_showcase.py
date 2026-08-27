@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -221,6 +222,42 @@ def _provenance(journal_dir: Path, *, derived_from_replay: bool) -> dict:
     }
 
 
+def _no_pool_scale(reason: str) -> dict:
+    """The pool-scale block, in the shape it always has, saying it is empty.
+
+    Present and zeroed rather than absent or `{}`. `flatten` descends into a
+    populated object and stops at an empty one, so two shapes for one key means
+    the quoted card and the withheld card cannot both satisfy the contract —
+    which is what `test_router_withheld` exists to catch. The `advantage` block
+    was already built this way for the same reason.
+    """
+    return {
+        "capital_quote": 0.0,
+        "derived_from": reason,
+        "entries": 0,
+        "switches": 0,
+        "exits": 0,
+        "invested_fraction": 0.0,
+        "net_quote": 0.0,
+        "best_apr_seen": 0.0,
+        "venues_held": [],
+        "pool_held_samples": 0,
+        "samples": 0,
+        "quote": {
+            "p25": 0.0,
+            "p50": 0.0,
+            "p75": 0.0,
+            "samples": 0,
+            "windows": 0,
+            "sufficient": False,
+            "note": reason,
+            "annualised": False,
+            "basis": "",
+            "hours_per_window": 0.0,
+        },
+    }
+
+
 def _venue_row(key: str, meta, result, eps: float) -> dict:
     """One venue as the card publishes it, in the shape its kind actually has.
 
@@ -247,11 +284,19 @@ def _venue_row(key: str, meta, result, eps: float) -> dict:
         }
     )
     sizes = sorted(result.venue_sizes.get(key, ()))
-    # The median size the venue was measured at, times the epsilon — not the
-    # size at the end of the tape. A1's ceiling moved every sample and the
-    # decision was taken against the value of the moment, so a figure read off
-    # the last accrual would be describing a gate that never ran.
-    row["a1_ceiling_quote"] = round(eps * sizes[len(sizes) // 2], 2) if sizes else 0.0
+    # The **smallest** size the venue was measured at, times the epsilon — not
+    # the median, and not the size at the end of the tape.
+    #
+    # Not the end of the tape, because A1's ceiling moved every sample and the
+    # gate ran against the value of the moment; a figure read off the last
+    # accrual would describe a gate that never ran.
+    #
+    # Not the median, because a ceiling is what a position *fits under*, and
+    # half the samples sit below a median. Deriving a notional from one produced
+    # exactly that: a replay at the median ceiling breached A1 on 130 samples of
+    # 251 and had its quote refused. The number a reader can act on is the one
+    # that held throughout, which is the smallest.
+    row["a1_ceiling_quote"] = round(eps * sizes[0], 2) if sizes else 0.0
     row["held_samples"] = result.venue_held_samples.get(key, 0)
     row["quotable_samples"] = len(sizes)
     return row
@@ -314,6 +359,9 @@ def _write_withheld(out_dir: Path, command: str, markets_found: int) -> None:
         # Present and empty-handed rather than absent. The quoted card publishes
         # this, and a refusal that drops a field its sibling carries is an
         # artifact that fails the contract the rest of the repository is held to.
+        "at_pool_scale": _no_pool_scale(
+            "nothing was replayed, so there is no size at which to replay it again"
+        ),
         "pool_finding": (
             "No venue was replayed at all, so nothing can be said about the "
             "PancakeSwap ranges either. The same command quotes them once there "
@@ -525,15 +573,40 @@ def main() -> int:
             basis=f"{costs.basis} [x{scale:g}]",
         )
 
-    def run(window, params, policy=decide_router, cost_model=None, span=None) -> object:
+    def run(
+        window, params, policy=decide_router, cost_model=None, span=None, capital=None, mkts=None
+    ) -> object:
         driver = AllocationDriver(
-            markets,
+            mkts if mkts is not None else markets,
             policy=policy,
             params=params,
-            capital_quote=args.capital,
+            capital_quote=capital if capital is not None else args.capital,
             costs=cost_model if cost_model is not None else costs,
         )
         return driver.run(window, span=span)
+
+    def venues_at(capital: float) -> dict[str, object] | None:
+        """The same venues, sized for a different notional.
+
+        A `PoolVenue` divides fees by its capital to get a rate and is diluted by
+        its own liquidity inside `LvrAccountant`, so it has to be rebuilt rather
+        than reused — passing a different `capital_quote` to the driver alone
+        would leave the pool measuring a position nobody holds. Lending markets
+        are plain dicts and carry no size, so they pass through.
+        """
+        rebuilt: dict[str, object] = {}
+        for key, meta in markets.items():
+            if getattr(meta, "kind", "lending") != "pool":
+                rebuilt[key] = meta
+                continue
+            ref = next((r for r in known_pools_on(args.chain) if r.address == key), None)
+            if ref is None:
+                return None
+            venue, _, _ = _pool_venue(conn, ref, capital_quote=capital, price=price_quote)
+            if venue is None:
+                return None
+            rebuilt[key] = venue
+        return rebuilt
 
     full = run(tapes, base_params, span=covered)
     # The number the card is implicitly claiming to beat. Same driver, same
@@ -590,6 +663,143 @@ def main() -> int:
     # What a reader has to know before reading a pool row beside a lending one.
     # Only when there is a pool row: a caveat about a venue the card does not
     # carry is noise, and noise is how the ones that matter stop being read.
+    # --- the same question, at a size the ranges can actually take ----------
+    #
+    # At the notional this card is quoted on, A1 refuses every badged range and
+    # Router holds a lending market. That is the honest answer and it is also an
+    # incomplete one: the refusal's own remedy is "quote for less capital", and
+    # nothing here did it. So the same policy runs again over the same tape with
+    # one input changed — the shape `park_policy` already uses to make a delta
+    # mean something.
+    #
+    # The notional is **derived**. It is the largest capital clearing A1 on at
+    # least one range, from the ceilings the first replay measured. The ceiling
+    # does not move with our capital: `depth_quote` is the pool's own liquidity
+    # over the range and knows nothing about the position. A constant here would
+    # be the thing rule 6 forbids.
+    eps = base_params.eps_market_share
+    # The ceiling that held at every sample, per range — see `_venue_row` for why
+    # the smallest and not the median.
+    pool_ceilings = {
+        key: eps * min(sizes)
+        for key, meta in markets.items()
+        if getattr(meta, "kind", "lending") == "pool" and (sizes := full.venue_sizes.get(key))
+    }
+    at_pool_scale = None
+    scale_capital = math.floor(max(pool_ceilings.values())) if pool_ceilings else 0
+    if scale_capital > 0 and scale_capital < args.capital:
+        # The size has to clear A1 in the **windows**, because that is where the
+        # quote comes from — and the windows are stricter than the full span in
+        # a way the full span cannot show.
+        #
+        # Two effects, both measured rather than reasoned about. A1 bounds the
+        # position's *current* value, so a position entering at exactly the
+        # ceiling breaches the moment it earns anything. And at a window's start
+        # the estimator is warming up, so `depth_quote` comes from a partial
+        # trailing window and the ceiling there is lower than any the full run
+        # ever sees — which is why a probe over the full span reported no breach
+        # while the windows breached 14 times and the quote was refused.
+        #
+        # So the probe runs the windows, once each, with neither the cost
+        # perturbations nor the baseline policy: 20 replays rather than 120, for
+        # the two numbers this needs — the lowest ceiling any window offered, and
+        # what the position grew by.
+        probe_markets = venues_at(scale_capital)
+        if probe_markets is not None:
+            floors: list[float] = []
+            growth = 1.0
+            for window, bounds in windows:
+                probe = run(
+                    window, base_params, span=bounds, capital=scale_capital, mkts=probe_markets
+                )
+                for key, meta in probe_markets.items():
+                    if getattr(meta, "kind", "lending") == "pool" and probe.venue_sizes.get(key):
+                        floors.append(eps * min(probe.venue_sizes[key]))
+                if probe.net_quote > 0:
+                    growth = max(growth, 1.0 + probe.net_quote / scale_capital)
+            if floors:
+                # The lowest ceiling a window offered, discounted by the most any
+                # window grew. Both are readings off this tape; neither is chosen.
+                fitted = math.floor(max(floors) / growth)
+                if 0 < fitted < scale_capital:
+                    print(
+                        f"scale  windows floor the ceiling at {max(floors):,.0f} and grew "
+                        f"{growth - 1:.2%}; sizing to {fitted:,.0f}"
+                    )
+                    scale_capital = fitted
+
+        scaled_markets = venues_at(scale_capital)
+        if scaled_markets is not None:
+            print(f"scale  replaying again at {scale_capital:,.0f} — the largest A1 clears")
+            scaled_full = run(
+                tapes, base_params, span=covered, capital=scale_capital, mkts=scaled_markets
+            )
+            scaled_results = [
+                run(
+                    window,
+                    base_params,
+                    cost_model=scaled(cost),
+                    span=bounds,
+                    capital=scale_capital,
+                    mkts=scaled_markets,
+                )
+                for window, bounds in windows
+                for cost in COST_PERTURBATIONS
+            ]
+            scaled_quote = allocation_quote_from_results(
+                scaled_results,
+                windows=len(windows),
+                perturbation_count=len(COST_PERTURBATIONS),
+                capital_quote=scale_capital,
+            )
+            held_rows = [
+                _venue_row(key, meta, scaled_full, eps)
+                for key, meta in scaled_markets.items()
+                if scaled_full.venue_held_samples.get(key)
+            ]
+            at_pool_scale = {
+                "capital_quote": float(scale_capital),
+                "derived_from": (
+                    "the largest notional that stayed under A1's ceiling on every "
+                    "sample of this tape, for the deepest range on offer — a "
+                    "fraction of the pool's own liquidity over the quoted width, "
+                    "which does not depend on what this agent brings"
+                ),
+                # The band, its counts and its own refusal — not the whole
+                # quote object. A5 governs what a published range must carry and
+                # this carries it; the rest of `AllocationQuote` describes the
+                # headline run and would be a second copy of it here.
+                "quote": {
+                    "p25": scaled_quote.p25,
+                    "p50": scaled_quote.p50,
+                    "p75": scaled_quote.p75,
+                    "samples": scaled_quote.samples,
+                    "windows": scaled_quote.windows,
+                    "sufficient": scaled_quote.sufficient,
+                    "note": scaled_quote.note,
+                    "annualised": scaled_quote.annualised,
+                    "basis": scaled_quote.basis,
+                    "hours_per_window": round(scaled_quote.hours_per_window, 2),
+                },
+                "entries": scaled_full.entries,
+                "switches": scaled_full.switches,
+                "exits": scaled_full.exits,
+                "invested_fraction": round(scaled_full.invested_fraction, 4),
+                "net_quote": round(scaled_full.net_quote, 8),
+                "best_apr_seen": round(scaled_full.best_apr_seen, 6),
+                "venues_held": held_rows,
+                "pool_held_samples": sum(
+                    scaled_full.venue_held_samples.get(key, 0)
+                    for key, meta in scaled_markets.items()
+                    if getattr(meta, "kind", "lending") == "pool"
+                ),
+                "samples": scaled_full.samples,
+            }
+            print(
+                f"       {scaled_full.entries} enter · {scaled_full.switches} switch · "
+                f"{at_pool_scale['pool_held_samples']}/{scaled_full.samples} samples in a range"
+            )
+
     pool_caveats: list[str] = []
     if pool_venues:
         pool_caveats = [
@@ -631,6 +841,15 @@ def main() -> int:
             _venue_row(key, meta, full, base_params.eps_market_share)
             for key, meta in markets.items()
         ],
+        # The same agent, same tape, same policy, at a notional the ranges can
+        # take. Absent when every venue already fits the headline capital, which
+        # is the state a Venus-only card is in — so the withheld card carries it
+        # as an empty object rather than omitting the key.
+        "at_pool_scale": at_pool_scale
+        or _no_pool_scale(
+            "no range needed a smaller notional than the one this card is quoted "
+            "on — either none was offered, or every venue already fits it"
+        ),
         "source": source,
         "counterfactual": True,
         "badge": COUNTERFACTUAL_BADGE,

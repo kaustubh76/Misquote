@@ -528,6 +528,43 @@ export interface RouterArtifact {
    * card that reported only the allocation would have dropped it.
    */
   pool_finding?: string;
+  /**
+   * The same policy, same tape, at a notional the ranges can absorb.
+   *
+   * Router is quoted on a capital every badged range refuses under A1, and the
+   * refusal's own remedy is "quote for less capital" — so this is that, run
+   * rather than suggested. Zeroed with a reason in `derived_from` when there was
+   * no smaller size to try, because the withheld card has to carry the same
+   * shape as the quoted one.
+   */
+  at_pool_scale: {
+    capital_quote: number;
+    /** Why this size and not another. It is read from A1, never chosen. */
+    derived_from: string;
+    entries: number;
+    switches: number;
+    exits: number;
+    invested_fraction: number;
+    net_quote: number;
+    best_apr_seen: number;
+    /** Only the venues actually held, in the same row shape as `venues`. */
+    venues_held: (RouterLendingVenue | RouterPoolVenue)[];
+    /** Samples spent inside a PancakeSwap range — the number this block exists for. */
+    pool_held_samples: number;
+    samples: number;
+    quote: {
+      p25: number;
+      p50: number;
+      p75: number;
+      samples: number;
+      windows: number;
+      sufficient: boolean;
+      note: string;
+      annualised: boolean;
+      basis: string;
+      hours_per_window: number;
+    };
+  };
   /** Where the numbers came from: the journal `make router` writes. */
   provenance?: {
     journal: string;

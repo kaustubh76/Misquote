@@ -11,7 +11,16 @@ import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
 import { SectionRail } from "@/components/SectionRail";
 import { SourceBanner } from "@/components/SourceBanner";
-import { count, fraction, hours, money, pct, SIGN_CLASS, signed, signOf } from "@/lib/format";
+import {
+  count,
+  fraction,
+  hours,
+  money,
+  pct,
+  SIGN_CLASS,
+  signed,
+  signOf,
+} from "@/lib/format";
 import type { RouterArtifact } from "@/lib/artifacts";
 
 /**
@@ -55,6 +64,27 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
   // is load-bearing the moment a range appears next to a lending market.
   const hasPool = data.venues.some((v) => v.kind === "pool");
 
+  // "held N of M samples", or the reason zero is not "never measurable".
+  //
+  // `quotable_samples` had been on the artifact and on no surface, so a venue
+  // Router measured on every sample and declined on size rendered identically
+  // to one it could never read.
+  const held = (v: (typeof data.venues)[number]) =>
+    v.held_samples > 0
+      ? `held ${count(v.held_samples)} of ${count(v.quotable_samples)} samples`
+      : `quotable on ${count(v.quotable_samples)}, never entered`;
+
+  // The price that reconciled the two numéraires, from whichever range carries
+  // it. A24 says outright that it is published on the card, and until now it
+  // was on the artifact and nowhere a reader could see — a sheet promising
+  // something the page did not do.
+  const bridged = data.venues.find((v) => v.kind === "pool");
+
+  // The second replay. Always present on the artifact and zeroed when there was
+  // no smaller size to try, so the section is drawn on `capital_quote` rather
+  // than on the key existing.
+  const scale = data.at_pool_scale ?? null;
+
   // Built from what renders. `advantage`, `cost_model` and `provenance` are all
   // optional on this artifact, and a pill pointing at a section a withheld run
   // never drew is a dead anchor — the defect `AgentDetail` had, found in the
@@ -65,6 +95,9 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
     ...(adv ? [{ id: "advantage", label: "vs DIY" }] : []),
     ...(data.cost_model ? [{ id: "costs", label: "Costs" }] : []),
     { id: "venues", label: "Venues" },
+    ...(scale && scale.capital_quote > 0
+      ? [{ id: "at-scale", label: "At pool scale" }]
+      : []),
     // Rendered, anchored, and omitted from this list for one commit — which is
     // the *other* half of the bug the comment above claims credit for fixing.
     // `AgentDetail` listed four of six and skipped the middle of its own page;
@@ -178,7 +211,9 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                   {
                     label: "observations",
                     value: count(q.samples),
-                    note: `${count(q.windows)} windows × ${count(q.perturbations)} perturbations`,
+                    note: `${count(q.windows)} windows × ${count(
+                      q.perturbations
+                    )} perturbations`,
                   },
                   {
                     label: "each window covers",
@@ -211,11 +246,20 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
           <DataTable
             caption="Router's switching boundary and the rates it was measured against"
             rows={[
-              { label: "Best realized rate seen", value: rate(r.best_apr_seen) },
-              { label: "Largest edge between venues", value: rate(r.max_edge_apr) },
+              {
+                label: "Best realized rate seen",
+                value: rate(r.best_apr_seen),
+              },
+              {
+                label: "Largest edge between venues",
+                value: rate(r.max_edge_apr),
+              },
               // `hurdle` is `/agent/router/`'s no-JS needle in
               // `scripts/check-pages.mjs`. This label is where it comes from.
-              { label: "Round-trip hurdle (median)", value: rate(r.hurdle_apr_p50) },
+              {
+                label: "Round-trip hurdle (median)",
+                value: rate(r.hurdle_apr_p50),
+              },
               {
                 label: "Commitment before entry repays a round trip",
                 value: `${(r.breakeven_horizon_hours / 24).toFixed(1)} days`,
@@ -223,9 +267,14 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
               { label: "Decisions", value: count(r.samples) },
               {
                 label: "Enter / switch / exit",
-                value: `${count(r.entries)} / ${count(r.switches)} / ${count(r.exits)}`,
+                value: `${count(r.entries)} / ${count(r.switches)} / ${count(
+                  r.exits
+                )}`,
               },
-              { label: "Share of samples invested", value: fraction(r.invested_fraction) },
+              {
+                label: "Share of samples invested",
+                value: fraction(r.invested_fraction),
+              },
               {
                 label: "Share of samples on the best venue",
                 value: fraction(r.best_venue_fraction),
@@ -243,8 +292,16 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
               net={r.net_quote}
               unit={unit}
               rows={[
-                { label: "gross yield", value: r.gross_yield_quote, direction: "earned" },
-                { label: "switch costs", value: r.costs_quote, direction: "spent" },
+                {
+                  label: "gross yield",
+                  value: r.gross_yield_quote,
+                  direction: "earned",
+                },
+                {
+                  label: "switch costs",
+                  value: r.costs_quote,
+                  direction: "spent",
+                },
               ]}
             />
           </div>
@@ -252,14 +309,22 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
       </Section>
 
       {adv && (
-        <Section id="advantage" title="Against doing it yourself" intro={adv.without_agent}>
+        <Section
+          id="advantage"
+          title="Against doing it yourself"
+          intro={adv.without_agent}
+        >
           <Card>
             {/* The delta at the size the LP pages give it, with the two
                 conditions a call needs beside it. `material` and `separated`
                 were on this artifact and reached the page only folded inside
                 the verdict sentence. */}
             <p className="m-0 text-md">
-              <span className={`tabular font-semibold ${SIGN_CLASS[signOf(adv.delta_pp)]}`}>
+              <span
+                className={`tabular font-semibold ${
+                  SIGN_CLASS[signOf(adv.delta_pp)]
+                }`}
+              >
                 {signed(adv.delta_pp, 2, "pp")}
               </span>{" "}
               <span className="text-dim">{adv.verdict}</span>
@@ -279,14 +344,22 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                 },
                 {
                   label: "Baseline moves",
-                  value: `${count(adv.baseline.entries)} enter · ${count(adv.baseline.switches)} switch`,
+                  value: `${count(adv.baseline.entries)} enter · ${count(
+                    adv.baseline.switches
+                  )} switch`,
                 },
                 {
                   label: "Baseline gross yield",
                   value: money(adv.baseline.gross_yield_quote, unit),
                 },
-                { label: "Baseline costs", value: money(adv.baseline.costs_quote, unit) },
-                { label: "Baseline net", value: money(adv.baseline.net_quote, unit) },
+                {
+                  label: "Baseline costs",
+                  value: money(adv.baseline.costs_quote, unit),
+                },
+                {
+                  label: "Baseline net",
+                  value: money(adv.baseline.net_quote, unit),
+                },
               ]}
             />
           </Card>
@@ -315,11 +388,15 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                 },
                 {
                   label: "Derived from readings",
-                  value: data.cost_model.derived ? "yes" : "no — a fallback is in use",
+                  value: data.cost_model.derived
+                    ? "yes"
+                    : "no — a fallback is in use",
                 },
               ]}
             />
-            <p className="mt-3 mb-0 text-xs text-faint">{data.cost_model.basis}</p>
+            <p className="mt-3 mb-0 text-xs text-faint">
+              {data.cost_model.basis}
+            </p>
           </Card>
         </Section>
       )}
@@ -344,17 +421,31 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                     // APR: two LPs in this pool at this moment earn differently
                     // because they chose differently (A21).
                     value: `range at ±${count(v.reference_width_ticks)} ticks`,
-                    note: `${pct(v.fee_pips / 1_000_000)} fee tier, LPs keep ${pct(
-                      v.lp_fee_share,
-                    )}`,
+                    // Everything the venue was judged on, in the order it was
+                    // judged: the tier it charges, the share of it the position
+                    // keeps, what A1 let it take, and how often it was
+                    // measurable at all.
+                    //
+                    // `quotable_samples` is the field that makes the ceiling
+                    // mean something. Without it "held 0" reads as "never
+                    // measurable", when what happened is that the rate was
+                    // there on every sample and the size was not.
+                    note:
+                      `${pct(v.fee_pips / 1_000_000)} fee tier, LPs keep ${pct(
+                        v.lp_fee_share
+                      )}` +
+                      ` · A1 ceiling ${money(v.a1_ceiling_quote, unit)}` +
+                      ` · ${held(v)}`,
                   }
                 : {
                     label: v.symbol,
                     value: `${count(v.supplied_base_at_tape_end)} supplied`,
-                    note: `reserve factor ${v.reserve_factor}${
-                      v.reserve_factor_recorded ? "" : " (not on tape)"
-                    }`,
-                  },
+                    note:
+                      `reserve factor ${v.reserve_factor}` +
+                      `${v.reserve_factor_recorded ? "" : " (not on tape)"}` +
+                      ` · A1 ceiling ${money(v.a1_ceiling_quote, unit)}` +
+                      ` · ${held(v)}`,
+                  }
             )}
           />
           {/* The asymmetry, in words, beside the numbers rather than left for a
@@ -371,21 +462,118 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
             <p className="mt-4 text-sm leading-relaxed">{data.pool_finding}</p>
           )}
 
+          {bridged && (
+            <p className="mt-3 mb-0 text-xs text-faint">
+              Sizes cross from the pool&rsquo;s quote token into this
+              card&rsquo;s units at{" "}
+              <span className="tabular text-dim">
+                {money(bridged.quote_price_quote, unit)}
+              </span>{" "}
+              per {data.quote_symbol === "USD" ? "BNB" : "unit"}, read from the
+              last swap on the verified pool — the same reading the cost model
+              uses. A1&rsquo;s ceiling is one of the figures that crosses, which
+              is why the rate is published beside it (A24).
+            </p>
+          )}
+
           {hasPool && (
             <p className="mt-4 text-sm leading-relaxed text-muted">
-              A range is quoted <strong>net of its convexity cost</strong> — realized
-              fees minus the adverse selection the same window booked — because the
-              gross fee figure is the one every other venue quotes, and ranking it
-              against a lending market&rsquo;s net supply rate would let it win on a
-              subtraction it had not made. Even so the two are not the same risk. A
-              supplied dollar earns a dollar rate and stays a dollar; a range earns a
-              rate measured in the pool&rsquo;s own quote token and holds two assets
-              whose value moves with the price. A higher number here is not simply a
-              better one.
+              A range is quoted <strong>net of its convexity cost</strong> —
+              realized fees minus the adverse selection the same window booked —
+              because the gross fee figure is the one every other venue quotes,
+              and ranking it against a lending market&rsquo;s net supply rate
+              would let it win on a subtraction it had not made. Even so the two
+              are not the same risk. A supplied dollar earns a dollar rate and
+              stays a dollar; a range earns a rate measured in the pool&rsquo;s
+              own quote token and holds two assets whose value moves with the
+              price. A higher number here is not simply a better one.
             </p>
           )}
         </Card>
       </Section>
+
+      {scale && scale.capital_quote > 0 && (
+        <Section
+          id="at-scale"
+          title="At a size the ranges can take"
+          intro="The same policy over the same tape, with one input changed."
+        >
+          <Card>
+            <p className="mt-0 mb-4 max-w-[72ch] text-sm text-dim">
+              A1 caps a position at a fraction of the venue holding it, and at{" "}
+              {money(data.capital_quote, unit)} that refuses every PancakeSwap
+              range on this card. The refusal&rsquo;s own remedy is to quote for
+              less capital, so this does: {money(scale.capital_quote, unit)},
+              which is {scale.derived_from}.
+            </p>
+
+            <DataTable
+              caption={`What Router did at ${money(scale.capital_quote, unit)}`}
+              rows={[
+                {
+                  label: "Net return on supplied capital",
+                  value: scale.quote.sufficient
+                    ? `${pct(scale.quote.p25)} – ${pct(scale.quote.p75)}`
+                    : "withheld",
+                  note: scale.quote.sufficient
+                    ? `median ${pct(scale.quote.p50)} · ${scale.quote.basis}`
+                    : scale.quote.note,
+                },
+                {
+                  label: "Samples inside a range",
+                  value: `${count(scale.pool_held_samples)} of ${count(
+                    scale.samples
+                  )}`,
+                  note:
+                    scale.pool_held_samples > 0
+                      ? "the agent using the venue it was built for, rather than only measuring it"
+                      : "still none — the ranges were refused at this size too",
+                },
+                {
+                  label: "Moves",
+                  value: `${scale.entries} enter · ${scale.switches} switch · ${scale.exits} exit`,
+                  note: `invested ${pct(scale.invested_fraction)} of the run`,
+                },
+                {
+                  label: "Best rate it could take",
+                  value: rate(scale.best_apr_seen),
+                  note: `earned ${money(scale.net_quote, unit)} net`,
+                },
+              ]}
+              notes="prose"
+            />
+
+            {scale.venues_held.length > 0 && (
+              <p className="mt-4 mb-0 max-w-[72ch] text-sm">
+                Held:{" "}
+                {scale.venues_held
+                  .map((v) =>
+                    v.kind === "pool"
+                      ? `${v.symbol} at ±${count(
+                          v.reference_width_ticks
+                        )} ticks`
+                      : v.symbol
+                  )
+                  .join(", ")}
+                .
+              </p>
+            )}
+
+            {/* The thing this block is not. A smaller position earns less in
+                absolute terms and the same rate is not more attainable for
+                being demonstrated on less capital — what it shows is that the
+                constraint was size and not yield, which is a different claim
+                and the one A25 makes. */}
+            <p className="mt-4 mb-0 max-w-[72ch] text-sm text-muted">
+              This is not a better result, it is a smaller one. The rate is what
+              a range of this width paid over this tape either way; what changes
+              with the notional is whether A1 allows the position at all. A
+              reader with more capital than the ceiling should read the refusal
+              above, not this.
+            </p>
+          </Card>
+        </Section>
+      )}
 
       {/* The policy behind every number above. `params` has been on this
           artifact since the agent was written and reached no surface at all,
