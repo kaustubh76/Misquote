@@ -1,0 +1,16 @@
+{
+  "label": "A quote the tape cannot support",
+  "why": "The engine refuses before it starts when the history behind a position is too thin to quote from. It is the most important thing this site does and the hardest to reach on demand: it needs a wallet whose positions are real and whose tape is short.",
+  "responses": {
+    "POST /quote": {
+      "status": 409,
+      "body": {
+        "detail": {
+          "error": "the tape supports 6 windows and 18 observations; the floor is 20 windows and 30 observations",
+          "remedy": "index more history for this pool \u2014 `make indexer POOL=<address>` \u2014 and ask again",
+          "note": "A range quoted from 18 observations is not a narrower range, it is a wider one drawn narrow. Assumption A5 and the floors on /methods."
+        }
+      }
+    }
+  }
+}

@@ -137,6 +137,24 @@ export function AdvantageView({
           <Card className="mt-8 mb-8">
             <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
+                {/* The badge, read from the report, above the verdict it
+                    qualifies.
+
+                    `advantage.json` has carried `badge` since the emitter was
+                    written and no view rendered it — the whole report is a
+                    replay, neither position was ever held, and the page saying
+                    so had been lost. `check-pages.mjs` keeps a no-JavaScript
+                    needle on the word for exactly that reason, and that needle
+                    had been failing.
+
+                    Not a `Badge` component: this qualifies the entire report
+                    rather than one figure on it, and `Badge`'s own docstring
+                    reserves itself for "a badge qualifies a number". */}
+                {d.badge && (
+                  <p className="mt-0 mb-2 font-mono text-xs tracking-wide text-warn">
+                    {d.badge}
+                  </p>
+                )}
                 <Heading className="mt-0 mb-2 text-lg font-semibold">
                   Across all {count(d.summary.tasks)} tasks
                 </Heading>

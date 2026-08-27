@@ -1589,9 +1589,16 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
 
         <div className="mt-4 grid gap-3">
           {ours.agents.map((agent) => (
+            // `min-w-0`, and it is the fix `ListingCard` documents three
+            // hundred lines up: a grid item defaults to `min-width: auto` and
+            // refuses to shrink below its own min-content, so a row of mono
+            // transaction links set this card's width to 463px inside a 390px
+            // viewport and pushed the whole page 118px sideways. The two
+            // tables below it were reported as overflowing too; they were
+            // simply riding on this.
             <div
               key={agent.agent}
-              className="rounded-md border border-glass-line bg-glass p-3"
+              className="min-w-0 rounded-md border border-glass-line bg-glass p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <strong className="text-ink">{agent.name}</strong>
@@ -1608,7 +1615,10 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
                 {count(agent.token_uri_bytes)} byte card, held on chain ·{" "}
                 {count(agent.gas_used)} gas
               </p>
-              <p className="mt-2 mb-0 flex flex-wrap gap-x-4 font-mono text-[11px]">
+              {/* `break-all` on the addresses for the other half of it: wrapping
+                  the row is not enough when a single mono token is itself wider
+                  than the card. */}
+              <p className="mt-2 mb-0 flex flex-wrap gap-x-4 font-mono text-[11px] break-all">
                 <a href={agent.register_url} target="_blank" rel="noreferrer">
                   register {shortAddress(agent.register_tx)}
                 </a>

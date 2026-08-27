@@ -97,6 +97,57 @@ def check_offline_suite() -> Check:
     return Check("offline test suite", PASS, last)
 
 
+def check_web_browser_suite() -> Check:
+    """`make web-check`: the built export, loaded in a real browser.
+
+    The only gate here that runs layout, and the only one that can see what
+    every other check is blind to. `check-pages.mjs` records what it caught that
+    nothing else did: every route but "/" fetching its artifacts from a
+    page-relative path and rendering an error state, while the whole suite was
+    green.
+
+    It is also the only place the simulation guarantee can actually be tested.
+    `lib/api.test.ts` asserts against a stubbed fetch that a scenario issues no
+    request to the API; this asserts it against Chromium loading the real
+    export, which is where the claim has to hold.
+
+    **UNVERIFIED, never FAIL, when the toolchain is absent.** It needs Chromium
+    and a production build, and a machine without them has not failed a check —
+    it has not run one. The same shape as `check_chain_suite` when anvil cannot
+    fork: an amber light carrying the remedy, because a red one for a missing
+    browser teaches people to ignore the colour.
+    """
+    code, output = _run(["make", "web-check"], timeout=900)
+    lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
+    last = lines[-1] if lines else "no output"
+
+    if (
+        "playwright install" in output
+        or "Executable doesn't exist" in output
+        or "command not found" in output
+    ):
+        return Check(
+            "web browser suite",
+            UNVERIFIED,
+            "Chromium is not installed, so no route was loaded",
+            "cd apps/web && pnpm exec playwright install chromium, then make web-check",
+        )
+
+    if code != 0:
+        # The failure lines, not the last line. `check-pages.mjs` prints an
+        # enumerated list and then exits, so the tail is the exit noise while
+        # the routes that failed are three lines above it.
+        named = [line for line in lines if line.startswith("/") or ": " in line][-3:]
+        return Check(
+            "web browser suite",
+            FAIL,
+            "; ".join(named) or last,
+            "make web-check — each failure names the route and the viewport",
+        )
+
+    return Check("web browser suite", PASS, last)
+
+
 def check_chain_suite() -> Check:
     code, output = _run(["uv", "run", "pytest", "-m", "chainfork", "-q"], timeout=1200)
     last = output.strip().splitlines()[-1] if output.strip() else "no output"
@@ -909,6 +960,12 @@ def check_burn_in() -> Check:
 SKIPPED_BY_FAST = (
     "offline test suite",
     "replay invariants (T1-T4, L1)",
+    # The only gate that runs real layout, and the only place the claim that a
+    # simulated page never reaches the API can actually be tested. Skipped by
+    # `--fast` because `make status` writes `/status` from the fast pass and a
+    # gate that shells out to a production build does not belong on a target the
+    # artifact pipeline runs.
+    "web browser suite",
     "chain and fork suite",
 )
 
@@ -923,7 +980,12 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
     """
     checks: list[Check] = []
     if not fast:
-        checks += [check_offline_suite(), check_replay_invariants(), check_chain_suite()]
+        checks += [
+            check_offline_suite(),
+            check_replay_invariants(),
+            check_web_browser_suite(),
+            check_chain_suite(),
+        ]
     checks += [
         check_kill_switch(),
         check_no_kill_file_present(),

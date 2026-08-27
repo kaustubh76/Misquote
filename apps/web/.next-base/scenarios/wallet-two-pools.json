@@ -1,0 +1,44 @@
+{
+  "label": "A wallet with one quotable position and one that is not",
+  "why": "The pre-flight `/quote` runs before it queues anything. A wallet holding only verified positions never shows `why_not`, so the half of this screen that explains a refusal is unreachable without a wallet nobody has.",
+  "responses": {
+    "/quote/eligibility/{address}": {
+      "status": 200,
+      "body": {
+        "owner": "0x0000000000000000000000000000000000000001",
+        "chain_id": 56,
+        "read_at_block": 118446908,
+        "held": 2,
+        "in_unverified_pools": 1,
+        "holdings": [
+          {
+            "pool": "0x36696169c63e42cd08ce11f5deebbcebae652050",
+            "label": "PancakeSwap v3 WBNB/USDT 0.05%",
+            "positions": 2,
+            "open_positions": 0,
+            "quotable": true,
+            "why_not": [],
+            "plan": {
+              "windows": 20,
+              "widest_window_hours": 120.0,
+              "min_window_hours": 24.0,
+              "min_windows": 20
+            }
+          },
+          {
+            "pool": "0x1401ff943d08a7e098328c1d3a9d388923b115d2",
+            "label": "PancakeSwap v3 WBNB/USDT 0.25%",
+            "positions": 1,
+            "open_positions": 1,
+            "quotable": false,
+            "why_not": [
+              "this pool has not been through the vetting checks, so its fee tier and protocol cut are unread \u2014 a replay would be quoting assumptions"
+            ],
+            "plan": null
+          }
+        ],
+        "note": "A position in a pool this repository has not verified cannot be replayed at all \u2014 its fee tier and protocol cut decide what its swaps mean. A position in a verified pool with too little tape cannot be replayed yet. Those are different absences and are reported separately."
+      }
+    }
+  }
+}

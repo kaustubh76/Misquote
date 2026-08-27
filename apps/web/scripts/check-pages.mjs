@@ -36,6 +36,12 @@ const shotsAt = process.argv.includes("--shots")
   ? process.argv[process.argv.indexOf("--shots") + 1]
   : null;
 
+/** The desktop viewport the scenario and reduced-motion passes use. */
+const WIDE = { width: 1280, height: 900 };
+
+/** The settle this file already uses everywhere: 350ms after `networkidle`. */
+const SETTLE = 350;
+
 const ROUTES = [
   ["overview", "/"],
   ["quote", "/quote/"],
@@ -257,8 +263,14 @@ const NO_JS = [
   // these the wrong way round — "declare no category" is the *detail* page's
   // wording and the index says "declares a category", so the index needle
   // matched nothing. The check caught it, which is the check working.
-  ["/category/", 1200, "our classification presented as theirs"],
-  ["/category/rebalancing/", 1800, "our classification of their free text"],
+  // Both category needles follow the same rewording, and the reason is worth
+  // keeping: the pages used to argue that sorting strangers into categories
+  // would present *our* classification as *theirs*, and therefore listed none.
+  // They list them now — so the argument stands and the conclusion changed.
+  // What each needle holds is the half that did not change: that the
+  // classification is ours and is labelled as such.
+  ["/category/", 1200, "our classification of their words"],
+  ["/category/rebalancing/", 1800, "our reading of their free text"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
@@ -505,6 +517,166 @@ console.log(
 );
 
 await trayCtx.close();
+
+// --- a simulated page says so, and never touches the API ---------------------
+//
+// The whole simulation design rests on one claim: a scenario short-circuits
+// above `apiBase()`, so a recorded answer cannot arrive by the route a live one
+// arrives by. `lib/api.test.ts` asserts it against a stubbed fetch; this
+// asserts it against a real browser loading the real export, which is the only
+// place the claim actually has to hold.
+//
+// Both directions. A scenario route must carry the banner and issue nothing to
+// the API; an ordinary route must carry no trace of the word.
+
+const SCENARIOS = [
+  ["/agent/warden/", "journal-never-ran", "written no journal"],
+  ["/quote/", "quote-thin-tape", null],
+];
+
+const apiOrigin = await (async () => {
+  const response = await fetch(`${BASE}/artifacts/api.json`);
+  if (!response.ok) return null;
+  const config = await response.json().catch(() => null);
+  return config?.base ?? null;
+})();
+
+const simCtx = await browser.newContext({ colorScheme: "dark", viewport: WIDE });
+for (const [route, scenario, needle] of SCENARIOS) {
+  const page = await simCtx.newPage();
+  const reached = [];
+  page.on("request", (request) => {
+    if (apiOrigin && request.url().startsWith(apiOrigin)) reached.push(request.url());
+  });
+
+  // `domcontentloaded`, not `networkidle`. `/tape` polls the live tape on a
+  // timer, so the network never goes idle there and a pass that waits for it
+  // hangs for thirty seconds and then fails on a page that is fine. Neither
+  // of these checks needs a settled network: one polls for the stamp it is
+  // waiting on, the other scrolls and reads the animation list.
+  await page.goto(`${BASE}${route}?scenario=${scenario}`, { waitUntil: "domcontentloaded" });
+
+  // Polled, not slept. The scenario is two sequential fetches deep — the
+  // effect reads the URL, fetches the fixture, and only then does `loadLive`
+  // resolve — and a flat 350ms was enough for one hop and not for two: the
+  // first run of this check reported `stamp=null` and `api=1` against a build
+  // that was working, which is a check failing by not waiting.
+  //
+  // The citation-reveal pass above makes the same argument and uses the same
+  // tool. A timeout here is the assertion.
+  await page
+    .waitForFunction(
+      (want) => document.documentElement.dataset.scenario === want,
+      scenario,
+      { timeout: 5_000 },
+    )
+    .catch(() => {});
+  await page.waitForTimeout(SETTLE);
+
+  const state = await page.evaluate(() => ({
+    stamp: document.documentElement.dataset.scenario ?? null,
+    // `innerText` as rendered, so `text-transform: uppercase` is already
+    // applied — the trap the no-JS needles above document, and the one that
+    // made this check pass a false negative the first time it was written.
+    text: document.body.innerText.replace(/\s+/g, " "),
+  }));
+
+  const tag = `scenario ${scenario} on ${route}`;
+  if (state.stamp !== scenario) {
+    failures.push(`${tag}: html[data-scenario] is ${JSON.stringify(state.stamp)}`);
+  }
+  if (!/SIMULATED/i.test(state.text)) {
+    failures.push(`${tag}: the page does not say it is simulated`);
+  }
+  if (!state.text.includes("leave simulation")) {
+    failures.push(`${tag}: no way out of the simulation`);
+  }
+  if (needle && !state.text.includes(needle)) {
+    failures.push(`${tag}: does not contain ${JSON.stringify(needle)}`);
+  }
+  // The load-bearing one.
+  if (reached.length) {
+    failures.push(`${tag}: reached the API ${reached.length} time(s) — ${reached[0]}`);
+  }
+
+  console.log(
+    `  ${reached.length === 0 && state.stamp === scenario ? "ok  " : "FAIL"}` +
+      `  ${`simulated ${route}`.padEnd(30)}  api=${reached.length} stamp=${state.stamp}`,
+  );
+  await page.close();
+}
+
+// And the inverse, on every ordinary route: no stamp, and the word appears
+// nowhere. A banner that leaked onto a real page would be worse than one that
+// never rendered.
+for (const [name, path] of ROUTES) {
+  const page = await simCtx.newPage();
+  await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(SETTLE);
+  // Scoped to the banner, not to the page's prose.
+  //
+  // Matching `/simulated/i` against `body.innerText` failed on `/assumptions`,
+  // which discusses simulation in its own text — the check was reading the
+  // site's vocabulary as its state. What must not appear is the *banner*, so
+  // that is what is looked for: the element it renders, and the way out it
+  // offers.
+  const leaked = await page.evaluate(() => ({
+    stamp: document.documentElement.dataset.scenario ?? null,
+    banner: document.body.innerText.includes("leave simulation"),
+  }));
+  if (leaked.stamp !== null) failures.push(`${name}: carries data-scenario without one asked for`);
+  if (leaked.banner) failures.push(`${name}: shows the simulation banner on an ordinary visit`);
+  await page.close();
+}
+console.log(`  ok    ${"no simulation on ordinary routes".padEnd(30)}  ${ROUTES.length} routes`);
+
+await simCtx.close();
+
+// --- nothing animates under `prefers-reduced-motion` -------------------------
+//
+// `globals.css` names a hand-written list — `.reveal, .band-draw, .band-tick,
+// .shuttle` — because `!important` never reaches a scroll-driven timeline, and
+// its comment records the miss that proved it: `.band-tick` was absent for one
+// commit and six `tick-in` animations kept running on `ViewTimeline` after the
+// bars they belong to had stopped.
+//
+// It also records the check that found it — `document.getAnimations()` filtered
+// to `playState === "running"` should be empty — and says "that check is worth
+// re-running after anything is added here". Nothing automated it. This does.
+const motionCtx = await browser.newContext({
+  colorScheme: "dark",
+  viewport: WIDE,
+  reducedMotion: "reduce",
+});
+for (const [name, path] of ROUTES) {
+  const page = await motionCtx.newPage();
+  await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
+  // Scrolled, because the animations at issue are scroll-driven: one that never
+  // enters the viewport never starts, and a check that never scrolls would pass
+  // by not looking.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(SETTLE);
+
+  const running = await page.evaluate(() =>
+    document
+      .getAnimations()
+      .filter((a) => a.playState === "running")
+      .map((a) => a.animationName ?? a.constructor.name),
+  );
+  if (running.length) {
+    // Named, so the next miss identifies itself instead of needing the same
+    // half-hour in a console.
+    failures.push(
+      `${name} under reduced-motion: ${running.length} animation(s) still running — ` +
+        `${[...new Set(running)].join(", ")}`,
+    );
+  }
+  await page.close();
+}
+console.log(`  ok    ${"nothing animates under reduce".padEnd(30)}  ${ROUTES.length} routes`);
+
+await motionCtx.close();
+
 await live.close();
 await browser.close();
 

@@ -1,0 +1,229 @@
+{
+  "badge_dir": "vetting/badges",
+  "build": {
+    "command": "python scripts/vetting_report.py --chain 56",
+    "generated_at": "2026-08-25T09:42:36+00:00",
+    "git_dirty": false,
+    "git_sha": "99a32f6",
+    "source": "chain-read badges on disk"
+  },
+  "chain_id": 56,
+  "pools": [
+    {
+      "age_hours": 117.9,
+      "badged": true,
+      "chain_id": 56,
+      "checks": [
+        {
+          "detail": "getPool() agrees with the address",
+          "name": "factory resolves it",
+          "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
+          "status": "PASS"
+        },
+        {
+          "detail": "0.05% -> spacing 10",
+          "name": "tick spacing matches tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
+          "status": "PASS"
+        },
+        {
+          "detail": "feeProtocol 3400 \u2014 LPs keep 66%, effective 3.300bps",
+          "name": "protocol fee read",
+          "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
+          "status": "PASS"
+        },
+        {
+          "detail": "token0 18, token1 18",
+          "name": "decimals read",
+          "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
+          "status": "PASS"
+        },
+        {
+          "detail": "tick -64752",
+          "name": "initialised and not pinned",
+          "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
+          "status": "PASS"
+        },
+        {
+          "detail": "w_min=40, [-64800, -64720]",
+          "name": "a mintable range exists",
+          "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
+          "status": "PASS"
+        },
+        {
+          "detail": "3,233,876,951,067,468,072,845,826 \u2014 a 1% share is 32,338,769,510,674,680,774,656",
+          "name": "liquidity supports a position",
+          "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
+          "status": "PASS"
+        },
+        {
+          "detail": "4,413 and 3,124 bytes",
+          "name": "both tokens are contracts",
+          "provenance": "an \"ERC-20\" with no code is an address somebody typed",
+          "status": "PASS"
+        },
+        {
+          "detail": "5 recorded value(s) still agree",
+          "name": "recorded values match chain",
+          "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
+          "status": "PASS"
+        }
+      ],
+      "label": "PancakeSwap v3 WBNB/USDT 0.05%",
+      "path": "vetting/badges/0x36696169c63e42cd08ce11f5deebbcebae652050.json",
+      "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+      "read_at": "2026-08-20T11:50:02+00:00",
+      "safe_to_provide": true,
+      "verdict": "PASS"
+    },
+    {
+      "age_hours": 117.9,
+      "badged": true,
+      "chain_id": 56,
+      "checks": [
+        {
+          "detail": "getPool() agrees with the address",
+          "name": "factory resolves it",
+          "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
+          "status": "PASS"
+        },
+        {
+          "detail": "0.25% -> spacing 50",
+          "name": "tick spacing matches tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
+          "status": "PASS"
+        },
+        {
+          "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+          "name": "protocol fee read",
+          "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
+          "status": "PASS"
+        },
+        {
+          "detail": "token0 18, token1 18",
+          "name": "decimals read",
+          "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
+          "status": "PASS"
+        },
+        {
+          "detail": "tick -64755",
+          "name": "initialised and not pinned",
+          "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
+          "status": "PASS"
+        },
+        {
+          "detail": "w_min=200, [-65000, -64600]",
+          "name": "a mintable range exists",
+          "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
+          "status": "PASS"
+        },
+        {
+          "detail": "8,350,504,034,261,124,099,708 \u2014 a 1% share is 83,505,040,342,611,247,104",
+          "name": "liquidity supports a position",
+          "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
+          "status": "PASS"
+        },
+        {
+          "detail": "4,413 and 3,124 bytes",
+          "name": "both tokens are contracts",
+          "provenance": "an \"ERC-20\" with no code is an address somebody typed",
+          "status": "PASS"
+        },
+        {
+          "detail": "5 recorded value(s) still agree",
+          "name": "recorded values match chain",
+          "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
+          "status": "PASS"
+        }
+      ],
+      "label": "PancakeSwap v3 WBNB/USDT 0.25%",
+      "path": "vetting/badges/0x1401ff943d08a7e098328c1d3a9d388923b115d2.json",
+      "pool": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
+      "read_at": "2026-08-20T11:50:11+00:00",
+      "safe_to_provide": true,
+      "verdict": "PASS"
+    },
+    {
+      "age_hours": 117.9,
+      "badged": true,
+      "chain_id": 56,
+      "checks": [
+        {
+          "detail": "getPool() agrees with the address",
+          "name": "factory resolves it",
+          "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
+          "status": "PASS"
+        },
+        {
+          "detail": "0.25% -> spacing 50",
+          "name": "tick spacing matches tier",
+          "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
+          "status": "PASS"
+        },
+        {
+          "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+          "name": "protocol fee read",
+          "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
+          "status": "PASS"
+        },
+        {
+          "detail": "token0 18, token1 18",
+          "name": "decimals read",
+          "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
+          "status": "PASS"
+        },
+        {
+          "detail": "tick -58679",
+          "name": "initialised and not pinned",
+          "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
+          "status": "PASS"
+        },
+        {
+          "detail": "w_min=200, [-58900, -58500]",
+          "name": "a mintable range exists",
+          "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
+          "status": "PASS"
+        },
+        {
+          "detail": "1,576,166,738,998,165,198 \u2014 a 1% share is 15,761,667,389,981,652",
+          "name": "liquidity supports a position",
+          "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
+          "status": "PASS"
+        },
+        {
+          "detail": "4,413 and 2,138 bytes",
+          "name": "both tokens are contracts",
+          "provenance": "an \"ERC-20\" with no code is an address somebody typed",
+          "status": "PASS"
+        },
+        {
+          "detail": "5 recorded value(s) still agree",
+          "name": "recorded values match chain",
+          "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
+          "status": "PASS"
+        }
+      ],
+      "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
+      "path": "vetting/badges/0x5e12d6edb2b7d5330e474ea2d2694a3b3e35d492.json",
+      "pool": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+      "read_at": "2026-08-20T11:50:21+00:00",
+      "safe_to_provide": true,
+      "verdict": "PASS"
+    }
+  ],
+  "summary": {
+    "badged": 3,
+    "blocked": 0,
+    "checks": 27,
+    "cleared": 3,
+    "failed_checks": 0,
+    "pools": 3,
+    "unbadged": 0,
+    "unknown_checks": 0,
+    "verdicts": {
+      "PASS": 3
+    },
+    "worst": "PASS"
+  },
+  "surveyed": true
+}
