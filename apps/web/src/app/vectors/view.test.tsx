@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readArtifact, serveArtifacts } from "@/test/harness";
-import { VectorsView } from "./view";
+import VectorsPage from "./page";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/vectors" }));
 
@@ -46,26 +46,16 @@ afterEach(() => {
 });
 
 async function loaded() {
-  // `VectorsView` without `initial`, not `VectorsPage`, and that is the whole
-  // fix rather than a stylistic preference.
+  render(<VectorsPage />);
+  // Waits for the loaded state rather than the h1: the heading sits outside the
+  // `{d && …}` guard and renders before the fetch resolves.
   //
-  // The page prerenders: `page.tsx` passes `readArtifact("vectors.json")` from
-  // disk, so `state` is already loaded on first paint and `aria-busy` is false
-  // immediately. The wait below then returns **before** the client fetch — the
-  // one `serveArtifacts` overrides — has resolved, and every assertion runs
-  // against whatever this repository's real artifact happens to say. Where that
-  // agrees with the override the test passes by luck; where it does not, it
-  // fails. Measured at one failure in five runs of this file.
-  //
-  // The comment this replaces already recorded the symptom — "exactly one
-  // failure in four full runs, which is the worst possible amount" — and fixed
-  // the wrong half of it, moving from the h1 to `aria-busy` while the render
-  // still supplied the data the wait was meant to be waiting for.
-  //
-  // With no `initial`, the page starts busy and the wait means what it says. A
-  // test wanting the published artifact still gets it: `serveArtifacts()` serves
-  // the real files unless something is overridden.
-  render(<VectorsView />);
+  // This is only sufficient because `vitest.setup.ts` makes the build-time read
+  // agree with the fetch. Before that, `page.tsx` seeded the view from disk, so
+  // `aria-busy` was already false on the first paint and this returned while an
+  // overridden artifact was still in flight — one failure in five runs of this
+  // file, and the comment that used to sit here recorded the symptom while
+  // fixing the wrong half of it.
   await waitFor(() =>
     expect(document.querySelector("[aria-busy='true']")).not.toBeInTheDocument()
   );

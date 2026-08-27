@@ -41,11 +41,52 @@ function artifactBody(name: string): string {
  * These read the same files `make artifacts` writes and the browser requests,
  * which is what makes a page test capable of catching an emitter change.
  */
+/**
+ * What the current test declared missing or overridden.
+ *
+ * Read by the `@/lib/build-artifact` mock in `vitest.setup.ts`, so a page's
+ * **build-time** read sees the same bytes its runtime fetch will. In production
+ * those two are the same file by construction; without this they were not, and
+ * that gap is a race every prerendering page under test could lose.
+ *
+ * Module-level rather than passed around, because the code that has to consult
+ * it is a server-only module a test never touches directly.
+ */
+let declared: { missing: Set<string>; overrides: Record<string, unknown> } = {
+  missing: new Set(),
+  overrides: {},
+};
+
+/**
+ * The artifact a prerender should see, or `MISSING` when the test removed it.
+ *
+ * Exists so `readArtifact` can be made to agree with `fetch`. A page seeded from
+ * disk while the fetch serves a fixture paints the real data first, and any
+ * "is it ready?" signal fires against that paint — so assertions run against
+ * whichever of the two the timing happened to deliver. Where the committed
+ * artifact agrees with the fixture, the test passes by luck.
+ *
+ * That cost two real flakes: `/vectors` waiting on `aria-busy`, which is false
+ * on the first paint when `initial` is supplied, and `/registry` finding the
+ * four "register" links of the committed artifact where its fixture declared
+ * one. Both read as selector problems and were timing.
+ */
+export const MISSING = Symbol("artifact removed by this test");
+
+export function prerenderedArtifact(
+  name: string
+): unknown | typeof MISSING | undefined {
+  if (declared.missing.has(name)) return MISSING;
+  if (name in declared.overrides) return declared.overrides[name];
+  return undefined;
+}
+
 export function serveArtifacts(
-  options: { missing?: string[]; overrides?: Record<string, unknown> } = {},
+  options: { missing?: string[]; overrides?: Record<string, unknown> } = {}
 ) {
   const missing = new Set(options.missing ?? []);
   const overrides = options.overrides ?? {};
+  declared = { missing, overrides };
 
   vi.stubGlobal(
     "fetch",
@@ -60,7 +101,7 @@ export function serveArtifacts(
         throw new Error(
           `fetch("${url}") is not root-absolute. Artifact requests must start ` +
             `with "/artifacts/", or they resolve against the current route and ` +
-            `404 everywhere except "/".`,
+            `404 everywhere except "/".`
         );
       }
       const name = url.slice("/artifacts/".length);
@@ -95,7 +136,7 @@ export function serveArtifacts(
           headers: { "content-type": "text/html" },
         });
       }
-    }),
+    })
   );
 }
 

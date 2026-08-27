@@ -22,7 +22,6 @@ import AssumptionsPage from "./assumptions/page";
 import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
-import { RegistryView, type StatusSummary } from "./registry/view";
 import StatusPage from "./status/page";
 import VenuePage from "./venue/page";
 import { VenueView, type VenueArtifact } from "./venue/view";
@@ -1614,23 +1613,16 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
         },
       },
     });
-    // `RegistryView` with no prerendered artifact, not `RegistryPage`.
+    // The fixture declares one agent; the committed artifact holds four, each
+    // with its own "register" link. That mattered: `page.tsx` seeded the view
+    // from disk, so the heading below was in the first paint and this query ran
+    // against four links before the override landed — "found multiple
+    // elements", which reads as a selector problem and was timing. Three
+    // failures in eight runs of this file.
     //
-    // The page passes `readArtifact("registry.json")` from disk, so it paints
-    // the *real* registry — four agents, four "register" links — before the
-    // overridden fetch lands. "Our own agents" is in that first paint, so
-    // awaiting the heading returns immediately and the query below then finds
-    // four links where the fixture declares one. Whether it fails is a race the
-    // test cannot win reliably: three failures in eight runs of this file once
-    // enough other work shared the event loop.
-    //
-    // The same shape as `app/vectors/view.test.tsx`, fixed the same way. A test
-    // that overrides an artifact must not be handed the one on disk.
-    render(
-      <RegistryView
-        initialStatus={readArtifact<StatusSummary>("status.json")}
-      />
-    );
+    // `vitest.setup.ts` now makes the build-time read serve the override too, so
+    // a page under test never sees bytes its own fetch will contradict.
+    render(<RegistryPage />);
     const heading = await screen.findByRole("heading", {
       name: /Our own agents/,
     });
