@@ -8,6 +8,7 @@ import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
+import { PoolLookup } from "@/components/PoolLookup";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type Loaded } from "@/lib/artifacts";
@@ -115,6 +116,10 @@ export interface PoolLadder {
 export interface PoolsArtifact {
   chain_id: number;
   capital_quote: number;
+  /** Every width the ladder was run at, so its span is stated not inferred. */
+  width_ladder: number[];
+  /** How many pools were looked at, badged, ranked, and refused. */
+  summary: { pools: number; badged: number; quotable: number; refused: number };
   pools: PoolLadder[];
   build?: Build;
 }
@@ -506,6 +511,50 @@ export function VenueView({
               </Card>
             )}
 
+            {/* What the ladder covered, before the per-pool detail.
+
+                `summary` and `width_ladder` were both in the artifact and on no
+                surface, so the section opened straight into the first pool and a
+                reader had to count rows to learn how many pools had been looked
+                at or how wide the sweep went. The counts are the honest headline
+                for a measurement whose whole argument is about evidence: three
+                pools examined, and one of them refused. */}
+            {pools && (
+              <Card>
+                <DataTable
+                  caption="What the ladder covered"
+                  hideCaption={false}
+                  rows={[
+                    {
+                      label: "Pools examined",
+                      value: count(pools.summary.pools),
+                      note: `${count(
+                        pools.summary.badged
+                      )} carry a due-diligence badge`,
+                    },
+                    {
+                      label: "Ranked",
+                      value: count(pools.summary.quotable),
+                      note:
+                        pools.summary.refused > 0
+                          ? `${count(
+                              pools.summary.refused
+                            )} refused for want of evidence`
+                          : "every badged pool cleared the evidence floor",
+                    },
+                    {
+                      label: "Widths measured",
+                      value: count(pools.width_ladder.length),
+                      note: `±${count(pools.width_ladder[0])} to ±${count(
+                        pools.width_ladder[pools.width_ladder.length - 1]
+                      )} ticks, per unit of capital`,
+                    },
+                  ]}
+                  notes="prose"
+                />
+              </Card>
+            )}
+
             {pools?.pools.map((pool) => {
               const usable = pool.ladder.filter((band) => band.sufficient);
               return (
@@ -606,7 +655,7 @@ export function VenueView({
                       columns={[
                         "Pool",
                         "Per unit of liquidity",
-                        "Volume · swaps",
+                        "Depth · flow",
                       ]}
                       rows={pools.pools.map((pool) => ({
                         label: pool.label,
@@ -617,15 +666,42 @@ export function VenueView({
                                 pool.demand.fee_per_unit_liquidity / base,
                                 1
                               )}× it`,
-                        note: `${count(pool.demand.volume_quote)} ${
+                        // The denominator, beside the ratio built from it.
+                        // Publishing "3.4× the flagship" while hiding the depth
+                        // that produced it is half the argument: the whole claim
+                        // is that the same flow over less liquidity pays each
+                        // unit more, and the liquidity is the half a reader
+                        // cannot check without.
+                        note: `median depth ${count(
+                          pool.demand.median_liquidity
+                        )} · ${count(pool.demand.volume_quote)} ${
                           pool.quote_symbol
-                        } · ${count(pool.demand.swaps)} swaps`,
+                        } over ${count(pool.demand.swaps)} swaps, ${count(
+                          pool.demand.tick_crossings
+                        )} of which moved the tick`,
                       }))}
                       notes="prose"
                     />
                   </Card>
                 );
               })()}
+
+            {/* The question the list cannot answer: what about *my* pool.
+
+                `/pools/{address}` was built for exactly that and had no caller —
+                registered, tested, served, and reachable only by someone who
+                already knew it existed. Mounted here as `BadgeLookup` is mounted
+                on `/vetting`, and needing a live API is why it sits below the
+                published ladders rather than above them. */}
+            <Card className="mt-4">
+              <p className="mt-0 mb-3 max-w-[72ch] text-sm text-dim">
+                The ladders above are every pool this repository measured. If
+                you hold a position in one, ask about it directly — the answer
+                distinguishes a pool nobody verified from one that was verified
+                and could not be ranked.
+              </p>
+              <PoolLookup />
+            </Card>
 
             {pools?.build && (
               <BuildStamp className="mt-4" build={pools.build} />

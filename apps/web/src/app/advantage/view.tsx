@@ -13,9 +13,23 @@ import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { SourceBanner } from "@/components/SourceBanner";
 import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
-import { load, type AdvantageArtifact, type AdvantageTask, type Loaded } from "@/lib/artifacts";
+import {
+  load,
+  type AdvantageArtifact,
+  type AdvantageTask,
+  type Loaded,
+} from "@/lib/artifacts";
 import { agentSlugFor, type IndexedAgentRef } from "@/lib/counterpart";
-import { EMPTY, SIGN_CLASS, count, fixed, isNum, money, signOf, signed } from "@/lib/format";
+import {
+  EMPTY,
+  SIGN_CLASS,
+  count,
+  fixed,
+  isNum,
+  money,
+  signOf,
+  signed,
+} from "@/lib/format";
 
 export function AdvantageView({
   initialMain,
@@ -43,12 +57,14 @@ export function AdvantageView({
   initialAgents?: IndexedAgentRef[];
 }) {
   const [main, setMain] = useState<Loaded<AdvantageArtifact> | null>(
-    initialMain ? { ok: true, value: initialMain } : null,
+    initialMain ? { ok: true, value: initialMain } : null
   );
   const [short, setShort] = useState<Loaded<AdvantageArtifact> | null>(
-    initialShort ? { ok: true, value: initialShort } : null,
+    initialShort ? { ok: true, value: initialShort } : null
   );
-  const [agents, setAgents] = useState<IndexedAgentRef[] | undefined>(initialAgents);
+  const [agents, setAgents] = useState<IndexedAgentRef[] | undefined>(
+    initialAgents
+  );
 
   useEffect(() => {
     let live = true;
@@ -79,9 +95,11 @@ export function AdvantageView({
   // Derived rather than read, because the report publishes no such field — and
   // that absence is exactly why the page never disclosed that its four tasks
   // are not all on the same length of tape.
-  const windows = [...new Set((d?.tasks ?? []).map((t) => t.replay_days).filter(isNum))]
-    .sort((a, b) => b - a);
-  const tasksOn = (n: number) => (d?.tasks ?? []).filter((t) => t.replay_days === n).length;
+  const windows = [
+    ...new Set((d?.tasks ?? []).map((t) => t.replay_days).filter(isNum)),
+  ].sort((a, b) => b - a);
+  const tasksOn = (n: number) =>
+    (d?.tasks ?? []).filter((t) => t.replay_days === n).length;
 
   return (
     <Loadable loading={main === null} what="the advantage report">
@@ -92,9 +110,9 @@ export function AdvantageView({
         {/* 58 words making one claim twice — "same driver, tape, cost model,
             accountant" and "only `policy=` differs" are the same sentence. The
             task count is read; it was typed in five places against one field. */}
-        {d ? `${d.summary.tasks} tasks` : "Each task"}, each done both ways. Only{" "}
-        <code className="font-mono text-xs">policy=</code> differs between the columns —
-        same driver, same tape, same cost model,{" "}
+        {d ? `${d.summary.tasks} tasks` : "Each task"}, each done both ways.
+        Only <code className="font-mono text-xs">policy=</code> differs between
+        the columns — same driver, same tape, same cost model,{" "}
         <strong className="text-ink">held fixed by construction</strong>.
       </p>
 
@@ -112,10 +130,11 @@ export function AdvantageView({
             detail={main.error.message}
             remedy={
               <>
-                Run <code className="font-mono text-xs">make advantage-demo</code> for a
-                labelled synthetic tape, or{" "}
-                <code className="font-mono text-xs">make advantage</code> against an
-                indexed one.
+                Run{" "}
+                <code className="font-mono text-xs">make advantage-demo</code>{" "}
+                for a labelled synthetic tape, or{" "}
+                <code className="font-mono text-xs">make advantage</code>{" "}
+                against an indexed one.
               </>
             }
           />
@@ -144,7 +163,9 @@ export function AdvantageView({
                 <Heading className="mt-0 mb-2 text-lg font-semibold">
                   Across all {count(d.summary.tasks)} tasks
                 </Heading>
-                <p className="m-0 font-mono text-sm text-warn">{d.overall.label}</p>
+                <p className="m-0 font-mono text-sm text-warn">
+                  {d.overall.label}
+                </p>
 
                 {/* How the tasks fell out, as a shape.
 
@@ -163,9 +184,15 @@ export function AdvantageView({
                   className="mt-3 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
                   role="img"
                   aria-label={
-                    `Of ${count(d.summary.tasks)} tasks: ${count(d.summary.agent_ahead)} ` +
-                    `with the agent ahead, ${count(d.summary.diy_ahead)} with doing it ` +
-                    `yourself ahead, ${count(d.summary.indistinguishable)} too close to ` +
+                    `Of ${count(d.summary.tasks)} tasks: ${count(
+                      d.summary.agent_ahead
+                    )} ` +
+                    `with the agent ahead, ${count(
+                      d.summary.diy_ahead
+                    )} with doing it ` +
+                    `yourself ahead, ${count(
+                      d.summary.indistinguishable
+                    )} too close to ` +
                     `call, ${count(d.summary.withheld)} withheld.`
                   }
                 >
@@ -181,9 +208,11 @@ export function AdvantageView({
                       <div
                         key={tone}
                         className={tone}
-                        style={{ width: `${(n / Math.max(1, d.summary.tasks)) * 100}%` }}
+                        style={{
+                          width: `${(n / Math.max(1, d.summary.tasks)) * 100}%`,
+                        }}
                       />
-                    ) : null,
+                    ) : null
                   )}
                 </div>
                 <p className="mt-3 mb-0 max-w-[56ch] text-sm text-dim">
@@ -197,21 +226,30 @@ export function AdvantageView({
                       And the sample clause was a fake derivation: a ternary on
                       `d.tasks[0]` emitting a fixed string containing two numbers
                       `advantage.json` does not carry at any level. */}
-                  {count(d.summary.tasks)} tapes are not evidence about a strategy. Each
-                  task&rsquo;s own quote is, and it is drawn from many windows.
+                  {count(d.summary.tasks)} tapes are not evidence about a
+                  strategy. Each task&rsquo;s own quote is, and it is drawn from
+                  many windows.
                 </p>
               </div>
 
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-1">
                 <Summary label="tasks" value={count(d.summary.tasks)} />
                 <Summary label="quotable" value={count(d.summary.quotable)} />
-                <Summary label="withheld" value={count(d.summary.withheld)} tone="text-warn" />
+                <Summary
+                  label="withheld"
+                  value={count(d.summary.withheld)}
+                  tone="text-warn"
+                />
                 <Summary
                   label="agent ahead"
                   value={count(d.summary.agent_ahead)}
                   tone="text-good"
                 />
-                <Summary label="DIY ahead" value={count(d.summary.diy_ahead)} tone="text-bad" />
+                <Summary
+                  label="DIY ahead"
+                  value={count(d.summary.diy_ahead)}
+                  tone="text-bad"
+                />
                 {/* On the interface since the report was written and rendered
                     nowhere, so the list said 0 ahead and 2 behind of 4 and left
                     the other two unaccounted for. They are the calls this
@@ -221,7 +259,10 @@ export function AdvantageView({
                   label="too close to call"
                   value={count(d.summary.indistinguishable)}
                 />
-                <Summary label="bands separated" value={count(d.summary.separated)} />
+                <Summary
+                  label="bands separated"
+                  value={count(d.summary.separated)}
+                />
               </dl>
             </div>
           </Card>
@@ -234,8 +275,8 @@ export function AdvantageView({
             className="mt-8"
             intro={
               <>
-                The baseline differs per task — several tasks with one baseline is
-                one task relabelled — and so does the tape.
+                The baseline differs per task — several tasks with one baseline
+                is one task relabelled — and so does the tape.
                 {/* Derived, never typed, and that is the point: the report
                     publishes no "the windows differ" flag, which is precisely
                     why nothing on this page ever said they do. No cause is
@@ -247,9 +288,10 @@ export function AdvantageView({
                     {windows
                       .map((n) => `${count(tasksOn(n))} on ${fixed(n, 1)} days`)
                       .join(", ")}
-                    . Each column is compared against the other on that task&rsquo;s own
-                    tape, so the window bounds how much of a year the annualised
-                    figure describes — not which of the two is ahead.
+                    . Each column is compared against the other on that
+                    task&rsquo;s own tape, so the window bounds how much of a
+                    year the annualised figure describes — not which of the two
+                    is ahead.
                   </>
                 )}
               </>
@@ -269,13 +311,18 @@ export function AdvantageView({
           </Section>
 
           {/* ------------------------------------------- the refusal, live -- */}
-          <Section title="The same report, on too little history" className="mt-12" headingClassName="text-lg font-semibold">
+          <Section
+            title="The same report, on too little history"
+            className="mt-12"
+            headingClassName="text-lg font-semibold"
+          >
             {/* The opening sentence justified the panel's existence rather
                 than saying anything about it — and the panel's own badge and
                 its all-withheld output are the demonstration. */}
             <p className="mt-2 mb-5 max-w-[68ch] text-sm text-dim">
-              The same code path on a tape too short to reach the policy horizon. It
-              produces no numbers at all, which is the correct answer.
+              The same code path on a tape too short to reach the policy
+              horizon. It produces no numbers at all, which is the correct
+              answer.
             </p>
 
             {short?.ok ? (
@@ -283,20 +330,25 @@ export function AdvantageView({
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                   <Badge tone="neutral">Deliberately short tape</Badge>
                   <span className="font-mono text-xs text-faint">
-                    {short.value.summary.withheld} of {short.value.summary.tasks} withheld
+                    {short.value.summary.withheld} of{" "}
+                    {short.value.summary.tasks} withheld
                   </span>
                 </div>
                 <ul className="m-0 list-none space-y-3 p-0">
                   {short.value.tasks.map((t) => (
                     <li key={t.task}>
                       <p className="m-0 text-sm font-medium">{t.task}</p>
-                      <p className="mt-1 mb-0 font-mono text-xs text-warn">{t.verdict}</p>
+                      <p className="mt-1 mb-0 font-mono text-xs text-warn">
+                        {t.verdict}
+                      </p>
                     </li>
                   ))}
                 </ul>
                 <p className="mt-4 mb-0 text-sm text-dim">
                   Overall:{" "}
-                  <span className="font-mono text-warn">{short.value.overall.label}</span>
+                  <span className="font-mono text-warn">
+                    {short.value.overall.label}
+                  </span>
                 </p>
               </Card>
             ) : (
@@ -310,7 +362,9 @@ export function AdvantageView({
           </Section>
 
           <p className="mt-10 text-sm">
-            <Link href="/methods">How each of these quotes was constructed →</Link>
+            <Link href="/methods">
+              How each of these quotes was constructed →
+            </Link>
           </p>
         </>
       )}
@@ -424,11 +478,15 @@ function TaskCard({
 
       <dl className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
         <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
-          <dt className="text-xs tracking-wide text-faint uppercase">Without an agent</dt>
+          <dt className="text-xs tracking-wide text-faint uppercase">
+            Without an agent
+          </dt>
           <dd className="m-0 mt-1 break-all text-dim">{task.without_agent}</dd>
         </div>
         <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
-          <dt className="text-xs tracking-wide text-faint uppercase">With an agent</dt>
+          <dt className="text-xs tracking-wide text-faint uppercase">
+            With an agent
+          </dt>
           {/* The agent's own card answers this same task from its own run, and
               the two have disagreed by as much as a sign. This sentence named
               the agent as inert text, so a reader had no way to reach the other
@@ -446,7 +504,11 @@ function TaskCard({
               prose *plus* an address, so `break-all` is wrong: it would hyphenate
               the sentence too. `anywhere` breaks only where nothing else works. */}
           <dd className="m-0 mt-1 text-dim [overflow-wrap:anywhere]">
-            {slug ? <Link href={`/agent/${slug}`}>{task.with_agent}</Link> : task.with_agent}
+            {slug ? (
+              <Link href={`/agent/${slug}`}>{task.with_agent}</Link>
+            ) : (
+              task.with_agent
+            )}
           </dd>
         </div>
       </dl>
@@ -507,10 +569,13 @@ function TaskCard({
 
       {task.quotable && task.same_run && (
         <p className="mt-3 mb-0 max-w-[62ch] text-sm text-dim">
-          <strong className="text-ink">One band, because one thing was measured.</strong>{" "}
-          Both rules chose the same venue, so the two columns are the same replay —
-          same tape, same policy, same capital — and the difference between them is
-          exactly zero by construction rather than by measurement.
+          <strong className="text-ink">
+            One band, because one thing was measured.
+          </strong>{" "}
+          Both rules chose the same venue, so the two columns are the same
+          replay — same tape, same policy, same capital — and the difference
+          between them is exactly zero by construction rather than by
+          measurement.
         </p>
       )}
 
@@ -545,7 +610,10 @@ function TaskCard({
               task.primary_metric.improved ? "text-good" : "text-dim"
             }`}
           >
-            {task.primary_metric.summary.replace(`${task.primary_metric.name}: `, "")}
+            {task.primary_metric.summary.replace(
+              `${task.primary_metric.name}: `,
+              ""
+            )}
           </span>
         </p>
       )}
@@ -564,7 +632,9 @@ function TaskCard({
       <p className="mt-2 mb-0 font-mono text-xs text-faint">
         {task.material ? "material" : "immaterial"} · bands{" "}
         {task.separated ? "separated" : "overlapping"}
-        {isNum(task.replay_days) && <> · {fixed(task.replay_days, 1)} days of tape</>}
+        {isNum(task.replay_days) && (
+          <> · {fixed(task.replay_days, 1)} days of tape</>
+        )}
       </p>
 
       {task.quotable && (
@@ -614,11 +684,21 @@ function TaskCard({
                 second lending task would inherit this without anyone
                 remembering to add it, and an LP task that somehow lost a field
                 would say so rather than showing a bare dash. */}
-            {(task.agent.fees === undefined || task.agent.in_range === undefined) && (
+            {(task.agent.fees === undefined ||
+              task.agent.in_range === undefined) && (
               <p className="mt-3 mb-0 text-xs text-dim">
-                Rows reading {EMPTY} are quantities this venue does not have — not
-                measurements of zero. A lending market has no range to be in and pays
-                no swap fee to a provider.
+                Rows reading {EMPTY} are quantities this venue does not have —
+                not measurements of zero. A lending market has no range to be in
+                and pays no swap fee to a provider.{" "}
+                {/* The scope of this task, said here rather than left to be
+                    reconciled. Router's own card names two PancakeSwap ranges
+                    among its venues; this task deliberately asks the narrower
+                    question its name states, and a reader meeting both surfaces
+                    should not have to work out which is out of date. Neither
+                    is. */}
+                This task asks only about lending venues, which is what its name
+                says; <Link href="/agent/router">Router&rsquo;s own card</Link>{" "}
+                asks the wider question and puts PancakeSwap ranges beside them.
               </p>
             )}
             <p className="mt-3 mb-0 text-xs break-all text-faint">

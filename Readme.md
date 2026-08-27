@@ -69,8 +69,10 @@ one click away. Built solo, in public. Audit me.
 - **Activation:** Altana session keys, caps subset ONLY (allowlist, spend cap,
   expiry, Keystore, one-tx revoke). No b402, no Altana-escrow flows.
 - **Proof:** Settlement Ledger (chain-state metrics only) → auto-generated
-  **Agent Advantage Tearsheet**: 3 tasks run both ways (large swap · LP week ·
-  pool due diligence), outputs attached.
+  **Agent Advantage Tearsheet**: 4 tasks run both ways (Earn — fees on a
+  liquidity position · Protect — avoid being picked off by one-way flow · Choose
+  — which pool to provide liquidity to · Route — which lending venue to supply
+  to), outputs attached.
 - **Vetting Layer:** every pool a listed agent touches gets a due-diligence
   badge; findings ship a PoC that executes on a mainnet fork ("they flag, we
   prove"). Free tools are the honest benchmark, not human audit prices.
