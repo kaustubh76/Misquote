@@ -1,13 +1,16 @@
 "use client";
 
-import { BuildStamp, type Build } from "@/components/BuildStamp";
-import { Section } from "@/components/Heading";
+import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
 import { SectionRail } from "@/components/SectionRail";
+import { IndexedAgreement } from "@/components/IndexedAgreement";
+import type { OursAsIndexed, OursCrossCheck, TestnetCounts } from "@/components/IndexedAgreement";
+import { NameCollisionsCard, ScanLeaderboardCard } from "@/components/ScanAgents";
+import type { NameCollisions, ScanLeaderboard } from "@/components/ScanAgents";
 import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CheckList, type CheckRow } from "@/components/CheckList";
@@ -16,7 +19,7 @@ import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
 import { RegistrySearch } from "@/components/RegistrySearch";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, fixed, isNum, shortAddress } from "@/lib/format";
+import { count, fixed, isNum, pct, shortAddress } from "@/lib/format";
 
 interface Step {
   call: string;
@@ -176,8 +179,6 @@ export interface OwnIdentities {
   registry?: string;
   block?: number | null;
   explorer?: string;
-  read_at?: string;
-  record?: string;
   agents: OwnIdentity[];
   checks: CheckRow[];
 }
@@ -264,6 +265,129 @@ export interface RegistryArtifact {
    * is rendered is declared.
    */
   third_party?: {
+    source?: string;
+    tier?: string;
+    /** Our own four, read back from an index we do not run. */
+    ours_as_indexed?: OursAsIndexed;
+    ours_cross_check?: OursCrossCheck;
+    counts_testnet?: TestnetCounts;
+    name_collisions?: NameCollisions;
+    leaderboard?: ScanLeaderboard;
+    /**
+     * Shares 8004scan reported, each with the proof that its filter applied.
+     *
+     * `applied` is a different word from `available` and the distinction is the
+     * whole mechanism: `available: false` means the API did not answer,
+     * `applied: false` means it answered and did not listen. This API accepts
+     * filters it does not implement and returns the entire population under
+     * the label you asked for, so a share with no proof beside it is a
+     * population wearing a name.
+     */
+    counts?: {
+      available: boolean;
+      baseline?: number;
+      requests?: number;
+      refused?: string[];
+      note?: string;
+      filters?: Record<
+        string,
+        {
+          applied: boolean;
+          reason: string | null;
+          baseline: number;
+          rows_checked: number;
+          rows_satisfying: number;
+          differs_from_baseline?: boolean;
+          total?: number;
+          share?: number;
+          complement_total?: number;
+          sum_vs_baseline?: number;
+          within_tolerance?: boolean;
+          growth_tolerance?: number;
+        }
+      >;
+    };
+    /** The same quantity walked and asked, with both denominators. */
+    counts_cross_check?: {
+      available: boolean;
+      hours_apart: number | null;
+      note: string;
+      rows: {
+        quantity: string;
+        compared: boolean;
+        reason?: string;
+        walked?: number;
+        walked_of?: number;
+        walked_share?: number | null;
+        asked?: number;
+        asked_of?: number;
+        asked_share?: number | null;
+        difference?: number;
+        share_difference_pp?: number | null;
+        agree?: boolean;
+      }[];
+    };
+    /**
+     * Who does the rating.
+     *
+     * The shares here carry no confidence interval, and that is the opposite of
+     * the `ShareIntervals` block above: those describe a sample of 400 and are
+     * ranges because they must be. These describe a table that was walked in
+     * full, so `rows` is the denominator and nothing was inferred.
+     */
+    feedback_graph?: {
+      available: boolean;
+      reason?: string;
+      rows: number;
+      total_reported: number;
+      complete: boolean;
+      distinct_raters: number;
+      distinct_rated_agents: number;
+      top_rater_share: number | null;
+      top_five_rater_share: number | null;
+      anchored: number;
+      with_comment: number;
+      uris_decoded: number;
+      declaring_a_method: number;
+      declaring_known_defects: number;
+      revoked: number;
+      note: string;
+    };
+    /** One quantity, three routes, published as a spread. */
+    agents_with_feedback_three_ways?: {
+      available: boolean;
+      readings: {
+        route: string;
+        agents: number;
+        of: number | null;
+        read_at: string | null;
+        carried_forward?: boolean;
+      }[];
+      low: number;
+      high: number;
+      spread: number;
+      agree: boolean;
+      note: string;
+    };
+    /** The walk. Kept for the six shares no filter answers, and stamped. */
+    census?: {
+      available: boolean;
+      reason: string | null;
+      carried_forward: boolean;
+      read_at: string | null;
+      counted: number | null;
+      complete: boolean | null;
+      distinct_owners: number | null;
+      distinct_descriptions: number | null;
+    };
+    feedback_cross_check?: {
+      available: boolean;
+      summed_over_agents?: number;
+      counted_in_feedback_table?: number;
+      difference?: number;
+      agree?: boolean;
+      note: string;
+    };
     reconciliation?: {
       ours: number;
       ours_method: string;
@@ -281,7 +405,6 @@ export interface RegistryArtifact {
   // `registry.json` has carried this since the emitter was written, and this
   // page showed none of it — every address on it read as a standing fact rather
   // than as something a named command read at a named time.
-  build?: Build;
 }
 
 /** Only what the deliverable's gate needs. `/status` owns the rest of the shape. */
@@ -461,6 +584,7 @@ export function RegistryView({
               { id: "hiring", label: "Hiring" },
               { id: "escrow", label: "Escrow" },
               { id: "identity", label: "Identity" },
+              { id: "third-party", label: "Third-party index" },
               { id: "aacp", label: "AACP" },
             ]}
           />
@@ -523,6 +647,23 @@ export function RegistryView({
             }
           >
             <OurAgents ours={d.ours} />
+
+            {/* Self-report, then corroboration, in that order and adjacent.
+                `OurAgents` above renders `vetting/identity/97.json` — a file we
+                wrote about registrations we made. It is the only block on this
+                page that nothing could contradict, which is a strange property
+                for the page that measures everybody else. This reads the same
+                four back out of an index we do not run.
+
+                The collisions sit directly under it because they undercut its
+                own `name` column: two other agents on BSC mainnet are called
+                Warden and three are called Sentinel, and none of them is ours. */}
+            <IndexedAgreement
+              indexed={d.third_party?.ours_as_indexed}
+              cross={d.third_party?.ours_cross_check}
+              testnet={d.third_party?.counts_testnet}
+            />
+            <NameCollisionsCard collisions={d.third_party?.name_collisions} />
           </Section>
 
           <Section id="hiring" title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">
@@ -942,6 +1083,36 @@ export function RegistryView({
               `aacp.available`, so a failed lookup made it vanish and dropped
               the recorded `reason` with it — while the escrow section three
               above renders its reason as a refusal. Same grammar for both. */}
+          {/* ------------------------------------------ the third-party index -- */}
+          <Section
+            id="third-party"
+            title="What a second index says about the same registry"
+            className="mt-10"
+            headingClassName="mb-2 text-lg font-semibold"
+            intro={
+              <>
+                Every count above this line was taken by this repository, on
+                chain. These were taken by <code className="font-mono text-xs">8004scan.io</code>,
+                which indexes the same contracts and answers questions{" "}
+                <code className="font-mono text-xs">ownerOf</code> cannot &mdash;
+                chiefly who, if anyone, has ever rated any of these agents. The
+                two readings are published side by side and the gaps are stated
+                rather than resolved: nothing here can say which is right, and
+                picking the flattering one is the thing this site is named
+                against.
+              </>
+            }
+          >
+            <CountsProof counts={d.third_party?.counts} cross={d.third_party?.counts_cross_check} />
+            <FeedbackReach
+              three={d.third_party?.agents_with_feedback_three_ways}
+              graph={d.third_party?.feedback_graph}
+              cross={d.third_party?.feedback_cross_check}
+            />
+            <ScanLeaderboardCard leaderboard={d.third_party?.leaderboard} />
+            <Census census={d.third_party?.census} />
+          </Section>
+
           <Section id="aacp" title="TermiX AACP">
             {!d.aacp.available ? (
               <Refusal
@@ -1008,20 +1179,9 @@ export function RegistryView({
                       {d.aacp.escrow_selectors.note}
                     </p>
                   </div>
-                )}
-                {d.aacp.note && (
-                  <p className="mt-4 mb-0 text-xs text-faint">
-                    {/* The chain is part of the claim. The table is chain 56's
-                        and the page never said so, which on a project with a
-                        testnet mirror is a reading somebody could mis-attribute. */}
-                    chain {d.aacp.chain_id} · {d.aacp.note}
-                  </p>
-                )}
-              </Card>
+                )}              </Card>
             )}
           </Section>
-
-          {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
     </Loadable>
@@ -1040,6 +1200,279 @@ export function RegistryView({
  * than only the outcome. The mint and the handover are separately visible, so
  * "this address owns these agents" needs nothing from us.
  */
+
+/**
+ * A share the index reported, and the three checks that let it be printed.
+ *
+ * The proof is rendered, not just its verdict. 8004scan accepts filters it does
+ * not implement — `is_verified`, `has_feedback`, `protocol` — and answers each
+ * with the entire population under the label you asked for, at HTTP 200, with
+ * twenty-five rows that look correct because any twenty-five rows look correct.
+ * A share printed without showing what was checked is exactly the assertion
+ * this mechanism replaced, so the checks travel with the number.
+ */
+function CountsProof({
+  counts,
+  cross,
+}: {
+  counts?: RegistryArtifact["third_party"] extends infer T
+    ? T extends { counts?: infer C }
+      ? C
+      : never
+    : never;
+  cross?: RegistryArtifact["third_party"] extends infer T
+    ? T extends { counts_cross_check?: infer C }
+      ? C
+      : never
+    : never;
+}) {
+  if (!counts?.available) {
+    return (
+      <Refusal
+        title="No filtered count was taken"
+        reason={"the keyed tier answers these; without it nothing here is published"}
+      />
+    );
+  }
+
+  const filters = Object.entries(counts.filters ?? {});
+  return (
+    <Card>
+      <CardHeader
+        title="Counted by walking, asked of the index"
+        eyebrow={`${counts.requests ?? 0} requests`}
+        aside={
+          (counts.refused ?? []).length > 0 ? (
+            <Badge tone="warn">{count((counts.refused ?? []).length)} refused</Badge>
+          ) : (
+            <Badge tone="neutral">All proven</Badge>
+          )
+        }
+      />
+      <p className="text-sm text-muted">{counts.note}</p>
+
+      <ul className="mt-4 list-none p-0">
+        {filters.map(([name, f]) => (
+          <li key={name} className="border-t border-line py-3 first:border-t-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-semibold text-ink">{name.replace(/_/g, " ")}</span>
+              {f.applied ? (
+                <span className="font-mono text-sm text-ink">
+                  {count(f.total)} of {count(f.baseline)} &middot; {pct(f.share, 2)}
+                </span>
+              ) : (
+                <Badge tone="warn">not published</Badge>
+              )}
+            </div>
+            {f.applied ? (
+              <p className="mt-1 font-mono text-xs text-faint">
+                {count(f.rows_satisfying)} of {count(f.rows_checked)} sampled rows satisfy it
+                {f.differs_from_baseline && " · the total is not the population"}
+                {f.complement_total !== undefined &&
+                  ` · with its complement it reaches the population, ${count(f.sum_vs_baseline)} out against ${count(f.growth_tolerance)} allowed for growth`}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-muted">{f.reason}</p>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {cross?.available && (
+        <div className="mt-5">
+          <Heading className="m-0 font-mono text-xs tracking-wide text-faint uppercase">
+            The same two shares, both ways
+          </Heading>
+          {/* A table rather than the interval mark the reconciliation block
+              above uses. That mark draws two counts of *one* quantity as a
+              span, which is right there and wrong here: these are two
+              quantities with two denominators each, and three unrelated spans
+              side by side would invite a comparison across them. */}
+          <DataTable
+            caption="One index, asked twice"
+            columns={["Quantity", "Walked", "Asked"]}
+            notes="figures"
+            rows={cross.rows.map((r) => ({
+              label: r.quantity.replace(/_/g, " "),
+              value: r.compared ? `${count(r.walked)} of ${count(r.walked_of)}` : "—",
+              note: r.compared ? `${count(r.asked)} of ${count(r.asked_of)}` : (r.reason ?? ""),
+            }))}
+          />
+          <p className="mt-2 text-sm text-muted">
+            {cross.note}
+            {cross.hours_apart !== null && ` The two readings are ${fixed(cross.hours_apart, 1)} hours apart.`}
+          </p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * How many agents anyone has ever rated, and who did the rating.
+ *
+ * The spread is the finding. One index holds three different answers to one
+ * question — the walk counted agent rows with a feedback, the filter was asked
+ * directly, and the feedback table was counted from the other end — and they
+ * disagree. Rendered as a range because a single number here would be a choice
+ * nobody can defend.
+ *
+ * Beneath it, the concentration: a registry of 285,000 agents whose entire
+ * reputation layer was written by a number of addresses small enough to print.
+ * That is the argument this whole site makes, arriving from somebody else's
+ * data rather than from ours.
+ */
+function FeedbackReach({
+  three,
+  graph,
+  cross,
+}: {
+  three?: NonNullable<RegistryArtifact["third_party"]>["agents_with_feedback_three_ways"];
+  graph?: NonNullable<RegistryArtifact["third_party"]>["feedback_graph"];
+  cross?: NonNullable<RegistryArtifact["third_party"]>["feedback_cross_check"];
+}) {
+  if (!graph?.available) {
+    return (
+      <Refusal
+        title="The feedback table was not read"
+        reason={graph?.reason ?? "the keyed tier answers /feedbacks; without it, nothing"}
+      />
+    );
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardHeader
+        title="Who does the rating"
+        eyebrow={graph.complete ? "Counted, not sampled" : "Incomplete walk"}
+        aside={<Badge tone={three?.agree ? "neutral" : "warn"}>{three?.agree ? "Agreed" : "Not reconciled"}</Badge>}
+      />
+
+      {three?.available && (
+        <>
+          <p className="text-sm text-muted">{three.note}</p>
+          <DataTable
+            caption="How many agents anyone has ever rated"
+            columns={["Route", "Agents", "Out of"]}
+            notes="figures"
+            rows={three.readings.map((r) => ({
+              label: r.route + (r.carried_forward ? " (carried forward)" : ""),
+              value: count(r.agents),
+              note: count(r.of),
+            }))}
+          />
+          <p className="mt-2 font-mono text-xs text-faint">
+            {count(three.low)} to {count(three.high)}, a spread of {count(three.spread)} on one
+            quantity from one index.
+          </p>
+        </>
+      )}
+
+      <DataTable
+        caption="The feedback table, walked in full"
+        columns={["Metric", "Value", "Of"]}
+        notes="prose"
+        rows={[
+          {
+            label: "distinct addresses that wrote every feedback on this chain",
+            value: count(graph.distinct_raters),
+            note: `across ${count(graph.distinct_rated_agents)} agents`,
+          },
+          {
+            label: "written by the single busiest address",
+            value: pct(graph.top_rater_share, 1),
+            note: `top five: ${pct(graph.top_five_rater_share, 1)}`,
+          },
+          {
+            label: "anchored to a transaction anybody can open",
+            value: count(graph.anchored),
+            note: `of ${count(graph.rows)} rows`,
+          },
+          {
+            label: "carrying any comment at all",
+            value: count(graph.with_comment),
+            note: `of ${count(graph.rows)} rows`,
+          },
+          {
+            label: "declaring how the rating was measured",
+            value: count(graph.declaring_a_method),
+            note: `${count(graph.uris_decoded)} feedback URIs decoded; ${count(graph.declaring_known_defects)} also state known defects`,
+          },
+          { label: "revoked", value: count(graph.revoked), note: "" },
+        ]}
+      />
+      <p className="mt-2 text-sm text-muted">
+        {graph.note}
+        {!graph.complete &&
+          ` This walk reached ${count(graph.rows)} of ${count(graph.total_reported)} rows, and every share above divides by what was walked.`}
+      </p>
+
+      {cross?.available && (
+        <p className="mt-3 font-mono text-xs text-faint">
+          The same index also disagrees with itself about how many feedbacks exist:{" "}
+          {count(cross.summed_over_agents)} summed across agent rows against{" "}
+          {count(cross.counted_in_feedback_table)} in the feedback table, {count(cross.difference)}{" "}
+          apart.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The walk, and what it is still the only source for.
+ *
+ * Demoted rather than deleted, and the distinction is on the card. Two of its
+ * shares are now asked for directly and proven; the six below have no filter
+ * behind them at all, so a two-hour walk remains the only way to get them.
+ * `carried_forward` says it was not taken on this run and `read_at` says when
+ * it really was — because a census silently republished is a number claiming to
+ * be current.
+ */
+function Census({ census }: { census?: NonNullable<RegistryArtifact["third_party"]>["census"] }) {
+  if (!census) return null;
+  if (!census.available) {
+    return (
+      <div className="mt-4">
+        <Refusal title="No whole-population walk is on record" reason={census.reason ?? ""} />
+      </div>
+    );
+  }
+  return (
+    <Card className="mt-4">
+      <CardHeader
+        title="The whole-population walk"
+        eyebrow={census.complete ? "Complete" : "Incomplete"}
+        aside={
+          census.carried_forward ? (
+            <Badge tone="warn">Carried forward</Badge>
+          ) : (
+            <Badge tone="neutral">Taken this run</Badge>
+          )
+        }
+      />
+      <DataTable
+        caption="What only the walk answers"
+        columns={["Metric", "Value"]}
+        rows={[
+          { label: "agents counted", value: count(census.counted) },
+          { label: "distinct owners", value: count(census.distinct_owners) },
+          { label: "distinct descriptions", value: count(census.distinct_descriptions) },
+        ]}
+      />
+      <p className="mt-2 text-sm text-muted">
+        8004scan implements no filter for any of these, so they cannot be asked for the way the
+        shares above were &mdash; 2,848 pages and an hour or two is the only route to them. This
+        reading was{" "}
+        {census.carried_forward
+          ? `not taken on this build; it was carried forward from ${census.read_at ?? "a run recorded before readings were stamped"}`
+          : "taken on this build"}
+        .
+      </p>
+    </Card>
+  );
+}
+
 function OurAgents({ ours }: { ours?: OwnIdentities }) {
   // Not an empty table. An artifact from a checkout that never registered
   // anything and an artifact from a run that registered nothing must not look
@@ -1133,13 +1566,6 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
             </div>
           ))}
         </div>
-
-        {ours.read_at && (
-          <p className="mt-4 mb-0 text-xs text-faint">
-            read back {ours.read_at}
-            {ours.record && ` · ${ours.record}`}
-          </p>
-        )}
       </Card>
 
       {ours.checks.length > 0 && (

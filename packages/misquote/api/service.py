@@ -169,7 +169,14 @@ def _stamp(blob: Any) -> dict[str, Any]:
         "git_sha": sha,
         # Carried, never smoothed over. A dirty tree is what makes a sha a lie:
         # the commit is real and the code that produced these numbers is not in
-        # it. `BuildStamp.tsx` renders the same flag for the same reason.
+        # it. `apps/web/src/app/vectors/view.tsx` renders the same flag for the
+        # same reason.
+        #
+        # That path is a correction. This comment named a build-stamp component
+        # that was planned and never written, which is the exact defect
+        # `tests/web/test_comment_references.py` exists to catch — and the
+        # component is not named here even to describe the mistake, because the
+        # guard suffix-matches and cannot tell a citation from a post-mortem.
         "git_dirty": bool(build.get("git_dirty") or blob.get("git_dirty")),
         "generated_at": build.get("generated_at") or blob.get("generated_at"),
         "command": build.get("command") or blob.get("command"),

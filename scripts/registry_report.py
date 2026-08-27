@@ -482,7 +482,352 @@ def _feedback_cross_check(census: dict[str, Any], reach: dict[str, Any]) -> dict
     }
 
 
-def fetch_scan(census: bool = True) -> dict[str, Any]:
+#: Every key a `census` block carries, whichever way it was arrived at.
+#:
+#: The census has three states — walked on this run, carried forward from a
+#: previous one, or not taken at all — and until this existed each state emitted
+#: a different set of keys. That is invisible in Python and loud in TypeScript:
+#: `tests/web/test_artifact_contract.py` contracts an artifact's fields in both
+#: directions, and a block whose shape depends on which branch produced it
+#: cannot be contracted at all. It also means every view reading it needs
+#: narrowing for a field that is simply absent rather than false.
+#:
+#: So the shape is fixed and the *values* carry the state. `available` says
+#: whether it ran, `reason` says why not when it did not, `carried_forward` says
+#: it was not taken on this run, and `read_at` says when it really was — None on
+#: a reading recorded before that field existed, which is a different claim from
+#: "just now" and must not be rendered as one.
+CENSUS_KEYS = (
+    "available",
+    "reason",
+    "carried_forward",
+    "read_at",
+    "tier",
+    "chain_id",
+    "counted",
+    "complete",
+    "described",
+    "verified",
+    "starred",
+    "with_score",
+    "with_feedback",
+    "x402_supported",
+    "feedbacks_claimed",
+    "distinct_owners",
+    "distinct_descriptions",
+    "protocols",
+    "pages_failed",
+    "agents_missed",
+    "failed_offsets",
+    "failure_reasons",
+    "population_at_start",
+    "population_at_end",
+    "minted_during_the_walk",
+    "ordering",
+    "note",
+)
+
+
+def _census_block(block: dict[str, Any] | None, *, carried_forward: bool = False) -> dict[str, Any]:
+    """One census, in the one shape a census has. See `CENSUS_KEYS`."""
+    block = dict(block or {})
+    block.setdefault("available", False)
+    block["carried_forward"] = carried_forward
+    return {key: block.get(key) for key in CENSUS_KEYS}
+
+
+def _counts_cross_check(census: dict[str, Any], counts: dict[str, Any]) -> dict[str, Any]:
+    """The same shares, walked and asked. Published whichever way they fall.
+
+    `census` derives `x402_supported` and `with_feedback` by reading 2,848 pages
+    and counting rows. `counts` asks 8004scan for the same two quantities and is
+    answered in one request each. One index, two routes to one number, and no
+    reason for them to differ — so a difference is the index disagreeing with
+    itself, which is worth publishing precisely because it is not ours to
+    explain. Same rule as the population gap: stated, not resolved.
+
+    **Both denominators travel with both numerators.** The walk counted 278,500
+    agents and the ask was answered against 284,996, because the registry grew
+    between the two readings. A share computed across them would be a third
+    number nobody measured, and the hours between the readings is the fact that
+    decides whether a gap is a finding or is growth — so it is carried too.
+    """
+    if not (census.get("available") and counts.get("available")):
+        return {
+            "available": False,
+            "reason": (
+                "both a census and a filtered count are needed to compare them; "
+                f"census {'ran' if census.get('available') else 'did not run'}, "
+                f"counts {'ran' if counts.get('available') else 'did not run'}"
+            ),
+        }
+
+    #: The census key each proven filter answers. Only quantities that exist on
+    #: both sides appear — the census's `distinct_owners` and its protocol
+    #: histogram have no filter behind them at all, and a row here for a
+    #: quantity only one side measured would read as a disagreement.
+    pairs = {"x402_supported": "x402_supported", "with_feedback": "with_feedback"}
+
+    walked_of = int(census.get("counted") or 0)
+    asked_of = int(counts.get("baseline") or 0)
+
+    rows: list[dict[str, Any]] = []
+    for filter_name, census_key in pairs.items():
+        proven = (counts.get("filters") or {}).get(filter_name) or {}
+        if not proven.get("applied"):
+            # A filter that could not be proven is not a disagreement with the
+            # census — it is a quantity we declined to read. Recorded as that.
+            rows.append(
+                {
+                    "quantity": filter_name,
+                    "walked": census.get(census_key),
+                    "walked_of": walked_of,
+                    "compared": False,
+                    "reason": proven.get("reason") or "no filtered count was published",
+                }
+            )
+            continue
+
+        walked = int(census.get(census_key) or 0)
+        asked = int(proven["total"])
+        walked_share = walked / walked_of if walked_of else None
+        asked_share = asked / asked_of if asked_of else None
+        rows.append(
+            {
+                "quantity": filter_name,
+                "compared": True,
+                "walked": walked,
+                "walked_of": walked_of,
+                "walked_share": round(walked_share, 5) if walked_share is not None else None,
+                "asked": asked,
+                "asked_of": asked_of,
+                "asked_share": round(asked_share, 5) if asked_share is not None else None,
+                "difference": walked - asked,
+                "share_difference_pp": (
+                    round(100 * (walked_share - asked_share), 3)
+                    if None not in (walked_share, asked_share)
+                    else None
+                ),
+                "agree": walked == asked,
+            }
+        )
+
+    return {
+        "available": True,
+        "hours_apart": _hours_between(census.get("read_at"), counts.get("read_at")),
+        "rows": rows,
+        "note": (
+            "One index, asked twice. The walk counted every row itself; the ask let "
+            "8004scan count. Neither is privileged and the gap is not resolved — but "
+            "the denominators differ too, because the registry grew between the "
+            "readings, so each count is published against the population it was "
+            "actually taken from rather than against a shared one that never existed."
+        ),
+    }
+
+
+def _reach_three_ways(
+    census: dict[str, Any], counts: dict[str, Any], graph: dict[str, Any]
+) -> dict[str, Any]:
+    """How many agents anyone has ever rated, answered three ways by one index.
+
+    Kept separate from `_feedback_cross_check`, which compares two answers to a
+    different question — how many *feedbacks* exist (11,681 summed across agents
+    against 11,719 in the table). Merging them would produce one block where a
+    reader cannot tell which quantity disagrees, and they disagree by different
+    amounts for different reasons.
+
+    The three routes:
+
+    * **walked** — `census` counted agent rows whose `total_feedbacks` was above
+      zero. Two hours, and a day stale by the time the others are read.
+    * **asked** — `min_feedbacks=1`, answered by 8004scan in one request against
+      the population as it stands now.
+    * **counted in the feedback table** — distinct `agent.token_id` across every
+      row of /feedbacks, which is a different table answering from the other end.
+
+    They do not agree, and the spread is the finding: 510, 436 and 547 are three
+    numbers one index holds for one quantity. Nothing here can say which is
+    right, and picking one would be the misquote.
+    """
+    readings: list[dict[str, Any]] = []
+
+    if census.get("available") and census.get("with_feedback") is not None:
+        readings.append(
+            {
+                "route": "walked every agent row",
+                "agents": int(census["with_feedback"]),
+                "of": census.get("counted"),
+                "read_at": census.get("read_at"),
+                "carried_forward": bool(census.get("carried_forward")),
+            }
+        )
+
+    proven = (counts.get("filters") or {}).get("with_feedback") or {}
+    if proven.get("applied"):
+        readings.append(
+            {
+                "route": "asked the index to filter",
+                "agents": int(proven["total"]),
+                "of": counts.get("baseline"),
+                "read_at": counts.get("read_at"),
+            }
+        )
+
+    if graph.get("available"):
+        readings.append(
+            {
+                "route": "counted distinct agents in the feedback table",
+                "agents": int(graph.get("distinct_rated_agents") or 0),
+                "of": graph.get("rows"),
+                "read_at": graph.get("read_at"),
+            }
+        )
+
+    if len(readings) < 2:
+        return {
+            "available": False,
+            "reason": (
+                f"at least two readings are needed to compare them; {len(readings)} answered"
+            ),
+        }
+
+    values = [r["agents"] for r in readings]
+    return {
+        "available": True,
+        "readings": readings,
+        "low": min(values),
+        "high": max(values),
+        "spread": max(values) - min(values),
+        "agree": len(set(values)) == 1,
+        "note": (
+            "One index, three routes to one quantity, and no reason for them to "
+            "differ. Published as a spread rather than a number because nothing here "
+            "can say which route is right — and a marketplace that replaced star "
+            "ratings with evidence owes the reader the disagreement rather than "
+            "whichever of the three flatters the page."
+        ),
+    }
+
+
+def _ours_cross_check(indexed: dict[str, Any], recorded: dict[str, Any]) -> dict[str, Any]:
+    """Our four registrations, field by field, against a reading we did not take.
+
+    Everything else in `registry.json`'s `ours` block is self-reported: we ran
+    `register_identity.py`, it wrote `vetting/identity/97.json`, and the page
+    renders that file. It is honest and it is unfalsifiable in the literal
+    sense — nothing in the artifact could contradict it.
+
+    This can. 8004scan indexes BSC testnet, our four agents are in it, and the
+    two readings either agree, which is evidence, or they do not, which is a
+    finding. Same rule the whole module runs on.
+
+    **The honest negatives are published as loudly as the agreements.** The
+    index sees zero feedbacks, zero score and an empty protocol list on all
+    four. None of that is an indexing error — it is the index correctly
+    reporting fields our cards never filled and evidence nobody ever produced,
+    held to exactly the standard the survey holds 285,000 strangers to.
+    """
+    if not indexed.get("available"):
+        return {"available": False, "reason": indexed.get("reason") or "no indexed reading"}
+    if not recorded.get("agents"):
+        return {
+            "available": False,
+            "reason": "no registration of ours is recorded — vetting/identity/97.json is absent",
+        }
+
+    theirs = {str(a.get("token_id")): a for a in indexed.get("agents") or ()}
+    ours = {str(a.get("agent_id")): a for a in recorded.get("agents") or ()}
+
+    agreements: list[dict[str, Any]] = []
+    disagreements: list[dict[str, Any]] = []
+    negatives: list[dict[str, Any]] = []
+
+    for token_id in sorted(ours.keys() & theirs.keys(), key=int):
+        mine, their = ours[token_id], theirs[token_id]
+        for field, mine_value, their_value in (
+            ("name", mine.get("name"), their.get("name")),
+            (
+                "owner_address",
+                (recorded.get("owner") or "").lower(),
+                (their.get("owner_address") or "").lower(),
+            ),
+        ):
+            row = {
+                "token_id": int(token_id),
+                "field": field,
+                "ours": mine_value,
+                "theirs": their_value,
+            }
+            (agreements if mine_value == their_value else disagreements).append(row)
+
+        for field, note in (
+            (
+                "scan_total_feedbacks",
+                "Nobody has rated ours either. The same standard the survey holds "
+                "285,000 strangers to, applied here.",
+            ),
+            (
+                "scan_total_score",
+                "Zero on the metric this site refuses to rank by, published rather than omitted.",
+            ),
+            (
+                "supported_protocols",
+                "Not an indexing error — the index is correctly reporting a field our "
+                "card never filled. Our cards declare a service endpoint and no "
+                "protocol list, so an index that ranks on protocol support sees "
+                "nothing to rank.",
+            ),
+        ):
+            value = their.get(field)
+            if not value:
+                negatives.append(
+                    {"token_id": int(token_id), "field": field, "theirs": value, "note": note}
+                )
+
+    return {
+        "available": True,
+        "chain_id": indexed.get("chain_id"),
+        "owner": indexed.get("owner"),
+        "recorded": len(ours),
+        "indexed": len(theirs),
+        "matched": len(ours.keys() & theirs.keys()),
+        # Both directions are findings and neither is an error. `recorded_only`
+        # means we say a registration exists that the index has never seen;
+        # `indexed_only` means the index holds an agent for this owner that our
+        # own record does not mention.
+        "recorded_only": sorted(ours.keys() - theirs.keys(), key=int),
+        "indexed_only": sorted(theirs.keys() - ours.keys(), key=int),
+        "same_contract": (indexed.get("indexed_contract") or "").lower()
+        == (erc8004.IDENTITY_REGISTRY.get(97) or "").lower(),
+        "agreements": agreements,
+        "disagreements": disagreements,
+        "honest_negatives": negatives,
+        "note": (
+            "The same four agents according to somebody else's index. Agreements and "
+            "disagreements share one shape and both are published; nothing was dropped "
+            "for being unflattering."
+        ),
+    }
+
+
+def _hours_between(a: str | None, b: str | None) -> float | None:
+    """How far apart two readings were, or None if either did not say.
+
+    None rather than 0.0 when a timestamp is missing: zero hours apart is a
+    claim that they were simultaneous, and a reading that did not stamp itself
+    has said nothing about when it happened.
+    """
+    if not (a and b):
+        return None
+    try:
+        first, second = datetime.fromisoformat(a), datetime.fromisoformat(b)
+    except ValueError:
+        return None
+    return round(abs((second - first).total_seconds()) / 3600, 2)
+
+
+def fetch_scan(census: bool = False, previous: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read 8004scan and reconcile it against our own on-chain count.
 
     The comparison is the point. Our number comes from binary search on
@@ -492,11 +837,14 @@ def fetch_scan(census: bool = True) -> dict[str, Any]:
 
     What is read depends on what the environment entitles us to, and the payload
     says which it was rather than leaving the reader to infer it from the key
-    names. With `SCAN8004_API_KEY` set this counts every agent the index holds
-    for BSC, an hour or so for 278,000 — and the shares carry no interval
-    because nothing was inferred. Without it, the anonymous tier affords one
-    page of the newest hundred, which is a sample of one platform's latest batch
-    and is published under `sample` so it can never be read as the population.
+    names. With `SCAN8004_API_KEY` set, the default reading asks the index for
+    the shares directly — one request each, each with its filter proven to have
+    applied — rather than deriving them from a two-hour walk. The walk is still
+    available behind `--census` and is still the only source for the six figures
+    8004scan implements no filter for. Without a key, the anonymous tier affords
+    one page of the newest hundred, which is a sample of one platform's latest
+    batch and is published under `sample` so it can never be read as the
+    population.
     """
     from misquote.registry import scan8004
 
@@ -506,42 +854,124 @@ def fetch_scan(census: bool = True) -> dict[str, Any]:
         "source": f"8004scan.io{tier.base.removeprefix('https://8004scan.io')}",
         "tier": tier.name,
         "rate_limit_per_minute": tier.requests_per_minute,
+        "rate_limit_per_day": tier.requests_per_day,
         "population": pop,
         "stats": scan8004.stats(),
     }
+
+    if tier.can_census:
+        payload["counts"] = scan8004.counts(BSC_MAINNET)
+        payload["feedback_reach"] = scan8004.feedback_reach(BSC_MAINNET)
+        payload["feedback_graph"] = scan8004.feedback_graph(BSC_MAINNET)
+        payload["categories"] = scan8004.categories(BSC_MAINNET)
+        payload["leaderboard"] = scan8004.leaderboard(BSC_MAINNET)
+        # Testnet, where our own four live. Small — 1,906 agents against
+        # mainnet's 285,000 — and carried because `ours_as_indexed` reports our
+        # agents' zeros against it, and a zero has no meaning without the
+        # population it is a zero out of.
+        payload["counts_testnet"] = scan8004.counts(scan8004.BSC_TESTNET_CHAIN_ID)
+        payload["name_collisions"] = scan8004.name_collisions(chain_id=BSC_MAINNET)
+
+        # The owner comes off our own record rather than out of a constant, so
+        # this checks a file against a chain rather than a literal against a
+        # file. See `scan8004.ours_as_indexed`.
+        recorded_ours = ours()
+        owner = recorded_ours.get("owner")
+        if owner:
+            payload["ours_as_indexed"] = scan8004.ours_as_indexed(owner)
+            payload["ours_cross_check"] = _ours_cross_check(
+                payload["ours_as_indexed"], recorded_ours
+            )
 
     # The two readings are mutually exclusive on purpose. Publishing a census
     # and a sample together would invite a reader to compare a share of 278,353
     # against a share of 100 as though the difference were a finding about the
     # registry rather than about which tier answered.
     if census and tier.can_census:
-        payload["census"] = scan8004.census(BSC_MAINNET)
-        payload["feedback_reach"] = scan8004.feedback_reach(BSC_MAINNET)
+        payload["census"] = _census_block(scan8004.census(BSC_MAINNET))
         payload["feedback_cross_check"] = _feedback_cross_check(
             payload["census"], payload["feedback_reach"]
         )
-    else:
-        payload["sample"] = scan8004.sample(BSC_MAINNET, 100)
-        if census:
-            payload["census"] = {
+    elif tier.can_census and (previous or {}).get("census", {}).get("available"):
+        # **Carried forward, and stamped.**
+        #
+        # The census is now opt-in, and the failure mode that creates is exactly
+        # the one `read_survey` documents fourteen lines up: a build that runs
+        # without `--census` must not replace a real two-hour reading with a
+        # refusal. "A build that deletes a measurement is worse than one that
+        # never takes it."
+        #
+        # So the recorded block is carried through verbatim with a flag saying
+        # it was not taken on this run. Carried *and* stamped — a census silently
+        # republished is a number claiming to be current, which is the same
+        # defect wearing better clothes. `read_at` says when it was really taken
+        # and the page renders its age.
+        payload["census"] = _census_block(previous["census"], carried_forward=True)
+        payload["feedback_cross_check"] = _feedback_cross_check(
+            payload["census"], payload["feedback_reach"]
+        )
+    elif tier.can_census:
+        # Keyed, no census asked for and none on record. `counts` is the whole
+        # reading, and no `sample` is published beside it.
+        #
+        # That exclusion is the same one the census/sample branches have always
+        # observed, for the same reason: a share of 284,996 next to a share of
+        # 100 invites a reader to treat the difference as a fact about the
+        # registry when it is a fact about which reading answered. `counts` is a
+        # whole-population share, so a hundred-row sample beside it would be
+        # exactly that trap with a new name.
+        payload["census"] = _census_block(
+            {
                 "available": False,
                 "tier": tier.name,
                 "reason": (
-                    "no SCAN8004_API_KEY, so the whole-population count was not "
-                    "affordable — 10 requests a minute is about 4.6 hours for BSC"
+                    "no census has been recorded and none was requested. The filtered "
+                    "counts above answer two of its shares directly and are proven; the "
+                    "six it derives that no filter can answer — distinct owners, distinct "
+                    "descriptions, the protocol histogram — need `make registry-census`, "
+                    "which walks 2,848 pages in 60 to 130 minutes."
                 ),
             }
+        )
+    else:
+        payload["sample"] = scan8004.sample(BSC_MAINNET, 100)
+        payload["census"] = _census_block(
+            {
+                "available": False,
+                "tier": tier.name,
+                "reason": (
+                    "no SCAN8004_API_KEY, so no whole-population count was taken. "
+                    "The anonymous tier answers 180 requests a minute, which is "
+                    "affordable — what it cannot do is support the claim: a "
+                    "different chain parameter, a different envelope, and a `total` "
+                    "nothing here has checked. See scan8004.Tier.can_census."
+                ),
+            }
+        )
 
-    ours = read_survey().get("population")
+    if payload.get("counts") and payload.get("census"):
+        payload["counts_cross_check"] = _counts_cross_check(payload["census"], payload["counts"])
+
+    if payload.get("feedback_graph"):
+        payload["agents_with_feedback_three_ways"] = _reach_three_ways(
+            payload.get("census") or {},
+            payload.get("counts") or {},
+            payload["feedback_graph"],
+        )
+
+    # Named `ours_population` rather than `ours`, which is the name of a
+    # module-level function this body now also calls. The shadowing was silent
+    # until it wasn't: `ours()` below the assignment raised UnboundLocalError.
+    ours_population = read_survey().get("population")
     theirs = pop.get("population") if pop.get("available") else None
-    if ours and theirs:
+    if ours_population and theirs:
         payload["reconciliation"] = {
-            "ours": ours,
+            "ours": ours_population,
             "ours_method": "binary search on ownerOf — totalSupply() reverts on this proxy",
             "theirs": theirs,
             "theirs_method": "8004scan's indexer",
-            "difference": ours - theirs,
-            "difference_pct": round(100 * (ours - theirs) / ours, 3),
+            "difference": ours_population - theirs,
+            "difference_pct": round(100 * (ours_population - theirs) / ours_population, 3),
             "same_contract": (
                 (pop.get("contract_address") or "").lower()
                 == IDENTITY_REGISTRY.get(BSC_MAINNET, "").lower()
@@ -556,6 +986,72 @@ def fetch_scan(census: bool = True) -> dict[str, Any]:
             ),
         }
     return payload
+
+
+def _surfaced_token_ids(payload: dict[str, Any]) -> set[str]:
+    """Which agents this build actually renders, so the rest are not shipped.
+
+    The join between the feedback walk and the category listings, and it is the
+    reason the walk is worth its two minutes: an agent on a category card can
+    carry *its own* feedback — how many rows, from how many distinct addresses,
+    and the transactions that wrote them — instead of a number aggregated over
+    strangers.
+
+    Derived from what was published rather than declared, so a category that
+    lists a different agent tomorrow ships that agent's feedback and not
+    yesterday's.
+    """
+    scan = payload.get("third_party") or {}
+    categories = scan.get("categories") or {}
+    return {
+        str(agent.get("token_id"))
+        for category in categories.values()
+        if isinstance(category, dict)
+        for agent in category.get("agents") or ()
+        if agent.get("token_id")
+    }
+
+
+def publishable_scan(reading: dict[str, Any], token_ids: set[str] | None = None) -> dict[str, Any]:
+    """The reading, minus what the browser has no use for.
+
+    `feedback_graph`'s per-agent index is 547 entries and ~290KB — larger than
+    every other artifact this site fetches put together, `assumptions.json`
+    excepted. It is also, for a page, mostly dead weight: a category card needs
+    the dozen agents it lists, not every agent anyone has ever rated.
+
+    So the split is the one `read_survey` already makes between reading and
+    publishing, applied to size rather than to freshness. The whole index is
+    recorded to `data/scan8004.json`, which nothing downloads; the artifact
+    carries the aggregate, plus the per-agent rows for the token ids actually
+    surfaced. `LISTING_LIMIT` records the same lesson from the other emitter —
+    400 listings was 226KB of artifact "for a page that fetches it client-side,
+    and enough DOM to time out a jsdom render".
+
+    The count of what was dropped travels with it. A projection that silently
+    shrinks a reading is indistinguishable from a reading that was smaller.
+    """
+    graph = reading.get("feedback_graph")
+    if not isinstance(graph, dict) or "by_agent" not in graph:
+        return reading
+
+    full = graph.get("by_agent") or {}
+    kept = {k: v for k, v in full.items() if token_ids and k in token_ids}
+    return {
+        **reading,
+        "feedback_graph": {
+            **{k: v for k, v in graph.items() if k != "by_agent"},
+            "by_agent": kept,
+            "by_agent_held": len(full),
+            "by_agent_published": len(kept),
+            "by_agent_note": (
+                f"{len(full)} agents carry feedback and {len(kept)} are published here — "
+                "the ones this site surfaces. The whole index is recorded in "
+                "data/scan8004.json, which is not downloaded by anything: at ~290KB it "
+                "is larger than every other artifact this page fetches."
+            ),
+        },
+    }
 
 
 def ours() -> dict[str, Any]:
@@ -612,13 +1108,23 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--census",
+        action="store_true",
+        help=(
+            "walk every page of /agents and count the whole chain: 2,848 requests "
+            "and 60-130 minutes. Opt-in, because the two shares most readers want "
+            "are now asked for directly and proven. What only the walk answers is "
+            "distinct owners, distinct descriptions and the protocol histogram, "
+            "for which 8004scan implements no filter at all."
+        ),
+    )
+    parser.add_argument(
         "--no-census",
         action="store_true",
         help=(
-            "with a key, --scan counts every BSC agent the index holds, which "
-            "took 68 minutes the first time it ran. This takes the one-page "
-            "reading instead — "
-            "faster, and honestly labelled a sample rather than a population."
+            "deprecated no-op: the census is now opt-in via --census rather "
+            "than opt-out. Accepted so a command copied from an older Makefile "
+            "still runs."
         ),
     )
     parser.add_argument("--survey-path", default=str(SURVEY_PATH))
@@ -657,7 +1163,11 @@ def main() -> int:
         "aacp": aacp_overlap(),
         # A second, independent reading of the same registry. Alongside ours,
         # never instead of it — see `registry/scan8004.py`.
-        "third_party": fetch_scan(census=not args.no_census) if args.scan else read_scan(),
+        "third_party": (
+            # `read_scan()` first, and its result handed to `fetch_scan` — that
+            # argument is what stops a fast run from deleting a slow reading.
+            fetch_scan(census=args.census, previous=read_scan()) if args.scan else read_scan()
+        ),
         "build": provenance.build_stamp(
             "python scripts/registry_report.py"
             + (f" --sample {args.sample}" if args.sample else ""),
@@ -667,8 +1177,14 @@ def main() -> int:
 
     if args.scan:
         SCAN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # The *whole* reading, before projection. This file is the record; the
+        # artifact is the view. Writing the projection here would make the
+        # recorded reading a function of what the site happened to render on the
+        # day it was taken.
         SCAN_PATH.write_text(json.dumps(payload["third_party"], indent=2, sort_keys=True) + "\n")
         print(f"8004scan reading -> {SCAN_PATH}")
+
+    payload["third_party"] = publishable_scan(payload["third_party"], _surfaced_token_ids(payload))
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

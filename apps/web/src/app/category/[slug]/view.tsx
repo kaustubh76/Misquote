@@ -11,7 +11,8 @@ import { NotBuiltCard } from "@/components/Ledger";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { RouterCard } from "@/components/RouterCard";
-import { SourceBanner } from "@/components/SourceBanner";
+import { ScanCategoryAgents } from "@/components/ScanAgents";
+import type { ScanCategory, ScanFeedback } from "@/components/ScanAgents";
 import {
   load,
   loadAgents,
@@ -41,22 +42,47 @@ import { counterpartTask } from "@/lib/counterpart";
  * agent, which is a fact, instead of drawing a comparison card with dashes in
  * it, which would look like a measurement that came out empty.
  */
+/**
+ * Only the two blocks a category page draws.
+ *
+ * Declared here rather than imported from `registry/view.tsx`, which types the
+ * whole artifact for a page that renders the whole artifact. This page needs
+ * the categories and the per-agent feedback to join them against, and
+ * `artifacts.ts`'s own header makes the rule: only what is rendered is
+ * declared.
+ */
+export interface ScanArtifact {
+  categories?: Record<string, ScanCategory>;
+  feedback_graph?: { by_agent?: Record<string, ScanFeedback> };
+}
+
 export function CategoryView({
   slug,
   initialIndex,
   initialAdvantage,
   initialCards,
+  initialScan,
 }: {
   slug: string;
   initialIndex?: IndexArtifact;
   initialAdvantage?: AdvantageArtifact;
   /** Read from disk by `page.tsx`, so the card is in the prerendered HTML. */
   initialCards?: Record<string, AgentArtifact>;
+  /**
+   * 8004scan's per-category reading, baked in at build time.
+   *
+   * Server-side like `initialCards` and for the same reason its comment gives:
+   * a reader with JavaScript off would otherwise get a heading and a paragraph
+   * where the third-party agents should be. There is one artifact per page
+   * here, so the trade goes this way.
+   */
+  initialScan?: ScanArtifact;
 }) {
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
     initialIndex ? { ok: true, value: initialIndex } : null,
   );
   const [advantage, setAdvantage] = useState<AdvantageArtifact | undefined>(initialAdvantage);
+  const scan = initialScan;
   const [cards, setCards] = useState<{ slug: string; result: Loaded<AgentArtifact> }[] | null>(
     initialCards && Object.keys(initialCards).length > 0
       ? Object.entries(initialCards).map(([slug, value]) => ({
@@ -136,16 +162,6 @@ export function CategoryView({
 
       {category && (
         <>
-          {artifact && (
-            <div className="mt-8">
-              <SourceBanner
-                source={artifact.source}
-                badge={artifact.badge}
-                pool={artifact.pool}
-              />
-            </div>
-          )}
-
           <div className="mt-8 grid min-w-0 gap-6">
             {(cards ?? []).map((slot) => {
               const ref = category.agents.find((a) => a.slug === slot.slug);
@@ -199,12 +215,36 @@ export function CategoryView({
           <Heading className="mt-12 mb-2 text-md font-semibold">
             Who else is in this category
           </Heading>
+          {/* This paragraph used to say "Nobody", and the reason it gave was
+              right: ERC-8004 declares no category anywhere in the standard, so
+              placing a stranger's agent here is *our* classification of *their*
+              free text. That has not changed and is not fixed by having a
+              better index.
+
+              What changed is that the classification can now be shown instead
+              of asserted. Every row below carries `matched_on` — the word its
+              description had to contain to land here — so a reader can see the
+              judgement being made rather than being handed its output. The
+              search that produced them matches stems rather than substrings,
+              which is why each row is re-checked against its own needle and
+              the rejects are counted on the card.
+
+              The objection survives in one place and is stated there: none of
+              these agents gets a quote, because we do not have its policy. */}
           <p className="m-0 max-w-[62ch] text-sm text-dim">
-            Nobody, and not because nobody else does this. The ERC-8004 agents on{" "}
-            <Link href="/registry">the registry page</Link> declare no category
-            anywhere in the standard, so placing them here would be our
-            classification of their free text, presented as theirs.
+            Agents on BNB Chain whose own descriptions place them here, from{" "}
+            <Link href="/registry">a third-party index</Link>. ERC-8004 declares
+            no category, so this is our reading of their free text and is
+            labelled as such: every row says which word it matched on. None of
+            them carries a quote &mdash; we do not have their policies, and a
+            replayed range is the only kind of number this site will print.
           </p>
+          <div className="mt-4">
+            <ScanCategoryAgents
+              category={scan?.categories?.[category.name]}
+              by_agent={scan?.feedback_graph?.by_agent}
+            />
+          </div>
         </>
       )}
     </Loadable>

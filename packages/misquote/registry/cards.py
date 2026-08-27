@@ -97,9 +97,14 @@ CARD_IMAGE = "https://misquote.vercel.app/opengraph-image.png"
 
 #: Whether these agents accept x402 payments. They do not.
 #:
-#: Carried explicitly rather than omitted. 8004scan counts 66,562 of 278,500
-#: chain-56 agents as x402-capable, so the field is one a reader may filter on,
-#: and an absent field reads as unknown where `false` reads as answered.
+#: Carried explicitly rather than omitted. 8004scan counts about 66,500 of BSC's
+#: ~285,000 agents as x402-capable — a share it will report on request, so the
+#: field is one a reader may genuinely filter on, and an absent field reads as
+#: unknown where `false` reads as answered.
+#:
+#: Undated figures go stale silently, so this one is deliberately rounded and
+#: the live reading lives in `data/scan8004.json` under `counts`, stamped with
+#: the moment it was taken.
 X402_SUPPORTED = False
 
 #: The registry charges calldata gas per byte and a card is written once,

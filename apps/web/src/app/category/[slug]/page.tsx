@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CategoryView } from "./view";
+import type { ScanArtifact } from "./view";
 import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
 import { readArtifact } from "@/lib/build-artifact";
 import { categoriesFrom, categoryBySlug } from "@/lib/categories";
@@ -75,6 +76,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       initialIndex={index}
       initialAdvantage={readArtifact<AdvantageArtifact>("advantage.json")}
       initialCards={initialCards}
+      // `registry.json`'s third-party block, read here rather than fetched, so
+      // the agents 8004scan holds for this category are in the prerendered
+      // HTML. Optional chaining rather than a guard: a build with no scan
+      // reading renders the rest of the page and the component refuses on its
+      // own terms.
+      initialScan={readArtifact<{ third_party?: ScanArtifact }>("registry.json")?.third_party}
     />
   );
 }

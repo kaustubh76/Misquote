@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := help
+.PHONY: registry-census
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -15,9 +16,9 @@ IDENTITY_CHAIN ?= 97
 BROADCAST ?=
 # How many registry ids `make registry-survey` reads. See the target.
 SAMPLE ?= 400
-# Passed through to `make registry-scan`. `SCAN_ARGS=--no-census` takes the
-# one-page reading instead of counting the chain — an hour shorter, and
-# labelled a sample rather than a population.
+# Passed through to `make registry-scan`. `SCAN_ARGS=--census` walks the
+# whole chain instead of asking the index for the shares it can filter on;
+# `make registry-census` is the same thing under a name that says so.
 SCAN_ARGS ?=
 # The indexed tape. `showcase-auto` uses it when it exists and falls back to the
 # labelled synthetic path when it does not; the scripts default to the same file.
@@ -303,23 +304,50 @@ registry-scan:  ## read 8004scan and record a second, independent count of the s
 	# with the method named, and the gap is not resolved — nothing here can say
 	# which is right, and picking the larger is the misquote.
 	#
-	# With SCAN8004_API_KEY exported this is a **census**: all 278,353 BSC agents
-	# at 100 a page, so the artifact says `counted: 278,353 of 278,353` and the
-	# shares carry no confidence interval, because nothing was inferred. Budget
-	# an hour — the first full run took 68 minutes, and it is 8004scan's latency
-	# that sets that, not the rate limit, which it never came close to. It also asks how many of
-	# those agents anyone has ever left feedback on, which is the half of "is
-	# this agent real" that `ownerOf` cannot answer.
+	# With SCAN8004_API_KEY exported this asks the index directly: the shares it
+	# can filter on come back as exact counts, one request each, each published
+	# only after the filter has been shown to apply — because a filter 8004scan
+	# does not implement is accepted and ignored, and answers with the whole
+	# population under the label you asked for. It also walks /feedbacks, which
+	# is how many of those agents anyone has ever rated and by whom, the half of
+	# "is this agent real" that `ownerOf` cannot answer.
 	#
-	# Without the key it still works at 10 requests a minute, and still splits
-	# reading from publishing the way `--sample` does — but the only page it can
-	# afford is the newest hundred, which is one platform's latest batch rather
-	# than a draw from the registry. That reading is published under `sample`,
-	# never `census`, and `tier` on every payload says which one answered.
-	# `--no-census` takes the fast reading deliberately.
+	# The whole-chain **census** is `make registry-census`, not this. It is 2,848
+	# pages and 60-130 minutes, with or without a key — 8004scan's /agents slows
+	# with offset depth, not with our rate, so the pro key bought it nothing. It
+	# is kept because six of its figures have no filter behind them at all.
+	#
+	# Without a key this still works and still splits reading from publishing the
+	# way `--sample` does — but the only page it can afford to trust is the
+	# newest hundred, which is one platform's latest batch rather than a draw
+	# from the registry. That reading is published under `sample`, never
+	# `census`, and `tier` on every payload says which one answered.
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python -u scripts/registry_report.py --scan $(SCAN_ARGS)
+
+registry-census:  ## walk every page of the registry: 2,848 requests, 60-130 minutes
+	# The slow half of `registry-scan`, split out under a name that says what it
+	# costs. Not part of `make artifacts` and not the default for anything.
+	#
+	# Kept, and worth keeping, for six figures nothing else can produce: distinct
+	# owners, distinct descriptions, how many agents carry a description at all,
+	# how many are starred, how many carry a score, and the protocol histogram.
+	# 8004scan implements no filter for any of them — `protocol` and
+	# `supported_protocols` are both accepted and ignored, and `sort_by=star_count`
+	# is answered newest-first — so the only route to them is to read every row.
+	#
+	# The pro key did not make this faster. It raised the rate ceiling five-fold
+	# and the walk is not rate-bound: /agents slows with offset depth, about four
+	# seconds a page at the head and forty at 200,000, and running more workers to
+	# spend the new headroom measurably made it worse. What the key bought is
+	# everywhere else in `registry-scan`.
+	#
+	# Running this without a key is refused rather than degraded. Not for speed —
+	# the anonymous tier is fast enough — but because it takes a different chain
+	# parameter, answers in a different envelope, and its totals have never been
+	# checked against anything.
+	$(UV) run python -u scripts/registry_report.py --scan --census
 
 registry-survey:  ## read the ERC-8004 registry and record a sample. usage: make registry-survey SAMPLE=400
 	# ~2.2s per agent against free endpoints: 400 ids is about fifteen minutes,
