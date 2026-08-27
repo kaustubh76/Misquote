@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Backdrop } from "@/components/Backdrop";
 import { CompareTray } from "@/components/CompareTray";
 import { Nav } from "@/components/Nav";
+import { SimulationBanner } from "@/components/SimulationBanner";
 import { RouteAnnouncer } from "@/components/RouteAnnouncer";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -95,6 +96,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <Nav />
         <RouteAnnouncer />
+
+        {/* Above the content, below the nav. A reader in a simulated state has
+            to meet that fact before they meet a number produced by it — and it
+            renders nothing at all when no scenario is selected, which is every
+            ordinary visit and the whole of the static export. */}
+        <SimulationBanner />
 
         {/* tabIndex -1 so the skip link actually moves focus. Without it the jump
             is left to browser heuristics, which is the one thing a skip link

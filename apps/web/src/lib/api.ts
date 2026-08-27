@@ -20,6 +20,7 @@
  * There is no API at the export's root, and requesting one would 404.
  */
 import { ArtifactError, load } from "@/lib/artifacts";
+import { scenarioResponse } from "@/lib/scenario";
 
 /**
  * A refusal is an answer, and it is not an error.
@@ -75,7 +76,14 @@ export async function apiBase(): Promise<string | null> {
 }
 
 /** Which source answered. Rendered, never inferred — see `loadLive`. */
-export type Source = "live" | "artifact";
+/**
+ * Which of three things answered.
+ *
+ * `simulated` is derived from *where* the answer came from — a scenario file
+ * selected by the URL — and never from what came back, which is what makes it
+ * impossible to get wrong. See `lib/scenario.ts`.
+ */
+export type Source = "live" | "artifact" | "simulated";
 
 export type Live<T> =
   | { ok: true; value: T; source: Source }
@@ -123,6 +131,21 @@ export async function loadLive<T>(
     select?: (artifact: unknown) => unknown;
   } = {},
 ): Promise<Live<T>> {
+  // Before `apiBase()`, and that ordering is the guarantee rather than an
+  // optimisation: under a scenario **no request is issued at all**, so a
+  // simulated answer cannot arrive by the route a live one arrives by. See
+  // `lib/scenario.ts` for the other three things that stop it masquerading.
+  const recorded = await scenarioResponse(path);
+  if (recorded) {
+    // A scenario may refuse, and its refusal is terminal exactly as a live
+    // one is — no fallback, no snapshot. The refusal states are the ones most
+    // worth being able to show; a scenario that could only succeed would be a
+    // demo of the happy path.
+    const refusal = refusalFrom(path, recorded.status, recorded.body);
+    if (refusal) return { ok: false, error: refusal };
+    return { ok: true, value: recorded.body as T, source: "simulated" };
+  }
+
   const base = await apiBase();
 
   if (base) {

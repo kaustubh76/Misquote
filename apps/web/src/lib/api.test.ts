@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiBase, RefusalError } from "@/lib/api";
+import { apiBase, loadLive, RefusalError } from "@/lib/api";
 
 // `loadLive` is imported per test via `await import`, not at the top: `apiBase`
 // memoises the config for the page's lifetime and each case configures a
@@ -128,5 +128,102 @@ describe("loadLive", () => {
     const got = await fresh("/wallet/0x0/positions");
     expect(got.ok).toBe(false);
     expect(!got.ok && got.error.kind).toBe("network");
+  });
+});
+
+/**
+ * A scenario is a different code path, not a different outcome of the same one.
+ *
+ * This is the guarantee the whole simulation design rests on, and it is worth
+ * asserting directly rather than inferring from the label: if a scenario ever
+ * reached the network, a simulated page and a live one would differ only by a
+ * string, and the string is set by the code being tested.
+ */
+describe("a scenario answers before the network is consulted", () => {
+  const at = (search: string) => window.history.replaceState({}, "", `/quote/${search}`);
+
+  const fixture = {
+    label: "A quote the tape cannot support",
+    why: "because it is the hardest state to reach on demand",
+    responses: {
+      "/quote/eligibility/{address}": { status: 200, body: { held: 2 } },
+      "POST /quote": {
+        status: 409,
+        body: { detail: { error: "the tape supports 6 windows", remedy: "index more history" } },
+      },
+    },
+  };
+
+  /** Answers for the scenario file and records everything else it is asked for. */
+  const serveScenarioOnly = () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        if (url.includes("/scenarios/")) {
+          return new Response(JSON.stringify(fixture), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        throw new Error(`a scenario must not reach ${url}`);
+      })
+    );
+    return calls;
+  };
+
+  afterEach(() => {
+    at("");
+    vi.unstubAllGlobals();
+  });
+
+  it("issues no request to the API, even with one configured and reachable", async () => {
+    vi.stubGlobal("__MISQUOTE_API__", "https://api.example.test");
+    at("?scenario=wallet-two-pools");
+    const calls = serveScenarioOnly();
+
+    const got = await loadLive<{ held: number }>("/quote/eligibility/0xabc");
+
+    expect(got.ok && got.value).toEqual({ held: 2 });
+    expect(calls.filter((u) => u.includes("api.example.test"))).toHaveLength(0);
+  });
+
+  it("labels the answer simulated, and cannot label it anything else", async () => {
+    vi.stubGlobal("__MISQUOTE_API__", "https://api.example.test");
+    at("?scenario=wallet-two-pools");
+    serveScenarioOnly();
+
+    const got = await loadLive<unknown>("/quote/eligibility/0xabc");
+
+    expect(got.ok && got.source).toBe("simulated");
+  });
+
+  it("returns a scenario refusal as terminal, never replacing it with a fallback", async () => {
+    // The rule this file's own docstring sets, applied to the new path: a
+    // refusal is the service answering, and substituting a snapshot for it is
+    // "replacing a considered no with a stale yes".
+    at("?scenario=quote-thin-tape");
+    serveScenarioOnly();
+
+    const got = await loadLive<unknown>("POST /quote", { fallback: "journal.json" });
+
+    expect(got.ok).toBe(false);
+    expect(!got.ok && got.error).toBeInstanceOf(RefusalError);
+    expect(!got.ok && got.error.message).toContain("the tape supports 6 windows");
+  });
+
+  it("leaves a path the scenario does not declare on the ordinary route", async () => {
+    // A fixture stubbing only the quote must not swallow the journal. The
+    // mixed page is honest because `AnsweredBy` qualifies one answer, not the
+    // page.
+    vi.stubGlobal("__MISQUOTE_API__", "https://api.example.test");
+    at("?scenario=wallet-two-pools");
+    const calls = serveScenarioOnly();
+
+    await loadLive<unknown>("/journal/warden").catch(() => undefined);
+
+    // It tried the API, which is the point: the scenario was invisible here.
+    expect(calls.some((u) => u.includes("api.example.test/journal/warden"))).toBe(true);
   });
 });

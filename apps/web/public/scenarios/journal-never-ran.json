@@ -1,0 +1,20 @@
+{
+  "label": "An agent that has written no journal",
+  "why": "Two of the four agents have never been run live, so `/journal/{agent}` refuses for them. The refusal names the remedy and the agents that do have journals \u2014 and until recently the page threw all of it away and rendered nothing.",
+  "responses": {
+    "/journal/{agent}": {
+      "status": 404,
+      "body": {
+        "detail": {
+          "error": "no journal for this agent",
+          "remedy": "make warden ENV=testnet, or make router",
+          "available": [
+            "router",
+            "warden"
+          ],
+          "note": "Either this agent has never run, or the name is not one of ours. Both are absences and neither is an empty journal."
+        }
+      }
+    }
+  }
+}
