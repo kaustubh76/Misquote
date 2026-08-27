@@ -221,7 +221,10 @@ ROUTER_FIELDS: dict[str, str] = {
     "at_pool_scale.quote.windows": "RouterDetail.tsx",
     "at_pool_scale.quote.sufficient": "RouterDetail.tsx",
     "at_pool_scale.quote.note": "RouterDetail.tsx",
-    "at_pool_scale.quote.annualised": "RouterDetail.tsx",
+    # Emitted for a machine consumer and not rendered: `basis` states the same
+    # fact in the words a reader needs — "over 125h — too short to annualise
+    # honestly" — and a boolean beside that sentence would be the sentence twice.
+    "at_pool_scale.quote.annualised": "",
     "at_pool_scale.quote.basis": "RouterDetail.tsx",
     "at_pool_scale.quote.hours_per_window": "RouterDetail.tsx",
     "caveats": "RouterDetail.tsx",

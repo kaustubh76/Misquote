@@ -21,12 +21,50 @@
     "without_agent": "supply to the highest-rate venue once and never move (park_policy)"
   },
   "agent": "Router",
+  "at_pool_scale": {
+    "best_apr_seen": 1.099435,
+    "capital_quote": 1705.0,
+    "derived_from": "the largest notional that stayed under A1's ceiling on every sample of this tape, for the deepest range on offer \u2014 a fraction of the pool's own liquidity over the quoted width, which does not depend on what this agent brings",
+    "entries": 1,
+    "exits": 0,
+    "invested_fraction": 0.996,
+    "net_quote": 7.78761759,
+    "pool_held_samples": 250,
+    "quote": {
+      "annualised": false,
+      "basis": "net return on supplied capital (realized yield \u2212 switch costs), over 125h \u2014 too short to annualise honestly",
+      "hours_per_window": 125.0,
+      "note": "",
+      "p25": 0.10637765676632457,
+      "p50": 0.3288820822757935,
+      "p75": 0.5491159025713891,
+      "samples": 60,
+      "sufficient": true,
+      "windows": 20
+    },
+    "samples": 251,
+    "switches": 0,
+    "venues_held": [
+      {
+        "a1_ceiling_quote": 1751.67,
+        "fee_pips": 500,
+        "held_samples": 250,
+        "kind": "pool",
+        "lp_fee_share": 0.6599999999999999,
+        "quotable_samples": 251,
+        "quote_price_quote": 607.3097136702486,
+        "reference_width_ticks": 80,
+        "symbol": "PancakeSwap v3 WBNB/USDT 0.05%",
+        "venue_id": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+      }
+    ]
+  },
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "build": {
     "command": "python scripts/router_showcase.py",
-    "generated_at": "2026-08-26T17:39:27+00:00",
-    "git_dirty": false,
-    "git_sha": "d143e01",
+    "generated_at": "2026-08-27T06:48:15+00:00",
+    "git_dirty": true,
+    "git_sha": "58c4345",
     "source": "chain"
   },
   "capital_quote": 10000.0,
@@ -60,7 +98,7 @@
     "persistence_samples": 3,
     "switch_cost_margin": 1.0
   },
-  "pool_finding": "Router measured 2 PancakeSwap range(s) as venues and entered none of them, and the reason is size rather than yield. A1 caps a replayed position at 1% of the venue it sits in, and against a notional of 10,000 the ceilings are: PancakeSwap v3 WBNB/USDT 0.05% at +/-80 ticks tops out at 2,485; PancakeSwap v3 WBNB/USDT 0.25% at +/-400 ticks tops out at 185. The fee APR was measured and is on the card; what the ranges could not do is absorb this much capital without moving the price the replay is priced against. At a smaller notional the same policy over the same tape reaches a different answer, which is why the ceiling is published beside each range rather than the refusal alone.",
+  "pool_finding": "Router measured 2 PancakeSwap range(s) as venues and entered none of them, and the reason is size rather than yield. A1 caps a replayed position at 1% of the venue it sits in, and against a notional of 10,000 the ceilings are: PancakeSwap v3 WBNB/USDT 0.05% at +/-80 ticks tops out at 1,752; PancakeSwap v3 WBNB/USDT 0.25% at +/-400 ticks tops out at 92. The fee APR was measured and is on the card; what the ranges could not do is absorb this much capital without moving the price the replay is priced against. At a smaller notional the same policy over the same tape reaches a different answer, which is why the ceiling is published beside each range rather than the refusal alone.",
   "provenance": {
     "every_number_derived": true,
     "hours_covered": 168.0,
@@ -168,7 +206,7 @@
   "venue": "Venus Core Pool (BSC) dollar markets and 2 PancakeSwap v3 range(s) at +/-80, +/-400 ticks",
   "venues": [
     {
-      "a1_ceiling_quote": 2058288.44,
+      "a1_ceiling_quote": 1954290.91,
       "held_samples": 78,
       "kind": "lending",
       "quotable_samples": 251,
@@ -179,7 +217,7 @@
       "venue_id": "0xfd5840cd36d94d7229439859c0112a4185bc0255"
     },
     {
-      "a1_ceiling_quote": 459622.82,
+      "a1_ceiling_quote": 404339.03,
       "held_samples": 171,
       "kind": "lending",
       "quotable_samples": 250,
@@ -190,7 +228,7 @@
       "venue_id": "0xeca88125a5adbe82614ffc12d0db554e2e2867c8"
     },
     {
-      "a1_ceiling_quote": 2484.95,
+      "a1_ceiling_quote": 1751.67,
       "fee_pips": 500,
       "held_samples": 0,
       "kind": "pool",
@@ -202,7 +240,7 @@
       "venue_id": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
     },
     {
-      "a1_ceiling_quote": 185.07,
+      "a1_ceiling_quote": 91.57,
       "fee_pips": 2500,
       "held_samples": 0,
       "kind": "pool",

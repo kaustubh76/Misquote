@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 1,941 tests, no network, ~35s
+make test                     # 1,945 tests, no network, ~35s
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -49,7 +49,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**1981 tests: 1941 offline, 40 against a live chain or a fork.**
+**1985 tests: 1945 offline, 40 against a live chain or a fork.**
 
 ---
 
@@ -524,6 +524,7 @@ project exists to argue against.
 | Earned / cost | 6.15 against 1.0304 |
 | Commitment before entry repays a round trip | 2.5 days |
 | vs parking in the best venue | indistinguishable: -0.00pp is below the 0.1pp materiality floor |
+| At a size the ranges can take | **0.11% – 0.55%** on 1,705, 250 of 251 samples inside a PancakeSwap range |
 <!-- /derived:router -->
 
   The first version of this card said Router **never supplied**, and gave a

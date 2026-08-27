@@ -327,6 +327,39 @@ def router_block() -> list[str] | None:
             f"{replay.get('breakeven_horizon_hours', 0) / 24:.1f} days |"
         ),
         f"| vs parking in the best venue | {card.get('advantage', {}).get('verdict', '—')} |",
+        *_pool_scale_row(card),
+    ]
+
+
+def _pool_scale_row(card: dict) -> list[str]:
+    """The second replay, when there was one.
+
+    The headline figure above is Router at a notional every PancakeSwap range
+    refuses under A1, so it describes an agent that measured the venue and held a
+    lending market. That is honest and it is not the whole answer, and this is
+    the document a judge reads first — leaving the second replay off it would
+    mean the only surface saying Router ever holds a range is a section three
+    clicks in.
+
+    Absent rather than zeroed when the block is empty: a row reading 0 would be a
+    claim that the replay ran and found nothing.
+    """
+    scale = card.get("at_pool_scale") or {}
+    capital = scale.get("capital_quote") or 0
+    if capital <= 0:
+        return []
+    quote = scale.get("quote") or {}
+    band = (
+        f"**{quote.get('p25', 0):.2f}% – {quote.get('p75', 0):.2f}%**"
+        if quote.get("sufficient")
+        else "withheld"
+    )
+    return [
+        (
+            f"| At a size the ranges can take | {band} on "
+            f"{capital:,.0f}, {scale.get('pool_held_samples', 0)} of "
+            f"{scale.get('samples', 0)} samples inside a PancakeSwap range |"
+        )
     ]
 
 
