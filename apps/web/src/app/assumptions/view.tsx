@@ -2,14 +2,13 @@
 
 import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Blocks, type Block } from "@/components/Blocks";
 import { Card } from "@/components/Card";
 import { ChipGroup } from "@/components/ChipGroup";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
+import { load, type Loaded } from "@/lib/artifacts";
 
 interface Entry {
   id: string;
@@ -82,17 +81,12 @@ function matches(entry: Entry, query: string): boolean {
 
 export function AssumptionsView({
   initialSheet,
-  initialIndex,
 }: {
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initialSheet?: AssumptionsArtifact;
-  initialIndex?: IndexArtifact;
 }) {
   const [state, setState] = useState<Loaded<AssumptionsArtifact> | null>(
     initialSheet ? { ok: true, value: initialSheet } : null,
-  );
-  const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
-    initialIndex ? { ok: true, value: initialIndex } : null,
   );
   const [kind, setKind] = useState("all");
   const [query, setQuery] = useState("");
@@ -102,13 +96,8 @@ export function AssumptionsView({
 
   useEffect(() => {
     let live = true;
-    Promise.all([
-      load<AssumptionsArtifact>("assumptions.json"),
-      load<IndexArtifact>("index.json"),
-    ]).then(([sheet, idx]) => {
-      if (!live) return;
-      setState(sheet);
-      setIndex(idx);
+    load<AssumptionsArtifact>("assumptions.json").then((sheet) => {
+      if (live) setState(sheet);
     });
     return () => {
       live = false;
@@ -203,7 +192,6 @@ export function AssumptionsView({
   }, [pending, kind, query, state]);
 
   const d = state?.ok ? state.value : null;
-  const agentSlugs = new Set(index?.ok ? index.value.agents.map((a) => a.slug) : []);
 
   const all = d?.entries ?? [];
   const shown = all.filter((e) => (kind === "all" || e.kind === kind) && matches(e, query));
@@ -394,7 +382,6 @@ export function AssumptionsView({
                   <EntryCard
                     key={entry.id}
                     entry={entry}
-                    agentSlugs={agentSlugs}
                     landed={landed === entry.id}
                   />
                 ))}
@@ -465,7 +452,6 @@ export function AssumptionsView({
                   <EntryCard
                     key={entry.id}
                     entry={entry}
-                    agentSlugs={agentSlugs}
                     landed={landed === entry.id}
                   />
                 ))}
@@ -484,11 +470,9 @@ export function AssumptionsView({
 
 function EntryCard({
   entry,
-  agentSlugs,
   landed = false,
 }: {
   entry: Entry;
-  agentSlugs: Set<string>;
   /** True for the entry a citation link just sent the reader to. */
   landed?: boolean;
 }) {
@@ -529,31 +513,6 @@ function EntryCard({
       </div>
 
       <Blocks blocks={entry.blocks} />
-
-      <p className="mt-4 mb-0 border-t border-line pt-3 font-mono text-xs text-faint">
-        {entry.source}:{entry.line}
-        {entry.cited_by.length > 0 && (
-          <>
-            {" · cited by "}
-            {entry.cited_by.map((name, i) => (
-              <span key={name}>
-                {i > 0 && ", "}
-                {/* Only the agent artifacts have a route. This used to linkify
-                    any *.json that was not the advantage report, so the moment
-                    vetting.json started citing assumptions it produced a link
-                    to /agent/vetting — a page that does not exist. The agent
-                    slugs are the ones with pages, and index.json is the
-                    authority on what they are. */}
-                {agentSlugs.has(name.replace(".json", "")) ? (
-                  <Link href={`/agent/${name.replace(".json", "")}`}>{name}</Link>
-                ) : (
-                  name
-                )}
-              </span>
-            ))}
-          </>
-        )}
-      </p>
     </article>
   );
 }

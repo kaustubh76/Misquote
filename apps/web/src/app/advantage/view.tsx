@@ -11,8 +11,6 @@ import { ComparisonTable } from "@/components/ComparisonTable";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { SourceBanner } from "@/components/SourceBanner";
-import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
 import {
   load,
   type AdvantageArtifact,
@@ -35,16 +33,7 @@ export function AdvantageView({
   initialMain,
   initialShort,
   initialAgents,
-  behind = [],
 }: {
-  /**
-   * Artifacts generated before the engine changed, from `status.json`.
-   *
-   * Read on the server so the caveat is in the exported HTML beside the figures
-   * it qualifies, rather than appearing a moment after hydration on a page a
-   * reader may already have quoted from.
-   */
-  behind?: BehindEntry[];
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initialMain?: AdvantageArtifact;
   initialShort?: AdvantageArtifact;
@@ -143,21 +132,8 @@ export function AdvantageView({
 
       {d && (
         <>
-          <div className="mt-8">
-            <SourceBanner source={d.source} badge={d.badge} />
-            {/* Under the source banner, not above it. Which tape produced these
-                numbers changes what they mean; whether the engine has moved
-                since changes only how current they are, and the stronger claim
-                goes first. */}
-            <StaleNotice
-              behind={behind}
-              artifacts={["advantage.json", "advantage_short.json"]}
-              className="mb-8 -mt-4"
-            />
-          </div>
-
           {/* ------------------------------------------------- the headline -- */}
-          <Card className="mb-8">
+          <Card className="mt-8 mb-8">
             <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
                 <Heading className="mt-0 mb-2 text-lg font-semibold">

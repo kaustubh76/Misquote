@@ -16,9 +16,7 @@ import { GateHistogram } from "@/components/GateHistogram";
 import { Pill, verdictTone } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { SourceBanner } from "@/components/SourceBanner";
-import { load, type AdvantageArtifact, type AgentArtifact, type Loaded } from "@/lib/artifacts";
-import { counterpartTask } from "@/lib/counterpart";
+import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
 import {
   SIGN_CLASS,
   count,
@@ -59,7 +57,6 @@ function unitFor(n: number, expected: number | undefined, unit: string) {
 export function AgentDetail({
   slug,
   initial,
-  initialAdvantage,
 }: {
   slug: string;
   /**
@@ -82,39 +79,15 @@ export function AgentDetail({
    * the fetch is the truth, and it wins.
    */
   initial?: AgentArtifact;
-  /**
-   * The advantage report, read from disk at build time by the route above.
-   *
-   * This page and `/advantage` answer the same question from two different
-   * runs, and until now neither mentioned the other. See `lib/counterpart` for
-   * what that cost. Read here rather than derived, for the same reason `initial`
-   * is: the static export has to carry the disagreement, not just the browser.
-   */
-  initialAdvantage?: AdvantageArtifact;
 }) {
   const [state, setState] = useState<Loaded<AgentArtifact> | null>(
     initial ? { ok: true, value: initial } : null,
   );
-  const [report, setReport] = useState<AdvantageArtifact | undefined>(initialAdvantage);
 
   useEffect(() => {
     let live = true;
     load<AgentArtifact>(`${slug}.json`).then((r) => {
       if (live) setState(r);
-    });
-    // The counterpart is refreshed on the same terms as the card itself. A
-    // build-time-only value would freeze the one figure on this page whose
-    // entire job is to disagree with another artifact — so editing
-    // `advantage.json` and reloading would leave the banner quoting whatever it
-    // said when the site was built, which is the exact shape of the bug this
-    // banner exists to close.
-    //
-    // Only a successful read replaces it. A 404 on `advantage.json` means the
-    // report has not been generated, and the honest surface for that is no
-    // cross-reference at all rather than an error on a page about something
-    // else.
-    load<AdvantageArtifact>("advantage.json").then((r) => {
-      if (live && r.ok) setReport(r.value);
     });
     return () => {
       live = false;
@@ -159,10 +132,6 @@ export function AgentDetail({
   const e = d.estimators;
   const adv = d.advantage;
   const [poolLabel, poolAddress] = d.pool.split(" · ");
-  // Most agents resolve to nothing here, and that is the correct
-  // answer rather than a lookup failure: the report has three tasks, one of
-  // which is a choice between pools that nobody hired. See `lib/counterpart`.
-  const counterpart = counterpartTask(d.agent, report);
 
   return (
     <div>
@@ -201,42 +170,7 @@ export function AgentDetail({
           ...(adv ? [{ id: "advantage", label: "vs DIY" }] : []),
           { id: "journal", label: "Journal" },
           { id: "parameters", label: "Parameters" },
-          { id: "provenance", label: "Provenance" },
         ]}
-      />
-
-      {/* This page carried its source as a row in a provenance table 330 lines
-          below the headline, while `/` and `/advantage` — which quote the same
-          runs in aggregate — both lead with this banner. So the three pages
-          making the site's most specific claims ("beats DIY by 0.72pp, bands do
-          not overlap") were the three that never said which tape they read.
-
-          The counterfactual badge moves inside it rather than sitting beside
-          the title: "this position was not held" and "this tape was generated"
-          are two halves of one qualification, and splitting them across the
-          page let a reader take either one alone. */}
-      <SourceBanner
-        source={d.source}
-        badge={d.badge}
-        pool={poolAddress ? poolLabel : d.pool}
-        span={r.hours > 0 ? hours(r.hours) : undefined}
-        note={
-          counterpart && (
-            <>
-              The same task, replayed over{" "}
-              {counterpart.source === "chain" ? (
-                "indexed chain history"
-              ) : (
-                <>a {counterpart.source} tape</>
-              )}
-              , answered{" "}
-              <span className={`tabular font-semibold ${SIGN_CLASS[signOf(counterpart.task.delta_pp)]}`}>
-                {signed(counterpart.task.delta_pp, 2, "pp")}
-              </span>
-              . <Link href="/advantage">{counterpart.task.task} →</Link>
-            </>
-          )
-        }
       />
 
       {/* ---------------------------------------------------------- quote -- */}
@@ -559,39 +493,6 @@ export function AgentDetail({
               ]}
             />
           </div>
-        </Card>
-      </Section>
-
-      {/* ----------------------------------------------------- provenance -- */}
-      <Section id="provenance" title="Provenance">
-        <Card>
-          <DataTable
-            caption="Where these numbers came from"
-            rows={[
-              { label: "source", value: d.source },
-              { label: "decision journal", value: d.provenance.journal },
-              {
-                label: "journal rows",
-                value: count(d.provenance.journal_rows),
-                note:
-                  d.provenance.journal_rows === 0
-                    ? "empty — no live run has been recorded"
-                    : undefined,
-              },
-              { label: "hours covered by journal", value: hours(d.provenance.hours_covered) },
-              {
-                label: "every number derived",
-                value: d.provenance.every_number_derived ? "yes" : "no",
-              },
-            ]}
-          />
-          {d.provenance.journal_rows === 0 && (
-            <p className="mt-4 mb-0 text-sm text-warn">
-              The journal backing this card&rsquo;s provenance has zero rows: nothing on
-              this page comes from a live agent run. Every figure is a replay of the
-              policy over recorded history.
-            </p>
-          )}
         </Card>
       </Section>
 

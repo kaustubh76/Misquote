@@ -257,16 +257,6 @@ export function TapeView({ vetted }: { vetted?: BadgeSurvey }) {
             );
           })}
         </div>
-
-        {tape && (
-          <p className="mt-5 mb-0 text-xs text-faint">
-            Answered from{" "}
-            <span className="font-mono">{tape.database}</span> on chain{" "}
-            <span className="tabular">{tape.chain_id}</span>. A deployment may carry a
-            slice rather than the whole index — the coverage above is the coverage that
-            database holds, which is the point of reporting it rather than the span.
-          </p>
-        )}
       </Section>
     </>
   );

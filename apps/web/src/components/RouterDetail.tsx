@@ -3,14 +3,12 @@
 import Link from "next/link";
 import { Band } from "@/components/Band";
 import { AgentJournal } from "@/components/AgentJournal";
-import { BuildStamp } from "@/components/BuildStamp";
 import { Card } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
 import { SectionRail } from "@/components/SectionRail";
-import { SourceBanner } from "@/components/SourceBanner";
 import {
   count,
   fraction,
@@ -108,7 +106,6 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
     ...(Object.keys(data.params).length > 0
       ? [{ id: "parameters", label: "Parameters" }]
       : []),
-    ...(data.provenance ? [{ id: "provenance", label: "Provenance" }] : []),
   ];
 
   return (
@@ -125,20 +122,6 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
       </p>
 
       <SectionRail label="On this tearsheet" items={rail} />
-
-      {/* The badge was a bare `<Badge>` under the title, which is the
-          qualification without the thing it qualifies. "This position was not
-          held" and "this is the tape it was replayed over" are two halves of
-          one sentence, and `/`, `/advantage` and the three LP tearsheets all
-          state them together. This page made the most specific claim on the
-          site — "the edge cleared, and only just" — and never said which tape
-          it read. */}
-      <SourceBanner
-        source={data.source}
-        badge={data.badge}
-        pool={data.venue}
-        span={r.hours > 0 ? hours(r.hours) : undefined}
-      />
 
       <Section id="quote" title="What it would have earned">
         <Card>
@@ -598,32 +581,6 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
         </Section>
       )}
 
-      {data.provenance && (
-        <Section
-          id="provenance"
-          title="Where these numbers came from"
-          intro="The journal the agent wrote, published beside the replay that quoted it."
-        >
-          <Card>
-            <DataTable
-              caption="The decision journal behind this card"
-              rows={[
-                { label: "Journal", value: data.provenance.journal },
-                {
-                  label: "Rows",
-                  value: count(data.provenance.journal_rows),
-                  note: `${hours(data.provenance.hours_covered)} covered`,
-                },
-                {
-                  label: "Every number derived",
-                  value: data.provenance.every_number_derived ? "yes" : "no",
-                },
-              ]}
-            />
-          </Card>
-        </Section>
-      )}
-
       <Section title="Assumptions this rests on">
         <Card>
           <ul className="m-0 list-none space-y-3 p-0 text-sm text-dim">
@@ -640,12 +597,9 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
       </Section>
 
       {/* Live, so it renders nothing on the static export and needs no rail
-          entry — see its own docstring. Placed after the replay sections and
-          before the stamp: it is the last piece of evidence on the page and it
-          is about a different run from everything above it. */}
+          entry — see its own docstring. It is the last piece of evidence on the
+          page and it is about a different run from everything above it. */}
       <AgentJournal agent="router" />
-
-      {data.build && <BuildStamp className="mt-10" build={data.build} />}
     </div>
   );
 }

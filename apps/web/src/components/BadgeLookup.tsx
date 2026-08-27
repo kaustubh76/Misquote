@@ -31,7 +31,6 @@ interface Badge {
   chain_id: number;
   verdict: { called: boolean; label: string };
   safe_to_provide?: boolean;
-  read_at?: number;
   checks: Check[];
 }
 

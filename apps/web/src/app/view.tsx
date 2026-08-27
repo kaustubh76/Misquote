@@ -1,6 +1,5 @@
 "use client";
 
-import { BuildStamp } from "@/components/BuildStamp";
 import { EvidenceRail, type EvidenceEntry } from "@/components/EvidenceRail";
 import { TickRule } from "@/components/TickRule";
 import { Button } from "@/components/Button";
@@ -16,13 +15,10 @@ import { Integrations } from "@/components/Integrations";
 import { NotBuiltCard } from "@/components/Ledger";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { SourceBanner } from "@/components/SourceBanner";
-import { StaleNotice, type BehindEntry } from "@/components/StaleNotice";
 import {
   load,
   loadAgents,
   type AgentArtifact,
-  type BuildArtifact,
   type IndexArtifact,
   type Loaded,
   type RouterArtifact,
@@ -49,12 +45,8 @@ const DELIVERABLE_GATE = "agent advantage report";
 
 export function OverviewView({
   initialIndex,
-  initialBuild,
   evidence,
-  behind = [],
 }: {
-  /** Artifacts generated before the engine changed. See `lib/stale`. */
-  behind?: BehindEntry[];
   /**
    * Read from disk at build time by `app/page.tsx`, so the landing page is not
    * a heading and a spinner in the exported HTML.
@@ -71,7 +63,6 @@ export function OverviewView({
    * the remedy text and the tests already are.
    */
   initialIndex?: IndexArtifact;
-  initialBuild?: BuildArtifact;
   /**
    * One figure per evidence route, counted from its own artifact at build time
    * by `app/page.tsx`. Numbers rather than artifacts, because everything this
@@ -83,9 +74,6 @@ export function OverviewView({
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
     initialIndex ? { ok: true, value: initialIndex } : null
   );
-  const [build, setBuild] = useState<Loaded<BuildArtifact> | null>(
-    initialBuild ? { ok: true, value: initialBuild } : null
-  );
   const [agents, setAgents] = useState<AgentSlot[] | null>(null);
   const [venue, setVenue] = useState<Loaded<VenueSummary> | null>(null);
   const [status, setStatus] = useState<Loaded<StatusSummary> | null>(null);
@@ -96,15 +84,13 @@ export function OverviewView({
     (async () => {
       // The two router artifacts are fetched alongside, not after: neither
       // gates the skeletons below, so a slow one must not hold up the cards.
-      const [idx, bld, ven, sts] = await Promise.all([
+      const [idx, ven, sts] = await Promise.all([
         load<IndexArtifact>("index.json"),
-        load<BuildArtifact>("build.json"),
         load<VenueSummary>("venue.json"),
         load<StatusSummary>("status.json"),
       ]);
       if (!live) return;
       setIndex(idx);
-      setBuild(bld);
       setVenue(ven);
       setStatus(sts);
 
@@ -237,32 +223,6 @@ export function OverviewView({
       </div>
 
       <div className="mt-10">
-        {index?.ok && (
-          <SourceBanner
-            source={index.value.source}
-            badge={index.value.badge}
-            pool={index.value.pool}
-          />
-        )}
-
-        {/* Every card below is drawn from one of these four. `index.json` and
-            `build.json` carry no commit of their own and are stamped by proxy,
-            which `go_no_go.py` reports separately as unstamped rather than as
-            stale — so naming them here is what makes the notice cover the
-            agent cards the landing page actually renders. */}
-        <StaleNotice
-          behind={behind}
-          artifacts={[
-            "index.json",
-            "build.json",
-            "warden.json",
-            "grid.json",
-            "sentinel.json",
-            "router.json",
-          ]}
-          className="mb-8"
-        />
-
         {index && !index.ok && (
           <ErrorNotice
             title="No artifacts to render"
@@ -430,23 +390,6 @@ export function OverviewView({
           <EvidenceRail entries={evidence} />
         </Section>
       </div>
-
-      <footer className="mt-16 border-t border-glass-line pt-6 text-sm text-faint">
-        {/* The unique claim here is the static export, which appears nowhere
-            else on the site. The path is already in the build stamp below. */}
-        <p className="m-0">
-          A static export reading precomputed JSON — no backend to be down.
-        </p>
-        {build?.ok && (
-          <BuildStamp
-            className="mt-2"
-            build={build.value}
-            extra={`${build.value.events.toLocaleString("en-US")} events over ${
-              build.value.span_hours
-            }h`}
-          />
-        )}
-      </footer>
     </Loadable>
   );
 }

@@ -9,9 +9,7 @@ import { LedgerTable } from "@/components/Ledger";
 import { Pill, statusTone } from "@/components/Pill";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
-import { load, type ArtifactCensus, type IndexArtifact, type Loaded } from "@/lib/artifacts";
-import { BuildStamp, type Build } from "@/components/BuildStamp";
-import { count, timestamp } from "@/lib/format";
+import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
 
 interface StatusCheck {
   name: string;
@@ -22,7 +20,6 @@ interface StatusCheck {
 }
 
 export interface StatusArtifact {
-  generated_at: string;
   mainnet: boolean;
   fast: boolean;
   skipped: string[];
@@ -30,14 +27,6 @@ export interface StatusArtifact {
   summary: { pass: number; fail: number; unverified: number; total: number };
   outcome: "GO" | "NO GO" | "NOT YET";
   exit_code: number;
-  /**
-   * Which tree the verdict was a verdict about.
-   *
-   * Optional because a `status.json` written before the emitter carried one is
-   * still readable — and an absent stamp is itself the reading: this file could
-   * not say what it checked. See `go_no_go.to_payload`.
-   */
-  build?: Build;
 }
 
 /**
@@ -68,19 +57,10 @@ const OUTCOME_STYLE: Record<string, string> = {
 export function StatusView({
   initialStatus,
   initialIndex,
-  census,
 }: {
   /** Read from disk at build time by `page.tsx`. See `lib/build-artifact`. */
   initialStatus?: StatusArtifact;
   initialIndex?: IndexArtifact;
-  /**
-   * What every artifact on this site records about the tree that made it.
-   *
-   * Build-time only, and deliberately not refreshed the way the artifacts
-   * themselves are: it is a fact about the directory the site was exported
-   * from, and there is no fetch that could re-derive it in a browser.
-   */
-  census?: ArtifactCensus;
 }) {
   const [status, setStatus] = useState<Loaded<StatusArtifact> | null>(
     initialStatus ? { ok: true, value: initialStatus } : null,
@@ -117,12 +97,6 @@ export function StatusView({
   const [only, setOnly] = useState<Filter>("all");
 
   const checks = d?.checks ?? [];
-  // Artifacts recording a commit other than the one these gates were run
-  // against. Not "stale" — an artifact can legitimately predate a run that did
-  // not touch it — but it is the difference a reader needs to weigh a verdict.
-  const elsewhere = census
-    ? census.stamped.filter((a) => a.sha !== d?.build?.git_sha).length
-    : 0;
   const shown = only === "all" ? checks : checks.filter((c) => c.status === only);
 
   // Counts off the checks themselves, never off `summary` — the two are the
@@ -232,41 +206,6 @@ export function StatusView({
             </div>
           )}
 
-          {/* How current these gates are, which the page had no way to say.
-              `status.json` was recorded at `fa185b4` on 18 Aug and its gate
-              still read "agent advantage report: 0/3 tasks on chain data" —
-              false since the chain run landed, under a heading whose whole
-              subject is what has and has not been checked.
-
-              Re-running would fix that run and not the problem: the next
-              emitter to run would stale it again and nothing would say so. So
-              the page states what is on disk beside it instead, counted rather
-              than typed. */}
-          {census && d.build?.git_sha && (
-            <div className="mt-4 rounded-md border border-warn-line bg-warn-bg/40 p-4">
-              <p className="m-0 max-w-[72ch] text-sm text-dim">
-                <strong className="text-ink">How current this is.</strong> A recording
-                of one run against{" "}
-                <code className="font-mono text-xs">{d.build.git_sha}</code>, not a live
-                reading. Of the {count(census.total)} artifacts on this site,{" "}
-                {count(census.unstamped.length)} record no commit at all
-                {elsewhere > 0 && <> and {count(elsewhere)} record a different one</>} — so
-                a gate below can be describing a number that has been regenerated since.
-              </p>
-              {census.unstamped.length > 0 && (
-                <p className="mt-2 mb-0 font-mono text-xs break-words text-faint">
-                  {census.unstamped.join(" · ")}
-                </p>
-              )}
-              {census.exempt.map((file) => (
-                <p key={file.name} className="mt-2 mb-0 text-xs text-faint">
-                  <span className="font-mono">{file.name}</span> is not counted against
-                  that: {file.why}.
-                </p>
-              ))}
-            </div>
-          )}
-
           <Section title="Gates">
             <div className="surface mb-5 rounded-lg border border-glass-line bg-glass p-4">
               <ChipGroup
@@ -325,20 +264,6 @@ export function StatusView({
               </p>
               <LedgerTable entries={index.value.not_built} />
             </Section>
-          )}
-
-          {/* `BuildStamp`, not a hand-written line. This footer showed a
-              timestamp and the command and nothing else, so a two-day-old NOT
-              YET was indistinguishable from a fresh one — on the page whose
-              whole job is to say what has been verified. The shared component
-              carries the sha and the dirty-tree sentence with it. */}
-          {d.build ? (
-            <BuildStamp className="mt-10" build={d.build} />
-          ) : (
-            <p className="mt-10 font-mono text-xs text-faint">
-              Generated {timestamp(d.generated_at)} · <code>make status</code> · this run
-              recorded no commit, so what it checked cannot be established
-            </p>
           )}
         </>
       )}

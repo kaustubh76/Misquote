@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { readArtifact } from "@/lib/build-artifact";
 import { AgentDetail } from "@/components/AgentDetail";
 import { RouterDetail } from "@/components/RouterDetail";
-import type { AdvantageArtifact, AgentArtifact, RouterArtifact } from "@/lib/artifacts";
+import type { AgentArtifact, RouterArtifact } from "@/lib/artifacts";
 
 
 /**
@@ -78,10 +78,6 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   }
 
   return (
-    <AgentDetail
-      slug={slug}
-      initial={artifact}
-      initialAdvantage={readArtifact<AdvantageArtifact>("advantage.json")}
-    />
+    <AgentDetail slug={slug} initial={artifact} />
   );
 }

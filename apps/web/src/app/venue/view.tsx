@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
@@ -50,7 +49,6 @@ export interface VenueArtifact {
   unmintable_remainder: number;
   divergences: Divergence[];
   pools: VenuePool[];
-  build?: Build;
 }
 
 /**
@@ -121,7 +119,6 @@ export interface PoolsArtifact {
   /** How many pools were looked at, badged, ranked, and refused. */
   summary: { pools: number; badged: number; quotable: number; refused: number };
   pools: PoolLadder[];
-  build?: Build;
 }
 
 /** Only what this page needs of `vetting.json`: which pools carry a badge. */
@@ -146,9 +143,8 @@ export function VenueView({
    * overstatement about a quarter of its own table, on the page whose whole
    * argument is that these details were read rather than assumed.
    *
-   * Derived rather than asserted, for the reason `SourceBanner`'s docstring was
-   * wrong twice: which pools are covered is data, and a view that hardcodes it
-   * is correct only until somebody runs `make vet --chain 97`.
+   * Derived rather than asserted: which pools are covered is data, and a view
+   * that hardcodes it is correct only until somebody runs `make vet --chain 97`.
    */
   initialBadges?: BadgeSurvey;
   /**
@@ -702,13 +698,7 @@ export function VenueView({
               </p>
               <PoolLookup />
             </Card>
-
-            {pools?.build && (
-              <BuildStamp className="mt-4" build={pools.build} />
-            )}
           </Section>
-
-          {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
     </Loadable>

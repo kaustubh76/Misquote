@@ -13,9 +13,7 @@ import type {
   AgentArtifact,
   IndexArtifact,
 } from "@/lib/artifacts";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { money, signed } from "@/lib/format";
+import { money } from "@/lib/format";
 
 import AdvantagePage from "./advantage/page";
 import AssumptionsPage from "./assumptions/page";
@@ -144,28 +142,6 @@ describe("Overview", () => {
         await screen.findByRole("heading", { name: agent.name })
       ).toBeInTheDocument();
     }
-  });
-
-  it("declares which tape it is, matching the artifact rather than a literal", async () => {
-    // This asserted "Synthetic tape" outright and went red the moment the
-    // artifacts were regenerated against real chain history — failing for the
-    // wrong reason, and pinning the site to one of two states the banner is
-    // built to distinguish. What must hold is that the banner agrees with
-    // `index.source`, whichever it says.
-    const index = readArtifact<IndexArtifact>("index.json");
-    render(<OverviewPage />);
-
-    const expected =
-      index.source === "chain"
-        ? /Indexed chain history/
-        : /Synthetic tape — not chain data/;
-    const forbidden =
-      index.source === "chain"
-        ? /Synthetic tape — not chain data/
-        : /Indexed chain history/;
-
-    expect(await screen.findByText(expected)).toBeInTheDocument();
-    expect(screen.queryByText(forbidden)).not.toBeInTheDocument();
   });
 
   it("shows the fourth category as not built instead of omitting it", async () => {
@@ -333,9 +309,6 @@ describe("Agent detail", () => {
       screen.getByRole("heading", { name: "Why it held" })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Provenance" })
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("heading", { name: "The parameters behind the range" })
     ).toBeInTheDocument();
   });
@@ -351,16 +324,6 @@ describe("Agent detail", () => {
         screen.getByText(/κ was not fitted on this run/)
       ).toBeInTheDocument();
       expect(screen.getByText(textFrom(label))).toBeInTheDocument();
-    }
-  });
-
-  it("says so when the provenance journal is empty", async () => {
-    const warden = readArtifact<AgentArtifact>("warden.json");
-    render(<AgentDetail slug="warden" />);
-    await screen.findByRole("heading", { name: "Provenance" });
-
-    if (warden.provenance.journal_rows === 0) {
-      expect(screen.getByText(/journal .* has zero rows/i)).toBeInTheDocument();
     }
   });
 
@@ -1456,7 +1419,6 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
   interface Reg {
     aacp: { available: boolean; chain_id: number; reason?: string };
     hire_flow: { steps: { call: string; contract: string }[] };
-    build: { source?: string; git_sha?: string };
     identity: { surveyed: boolean; agents?: { agent_id: number }[] };
   }
 
@@ -1491,40 +1453,6 @@ describe("Registry leads with the deliverable, and stops hiding four fields", ()
 
     expect(within(section).getByText(gate.status)).toBeInTheDocument();
     expect(within(section).getByText(gate.detail)).toBeInTheDocument();
-  });
-
-  it("shows what the artifact was built from", async () => {
-    // The page removed a green "Verified" pill *citing* `source: offline` and
-    // then never showed it, so the reader had to take the removal on trust.
-    //
-    // Scoped to the build stamp, for the reason the TermiX test below gives.
-    // `source` was "offline" when this was written and is "chain" now that the
-    // registry is surveyed, and "chain" also appears in the third-party
-    // listings ("card is on chain") — so the unscoped match found several and
-    // would have passed on whichever came first.
-    const reg = readArtifact<Reg>("registry.json");
-    render(<RegistryPage />);
-    await screen.findByRole("heading", { name: "The judged deliverable" });
-
-    const stamp = screen
-      .getByText(new RegExp(reg.build.git_sha!))
-      .closest("p, div") as HTMLElement;
-    expect(
-      within(stamp).getByText(new RegExp(reg.build.source!))
-    ).toBeInTheDocument();
-  });
-
-  it("names the chain the TermiX table belongs to", async () => {
-    const reg = readArtifact<Reg>("registry.json");
-    render(<RegistryPage />);
-    const heading = await screen.findByRole("heading", { name: "TermiX AACP" });
-
-    // Scoped to the section. "chain 56" also appears under the escrow, so an
-    // unscoped match found two and would have passed on the wrong one.
-    const section = heading.closest("section")!;
-    expect(
-      within(section).getByText(new RegExp(`chain ${reg.aacp.chain_id}`))
-    ).toBeInTheDocument();
   });
 
   it("says so when no AACP table was read, instead of vanishing", async () => {
@@ -1898,114 +1826,15 @@ describe("Vetting offers a verdict filter only when there is a choice", () => {
 });
 
 /**
- * Two artifacts, one question, and whether a reader can tell they disagree.
+ * Each task on `/advantage`, reachable and quoted on its own basis.
  *
- * `advantage.json` and the agent cards both answer "did the agent beat doing it
- * yourself", from different runs. On the tree these tests were written against
- * the report is `source: "chain"` and the cards are `source: "synthetic"`, and
- * they disagree by as much as a sign — Sentinel loses by 38.17pp on one page and
- * wins by 0.72pp on the other, one click apart.
- *
- * Nothing here asserts which is right, and nothing asserts they agree: two runs
- * over different tape are *supposed* to be able to differ. What is asserted is
- * that neither page can state its answer without saying which tape it read and
- * what the other one said.
+ * A task names the agent it hired, and that agent's own card answers the same
+ * question from a different run — so the link has to resolve to a route that
+ * exists rather than to a slug guessed from the name.
  */
-describe("Two runs, one question", () => {
+describe("The tasks on /advantage", () => {
   const report = readArtifact<AdvantageArtifact>("advantage.json");
   const index = readArtifact<IndexArtifact>("index.json");
-
-  /** The report's row for an agent, by the same rule `lib/counterpart` uses. */
-  const taskFor = (name: string) =>
-    report.tasks.find((t) =>
-      t.with_agent.toLowerCase().startsWith(name.toLowerCase())
-    );
-
-  const sourceLabel = (source: string) =>
-    source === "chain"
-      ? /Indexed chain history/
-      : /Synthetic tape — not chain data/;
-
-  it("says which tape it read before it says what the tape showed", async () => {
-    // The defect was position, not absence. `source` was on this page the whole
-    // time — as a row in a provenance table 330 lines below the headline — so
-    // an assertion that the word is *present* passes on the broken page and
-    // proves nothing. Document order is the claim.
-    const card = readArtifact<AgentArtifact>("sentinel.json");
-    render(<AgentDetail slug="sentinel" />);
-
-    const banner = await screen.findByText(sourceLabel(card.source));
-
-    // Before *every* claim, not merely before the delta. Written the narrow way
-    // first, and a mutation run walked straight through it: moving the banner
-    // down past the quote section still left it above the advantage figure, so
-    // the test went green on a page where the source had been pushed halfway
-    // down again. The first heading is where the claims start.
-    const headings = screen.getAllByRole("heading");
-    expect(
-      headings.length,
-      "the card renders no headings — retarget this"
-    ).toBeGreaterThan(1);
-    expect(
-      card.advantage,
-      "sentinel.json publishes no advantage — retarget this"
-    ).toBeTruthy();
-
-    for (const claim of [
-      headings[1]!,
-      screen.getAllByText(signed(card.advantage!.delta_pp, 2, "pp"))[0]!,
-    ]) {
-      expect(
-        banner.compareDocumentPosition(claim) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-        `"${claim.textContent}" is stated before the page says which tape it read`
-      ).toBeTruthy();
-    }
-  });
-
-  it("carries the other run's answer, its figure, and a way to reach it", async () => {
-    const task = taskFor("Sentinel");
-    expect(
-      task,
-      "the report has no Sentinel task — retarget this test"
-    ).toBeTruthy();
-
-    render(<AgentDetail slug="sentinel" />);
-    await screen.findByRole("heading", { name: "Sentinel" });
-
-    // The figure is read from the report, not restated: change `advantage.json`
-    // and this must change with it.
-    expect(
-      screen.getByText(signed(task!.delta_pp, 2, "pp"))
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: `${task!.task} →` })
-    ).toHaveAttribute("href", "/advantage");
-  });
-
-  it("renders no cross-reference for an agent the report does not judge", async () => {
-    // Grid appears in none of the report's rows, and the third row hires nobody
-    // at all — its agent column is a paragraph about which pool to provide to.
-    // So two of the six pairings resolve to nothing, and nothing must render as
-    // nothing rather than as an empty box or a link to a page that would answer
-    // a different question.
-    expect(
-      taskFor("Grid"),
-      "the report now judges Grid — retarget this test"
-    ).toBeUndefined();
-
-    const card = readArtifact<AgentArtifact>("grid.json");
-    render(<AgentDetail slug="grid" />);
-    await screen.findByRole("heading", { name: "Grid" });
-
-    expect(screen.getByText(sourceLabel(card.source))).toBeInTheDocument();
-    expect(
-      screen.queryAllByText((_, el) =>
-        (el?.textContent ?? "").includes("The same task, replayed over")
-      )
-    ).toEqual([]);
-    expect(document.querySelectorAll('a[href="/advantage"]')).toHaveLength(0);
-  });
 
   it("links each task to the agent card that answers it, and only those", async () => {
     render(<AdvantagePage />);
@@ -2061,89 +1890,3 @@ describe("Two runs, one question", () => {
   });
 });
 
-/**
- * How current the readiness gates are, counted rather than asserted.
- *
- * `/status` is a recording of one run, and it rendered as a wall of verdicts
- * with nothing saying how old the recording was. On the tree this was written
- * against its gate read "agent advantage report: 0/3 tasks on chain data" —
- * recorded at `fa185b4` on 18 Aug, false since the chain run landed, sitting
- * under a heading whose entire subject is what has and has not been checked.
- *
- * The census is recomputed here from the directory rather than read back from
- * the component, so this fails if `censusArtifacts` starts looking in the wrong
- * place for a commit — which is the part with a real decision in it, since
- * `build.json` records its sha at the top level and everything else records it
- * under `build`.
- */
-describe("Status says how current its gates are", () => {
-  const dir = join(process.cwd(), "public", "artifacts");
-  const files = readdirSync(dir)
-    .filter((n) => n.endsWith(".json"))
-    .sort();
-  const EXEMPT = ["assumptions.json"];
-
-  const shaOf = (name: string) => {
-    const blob = JSON.parse(readFileSync(join(dir, name), "utf8"));
-    const sha = blob?.build?.git_sha ?? blob?.git_sha;
-    return typeof sha === "string" && sha.length > 0 ? sha : undefined;
-  };
-
-  const counted = files.filter((n) => !EXEMPT.includes(n));
-  const unstamped = counted.filter((n) => !shaOf(n));
-
-  it("counts the artifacts that record no commit, and names them", async () => {
-    // Both halves. A census reporting zero unstamped artifacts would be the
-    // more comfortable page and, on this tree, a false one — every file behind
-    // `/`, `/advantage` and the three agent cards records nothing.
-    expect(
-      unstamped.length,
-      "every artifact is stamped — this notice is now moot"
-    ).toBeGreaterThan(0);
-
-    render(<StatusPage />);
-    const notice = await screen.findByText(/How current this is/);
-    // The whole notice, not the sentence. `parentElement` is the <p> the
-    // heading sits in, and the list of unnamed artifacts is its sibling — so
-    // scoping there asserted the counts against a string that could never have
-    // contained the names.
-    const text = notice.closest("div")?.textContent ?? "";
-
-    expect(text).toContain(`${files.length} artifacts`);
-    expect(text).toContain(`${unstamped.length} record no commit`);
-
-    // Scoped to the notice. Unscoped, several of these filenames also appear in
-    // the gate details below — "build.json is 2 engine commit(s) behind" — and
-    // the assertion passed on a notice that listed nothing at all.
-    for (const name of unstamped) {
-      expect(text, `${name} is counted but not named`).toContain(name);
-    }
-  });
-
-  it("names what it excluded and why, rather than quietly not counting it", async () => {
-    render(<StatusPage />);
-    await screen.findByText(/How current this is/);
-
-    for (const name of EXEMPT.filter((n) => files.includes(n))) {
-      const line = screen.getByText(/is not counted against that/);
-      expect(line.textContent).toContain(name);
-      expect(line.textContent).toMatch(/projection of docs/);
-    }
-  });
-
-  it("reports the run's own commit, from the artifact", async () => {
-    const status = readArtifact<{ build?: { git_sha?: string } }>(
-      "status.json"
-    );
-    expect(
-      status.build?.git_sha,
-      "status.json records no commit — retarget this"
-    ).toBeTruthy();
-
-    render(<StatusPage />);
-    const notice = await screen.findByText(/How current this is/);
-    expect(notice.closest("div")?.textContent).toContain(
-      status.build!.git_sha!
-    );
-  });
-});

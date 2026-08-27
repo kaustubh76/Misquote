@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
 import { FloorGauge } from "@/components/FloorGauge";
@@ -42,7 +41,6 @@ interface Pin {
 interface Verification {
   recorded: boolean;
   reason?: string;
-  command?: string;
   outcome?: "PASS" | "FAIL";
   summary_line?: string;
   tests_passed?: number;
@@ -61,19 +59,13 @@ interface Verification {
   groups_compared?: string[];
   mismatches?: number;
   seed?: number;
-  source?: string;
-  generated_at?: string;
-  git_sha?: string | null;
-  git_dirty?: boolean | null;
   corpus_matches?: boolean;
   corpus_moved?: string[];
-  receipt?: string;
 }
 
 export interface VectorsArtifact {
   corpus: { dir: string; cases: number; groups: Group[]; pins: Pin[] };
   verification: { replay: Verification; differential: Verification };
-  build: Build;
 }
 
 export function VectorsView({ initial }: {
@@ -234,8 +226,6 @@ export function VectorsView({ initial }: {
             Every figure the replay defends is used somewhere on this site.{" "}
             <Link href="/methods">How a quote is made →</Link>
           </p>
-
-          <BuildStamp className="mt-10" build={d.build} />
         </>
       )}
     </Loadable>
@@ -372,22 +362,14 @@ function VerificationCard({
       <DataTable
         caption={`${title} run`}
         rows={[
-          // Both of these are prose-length and both were `whitespace-nowrap`,
-          // which is `DataTable`'s default and correct for a figure — a wrapped
-          // number is unreadable. It is wrong for a sentence: the differential's
-          // `summary_line` runs about a hundred monospace characters, which
-          // forced that table to 866px inside a 718px card and pushed the
-          // values of four rows out of sight behind a horizontal scroll. The
-          // document never overflowed, so `check-pages.mjs` was right to pass
-          // it; the row was simply unreadable.
-          {
-            label: "command",
-            value: (
-              <span className="font-mono text-xs break-words whitespace-normal">
-                {v.command}
-              </span>
-            ),
-          },
+          // Prose-length, and `whitespace-nowrap` is `DataTable`'s default —
+          // correct for a figure, since a wrapped number is unreadable, and
+          // wrong for a sentence: the differential's `summary_line` runs about
+          // a hundred monospace characters, which forced this table to 866px
+          // inside a 718px card and pushed the values of four rows out of sight
+          // behind a horizontal scroll. The document never overflowed, so
+          // `check-pages.mjs` was right to pass it; the row was simply
+          // unreadable.
           {
             label: `${said} said`,
             value: <span className="whitespace-normal">{v.summary_line ?? "—"}</span>,
@@ -399,12 +381,6 @@ function VerificationCard({
             label: "cases covered",
             value: count(v.cases_covered),
             note: `${(v.groups_replayed ?? v.groups_compared ?? []).length} groups`,
-          },
-          { label: "ran at", value: v.generated_at ?? "—" },
-          {
-            label: "against commit",
-            value: v.git_sha ?? "no commit",
-            note: v.git_dirty ? "dirty tree" : "",
           },
           // The complement of the bar above, named rather than implied. Only
           // the differential publishes it; the replay row would be a blank
@@ -420,12 +396,6 @@ function VerificationCard({
               ]),
         ]}
       />
-
-      {v.receipt && (
-        <p className="mt-3 mb-0 font-mono text-xs text-faint">
-          recorded in {v.receipt}
-        </p>
-      )}
     </Card>
   );
 }

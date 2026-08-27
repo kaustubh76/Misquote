@@ -218,18 +218,6 @@ export interface IndexArtifact {
   baseline: { name: string; description: string };
 }
 
-export interface BuildArtifact {
-  command: string;
-  source: string;
-  generated_at: string;
-  git_sha: string | null;
-  git_dirty: boolean | null;
-  events: number;
-  capital_quote: number;
-  span_hours: number;
-  quote_symbol?: string;
-}
-
 export interface QuoteDetail {
   p25: number;
   p50: number;
@@ -601,12 +589,6 @@ export interface RouterArtifact {
       net_quote: number;
     };
   };
-  build?: {
-    command: string;
-    source: string;
-    generated_at: string;
-    git_sha: string | null;
-  };
 }
 
 export interface AdvantageTask {
@@ -799,24 +781,3 @@ export interface AdvantageArtifact {
   tasks: AdvantageTask[];
 }
 
-/**
- * What every artifact on this site records about the tree that produced it.
- *
- * Declared here rather than beside `censusArtifacts()`, which builds it: that
- * function imports `node:fs`, `/status` is a client component, and
- * `tests/web/test_client_boundary.py` fails a `"use client"` module that names
- * the reader at all. Deliberately, and it caught this — a type-only import is
- * erased by the compiler and reaches no bundle, but it is one keystroke from a
- * value import whose failure mode is silent. The type is artifact-shaped and
- * belongs with the artifact shapes.
- */
-export interface ArtifactCensus {
-  /** Every `.json` in the artifacts directory. */
-  total: number;
-  /** Those recording a commit, and which one. */
-  stamped: { name: string; sha: string }[];
-  /** Those publishing figures and recording no commit at all. */
-  unstamped: string[];
-  /** Excluded by name, with the reason. */
-  exempt: { name: string; why: string }[];
-}

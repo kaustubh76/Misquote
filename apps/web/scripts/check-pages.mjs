@@ -238,10 +238,9 @@ for (const [colorScheme, width] of VIEWPORTS) {
 // guessed from the source.
 const NO_JS = [
   // route, minimum characters of body text, a string that must be present
-  // `Router`, from `index.json.not_built[0].name` — not `PancakeSwap`, which
-  // only reaches this page through `SourceBanner`'s *chain* branch. The moment
-  // a run was regenerated from a synthetic tape the banner switched to "a
-  // generated tape", the pool name vanished, and the needle failed for a reason
+  // `Router`, from `index.json.not_built[0].name` — not a pool name, which used
+  // to reach this page only on a chain-sourced run and vanished the moment a
+  // run was regenerated from a synthetic tape, failing the needle for a reason
   // that had nothing to do with prerendering. A needle has to survive the data.
   ["/", 2000, "Router"],
   // The interactive half of /quote needs JavaScript — it is an input — but the

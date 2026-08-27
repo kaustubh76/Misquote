@@ -119,17 +119,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             It also said the site "needs JavaScript to fetch", which read as a
             fact about the architecture rather than a fact about `useEffect`.
-            Two routes render server-side now, so it says which. And it no
-            longer ends by telling a reader without JavaScript that the answer
-            is printed in a footer for readers who have it. */}
+            Two routes render server-side now, so it says which. */}
         <noscript>
           <div className="mx-auto max-w-5xl px-5 pb-16 text-sm text-dim">
             The overview and the agent pages render here without JavaScript. Every
             other page needs it to fetch its numbers, and shows its heading and
             lede meanwhile. The artifacts are plain files either way:{" "}
-            <code className="font-mono">artifacts/</code> holds one per page —{" "}
-            <code className="font-mono">index.json</code> lists the agents, and each page
-            names the file it reads in its footer.
+            <code className="font-mono">artifacts/</code> holds one per page, and{" "}
+            <code className="font-mono">index.json</code> lists the agents.
           </div>
         </noscript>
       </body>

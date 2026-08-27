@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AssumptionsView, type AssumptionsArtifact } from "./view";
-import type { IndexArtifact } from "@/lib/artifacts";
 import { readArtifact } from "@/lib/build-artifact";
 
 // A server component, so the title reaches the prerendered HTML. Every route
@@ -13,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <AssumptionsView initialSheet={readArtifact<AssumptionsArtifact>("assumptions.json")} initialIndex={readArtifact<IndexArtifact>("index.json")} />;
+  return <AssumptionsView initialSheet={readArtifact<AssumptionsArtifact>("assumptions.json")} />;
 }

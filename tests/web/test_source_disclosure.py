@@ -16,13 +16,11 @@ other. `scripts/showcase.py` calls mistaking one tape for the other "the failure
 this whole project is named after"; this is that failure committed to the
 project's own site.
 
-The views are fixed — `SourceBanner` now leads every card, and each side carries
-the other's figure and a link to it. What is guarded here is the precondition
-those views depend on: a page can only disclose a source if the artifact records
-one. An emitter that stops writing `source`, or starts publishing a `delta_pp`
-without one, would take the disclosure off the page without failing anything —
-`readArtifact` returns `undefined` rather than throwing, and the banner would
-simply render its other branch.
+What is guarded here is the artifact contract, not any particular view: a run
+that publishes a `delta_pp` must record the tape it came from. An emitter that
+stops writing `source` would make the two runs indistinguishable in the files
+themselves, which is where the distinction has to survive — a reader comparing
+`advantage.json` against a card has nothing else to go on.
 
 Nothing here asserts the two runs agree. Requiring that would forbid the thing
 the report exists to do.

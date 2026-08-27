@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BuildStamp, type Build } from "@/components/BuildStamp";
 import { Card, CardHeader } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { CheckList } from "@/components/CheckList";
@@ -15,7 +14,7 @@ import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type IndexArtifact, type Loaded } from "@/lib/artifacts";
-import { count, hours, shortAddress, timestamp } from "@/lib/format";
+import { count, shortAddress } from "@/lib/format";
 
 /**
  * What `make vet-addresses` recorded, or a stated reason it recorded nothing.
@@ -31,12 +30,8 @@ export interface AddressArtifact {
   reason?: string;
   verdict?: string;
   block?: number | null;
-  read_at?: string;
-  age_hours?: number;
-  record?: string;
   checks?: VettingCheck[];
   summary?: { checked: number; failed: number; unknown: number };
-  build?: Build;
   /**
    * The other two recorded surveys, published beside the PancakeSwap one.
    *
@@ -67,9 +62,6 @@ interface VettingPool {
   verdict?: string;
   safe_to_provide?: boolean;
   checks?: VettingCheck[];
-  path?: string;
-  read_at?: string;
-  age_hours?: number;
 }
 
 export interface VettingArtifact {
@@ -102,10 +94,6 @@ export interface VettingArtifact {
     worst?: string;
     verdicts?: Record<string, number>;
   };
-  // `Build`, not a local restatement of it. The hand-written version here
-  // declared no `git_dirty`, so the field was dropped at the type boundary and
-  // the page rendered a bare sha for a run made against a dirty tree.
-  build?: Build;
 }
 
 /**
@@ -117,16 +105,6 @@ export interface VettingArtifact {
  * not a `Pill` and certainly not an `ErrorNotice`. Amber is never green, and it
  * is not red either.
  */
-
-/** Hours between a recorded read and now, or null before the clock is read. */
-function ageHours(
-  readAt: string | undefined,
-  now: number | null
-): number | undefined {
-  if (!readAt || now === null) return undefined;
-  const then = Date.parse(readAt);
-  return Number.isNaN(then) ? undefined : (now - then) / 3_600_000;
-}
 
 /**
  * Every check inside an address record, including the surveys nested in it.
@@ -184,22 +162,6 @@ export function VettingView({
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
     initialIndex ? { ok: true, value: initialIndex } : null
   );
-  /**
-   * When the page is looking, so "N ago" is N ago rather than N at emit time.
-   *
-   * `age_hours` is computed by the emitter and frozen into the artifact. Both
-   * cards rendered it as live freshness: the pool badges read "0.0h ago" for a
-   * chain read taken 22 hours earlier, and the addresses card read "13.7h ago"
-   * for one taken three days earlier. On the page whose subject is that a stale
-   * reading and a fresh one must not look alike.
-   *
-   * Set in an effect, not at render: these pages are prerendered now, and a
-   * clock read during render disagrees between server and client. Before it is
-   * set, the absolute timestamp shows on its own — which is the true half.
-   */
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => setNow(Date.now()), []);
-
   const [addrs, setAddrs] = useState<Loaded<AddressArtifact> | null>(
     initialAddresses ? { ok: true, value: initialAddresses } : null
   );
@@ -531,14 +493,6 @@ export function VettingView({
                   />
 
                   <CheckList checks={narrow(pool.checks)} />
-
-                  <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
-                    read {timestamp(pool.read_at)}
-                    {now !== null && (
-                      <> · {hours(ageHours(pool.read_at, now))} ago</>
-                    )}{" "}
-                    · {pool.path}
-                  </p>
                 </Card>
               )}
             </Section>
@@ -557,8 +511,6 @@ export function VettingView({
               </div>
             </Section>
           )}
-
-          {d.build && <BuildStamp className="mt-10" build={d.build} />}
         </>
       )}
 
@@ -715,14 +667,6 @@ export function VettingView({
                   </div>
                 ) : null
               )}
-
-            <p className="mt-5 mb-0 border-t border-line pt-3 font-mono text-xs break-all text-faint">
-              read {timestamp(addrs.value.read_at)}
-              {now !== null && (
-                <> · {hours(ageHours(addrs.value.read_at, now))} ago</>
-              )}
-              {addrs.value.record && ` · ${addrs.value.record}`}
-            </p>
           </Card>
         ) : addrs === null ? (
           /* Still loading, which is a third state and was being reported as

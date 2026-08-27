@@ -1,8 +1,7 @@
 import { OverviewView } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
-import { artifactsBehindEngine } from "@/lib/stale";
 import { entryOf, type EvidenceEntry } from "@/components/EvidenceRail";
-import type { BuildArtifact, IndexArtifact } from "@/lib/artifacts";
+import type { IndexArtifact } from "@/lib/artifacts";
 
 /**
  * A server component, so the landing page exists in the exported HTML.
@@ -73,9 +72,7 @@ export default function OverviewPage() {
   return (
     <OverviewView
       initialIndex={readArtifact<IndexArtifact>("index.json")}
-      initialBuild={readArtifact<BuildArtifact>("build.json")}
       evidence={evidence()}
-      behind={artifactsBehindEngine()}
     />
   );
 }
