@@ -1,0 +1,58 @@
+{
+  "agents": {
+    "router": {
+      "summary": {
+        "decisions": 169,
+        "dropped": 0,
+        "errors": 0,
+        "executed": 0,
+        "failed": 0,
+        "fallback_samples": 0,
+        "first_ts": 1786692053,
+        "gate_blocks": {},
+        "holds": 168,
+        "kappa_fallback_samples": 0,
+        "last_ts": 1787296853,
+        "mints": 0,
+        "pulls": 0,
+        "rebalances": 0,
+        "rows": 169
+      },
+      "total_rows": 169,
+      "unparsed_rows": 0
+    },
+    "warden": {
+      "summary": {
+        "decisions": 175,
+        "dropped": 0,
+        "errors": 0,
+        "executed": 2,
+        "failed": 0,
+        "fallback_samples": 175,
+        "first_ts": 1786781591,
+        "gate_blocks": {
+          "R1": 115,
+          "R2": 115,
+          "R3": 115
+        },
+        "holds": 173,
+        "kappa_fallback_samples": 0,
+        "last_ts": 1786782430,
+        "mints": 1,
+        "pulls": 1,
+        "rebalances": 0,
+        "rows": 181
+      },
+      "total_rows": 181,
+      "unparsed_rows": 0
+    }
+  },
+  "build": {
+    "command": "python scripts/journal_report.py",
+    "generated_at": "2026-08-27T20:05:59+00:00",
+    "git_dirty": true,
+    "git_sha": "e219d26",
+    "source": "journal"
+  },
+  "note": "What the live agents did, summarised. An agent absent from this object has never run \u2014 which is an absence rather than an empty journal, and the two are different claims. The decisions themselves are not carried: 344 rows is 340KB of artifact for a page that renders their summary."
+}

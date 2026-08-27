@@ -10,6 +10,7 @@ import { SectionRail } from "@/components/SectionRail";
 import { Heading, Section } from "@/components/Heading";
 import { NotBuiltCard } from "@/components/Ledger";
 import { Loadable } from "@/components/LoadingStatus";
+import { TallyStrip } from "@/components/TallyStrip";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -390,27 +391,25 @@ export function VettingView({
               has no finding to colour, and `--hatch-none` is this site's mark
               for "there was never anything here" — the same texture a reader
               has already met on a not-built card. */}
-          <div
-            className="mt-4 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
-            role="img"
-            aria-label={
+          {/* `everyCheck.length` as the denominator, not the tally's own sum.
+              A check whose verdict nobody recognised leaves a gap in the bar
+              rather than being redistributed across the verdicts that were
+              counted — which is the whole reason `TallyStrip` requires a total
+              instead of adding the parts up. */}
+          <TallyStrip
+            className="mt-4"
+            total={everyCheck.length}
+            parts={tally.map(({ verdict, n }) => ({
+              label: verdict,
+              tone: SEGMENT[verdict] ?? "bg-neutral",
+              n,
+            }))}
+            ariaSentence={
               `${worstVerdict} is the worst verdict on this page: ` +
               `${tally.map((t) => `${count(t.n)} ${t.verdict}`).join(", ")}, ` +
               `across ${count(everyCheck.length)} checks read from chain.`
             }
-          >
-            {tally.map(({ verdict, n }) =>
-              n > 0 ? (
-                <div
-                  key={verdict}
-                  className={SEGMENT[verdict] ?? "bg-neutral"}
-                  style={{
-                    width: `${(n / Math.max(1, everyCheck.length)) * 100}%`,
-                  }}
-                />
-              ) : null
-            )}
-          </div>
+          />
 
           {/* The same figures in words, and the sentence `pages.test.tsx` looks
               up with a singular `getByText`. It stays exactly one text node. */}

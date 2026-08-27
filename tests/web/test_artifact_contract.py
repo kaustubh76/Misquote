@@ -55,6 +55,12 @@ OPAQUE = frozenset(
         "third_party.counts_testnet.filters.x402_supported.params",
         "third_party.counts_testnet.filters.with_feedback.params",
         "third_party.ours_as_indexed.filter_proof.params",
+        # Which agents have ever written a journal, which is data: an agent
+        # that runs tomorrow appears, and one that never ran is absent rather
+        # than present-and-empty. The *shape* of each entry is schema and is
+        # asserted separately by
+        # `test_every_journal_entry_carries_the_summary_the_page_reads`.
+        "agents",
         # Keyed by chain id, by Solidity signature, and by contract name
         # respectively — data in all three cases. `aacp.escrow_interface`'s keys
         # are literally `acceptOrder(bytes32)`; contracting those would make
@@ -1403,4 +1409,122 @@ def test_the_build_emitter_writes_exactly_the_contracted_fields(build_artifact: 
     )
     assert not undelivered, (
         f"the contract declares build fields the emitter no longer writes: {sorted(undelivered)}"
+    )
+
+
+# ── journal.json: what the live agents did, so the section survives no API ────
+#
+# `AgentJournal` renders **nothing** when nothing answers, so on the exported
+# site the one section showing what a live agent decided was missing — while
+# `/status` reported the burn-in gate against that same journal. This artifact
+# is its fallback.
+JOURNAL_FIELDS: dict[str, str] = {
+    # Opaque: the keys are agent names. See the OPAQUE entry above.
+    "agents": "AgentJournal.tsx",
+    "note": "",
+    "build.command": "",
+    "build.source": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
+}
+
+#: What `AgentJournal` reads out of one agent's entry.
+#:
+#: Every one of these is rendered — the figures row, the parse warning, and the
+#: share `holds / decisions`, which the component's own comment insists on
+#: because "168 holds" and "168 of 169 decisions were holds" are different
+#: claims and only the second is about the policy.
+#:
+#: `gate_blocks` is not here: it is `GateHistogram`'s input on the card, keyed
+#: by gate name, and the summary carries it for the same reason the API does.
+JOURNAL_ENTRY_FIELDS = frozenset(
+    {
+        "total_rows",
+        "unparsed_rows",
+        "summary",
+    }
+)
+
+JOURNAL_SUMMARY_FIELDS = frozenset(
+    {
+        "rows",
+        "decisions",
+        "holds",
+        "mints",
+        "rebalances",
+        "pulls",
+        "errors",
+        "executed",
+        "failed",
+        "dropped",
+        "first_ts",
+        "last_ts",
+        "gate_blocks",
+        "fallback_samples",
+        "kappa_fallback_samples",
+    }
+)
+
+
+@pytest.fixture(scope="module")
+def journal_artifact() -> dict:
+    path = ARTIFACTS / "journal.json"
+    if not path.exists():
+        pytest.skip("no journal artifact; run `make journal`")
+    return json.loads(path.read_text())
+
+
+def test_the_journal_emitter_writes_exactly_the_contracted_fields(journal_artifact: dict) -> None:
+    """Both directions, with the agent set treated as data."""
+    actual = flatten(journal_artifact)
+    declared = set(JOURNAL_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, f"the journal emitter writes undeclared fields: {sorted(undeclared)}"
+    assert not undelivered, (
+        f"the contract declares journal fields the emitter no longer writes: {sorted(undelivered)}"
+    )
+
+
+def test_every_journal_entry_carries_the_summary_the_page_reads(journal_artifact: dict) -> None:
+    """The half `agents` being opaque would otherwise lose.
+
+    Which agents have run is data; what an entry holds is not. Without this the
+    emitter could stop writing `unparsed_rows` — the field that says a journal's
+    totals are short by an unknown amount — and nothing would notice, because
+    the container it lives in is not flattened.
+    """
+    entries = journal_artifact.get("agents") or {}
+    assert entries, "no agent has written a journal — run `make warden` or `make router`"
+
+    for name, entry in entries.items():
+        assert set(entry) == JOURNAL_ENTRY_FIELDS, (
+            f"{name}'s journal entry does not carry the contracted fields: {sorted(entry)}"
+        )
+        assert set(entry["summary"]) == JOURNAL_SUMMARY_FIELDS, (
+            f"{name}'s summary does not match `JournalSummary`: {sorted(entry['summary'])}"
+        )
+
+
+def test_the_journal_artifact_stays_small_enough_to_fetch(journal_artifact: dict) -> None:
+    """The lesson `LISTING_LIMIT` records, held here as a number.
+
+    The first version of this artifact carried all 344 decisions and was
+    **340KB** — larger than every artifact this page fetches except
+    `assumptions.json`. It also made every tick index and float in the file a
+    literal no component may write: `-1` among them, which is `indexOf`'s miss
+    and `slice`'s last element.
+
+    A summary is 292 bytes per agent. The ceiling is deliberately far above that
+    and far below where either problem returns, so adding a field is free and
+    adding the rows back is not.
+    """
+    size = len(json.dumps(journal_artifact))
+
+    assert size < 32_000, (
+        f"journal.json is {size:,} bytes. It is fetched by every agent page — if the "
+        "decisions are being published again, bound them first."
     )

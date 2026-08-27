@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
+import { TallyStrip } from "@/components/TallyStrip";
 import { Card } from "@/components/Card";
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { Pill } from "@/components/Pill";
@@ -169,41 +170,26 @@ export function AdvantageView({
                     rendered anywhere, so the list reported 0 ahead and 2 behind
                     of 4 tasks and left the other two unaccounted for. It has a
                     row now, next to its slice. */}
-                <div
-                  className="mt-3 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
-                  role="img"
-                  aria-label={
-                    `Of ${count(d.summary.tasks)} tasks: ${count(
-                      d.summary.agent_ahead
-                    )} ` +
-                    `with the agent ahead, ${count(
-                      d.summary.diy_ahead
-                    )} with doing it ` +
-                    `yourself ahead, ${count(
-                      d.summary.indistinguishable
-                    )} too close to ` +
+                <TallyStrip
+                  className="mt-3"
+                  total={d.summary.tasks}
+                  parts={[
+                    { label: "agent ahead", tone: "bg-good", n: d.summary.agent_ahead },
+                    { label: "doing it yourself ahead", tone: "bg-bad", n: d.summary.diy_ahead },
+                    {
+                      label: "too close to call",
+                      tone: "bg-neutral",
+                      n: d.summary.indistinguishable,
+                    },
+                    { label: "withheld", tone: "bg-warn", n: d.summary.withheld },
+                  ]}
+                  ariaSentence={
+                    `Of ${count(d.summary.tasks)} tasks: ${count(d.summary.agent_ahead)} ` +
+                    `with the agent ahead, ${count(d.summary.diy_ahead)} with doing it ` +
+                    `yourself ahead, ${count(d.summary.indistinguishable)} too close to ` +
                     `call, ${count(d.summary.withheld)} withheld.`
                   }
-                >
-                  {(
-                    [
-                      ["bg-good", d.summary.agent_ahead],
-                      ["bg-bad", d.summary.diy_ahead],
-                      ["bg-neutral", d.summary.indistinguishable],
-                      ["bg-warn", d.summary.withheld],
-                    ] as const
-                  ).map(([tone, n]) =>
-                    n > 0 ? (
-                      <div
-                        key={tone}
-                        className={tone}
-                        style={{
-                          width: `${(n / Math.max(1, d.summary.tasks)) * 100}%`,
-                        }}
-                      />
-                    ) : null
-                  )}
-                </div>
+                />
                 <p className="mt-3 mb-0 max-w-[56ch] text-sm text-dim">
                   {/* The refusal is the headline, and it is deliberate.
                       Three things here were typed. "thirty-observation floor"

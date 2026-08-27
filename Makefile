@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: registry-census
+.PHONY: registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -288,6 +288,20 @@ identity-register:  ## register our four agents on chapel. WRITES. needs a funde
 identity-verify:  ## re-read our registrations from chain and rewrite the checks
 	$(UV) run python scripts/register_identity.py --chain $(IDENTITY_CHAIN) --verify-only
 
+journal:  ## publish what the live agents did, so the section survives the API being down
+	# `AgentJournal` fetches /journal/{agent} and renders **nothing** when
+	# nothing answers — so on the exported site, where the API is often unset
+	# and otherwise points at a free-tier service that sleeps, the one section
+	# showing what a live agent decided is simply missing. /status reports the
+	# burn-in gate against that journal: the gate was on the site and the
+	# evidence behind it was not.
+	#
+	# Reads `data/journal/*.jsonl` and no chain. An agent with no file is absent
+	# from the artifact rather than present and empty, which is the distinction
+	# the API already makes when it refuses: "Both are absences and neither is
+	# an empty journal."
+	$(UV) run python scripts/journal_report.py
+
 registry:  ## republish the recorded registry survey as the site's artifact
 	# Reads no chain. `make registry-survey` does the reading; this publishes
 	# what it left behind — the same split as `make vet` / `make vetting`.
@@ -375,7 +389,7 @@ pools:  ## which Pancake pool, at what width, as P25-P75 bands. reads the tape.
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report api-config assumptions judges status  ## every artifact the site reads
+artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
 	# `judges` sits second-to-last on purpose: it derives its blocks from the
 	# artifacts above it, and `status` runs the go/no-go gate — which now
 	# checks the document is current, so it has to see the synced version.

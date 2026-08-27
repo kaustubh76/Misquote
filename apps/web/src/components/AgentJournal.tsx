@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { AnsweredBy } from "@/components/AnsweredBy";
 import { Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
-import { loadLive, type Source } from "@/lib/api";
+import { Refusal } from "@/components/Refusal";
+import { loadLive, RefusalError, type Source } from "@/lib/api";
 import { count, EMPTY, hours, pct, timestamp } from "@/lib/format";
 
 /**
@@ -47,7 +48,15 @@ interface Journal {
   unparsed_rows: number;
   returned: number;
   summary: Summary;
-  rows: Row[];
+  /**
+   * Present when a live service answered, absent from the recorded fallback.
+   *
+   * `journal.json` carries the summary and not the rows: 344 decisions across
+   * two agents was a 340KB artifact, and it made every tick index and float in
+   * the file a literal no component may write — `-1` among them. The list below
+   * is the part that needs the rows; the figures above it do not.
+   */
+  rows?: Row[];
 }
 
 const SECONDS_PER_HOUR = 3600;
@@ -104,23 +113,64 @@ const SHOWN = 8;
 export function AgentJournal({ agent }: { agent: string }) {
   const [journal, setJournal] = useState<Journal | null>(null);
   const [source, setSource] = useState<Source | null>(null);
+  const [refused, setRefused] = useState<RefusalError | null>(null);
 
   useEffect(() => {
     let live = true;
     (async () => {
-      const got = await loadLive<Journal>(`/journal/${agent}`);
-      if (!live || !got.ok) return;
-      setJournal(got.value);
-      setSource(got.source);
+      // The recorded summary as the fallback, so this section survives the API
+      // being asleep. `journal.json` is keyed by agent and this call is about
+      // one, hence `select`.
+      const got = await loadLive<Journal>(`/journal/${agent}`, {
+        fallback: "journal.json",
+        select: (artifact) =>
+          (artifact as { agents?: Record<string, unknown> })?.agents?.[agent],
+      });
+      if (!live) return;
+      if (got.ok) {
+        setJournal(got.value);
+        setSource(got.source);
+        return;
+      }
+      // A refusal is the service answering, and this used to throw it away.
+      setRefused(got.error instanceof RefusalError ? got.error : null);
     })();
     return () => {
       live = false;
     };
   }, [agent]);
 
-  // Rendered only when there is something to render. Not a refusal panel: an
-  // agent with no journal on a page full of replay results would be reporting
-  // an absence the reader did not ask about, on every one of the four cards.
+  // A refusal is rendered; an absence is not.
+  //
+  // These were one branch, and collapsing them cost the page a finding. The
+  // API does not 404 blankly here — it answers `{error: "no journal for
+  // 'grid'", remedy: "make warden ENV=testnet, or make router", available:
+  // ["router", "warden"], note: "Either this agent has never run, or the name
+  // is not one of ours. Both are absences and neither is an empty journal."}`
+  // — and `return null` discarded all of it, on grid and sentinel every time
+  // and on all four agents whenever nothing answered at all.
+  //
+  // The original reasoning still holds for the second case and is kept: an
+  // agent with no journal, on a page full of replay results, should not report
+  // an absence the reader did not ask about. But that argument is about
+  // silence where there is nothing to say, and a service that took the trouble
+  // to say why is not that.
+  if (refused) {
+    return (
+      <Section
+        title="What it did when it ran"
+        className="mt-10"
+        headingClassName="text-lg font-semibold"
+      >
+        <Refusal
+          title="This agent has written no journal"
+          reason={refused.message}
+          floor={refused.remedy}
+        />
+      </Section>
+    );
+  }
+
   if (!journal || journal.total_rows === 0) return null;
 
   const { summary } = journal;
@@ -132,7 +182,7 @@ export function AgentJournal({ agent }: { agent: string }) {
   // Decisions only. A `run_start` row has no action and is not something the
   // agent decided; listing it among the decisions would inflate the one number
   // on this page that is about the policy.
-  const decisions = journal.rows.filter((row) => typeof row.action === "string");
+  const decisions = (journal.rows ?? []).filter((row) => typeof row.action === "string");
 
   return (
     <Section

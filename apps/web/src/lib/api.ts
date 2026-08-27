@@ -111,7 +111,17 @@ function refusalFrom(url: string, status: number, body: unknown): RefusalError |
  */
 export async function loadLive<T>(
   path: string,
-  options: { fallback?: string } = {},
+  options: {
+    fallback?: string;
+    /**
+     * Pick this call's answer out of a fallback artifact that holds several.
+     *
+     * Returning `undefined` means the artifact has nothing recorded for this
+     * subject, which is a miss rather than an empty result — see the call site
+     * below for why those must not be the same thing.
+     */
+    select?: (artifact: unknown) => unknown;
+  } = {},
 ): Promise<Live<T>> {
   const base = await apiBase();
 
@@ -156,8 +166,31 @@ export async function loadLive<T>(
     };
   }
 
-  const snapshot = await load<T>(options.fallback);
-  return snapshot.ok
-    ? { ok: true, value: snapshot.value, source: "artifact" }
-    : { ok: false, error: snapshot.error };
+  const snapshot = await load<unknown>(options.fallback);
+  if (!snapshot.ok) return { ok: false, error: snapshot.error };
+
+  // `select` exists because one artifact can answer for several subjects.
+  //
+  // `journal.json` holds every agent that has ever run, keyed by name, while
+  // `/journal/{agent}` answers about one. Without this the choice was to emit
+  // one artifact per agent — more files, each needing its own contract entry,
+  // all to avoid a property lookup — or to have the caller reimplement the
+  // fallback branch. Neither is better than a selector.
+  //
+  // A `select` that finds nothing is a **miss**, not an empty answer. The
+  // artifact holding no entry for this agent is the same fact the API states
+  // when it refuses: "Either this agent has never run, or the name is not one
+  // of ours. Both are absences and neither is an empty journal."
+  const picked = options.select ? options.select(snapshot.value) : snapshot.value;
+  if (picked === undefined || picked === null) {
+    return {
+      ok: false,
+      error: new ArtifactError(
+        `${options.fallback} holds no recorded answer for ${path}.`,
+        `/artifacts/${options.fallback}`,
+        "shape",
+      ),
+    };
+  }
+  return { ok: true, value: picked as T, source: "artifact" };
 }

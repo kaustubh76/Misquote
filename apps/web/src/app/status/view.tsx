@@ -2,6 +2,7 @@
 
 import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
+import { TallyStrip } from "@/components/TallyStrip";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
@@ -165,27 +166,16 @@ export function StatusView({
                 is not looking at it — so this is aria-hidden's job, except that
                 a bar chart with no name is exactly what a reader using a screen
                 reader is entitled to be told the shape of. */}
-            <div
-              className="mt-4 flex h-2 w-full overflow-hidden rounded-full border border-glass-line"
-              role="img"
-              aria-label={`${d.summary.pass} of ${d.summary.total} gates passing, ${d.summary.fail} failed, ${d.summary.unverified} unverified.`}
-            >
-              {(
-                [
-                  ["bg-good", d.summary.pass],
-                  ["bg-bad", d.summary.fail],
-                  ["bg-warn", d.summary.unverified],
-                ] as const
-              ).map(([tone, n]) =>
-                n > 0 ? (
-                  <div
-                    key={tone}
-                    className={tone}
-                    style={{ width: `${(n / Math.max(1, d.summary.total)) * 100}%` }}
-                  />
-                ) : null,
-              )}
-            </div>
+            <TallyStrip
+              className="mt-4"
+              total={d.summary.total}
+              parts={[
+                { label: "passing", tone: "bg-good", n: d.summary.pass },
+                { label: "failed", tone: "bg-bad", n: d.summary.fail },
+                { label: "unverified", tone: "bg-warn", n: d.summary.unverified },
+              ]}
+              ariaSentence={`${d.summary.pass} of ${d.summary.total} gates passing, ${d.summary.fail} failed, ${d.summary.unverified} unverified.`}
+            />
 
             <p className="mt-3 mb-0 text-sm">
               {d.summary.pass} passed · {d.summary.fail} failed · {d.summary.unverified}{" "}
