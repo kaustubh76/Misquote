@@ -706,24 +706,35 @@ def main() -> int:
         # what the position grew by.
         probe_markets = venues_at(scale_capital)
         if probe_markets is not None:
-            floors: list[float] = []
+            # Per range, the lowest ceiling it offered in **any** window — the
+            # binding constraint on holding it throughout. Then the largest of
+            # those across ranges, which is the deepest range on offer.
+            #
+            # The two directions are not interchangeable and collapsing them is
+            # a mistake I made once here: taking the maximum across windows picks
+            # the most permissive period and sizes a position that does not fit
+            # in the others, which is the same error as using a median ceiling.
+            floors: dict[str, float] = {}
             growth = 1.0
             for window, bounds in windows:
                 probe = run(
                     window, base_params, span=bounds, capital=scale_capital, mkts=probe_markets
                 )
                 for key, meta in probe_markets.items():
-                    if getattr(meta, "kind", "lending") == "pool" and probe.venue_sizes.get(key):
-                        floors.append(eps * min(probe.venue_sizes[key]))
+                    sizes = probe.venue_sizes.get(key)
+                    if getattr(meta, "kind", "lending") == "pool" and sizes:
+                        here = eps * min(sizes)
+                        floors[key] = min(floors.get(key, here), here)
                 if probe.net_quote > 0:
                     growth = max(growth, 1.0 + probe.net_quote / scale_capital)
             if floors:
-                # The lowest ceiling a window offered, discounted by the most any
-                # window grew. Both are readings off this tape; neither is chosen.
-                fitted = math.floor(max(floors) / growth)
+                # Discounted by the most any window's position grew, because A1
+                # bounds the value a position *reaches*, not the one it entered
+                # at. Both numbers are readings off this tape.
+                fitted = math.floor(max(floors.values()) / growth)
                 if 0 < fitted < scale_capital:
                     print(
-                        f"scale  windows floor the ceiling at {max(floors):,.0f} and grew "
+                        f"scale  windows floor the ceiling at {max(floors.values()):,.0f} and grew "
                         f"{growth - 1:.2%}; sizing to {fitted:,.0f}"
                     )
                     scale_capital = fitted
