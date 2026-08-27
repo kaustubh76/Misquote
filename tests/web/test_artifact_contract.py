@@ -126,10 +126,23 @@ AGENT_FIELDS: dict[str, str] = {
     "quote_detail.p75": "Band.tsx",
     "quote_detail.samples": "AgentDetail.tsx",
     "quote_detail.windows": "AgentDetail.tsx",
+    # NOT YET DECLARED: `quote_detail.perturbation_fraction`.
+    #
+    # `tearsheet/generate.py` publishes it and `/methods` reads it, but the
+    # committed cards predate the emitter change and a card is a four-hour
+    # replay of a 267,024-swap tape — so regenerating one to add a field is not
+    # a rendering decision, it is a compute budget. The view degrades in the
+    # meantime: an absent fraction renders "γ and κ, each side of nominal"
+    # rather than a number.
+    #
+    # The day anyone runs `make showcase`, the test above fails saying the
+    # emitter writes an undeclared field. That is this comment's cue: add
+    # `"quote_detail.perturbation_fraction": "methods/view.tsx"` and delete
+    # these lines.
     "quote_detail.perturbations": "AgentDetail.tsx",
     "quote_detail.net_positive": "AgentDetail.tsx",
     "quote_detail.returns": "AgentCard.tsx",
-    "quote_detail.in_range_p50": "",
+    "quote_detail.in_range_p50": "methods/view.tsx",
     "quote_detail.rebalances_p50": "",
     "quote_detail.hours_per_window": "AgentDetail.tsx",
     "quote_detail.sufficient": "AgentCard.tsx",
@@ -164,8 +177,8 @@ AGENT_FIELDS: dict[str, str] = {
     "verdicts.profitable.label": "AgentDetail.tsx",
     "verdicts.profitable.detail": "AgentDetail.tsx",
     "verdicts.profitable.n": "AgentDetail.tsx",
-    "activity.decisions": "",
-    "activity.hours": "",
+    "activity.decisions": "AgentDetail.tsx",
+    "activity.hours": "AgentDetail.tsx",
     "activity.mints": "",
     "activity.rebalances": "",
     "activity.pulls": "",
@@ -193,7 +206,7 @@ AGENT_FIELDS: dict[str, str] = {
     "replay.net_quote": "AgentCard.tsx",
     "advantage.delta_pp": "AgentCard.tsx",
     "advantage.material": "",
-    "advantage.ranges_overlap": "",
+    "advantage.ranges_overlap": "AgentCard.tsx",
     "advantage.separated": "",
     "advantage.quotable": "AgentCard.tsx",
     "advantage.verdict": "AgentCard.tsx",
@@ -203,7 +216,7 @@ AGENT_FIELDS: dict[str, str] = {
     "advantage.baseline.p75": "AgentCard.tsx",
     "advantage.baseline.in_range_fraction": "AgentDetail.tsx",
     "advantage.baseline.fees_quote": "AgentDetail.tsx",
-    "advantage.baseline.lvr_quote_upper_bound": "",
+    "advantage.baseline.lvr_quote_upper_bound": "AgentDetail.tsx",
     "advantage.baseline.costs_quote": "AgentDetail.tsx",
     "advantage.baseline.moves": "AgentDetail.tsx",
     # Per-card provenance. Not rendered by any view — it is read by
@@ -1096,16 +1109,26 @@ REGISTRY_FIELDS: dict[str, str] = {
     "identity.substantive": "registry/view.tsx",
     "identity.substantive_share": "registry/view.tsx",
     "identity.reputation_note": "registry/view.tsx",
+    # The level the six intervals are at. Rendered in two places — the CI label
+    # on the survey table and `ShareIntervals`' spoken description — both of
+    # which used to say "95%" as a literal beside bounds this repository
+    # computes.
+    "identity.confidence_level": "registry/view.tsx",
     "identity.identity_registry": "registry/view.tsx",
     "identity.reputation_registry": "registry/view.tsx",
-    # Reproducibility, not display. `sampled_ids` is 400 integers and `seed` is
-    # what regenerates them — together they let a reader re-run the survey and
-    # get the same 400 agents, which is the difference between a survey that is
-    # reported and one that is reproducible. Rendering them would be 400
-    # integers on a page.
-    "identity.sampled_ids": "",
+    # Reproducibility. `seed` is what regenerates the draw, and rendering it
+    # would put a number on the page that means nothing to a reader who is not
+    # about to re-run the survey.
+    #
+    # The other two are rendered, and the correction is worth keeping. This
+    # comment used to cover all three and argued that showing them "would be
+    # 400 integers on a page" — but `/registry` shows the *count* of ids and the
+    # block the sample was read at, which are one figure each and are exactly
+    # the two facts that make the draw checkable. The justification was written
+    # for the raw list and applied to the summary of it.
     "identity.seed": "",
-    "identity.sampled_at_block": "",
+    "identity.sampled_ids": "registry/view.tsx",
+    "identity.sampled_at_block": "registry/view.tsx",
     # Our own registrations, self-reported. Read back from an index in
     # `IndexedAgreement.tsx`; this is the file half.
     "ours.surveyed": "registry/view.tsx",
@@ -1136,9 +1159,11 @@ REGISTRY_FIELDS: dict[str, str] = {
     "ours.funding.to": "",
     "ours.funding.tx": "",
     "ours.funding.url": "",
-    "ours.block": "",
     "ours.implementation": "",
-    "ours.signer": "",
+    # Both rendered on the identity card — the block beside the reading and the
+    # signer whenever it differs from the owner, which is the case worth seeing.
+    "ours.block": "registry/view.tsx",
+    "ours.signer": "registry/view.tsx",
     "ours.read_at": "",
     "ours.reason": "",
     # Per-artifact provenance. Read by `go_no_go.check_artifact_freshness` in
@@ -1206,4 +1231,176 @@ def test_every_contracted_registry_field_is_read_by_the_named_view() -> None:
             missing.append(f"{path} -> {renderer}")
     assert not missing, (
         f"contracted registry fields are not read by the view named against them: {missing}"
+    )
+
+
+# ── the other direction: a field declared unrendered must not be rendered ─────
+
+
+#: Leaves that name a field on more than one shape, so finding one in a view
+#: says nothing about which shape it came from.
+#:
+#: `x402_supported` is the whole list today: it is a `census` figure in
+#: `third_party.census.x402_supported` and a per-agent flag in
+#: `scan8004.SCAN_LISTING_KEYS`, and `ScanAgents.tsx` renders the second while
+#: the contract declares the first unrendered. Both statements are true.
+#:
+#: Recorded rather than silently skipped, and deliberately not a general
+#: allowlist: an entry here is a claim that two different artifact shapes share
+#: a field name, which is a fact about the artifacts. It is not a way to quiet a
+#: finding — the check below is already restricted to leaves that appear exactly
+#: once across all four maps, so anything reaching this list is a collision with
+#: a shape the maps do not cover at all.
+LEAF_COLLISIONS = frozenset({"x402_supported"})
+
+
+def _blank_entries_that_look_rendered() -> list[str]:
+    """Every `""` entry whose leaf is read, as a property, by its own renderers.
+
+    Restricted three ways, because the leaf name is a weak identifier and a
+    guard that cries wolf gets edited until it stops:
+
+    1. **Only leaves that are unique across all four maps.** `tier`, `note`,
+       `chain_id` and `read_at` name a field on a dozen shapes each; finding one
+       proves nothing about which.
+    2. **Only property accesses** — `.leaf` or `["leaf"]`. Unrestricted matching
+       flagged `key` on every React list, `from` on every import and `name` on
+       every form control. `hours` is the sharpest case: `activity.hours` is a
+       field and `hours()` is the formatter imported beside it, and only the dot
+       tells them apart.
+    3. **Only the files that map already names as renderers**, not all of
+       `src/` — a leaf appearing in an unrelated page is not evidence about this
+       artifact.
+
+    What survives is narrow and was worth having: it found six entries declared
+    unrendered that render, four of them written by the same hand that wrote the
+    declaration.
+    """
+    from collections import Counter
+
+    maps = {
+        "AGENT_FIELDS": AGENT_FIELDS,
+        "ROUTER_FIELDS": ROUTER_FIELDS,
+        "THIRD_PARTY_FIELDS": THIRD_PARTY_FIELDS,
+        "REGISTRY_FIELDS": REGISTRY_FIELDS,
+    }
+    seen: Counter[str] = Counter()
+    for table in maps.values():
+        for path in table:
+            seen[path.split(".")[-1]] += 1
+
+    sources = _sources()
+    found: list[str] = []
+    for name, table in maps.items():
+        renderers = sorted({r for r in table.values() if r})
+        for path, renderer in table.items():
+            if renderer:
+                continue
+            leaf = path.split(".")[-1]
+            if seen[leaf] != 1 or leaf in LEAF_COLLISIONS:
+                continue
+            for filename in renderers:
+                source = strip_comments(sources.get(filename, ""))
+                if re.search(rf"[.\[]\"?{re.escape(leaf)}\b", source):
+                    found.append(f"{name}: {path} -> read by {filename}")
+                    break
+    return found
+
+
+def test_a_field_declared_unrendered_is_not_rendered() -> None:
+    """The half of the contract that had no test, and had rotted.
+
+    `test_every_contracted_*_field_is_read_by_the_named_view` checks that a
+    field naming a renderer is read there. The `""` branch is `continue`d in
+    every one of them, so the opposite claim — *this field reaches no view* —
+    was never checked at all, and an empty string is the easiest thing in these
+    maps to write. Six were wrong when this was added, including
+    `identity.sampled_ids` and `identity.sampled_at_block`, whose declarations
+    carried a written justification for not showing them while
+    `registry/view.tsx` showed both.
+
+    That matters beyond tidiness. A `""` is how this file records a **known
+    gap** — `ours.age_hours` is declared unrendered with the note that the page
+    "presents a reading of unknown age as current", and that note is the todo
+    list. A map where `""` also means "rendered, nobody updated it" is a todo
+    list with entries that are already done, which is a todo list nobody reads.
+
+    ## What this cannot see
+
+    Leaves that name a field on more than one path — `ranges_overlap`,
+    `lvr_quote_upper_bound`, `hours` — are skipped by construction, and all
+    three were also declared unrendered while being rendered. They were found by
+    hand and fixed in the same commit; the hole is stated here rather than
+    papered over, because the alternative is matching a bare word and flagging
+    the `hours()` formatter every time.
+    """
+    stale = _blank_entries_that_look_rendered()
+
+    assert not stale, (
+        "these fields are declared unrendered and a view reads them — either "
+        "name the renderer or stop rendering the field:\n  " + "\n  ".join(stale)
+    )
+
+
+# ── build.json, which had no contract at all ─────────────────────────────────
+#
+# The run stamp for the whole artifact set: which tape, how many events, which
+# commit, and whether that commit was dirty. `scripts/showcase.py` writes it on
+# every run and **no file under `apps/web/src` mentions it** — so until this map
+# existed the file could be renamed, reshaped or dropped and every suite in the
+# repository stayed green.
+#
+# Every renderer is `""`, and that is a statement rather than a placeholder. The
+# component that drew these was deleted deliberately, so nothing draws them
+# today and nothing is claimed to — it is not named here because
+# `tests/web/test_comment_references.py` suffix-matches file names and cannot
+# tell a citation from a post-mortem, which it demonstrated by failing on this
+# very comment. What the map buys is the *other* direction: the emitter
+# can no longer quietly stop writing `git_dirty`, which is the field that makes
+# a sha honest — the commit is real and the code that produced these numbers is
+# not in it.
+#
+# `/status` answers the freshness question for now, through
+# `go_no_go.check_artifact_freshness`. Whether a build stamp returns to the
+# pages themselves is a rendering decision this map takes no position on.
+BUILD_FIELDS: dict[str, str] = {
+    "command": "",
+    "source": "",
+    "generated_at": "",
+    "git_sha": "",
+    "git_dirty": "",
+    "events": "",
+    "span_hours": "",
+    "capital_quote": "",
+    "quote_symbol": "",
+    # `null` and `0` are different claims here and both occur: null means this
+    # DB predates the coverage table and nobody can say, 0 means it was checked
+    # and there are no holes. Contracted so the distinction cannot be dropped.
+    "tape_gaps": "",
+    "tape_blocks_unread": "",
+}
+
+
+@pytest.fixture(scope="module")
+def build_artifact() -> dict:
+    path = ARTIFACTS / "build.json"
+    if not path.exists():
+        pytest.skip("no build artifact; run `make showcase-demo`")
+    return json.loads(path.read_text())
+
+
+def test_the_build_emitter_writes_exactly_the_contracted_fields(build_artifact: dict) -> None:
+    """The smallest artifact on the site, and the last one with no contract."""
+    actual = flatten(build_artifact)
+    declared = set(BUILD_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the build emitter writes fields the contract does not declare — add them "
+        f"to BUILD_FIELDS: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        f"the contract declares build fields the emitter no longer writes: {sorted(undelivered)}"
     )

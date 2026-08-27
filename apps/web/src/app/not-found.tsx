@@ -29,8 +29,16 @@ const BLURB: Record<string, string> = {
   "/assumptions": "every number here traces to one of these",
   "/registry": "ERC-8004 and ERC-8183, and what a hire costs",
   "/vetting": "the pools and addresses, read from chain",
+  "/tape": "the swaps every quote here was replayed over, and the gaps in them",
   "/status": "the readiness gates, and what is not built",
 };
+
+/* `/tape` was the one route of thirteen with no entry, so its card rendered
+   "Tape" twice — the label as the heading and the label again as the blurb.
+   The degrade-to-label branch is deliberate and stays; it was covering a gap
+   rather than doing its job. `tests/web/test_route_lists_agree.py` keeps
+   `ROUTES` and this file's source list in step, but it has nothing to say
+   about a map that is merely incomplete. */
 
 /**
  * A 404 that belongs to this site.

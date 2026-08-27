@@ -225,6 +225,22 @@ def _base() -> dict[str, Any]:
         "identity_registry": erc8004.IDENTITY_REGISTRY,
         "reputation_registry": erc8004.REPUTATION_REGISTRY,
         "reputation_note": erc8004.REPUTATION_IS_NOT_DISPLAYED,
+        # The level the published intervals are at.
+        #
+        # Here rather than in `survey_chain`, and the difference matters: this
+        # is a property of `wilson_interval`, not of any particular draw. A
+        # survey recorded before this field existed would otherwise republish
+        # without it forever, because `make registry` reads the recorded file
+        # and only `--sample` re-reads the chain — so putting it on the survey
+        # would have meant fifteen minutes of chain reads to publish a constant.
+        #
+        # Published at all because a pair of bounds without its level is not an
+        # interval, it is two numbers. `/registry` and `ShareIntervals` both
+        # said "95%" in typed prose beside intervals this repository computes,
+        # which made the one figure that gives the bounds a meaning the one
+        # figure not read from anything — on the block whose entire argument is
+        # that a share without an interval is false precision.
+        "confidence_level": erc8004.CONFIDENCE_LEVEL,
     }
 
 

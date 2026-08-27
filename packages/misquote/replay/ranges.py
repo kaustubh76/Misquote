@@ -34,6 +34,21 @@ from typing import Any
 from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Params, Policy, PoolMeta
 from misquote.replay.driver import CostModel, ReplayDriver, ReplayResult
 
+#: A5's perturbation magnitude: gamma and kappa are walked at nominal and at
+#: +/- this fraction.
+#:
+#: Named because it is published. `/methods` is the page that explains how a
+#: quote is made, and the only statement of this magnitude anywhere on the site
+#: was the string "gamma and kappa at +/-25%" typed into a table cell — on the
+#: page whose own section header argues that "a floor a UI could get wrong is
+#: not a floor". The artifact carried `perturbations: 3`, the count, and nothing
+#: about how far.
+#:
+#: A default argument is not publishable: a caller may pass another fraction and
+#: the emitter cannot see it. So the constant is the default, `Quote` carries
+#: what was actually used, and the page reads that.
+PERTURBATION_FRACTION = 0.25
+
 
 @dataclass(frozen=True, slots=True)
 class Quote:
@@ -55,6 +70,10 @@ class Quote:
     note: str
     annualised: bool = False
     basis: str = ""
+    #: The fraction gamma and kappa were walked by, per A5. Carried rather than
+    #: assumed from `PERTURBATION_FRACTION`, because a caller may pass another
+    #: one and the artifact has to say what this quote actually did.
+    perturbation_fraction: float = PERTURBATION_FRACTION
 
     # How many of the usable replays actually finished in profit. This is the
     # honest numerator for "does it beat holding": one observation per replay,
@@ -194,7 +213,7 @@ def rolling_windows(first_ts: int, last_ts: int, count: int) -> list[tuple[int, 
 EVENTS_PER_SECOND = 1_839.0
 
 
-def perturbation_scales(fraction: float = 0.25) -> tuple[float, ...]:
+def perturbation_scales(fraction: float = PERTURBATION_FRACTION) -> tuple[float, ...]:
     """A5's three multipliers: nominal, and either side of it by `fraction`.
 
     One definition, because the parameter sweep and the *policy* sweep have to
@@ -203,7 +222,7 @@ def perturbation_scales(fraction: float = 0.25) -> tuple[float, ...]:
     return (1.0 - fraction, 1.0, 1.0 + fraction)
 
 
-def perturbations(params: Params, fraction: float = 0.25) -> list[Params]:
+def perturbations(params: Params, fraction: float = PERTURBATION_FRACTION) -> list[Params]:
     """Gamma and kappa at their nominal values and at +/- `fraction`.
 
     Assumption A5. Kappa is perturbed through the policy's consumed value rather
@@ -238,6 +257,7 @@ def quote_from_results(
     *,
     windows: int,
     perturbation_count: int,
+    perturbation_fraction: float = PERTURBATION_FRACTION,
     capital_quote: float = DEFAULT_CAPITAL_QUOTE,
     annualise: bool = True,
 ) -> Quote:
@@ -260,6 +280,7 @@ def quote_from_results(
             samples=0,
             windows=windows,
             perturbations=perturbation_count,
+            perturbation_fraction=perturbation_fraction,
             in_range_p50=0.0,
             rebalances_p50=0.0,
             hours_per_window=0.0,
@@ -289,6 +310,7 @@ def quote_from_results(
             samples=len(usable),
             windows=windows,
             perturbations=perturbation_count,
+            perturbation_fraction=perturbation_fraction,
             in_range_p50=0.0,
             rebalances_p50=0.0,
             hours_per_window=0.0,
@@ -323,6 +345,7 @@ def quote_from_results(
         samples=len(usable),
         windows=windows,
         perturbations=perturbation_count,
+        perturbation_fraction=perturbation_fraction,
         in_range_p50=percentile([r.in_range_fraction for r in usable], 0.5),
         rebalances_p50=percentile([float(r.rebalances) for r in usable], 0.5),
         hours_per_window=percentile([r.hours for r in usable], 0.5),
@@ -389,7 +412,7 @@ def quote(
     costs: CostModel | None = None,
     capital_quote: float = DEFAULT_CAPITAL_QUOTE,
     windows: int | None = None,
-    perturbation_fraction: float = 0.25,
+    perturbation_fraction: float = PERTURBATION_FRACTION,
     policy: Policy | None = None,
     policy_factory: Callable[[float], Policy] | None = None,
     map_fn: Callable[[Callable[..., Any], Iterable[Any]], Iterator[Any]] | None = None,
@@ -451,6 +474,7 @@ def quote(
             [],
             windows=window_count,
             perturbation_count=len(variants),
+            perturbation_fraction=perturbation_fraction,
             capital_quote=capital_quote,
         )
 
@@ -499,6 +523,7 @@ def quote(
         results,
         windows=window_count,
         perturbation_count=len(variants),
+        perturbation_fraction=perturbation_fraction,
         # Forwarded, which it was not. `quote_from_results` divides net token1 by
         # this to turn an amount into a return, and its default is 1000.0 — so a
         # caller passing `capital_quote=5000` replayed with 5,000 of capital and

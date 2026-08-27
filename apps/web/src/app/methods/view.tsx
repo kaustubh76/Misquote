@@ -11,7 +11,7 @@ import { DataTable } from "@/components/DataTable";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { load, type AgentArtifact, type Loaded } from "@/lib/artifacts";
-import { count, EMPTY, fraction, hours } from "@/lib/format";
+import { count, EMPTY, fixed, fraction, hours, pct } from "@/lib/format";
 
 /**
  * How a quote is made, and why its window is shorter than the tape.
@@ -119,7 +119,16 @@ export function MethodsView({ initial }: {
                   note: "everything the replay saw",
                 },
                 {
-                  label: "× 0.5",
+                  // Derived from the two figures either side of it rather than
+                  // typed. This label was the string "× 0.5" — the sub-window
+                  // fraction, which is in no artifact — on the page whose own
+                  // section header argues that "a floor a UI could get wrong is
+                  // not a floor". Both operands are published, so the operator
+                  // is arithmetic on them and moves when they do.
+                  label:
+                    q && d && d.replay.hours > 0
+                      ? `× ${fixed(q.hours_per_window / d.replay.hours, 2)}`
+                      : "×",
                   value: q ? hours(q.hours_per_window) : "—",
                   note: "one sub-window",
                 },
@@ -131,7 +140,15 @@ export function MethodsView({ initial }: {
                 {
                   label: "× perturbations",
                   value: count(q?.perturbations),
-                  note: "γ and κ at ±25%",
+                  // The magnitude, read. It was typed as "±25%" and was the
+                  // only statement of it anywhere on the site; the artifact
+                  // carried the count and nothing about how far. A5 is the
+                  // assumption it implements, and A5's fraction now travels on
+                  // the quote that used it.
+                  note:
+                    q?.perturbation_fraction === undefined
+                      ? "γ and κ, each side of nominal"
+                      : `γ and κ at ±${pct(q.perturbation_fraction, 0)}`,
                 },
                 {
                   label: "= observations",

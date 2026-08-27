@@ -3,10 +3,10 @@ import { count } from "@/lib/format";
 import { routesIn } from "@/lib/routes";
 
 /**
- * The seven evidence routes, each carrying one figure out of its own artifact.
+ * The evidence routes, each carrying one figure out of its own artifact.
  *
  * The landing page used to end at the not-built ledger, so the half of this
- * site that exists to be checked — seven pages of tick math, venue divergences,
+ * site that exists to be checked — pages of tick math, venue divergences,
  * pool badges, assumptions and gates — was reachable only through a nav band a
  * reader had no reason to look at. A marketplace that argues its numbers are
  * auditable should say what there is to audit on the page that makes the claim.
@@ -39,6 +39,23 @@ export function EvidenceRail({
   return (
     <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
       {routes.map((route) => {
+        // Three states, not two. `has` distinguishes "nobody wrote an entry
+        // for this route" from "the entry was written and came back null",
+        // which `entries[href] ?? null` collapsed — and the message below
+        // asserts the second.
+        //
+        // `/tape` is the route that exposed it. It is the only evidence page
+        // with no artifact at all: its subject is a live database and
+        // `app/tape/view.tsx` calls it "the only route here whose subject
+        // cannot be prerendered". So `evidence()` never wrote it a key, the
+        // lookup produced null, and the landing page has told every reader on
+        // every build that /tape's artifact failed to load. It never failed.
+        //
+        // That is this component's own rule inverted. Its docstring says a
+        // route whose figure is missing must not render as a zero because
+        // those are different claims; an absent figure and a failed read are
+        // different claims by exactly the same argument.
+        const has = route.href in entries;
         const entry = entries[route.href] ?? null;
         return (
           <li key={route.href} className="reveal">
@@ -56,13 +73,21 @@ export function EvidenceRail({
                   </span>
                   <span className="min-w-0 text-xs text-dim">{entry.of}</span>
                 </span>
-              ) : (
+              ) : has ? (
                 /* Not a zero and not a dash in the figure slot. An artifact
                    this build could not read is not a count of nothing, and the
                    whole argument of the page above is that those are different
                    claims. */
                 <span className="text-xs text-faint">
                   Its artifact was not readable at build time.
+                </span>
+              ) : (
+                /* No figure was ever offered for this route, which is not a
+                   failure of anything. Said in the plainest available words
+                   rather than left blank: an empty slot beside six filled ones
+                   reads as a number that did not load. */
+                <span className="text-xs text-faint">
+                  No single figure leads this page.
                 </span>
               )}
             </Link>

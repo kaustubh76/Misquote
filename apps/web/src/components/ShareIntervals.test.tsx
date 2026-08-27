@@ -11,8 +11,19 @@ const rows: ShareInterval[] = [
   { key: "placeholders", label: "placeholder text", n: 0, low: 0, high: 0.009512640599680667 },
 ];
 
+/** The level `registry.json` publishes, passed as the component now requires. */
+const LEVEL = 0.95;
+
 const draw = (over: Partial<Parameters<typeof ShareIntervals>[0]> = {}) =>
-  render(<ShareIntervals rows={rows} sampled={SAMPLED} caption="Registry survey" {...over} />);
+  render(
+    <ShareIntervals
+      rows={rows}
+      sampled={SAMPLED}
+      caption="Registry survey"
+      confidenceLevel={LEVEL}
+      {...over}
+    />
+  );
 
 const bar = (name: RegExp) => screen.getByRole("img", { name });
 
@@ -34,7 +45,11 @@ describe("a share is drawn with the interval it is worth", () => {
     expect(label).toContain("92.3%");
     expect(label).toContain("89.2%");
     expect(label).toContain("94.5%");
-    expect(label).toContain("95% confidence interval");
+    // Derived from the prop rather than written, so the assertion moves with
+    // the artifact. The level used to be typed inside the component and this
+    // line pinned it there — the one figure that makes a pair of bounds mean
+    // something, asserted against a literal on both sides.
+    expect(label).toContain(`${100 * LEVEL}% confidence interval`);
   });
 
   it("puts every bar on the same axis rather than scaling each to itself", () => {
@@ -71,5 +86,18 @@ describe("a share is drawn with the interval it is worth", () => {
   it("renders nothing rather than dividing by a denominator it was not given", () => {
     const { container } = draw({ sampled: 0 });
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("an interval whose level nobody recorded", () => {
+  it("says 'confidence interval' rather than asserting a level", () => {
+    // A survey recorded before the emitter published `confidence_level` has
+    // the bounds and not the level. Naming one anyway would be the defect this
+    // prop exists to fix, restored by a default — so there is no default.
+    draw({ confidenceLevel: undefined });
+    const label = bar(/^card resolves:/).getAttribute("aria-label") ?? "";
+
+    expect(label).toContain("confidence interval");
+    expect(label).not.toMatch(/\d+% confidence interval/);
   });
 });

@@ -139,7 +139,20 @@ export function AdvantageView({
                 <Heading className="mt-0 mb-2 text-lg font-semibold">
                   Across all {count(d.summary.tasks)} tasks
                 </Heading>
-                <p className="m-0 font-mono text-sm text-warn">
+                {/* Toned from the verdict, not from a guess about it. This
+                    was `text-warn` unconditionally, so an `overall` that ever
+                    resolved to a pass would have been painted as a warning —
+                    the page's own headline verdict, mis-toned by a constant.
+                    `/status` does this correctly through `OUTCOME_STYLE`, and
+                    this now follows it: `called` is the emitter's word for
+                    "a verdict was reached", so an uncalled overall is neutral
+                    rather than amber, and colour is never the only signal —
+                    the label itself is the claim and it renders either way. */}
+                <p
+                  className={`m-0 font-mono text-sm ${
+                    d.overall.called ? "text-ink" : "text-warn"
+                  }`}
+                >
                   {d.overall.label}
                 </p>
 

@@ -48,8 +48,14 @@ export function CategoryIndexView({ initial }: { initial?: IndexArtifact }) {
 
   return (
     <Loadable loading={state === null} what="the categories" className="max-w-5xl">
+      {/* The count is counted. It read "Four categories" beside a list built
+          from `categoriesFrom(index?.agents)` — so the heading asserted the
+          length of the thing rendered under it, and `lib/categories.ts` argues
+          at length that this taxonomy is derived precisely so a fifth does not
+          have to be found by hand in four places. */}
       <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
-        Four categories, and what each one is judged on
+        {categories.length > 0 ? `${categories.length} categories` : "Categories"}, and what each
+        one is judged on
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
         A category here is a job you might hire for, and the claim attached to it
@@ -122,25 +128,51 @@ export function CategoryIndexView({ initial }: { initial?: IndexArtifact }) {
           This site indexes the ERC-8004 registry and lists what it finds on{" "}
           <Link href="/registry">the registry page</Link>. None of those agents
           declares a category — not on its card, not in the survey, nowhere in
-          the standard. Sorting them into these four would mean reading strangers&rsquo;
+          the standard. Sorting them into these means reading strangers&rsquo;
           free-text descriptions and deciding on their behalf what they are for,
-          and the result would be <strong className="text-ink">our</strong>{" "}
-          classification presented as theirs.
+          and the result is <strong className="text-ink">our</strong>{" "}
+          classification of their words.
         </p>
         <p className="mt-3 mb-0 max-w-[62ch] text-dim">
-          So they are listed where the evidence supports listing them, with what
-          each one actually says about itself, and they are absent from here.
+          So it is shown as ours. Each category page lists the agents an index
+          holds for it and prints, on every row, the term that row had to
+          contain to appear — the judgement is on the page rather than behind
+          it. None of them carries a quote, because we do not have their
+          policies.
         </p>
       </Section>
 
-      <Heading className="mt-10 mb-2 text-md font-semibold">
-        One agent per category is a fact, not a design
-      </Heading>
-      <p className="m-0 max-w-[62ch] text-sm text-dim">
-        Each of these holds exactly one agent today because exactly one was
-        built for it. The pages below are shaped for more, and a second arrival
-        would appear beside the first rather than replacing it.
-      </p>
+      {/* Counted, and gated on there being something to count.
+          It asserted "One agent per category" in a heading and "exactly one
+          agent today" in the body — while `lib/categories.ts:56-59` argues the
+          opposite for the same data: "`agents` is a list even though every
+          category currently holds exactly one — because 'one agent per
+          category' is a fact about today's index, not a rule, and a page that
+          assumed it would break silently when a second arrives."
+
+          It also sat outside the `categories.length > 0` guard, so a build
+          whose index failed to load rendered a claim about how many agents each
+          category holds directly under a page showing no categories at all. */}
+      {categories.length > 0 &&
+        (() => {
+          const most = Math.max(...categories.map((c) => c.agents.length));
+          return (
+            <>
+              <Heading className="mt-10 mb-2 text-md font-semibold">
+                {most === 1
+                  ? "One agent per category is a fact, not a design"
+                  : "How many agents a category holds is a fact, not a design"}
+              </Heading>
+              <p className="m-0 max-w-[62ch] text-sm text-dim">
+                {most === 1
+                  ? "Each of these holds exactly one agent today because exactly one was built for it."
+                  : `The fullest of these holds ${most} today, because that is how many were built for it.`}{" "}
+                The pages below are shaped for more, and a second arrival would
+                appear beside the first rather than replacing it.
+              </p>
+            </>
+          );
+        })()}
     </Loadable>
   );
 }

@@ -225,6 +225,16 @@ export interface QuoteDetail {
   samples: number;
   windows: number;
   perturbations: number;
+  /**
+   * How far gamma and kappa were walked, per A5 — the magnitude beside the
+   * count.
+   *
+   * Optional because a card written before the emitter published it has the
+   * count and not the fraction, and `/methods` says "each side of nominal"
+   * rather than inventing a number when it is absent. Both are the same
+   * assumption; only one of them used to reach an artifact.
+   */
+  perturbation_fraction?: number;
   net_positive: number;
   returns: number[];
   in_range_p50: number;

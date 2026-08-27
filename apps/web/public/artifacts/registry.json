@@ -29,9 +29,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-27T13:45:31+00:00",
+    "generated_at": "2026-08-27T19:40:05+00:00",
     "git_dirty": true,
-    "git_sha": "f8aa3db",
+    "git_sha": "5397208",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -533,6 +533,7 @@
         "substantive": true
       }
     ],
+    "confidence_level": 0.95,
     "declared_active": 361,
     "identity_registry": {
       "56": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
@@ -985,7 +986,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 26.6,
+    "age_hours": 32.6,
     "agents": [
       {
         "agent": "warden",

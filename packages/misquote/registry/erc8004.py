@@ -262,7 +262,19 @@ def assess(card: AgentCard) -> Assessment:
     )
 
 
-def wilson_interval(successes: int, trials: int, *, z: float = 1.96) -> tuple[float, float]:
+#: The two-sided normal quantile the interval is built from, and the level it
+#: corresponds to.
+#:
+#: Published together because the bounds mean nothing without the level. Both
+#: `/registry` and `ShareIntervals` said "95%" in typed prose beside intervals
+#: computed here, and `identity.intervals.*` carried only `low` and `high` — so
+#: the one number that makes a pair of bounds interpretable was the one number
+#: not read from anything.
+CONFIDENCE_Z = 1.96
+CONFIDENCE_LEVEL = 0.95
+
+
+def wilson_interval(successes: int, trials: int, *, z: float = CONFIDENCE_Z) -> tuple[float, float]:
     """A 95% confidence interval for a share, by the Wilson score method.
 
     ## Why an interval at all

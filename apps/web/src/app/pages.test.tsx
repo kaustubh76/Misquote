@@ -1098,14 +1098,13 @@ describe("Venue: what has been checked, and what has not", () => {
   }
   interface Badges {
     chain_id: number;
-    pools: { pool?: string; badged?: boolean }[];
+    pools: { pool?: string; badged?: boolean; checks?: unknown[] }[];
   }
 
   const pools = readArtifact<Pools>("venue.json").pools;
+  const badgeSurvey = readArtifact<Badges>("vetting.json");
   const badged = new Set(
-    readArtifact<Badges>("vetting.json")
-      .pools.filter((p) => p.badged && p.pool)
-      .map((p) => (p.pool as string).toLowerCase())
+    badgeSurvey.pools.filter((p) => p.badged && p.pool).map((p) => (p.pool as string).toLowerCase())
   );
   const covered = pools.filter((p) => badged.has(p.address.toLowerCase()));
 
@@ -1122,7 +1121,11 @@ describe("Venue: what has been checked, and what has not", () => {
     render(<VenuePage />);
     await screen.findByRole("heading", { name: "The pools we actually read" });
 
-    const link = screen.getByRole("link", { name: /through the nine checks/ });
+    // Matched on the shape, not on the count. This read "through the nine
+    // checks" and pinned the one word on that link that was typed rather than
+    // measured — so the assertion that the pool tally is counted was itself
+    // holding a hand-written number in place beside it.
+    const link = screen.getByRole("link", { name: /through the .*checks/ });
     expect(link.textContent).toContain(`${covered.length} of ${pools.length}`);
     expect(link).toHaveAttribute("href", "/vetting");
   });
@@ -1140,9 +1143,12 @@ describe("Venue: what has been checked, and what has not", () => {
       expect(row, `${pool.label} is not in the table at all`).toBeTruthy();
       expect(row).toContain("not checked");
     }
+    // Counted off the badge the page counts off, so the two move together.
+    const perPool = badgeSurvey.pools.find((p) => Array.isArray(p.checks))?.checks?.length;
+    expect(perPool, "no badge records its checks — retarget this").toBeGreaterThan(0);
     for (const pool of covered) {
       expect(rows.find((t) => t.includes(pool.label))).toContain(
-        "nine checks passed"
+        `${perPool} checks passed`
       );
     }
   });

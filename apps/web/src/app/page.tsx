@@ -26,14 +26,21 @@ import type { IndexArtifact } from "@/lib/artifacts";
  */
 
 /**
- * The seven evidence figures, read once at build time.
+ * The evidence figures, read once at build time.
  *
  * Numbers, not artifacts. `OverviewView` is a client component, so everything
  * passed to it is serialised into the flight payload of every build — and
  * `assumptions.json` alone is 130KB. Reading each file here and handing over a
- * formatted count keeps that payload to seven short strings while still
+ * formatted count keeps that payload to a handful of short strings while still
  * putting the figures in the exported HTML, which is the point: a reader with
- * JavaScript off gets the map of the argument, not seven empty cards.
+ * JavaScript off gets the map of the argument, not a row of empty cards.
+ *
+ * Not every evidence route has a figure, and the ones that do not are absent
+ * from this map rather than present-and-null. `/tape` is the case: its subject
+ * is a live database, it has no artifact, and `EvidenceRail` reads the
+ * difference. A key here means "this route leads with a number"; no key means
+ * "it does not"; a key whose value is null means "it should have and the file
+ * would not read".
  *
  * Each figure is the one its own page leads with, and none of them is computed
  * twice — `summary` blocks are written by the emitters that write the pages.

@@ -568,7 +568,7 @@ export function VettingView({
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-4 max-w-[62ch] text-sm text-dim">
-          Recorded badges only — a badge is nine chain readings taken at one
+          Recorded badges only — a badge is a set of chain readings taken at one
           block, and one re-read live under a request timeout would be a weaker
           badge at the same URL with nothing saying so.
         </p>

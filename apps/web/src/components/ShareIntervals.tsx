@@ -79,13 +79,29 @@ export function ShareIntervals({
   rows,
   sampled,
   caption,
+  confidenceLevel,
 }: {
   rows: ShareInterval[];
   /** The denominator every row shares. Stated by the caller, never inferred. */
   sampled: number;
   caption: string;
+  /**
+   * The level the bounds are at, as a fraction — 0.95 for a 95% interval.
+   *
+   * Passed in rather than assumed, and the spoken description is why. This
+   * component's whole argument is that a share without an interval is false
+   * precision; an interval without its level is the same defect one step down,
+   * and the level was typed here as "95%" while `registry.json` published only
+   * `low` and `high`. A survey recorded before the emitter carried it leaves
+   * this undefined and the sentence says "confidence interval" with no number,
+   * which is the honest reading of bounds whose level nobody stated.
+   */
+  confidenceLevel?: number;
 }) {
   if (rows.length === 0 || sampled <= 0) return null;
+
+  const levelLabel =
+    confidenceLevel === undefined ? "" : `${(100 * confidenceLevel).toFixed(0)}%`;
 
   return (
     <figure className="m-0" role="group" aria-label={caption}>
@@ -125,7 +141,7 @@ export function ShareIntervals({
                 role="img"
                 aria-label={
                   `${row.label}: ${count(row.n)} of ${count(sampled)} sampled, ` +
-                  `${share(point)}. At this sample size the 95% confidence interval ` +
+                  `${share(point)}. At this sample size the ${levelLabel ? `${levelLabel} ` : ""}confidence interval ` +
                   `runs from ${share(row.low)} to ${share(row.high)}.`
                 }
               >

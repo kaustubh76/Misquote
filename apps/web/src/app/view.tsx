@@ -4,6 +4,7 @@ import { EvidenceRail, type EvidenceEntry } from "@/components/EvidenceRail";
 import { TickRule } from "@/components/TickRule";
 import { Button } from "@/components/Button";
 import { count } from "@/lib/format";
+import { routesIn } from "@/lib/routes";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
@@ -372,20 +373,27 @@ export function OverviewView({
 
         {/* The map of the argument.
             This page used to end at the ledger, so the half of the site that
-            exists to be checked — seven pages of tick math, venue divergences,
-            pool badges, assumptions and gates — was reachable only through a
-            nav band a first-time reader has no reason to look at. A page whose
-            headline is that other marketplaces cannot be checked should say
-            what there is to check here, and say it in figures.
+            exists to be checked — tick math, venue divergences, pool badges,
+            assumptions and gates — was reachable only through a nav band a
+            first-time reader has no reason to look at. A page whose headline is
+            that other marketplaces cannot be checked should say what there is
+            to check here, and say it in figures.
 
             Every number is read from its own artifact at build time, so this
             renders in the exported HTML with JavaScript off, along with the
-            rest of the page. */}
+            rest of the page.
+
+            The count in the intro is counted, and that is a correction. It was
+            the word "Seven" beside a rail that renders `routesIn("evidence")`,
+            which has been eight routes since /tape joined the group — so the
+            sentence introducing the figures was the one figure on the block
+            that was typed. It is derived now, and a route added to the group
+            moves it. */}
         <Section
           title="What there is to check"
           className="mt-12"
           headingClassName="mb-4 text-lg font-semibold"
-          intro="Seven pages, each generated from an artifact this repository can regenerate. The figures below are counted from those files, not typed."
+          intro={`${routesIn("evidence").length} pages, each generated from an artifact this repository can regenerate. The figures below are counted from those files, not typed.`}
         >
           <EvidenceRail entries={evidence} />
         </Section>

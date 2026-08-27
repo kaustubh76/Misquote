@@ -217,6 +217,11 @@ def _quote_dict(quote: Any) -> dict[str, Any] | None:
         "samples": quote.samples,
         "windows": quote.windows,
         "perturbations": quote.perturbations,
+        # How far, beside how many. `/methods` stated the magnitude as typed
+        # prose — "gamma and kappa at +/-25%" — while the artifact carried only
+        # the count, so the one figure describing what a perturbation *is* was
+        # the one figure on that page not read from anything.
+        "perturbation_fraction": quote.perturbation_fraction,
         "net_positive": quote.net_positive,
         "returns": list(quote.returns),
         "in_range_p50": quote.in_range_p50,

@@ -124,7 +124,17 @@ export interface PoolsArtifact {
 /** Only what this page needs of `vetting.json`: which pools carry a badge. */
 export interface BadgeSurvey {
   chain_id: number;
-  pools: { pool?: string; badged?: boolean }[];
+  /**
+   * `checks` is declared only so this page can count them.
+   *
+   * `/vetting` renders each reading; this page needs to say how many a badge
+   * is, and said "nine" in three places rather than measure the array that is
+   * right here. Typed as `unknown[]` because nothing on this page looks inside
+   * a check — declaring the shape would be declaring an interface it does not
+   * read, which `lib/artifacts.ts` sets the rule against: only what is
+   * rendered is declared.
+   */
+  pools: { pool?: string; badged?: boolean; checks?: unknown[] }[];
 }
 
 export function VenueView({
@@ -191,6 +201,15 @@ export function VenueView({
       .filter((p) => p.badged && typeof p.pool === "string")
       .map((p) => (p.pool as string).toLowerCase())
   );
+
+  // How many readings a badge is, counted off a badge rather than typed.
+  //
+  // Three places on this page said "nine" — two in prose and one in a table
+  // cell — and `vetting/view.tsx` said it a fourth time. It is
+  // `badges.pools[].checks.length`, it is the same nine for every pool, and it
+  // has no business being a word. Undefined when no badge was read, and the
+  // sentences below say "the checks" rather than inventing a number.
+  const perPoolChecks = badges?.pools?.find((p) => Array.isArray(p.checks))?.checks?.length;
 
   const d = state?.ok ? state.value : null;
 
@@ -409,10 +428,18 @@ export function VenueView({
                     pool.fee_protocol
                   } · ${
                     checked.has(pool.address.toLowerCase())
-                      ? "nine checks passed"
-                      : `not checked — /vetting reads chain ${
-                          badges?.chain_id ?? "56"
-                        }`
+                      ? perPoolChecks === undefined
+                        ? "checked"
+                        : `${perPoolChecks} checks passed`
+                      : badges?.chain_id
+                        ? `not checked — /vetting reads chain ${badges.chain_id}`
+                        : // No chain id, so no chain id is named. This read
+                          // `badges?.chain_id ?? "56"`, which invented one on
+                          // the exact branch where the badge file was the thing
+                          // that could not be read — the sentence asserting
+                          // which chain /vetting reads was fabricated precisely
+                          // when nothing had been read from any chain.
+                          "not checked — no badge file was read"
                   }`,
                 }))}
                 notes="prose"
@@ -425,8 +452,8 @@ export function VenueView({
                     passed" over a table containing a pool on another chain that
                     no check has ever touched. */}
                 <Link href="/vetting">
-                  {count(checked.size)} of {count(d.pools.length)} through the
-                  nine checks →
+                  {count(checked.size)} of {count(d.pools.length)} through the{" "}
+                  {perPoolChecks === undefined ? "" : `${perPoolChecks} `}checks →
                 </Link>
               </p>
             </Card>

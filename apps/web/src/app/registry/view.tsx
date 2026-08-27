@@ -212,7 +212,15 @@ export interface RegistryArtifact {
      *  computed from the whole sample; this bounds only what renders, and both
      *  numbers are carried so the card count cannot be read as the sample size. */
     listings_shown?: number;
-    /** A 95% Wilson interval per share. A share from a few hundred of ~280,000
+    /** The level those bounds are at, as a fraction — 0.95 for a 95% interval.
+     *
+     *  Optional because a survey recorded before the emitter published it has
+     *  the bounds and not the level, and the label says "CI" without a number
+     *  rather than asserting one. It was typed as "95%" beside intervals the
+     *  emitter computes, which made the one figure that gives a pair of bounds
+     *  a meaning the one figure not read from anything. */
+    confidence_level?: number;
+    /** A Wilson interval per share. A share from a few hundred of ~280,000
      *  agents is not a point, and printing it as one is the false precision
      *  this page exists to criticise. */
     intervals?: Record<string, { low: number; high: number }>;
@@ -601,13 +609,28 @@ export function RegistryView({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="m-0 text-sm text-ink">
-                      Three real tasks, run with and without an agent.
+                      Real tasks, run both ways — with an agent and without one.
                     </p>
-                    {/* Verbatim from the gate. The track's criterion is
-                        encoded in `go_no_go.py` as a check that executes —
-                        three tasks, distinct baselines, and amber until the
-                        tape is chain-sourced — so this reads that verdict
-                        instead of restating the criterion beside it. */}
+                    {/* Verbatim from the gate. The track's criterion is encoded
+                        in `go_no_go.py` as a check that executes — distinct
+                        baselines, and amber until the tape is chain-sourced —
+                        so this reads that verdict instead of restating the
+                        criterion beside it.
+
+                        The sentence above carries no count, and that is the
+                        correction. It said "Three real tasks" directly above a
+                        gate detail reading "4 tasks on a chain tape" — the
+                        artifact says `summary.tasks: 4`, and this comment said
+                        "three" as well, so the prose, the comment and the data
+                        disagreed three ways on one card, one line apart.
+
+                        `advantage.json` is not loaded on this page, so there is
+                        no local number to read. Rather than fetch an artifact to
+                        restate a figure the next line already carries, the
+                        sentence now says what the deliverable *is* and lets the
+                        gate say how much of it there is. A count stated twice is
+                        a count that can disagree with itself, which is what
+                        happened. */}
                     <p className="mt-2 mb-0 font-mono text-xs text-dim">{gate.detail}</p>
                     {gate.remedy && (
                       <p className="mt-2 mb-0 text-xs text-faint">→ {gate.remedy}</p>
@@ -639,7 +662,7 @@ export function RegistryView({
             intro={
               <>
                 Every other number on this page is about somebody else&rsquo;s agent.
-                These four are ours, registered on BSC testnet and transferred to
+                These are ours, registered on BSC testnet and transferred to
                 the address this project publishes as its own &mdash; and held to{" "}
                 <em>the same</em> <code className="font-mono text-xs">assess()</code>{" "}
                 that decides whether a stranger&rsquo;s listing counts as substantive.
@@ -844,7 +867,13 @@ export function RegistryView({
                   return rows.length > 0 && sampled !== undefined ? (
                     <div className="mb-6">
                       <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
-                        Every card in one sample of {count(sampled)}, checked six ways.
+                        {/* `rows.length`, not the word. It read "six ways"
+                            two lines below the array whose length that is —
+                            the same array the intervals underneath are built
+                            from — so adding a seventh share would have left
+                            the sentence introducing them saying six. */}
+                        Every card in one sample of {count(sampled)}, checked {rows.length}{" "}
+                        {rows.length === 1 ? "way" : "ways"}.
                         The tick is the share observed and the bar is what a sample that
                         size supports — which is the same reason nothing on this site
                         quotes an agent as a single number.
@@ -853,6 +882,7 @@ export function RegistryView({
                         rows={rows}
                         sampled={sampled}
                         caption="What the sample supports, per check"
+                        confidenceLevel={d.identity.confidence_level}
                       />
                     </div>
                   ) : null;
@@ -882,11 +912,18 @@ export function RegistryView({
                         const { substantive, sampled, intervals } = d.identity;
                         if (substantive === undefined || sampled === undefined) return "";
                         const of = `${count(substantive)} of ${count(sampled)} sampled`;
+                        // Empty when the survey did not record its level, so
+                        // the label reads "CI 30-40%" rather than asserting a
+                        // level nobody published. It said "95%" as a literal.
+                        const levelLabel =
+                          d.identity.confidence_level === undefined
+                            ? ""
+                            : `${(100 * d.identity.confidence_level).toFixed(0)}% `;
                         const ci = intervals?.substantive;
                         // The interval, never omitted when we have it: a share
                         // this size is a range, and the range is the honest half.
                         return ci
-                          ? `${of} · 95% CI ${(100 * ci.low).toFixed(0)}–${(100 * ci.high).toFixed(0)}%`
+                          ? `${of} · ${levelLabel}CI ${(100 * ci.low).toFixed(0)}–${(100 * ci.high).toFixed(0)}%`
                           : of;
                       })(),
                     },
@@ -1460,10 +1497,26 @@ function Census({ census }: { census?: NonNullable<RegistryArtifact["third_party
           { label: "distinct descriptions", value: count(census.distinct_descriptions) },
         ]}
       />
+      {/* No page count in that sentence, and its absence is the correction.
+          It read "2,848 pages", which appears in no artifact: it was the
+          population divided by the page size at the moment somebody typed it,
+          and the registry has minted agents on every day since. By the time
+          this was found the same division gave 2,856.
+
+          A count that drifts is worse than one that is absent, because it is
+          the class of number `test_no_artifact_number_is_hardcoded_in_the_ui`
+          structurally cannot catch: that guard builds its forbidden set out of
+          values that ARE in the artifacts, so a literal that has stopped
+          matching one is invisible to it by construction. The more wrong it
+          gets, the less likely anything notices.
+
+          `census.counted` is on this block and could carry it, but the page
+          count is a fact about how the walk was done rather than about the
+          registry, and the hour-or-two beside it already says what it costs. */}
       <p className="mt-2 text-sm text-muted">
         8004scan implements no filter for any of these, so they cannot be asked for the way the
-        shares above were &mdash; 2,848 pages and an hour or two is the only route to them. This
-        reading was{" "}
+        shares above were &mdash; every page of the registry, an hour or two, is the only route to
+        them. This reading was{" "}
         {census.carried_forward
           ? `not taken on this build; it was carried forward from ${census.read_at ?? "a run recorded before readings were stamped"}`
           : "taken on this build"}
