@@ -451,8 +451,62 @@ def aacp_overlap() -> dict[str, Any]:
 SCAN_PATH = REPO / "data" / "scan8004.json"
 
 
+def _reconciliation(ours: int, theirs: int, their_contract: str | None) -> dict[str, Any]:
+    """Two counts of one registry, by two methods, with the gap stated not resolved.
+
+    Recomputed rather than carried, and that is the fix rather than a tidying.
+    It used to be built once inside `fetch_scan` and then frozen into
+    `data/scan8004.json`, so `make registry` — which republishes that file
+    verbatim and touches no network — could not correct it. Both inputs are
+    already on disk: ours from `data/registry_survey.json`, theirs from the
+    recorded population block. A comparison of two recorded numbers belongs
+    wherever those numbers are read.
+    """
+    return {
+        "ours": ours,
+        "ours_method": "binary search on ownerOf — totalSupply() reverts on this proxy",
+        "theirs": theirs,
+        "theirs_method": "8004scan's indexer",
+        # Signed, because the direction is real information: it says which of
+        # the two is larger, and that has changed at least once — ours led when
+        # this was written and 8004scan's leads now.
+        "difference": ours - theirs,
+        # A share **of the larger**, and positive, which is what the page has
+        # always called it.
+        #
+        # This was `100 * (ours - theirs) / ours`, and both halves went wrong on
+        # the day the counts crossed over. The sign flipped, so `/registry`
+        # rendered "-5,312 apart — -1.90% of the larger": a negative distance,
+        # in the aria label as well as on screen. And the denominator became the
+        # *smaller* count while the caption went on calling it the larger, which
+        # put the figure a few hundredths out on top of being negative.
+        #
+        # Every part of that was correct when written. Nothing on either side of
+        # the artifact boundary noticed when it stopped being, which is the
+        # argument for a bound that does not depend on which way the comparison
+        # happens to fall.
+        "difference_pct": round(100 * abs(ours - theirs) / max(ours, theirs), 3),
+        "same_contract": (their_contract or "").lower()
+        == IDENTITY_REGISTRY.get(BSC_MAINNET, "").lower(),
+        "note": (
+            "Two counts of the same registry by different methods. They are "
+            "published together and the gap is not resolved: nothing here can "
+            "say which is right, and picking the larger would be the misquote "
+            "this project is named after. What is checked is that both are "
+            "counting the same contract — if they were not, the comparison "
+            "would be meaningless rather than merely unresolved."
+        ),
+    }
+
+
 def read_scan(path: Path = SCAN_PATH) -> dict[str, Any]:
-    """Republish the 8004scan reading on disk. **This calls no API.**"""
+    """Republish the 8004scan reading on disk. **This calls no API.**
+
+    The reconciliation is the one block rebuilt rather than republished: it
+    compares a number from this file against one from `registry_survey.json`,
+    and freezing a comparison means it cannot be corrected without a network
+    call it does not need. See `_reconciliation`.
+    """
     if not path.exists():
         return {
             "available": False,
@@ -462,9 +516,18 @@ def read_scan(path: Path = SCAN_PATH) -> dict[str, Any]:
             ),
         }
     try:
-        return json.loads(path.read_text())
+        recorded = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as error:
         return {"available": False, "reason": f"{path.name} is unreadable: {error}"}
+
+    population = recorded.get("population") or {}
+    ours = read_survey().get("population")
+    theirs = population.get("population") if population.get("available") else None
+    if ours and theirs:
+        recorded["reconciliation"] = _reconciliation(
+            int(ours), int(theirs), population.get("contract_address")
+        )
+    return recorded
 
 
 def _feedback_cross_check(census: dict[str, Any], reach: dict[str, Any]) -> dict[str, Any]:
@@ -981,26 +1044,9 @@ def fetch_scan(census: bool = False, previous: dict[str, Any] | None = None) -> 
     ours_population = read_survey().get("population")
     theirs = pop.get("population") if pop.get("available") else None
     if ours_population and theirs:
-        payload["reconciliation"] = {
-            "ours": ours_population,
-            "ours_method": "binary search on ownerOf — totalSupply() reverts on this proxy",
-            "theirs": theirs,
-            "theirs_method": "8004scan's indexer",
-            "difference": ours_population - theirs,
-            "difference_pct": round(100 * (ours_population - theirs) / ours_population, 3),
-            "same_contract": (
-                (pop.get("contract_address") or "").lower()
-                == IDENTITY_REGISTRY.get(BSC_MAINNET, "").lower()
-            ),
-            "note": (
-                "Two counts of the same registry by different methods. They are "
-                "published together and the gap is not resolved: nothing here can "
-                "say which is right, and picking the larger would be the misquote "
-                "this project is named after. What is checked is that both are "
-                "counting the same contract — if they were not, the comparison "
-                "would be meaningless rather than merely unresolved."
-            ),
-        }
+        payload["reconciliation"] = _reconciliation(
+            int(ours_population), int(theirs), pop.get("contract_address")
+        )
     return payload
 
 

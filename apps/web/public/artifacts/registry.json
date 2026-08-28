@@ -29,9 +29,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-27T19:40:05+00:00",
+    "generated_at": "2026-08-28T06:59:46+00:00",
     "git_dirty": true,
-    "git_sha": "5397208",
+    "git_sha": "c7ae77d",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -986,7 +986,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 32.6,
+    "age_hours": 43.9,
     "agents": [
       {
         "agent": "warden",
@@ -2975,7 +2975,7 @@
     "rate_limit_per_minute": 3000,
     "reconciliation": {
       "difference": -5312,
-      "difference_pct": -1.895,
+      "difference_pct": 1.86,
       "note": "Two counts of the same registry by different methods. They are published together and the gap is not resolved: nothing here can say which is right, and picking the larger would be the misquote this project is named after. What is checked is that both are counting the same contract \u2014 if they were not, the comparison would be meaningless rather than merely unresolved.",
       "ours": 280287,
       "ours_method": "binary search on ownerOf \u2014 totalSupply() reverts on this proxy",

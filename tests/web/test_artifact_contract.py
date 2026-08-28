@@ -185,9 +185,9 @@ AGENT_FIELDS: dict[str, str] = {
     "verdicts.profitable.n": "AgentDetail.tsx",
     "activity.decisions": "AgentDetail.tsx",
     "activity.hours": "AgentDetail.tsx",
-    "activity.mints": "",
-    "activity.rebalances": "",
-    "activity.pulls": "",
+    "activity.mints": "AgentDetail.tsx",
+    "activity.rebalances": "AgentDetail.tsx",
+    "activity.pulls": "AgentDetail.tsx",
     "activity.executed": "AgentDetail.tsx",
     "activity.failed": "AgentDetail.tsx",
     "activity.dropped": "AgentDetail.tsx",
@@ -211,9 +211,9 @@ AGENT_FIELDS: dict[str, str] = {
     "replay.costs_quote": "AgentCard.tsx",
     "replay.net_quote": "AgentCard.tsx",
     "advantage.delta_pp": "AgentCard.tsx",
-    "advantage.material": "",
+    "advantage.material": "AgentDetail.tsx",
     "advantage.ranges_overlap": "AgentCard.tsx",
-    "advantage.separated": "",
+    "advantage.separated": "AgentDetail.tsx",
     "advantage.quotable": "AgentCard.tsx",
     "advantage.verdict": "AgentCard.tsx",
     "advantage.without_agent": "AgentDetail.tsx",
@@ -891,11 +891,11 @@ THIRD_PARTY_FIELDS: dict[str, str] = {
     "third_party.feedback_graph.tier": "",
     "third_party.feedback_graph.chain_id": "",
     # The feedback table's own total, and the two comparisons it feeds.
-    "third_party.feedback_reach.available": "",
+    "third_party.feedback_reach.available": "registry/view.tsx",
     "third_party.feedback_reach.feedbacks": "",
-    "third_party.feedback_reach.anchored": "",
-    "third_party.feedback_reach.example_transaction_hash": "",
-    "third_party.feedback_reach.example_block_number": "",
+    "third_party.feedback_reach.anchored": "registry/view.tsx",
+    "third_party.feedback_reach.example_transaction_hash": "registry/view.tsx",
+    "third_party.feedback_reach.example_block_number": "registry/view.tsx",
     "third_party.feedback_reach.chain_id": "",
     "third_party.feedback_reach.tier": "",
     "third_party.feedback_reach.note": "",
@@ -1096,8 +1096,8 @@ REGISTRY_FIELDS: dict[str, str] = {
     # candidate signatures, and that `orders(bytes32)` returns 13 words of which
     # exactly one is decoded. Contracted as unrendered so the gap is recorded
     # rather than merely true.
-    "aacp.not_erc8183": "",
-    "aacp.order_decode": "",
+    "aacp.not_erc8183": "registry/view.tsx",
+    "aacp.order_decode": "registry/view.tsx",
     "aacp.shares_our_identity_registry": "registry/view.tsx",
     "aacp.note": "registry/view.tsx",
     "aacp.chain_id": "",
@@ -1146,8 +1146,8 @@ REGISTRY_FIELDS: dict[str, str] = {
     # `checked` and `registered` render; these two do not. On the recorded run
     # both are zero, which is exactly when an unrendered failure count is
     # hardest to notice and most misleading if it ever stops being zero.
-    "ours.summary.failed": "",
-    "ours.summary.unknown": "",
+    "ours.summary.failed": "registry/view.tsx",
+    "ours.summary.unknown": "registry/view.tsx",
     "ours.owner": "registry/view.tsx",
     "ours.registry": "registry/view.tsx",
     "ours.chain_id": "registry/view.tsx",
@@ -1155,7 +1155,7 @@ REGISTRY_FIELDS: dict[str, str] = {
     # How stale the recorded reading is. Computed by the emitter on every build
     # and drawn nowhere, so the page presents a reading of unknown age as
     # current.
-    "ours.age_hours": "",
+    "ours.age_hours": "registry/view.tsx",
     "ours.record": "registry/view.tsx",
     # The funding transaction that made the registrations possible, and the
     # block they landed in. Recorded so the record is checkable rather than

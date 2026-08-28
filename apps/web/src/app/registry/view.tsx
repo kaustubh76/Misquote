@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable } from "@/components/DataTable";
+import { Disagreement } from "@/components/Disagreement";
 import { SectionRail } from "@/components/SectionRail";
 import { IndexedAgreement } from "@/components/IndexedAgreement";
 import type { OursAsIndexed, OursCrossCheck, TestnetCounts } from "@/components/IndexedAgreement";
 import { NameCollisionsCard, ScanLeaderboardCard } from "@/components/ScanAgents";
 import type { NameCollisions, ScanLeaderboard } from "@/components/ScanAgents";
 import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
+import { TallyStrip } from "@/components/TallyStrip";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -19,7 +21,7 @@ import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
 import { RegistrySearch } from "@/components/RegistrySearch";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, fixed, isNum, pct, shortAddress } from "@/lib/format";
+import { count, fixed, hours, isNum, pct, shortAddress } from "@/lib/format";
 
 interface Step {
   call: string;
@@ -171,6 +173,23 @@ export interface OwnIdentity {
  */
 export interface OwnIdentities {
   surveyed: boolean;
+  /**
+   * How long ago the record was read, in hours.
+   *
+   * Computed by the emitter on every build from the file's mtime and drawn
+   * nowhere, so the page presented a reading of unknown age as current.
+   */
+  age_hours?: number;
+  /**
+   * The check tally. All four, including the two that are zero — see the note
+   * at the render site for why the failing halves are not optional.
+   */
+  summary?: {
+    checked?: number;
+    registered?: number;
+    failed?: number;
+    unknown?: number;
+  };
   reason?: string;
   chain_id: number;
   verdict?: string;
@@ -262,6 +281,15 @@ export interface RegistryArtifact {
      * — counted, not guessed — and renders verbatim.
      */
     escrow_selectors?: { resolved: number; total: number; note: string };
+    /**
+     * The two findings this block exists to report, and the interface behind them.
+     *
+     * Not in this type until now, which is why they were unrendered: the
+     * emitter has carried them since it was written, `Readme.md` §8 leans on
+     * both, and the page could not read what it had not declared.
+     */
+    not_erc8183?: string;
+    order_decode?: string;
   };
   /**
    * What a third-party index says about the same registry.
@@ -388,6 +416,20 @@ export interface RegistryArtifact {
       distinct_owners: number | null;
       distinct_descriptions: number | null;
     };
+    /**
+     * The feedback table's own total, counted from the other end.
+     *
+     * `feedbacks` reaches the page through `feedback_cross_check`, which
+     * compares it against the sum over agent rows. What was unrendered until
+     * now is the half that makes the count checkable: `anchored`, and an
+     * example row naming the transaction and block that wrote it.
+     */
+    feedback_reach?: {
+      available: boolean;
+      anchored?: boolean;
+      example_transaction_hash?: string;
+      example_block_number?: number;
+    };
     feedback_cross_check?: {
       available: boolean;
       summed_over_agents?: number;
@@ -402,7 +444,16 @@ export interface RegistryArtifact {
       theirs: number;
       theirs_method: string;
       difference: number;
-      /** Already in percentage points: `0.69` means 0.69%. */
+      /**
+       * The gap as a share **of the larger** count, in percentage points and
+       * always positive: `1.86` means 1.86%.
+       *
+       * It used to be a share of *ours*, signed. Both went wrong the day
+       * 8004scan's count overtook ours: the page rendered a negative distance,
+       * and the denominator became the smaller count while the caption went on
+       * calling it the larger. `difference` beside it stays signed, because
+       * which one leads is a fact worth keeping.
+       */
       difference_pct: number;
       /** Whether both methods are counting the same contract at all. */
       same_contract: boolean;
@@ -975,6 +1026,12 @@ export function RegistryView({
             {/* Two counts of the same registry, and the gap between them is
                 the answer.
 
+                The mark is `Disagreement`, and every argument for its shape
+                moved into that file with it — why an interval rather than two
+                bars, why the axis is magnified and must say so, why the gap is
+                hatched neutral rather than warm. What stays here is the one
+                sentence this block is for.
+
                 `third_party.reconciliation` has been in the artifact since the
                 survey learned to cross-check itself and no page read it —
                 including its note, which is the only sentence in this
@@ -984,7 +1041,7 @@ export function RegistryView({
 
                 Drawn as an interval rather than as two bars, and that was a
                 correction. Two bars from a shared zero are the honest picture
-                of a 0.66% disagreement and they are also two identical bars —
+                of a disagreement this size and they are also two identical bars —
                 the block carried its whole finding in the numbers and nothing
                 in the mark. But two methods that will not be reconciled *are* a
                 range, which is the one figure this entire site is built to
@@ -1001,17 +1058,6 @@ export function RegistryView({
               const rec = d.third_party?.reconciliation;
               if (!rec) return null;
 
-              const low = Math.min(rec.ours, rec.theirs);
-              const high = Math.max(rec.ours, rec.theirs);
-              const pad = Math.max(1, (high - low) * 0.45);
-              const span = high - low + pad * 2;
-              const at = (n: number) => `${((n - (low - pad)) / span) * 100}%`;
-
-              const ends = [
-                { who: "8004scan", n: rec.theirs, how: rec.theirs_method },
-                { who: "this repository", n: rec.ours, how: rec.ours_method },
-              ].sort((a, b) => a.n - b.n);
-
               return (
                 <Card className="mt-4">
                   <CardHeader
@@ -1024,65 +1070,35 @@ export function RegistryView({
                     }
                   />
 
-                  <div
-                    className="relative h-12"
-                    role="img"
-                    aria-label={
+                  <Disagreement
+                    readings={[
+                      { who: "8004scan", how: rec.theirs_method, n: rec.theirs },
+                      { who: "this repository", how: rec.ours_method, n: rec.ours },
+                    ]}
+                    ariaSentence={
                       `Two counts of the same registry: ${count(rec.theirs)} by ` +
                       `${rec.theirs_method}, and ${count(rec.ours)} by ${rec.ours_method}. ` +
-                      `${count(rec.difference)} apart, ${fixed(rec.difference_pct, 2)}% of ` +
-                      `the larger. Neither is chosen.`
+                      `${count(Math.abs(rec.difference))} apart, ` +
+                      `${fixed(rec.difference_pct, 2)}% of the larger. Neither is chosen.`
                     }
-                  >
-                    {/* The unresolved span. Hatched in the neutral tone, not
-                        the warm one: `Ledger.tsx` sets that rule — warm means
-                        evidence exists and fell short, neutral means nothing
-                        was ever there. This gap is neither a shortfall nor an
-                        error; it is a region no method on this page speaks
-                        for, which is what the hatch means. */}
-                    <div
-                      className="hatched absolute top-1/2 h-6 -translate-y-1/2 rounded-sm border border-line-strong"
-                      style={{ left: at(low), width: `${((high - low) / span) * 100}%` }}
-                    />
-                    {ends.map((end, i) => (
-                      <div
-                        key={end.who}
-                        className="absolute top-1/2 h-8 w-0.5 -translate-y-1/2 bg-brand"
-                        style={{ left: at(end.n) }}
-                      >
-                        <span
-                          className={`absolute -top-1 whitespace-nowrap font-mono text-xs text-ink ${
-                            i === 0 ? "right-2 text-right" : "left-2"
-                          }`}
-                        >
-                          {count(end.n)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                    spreadNote={
+                      <>
+                        {/* The magnitude. `difference` is signed on purpose — it
+                            says which of the two counts is larger, and that has
+                            changed — but the word beside it is "apart", and a
+                            distance has no sign. This rendered "-5,312 apart"
+                            for as long as 8004scan's count led ours, here and in
+                            the spoken description. */}
+                        <span className="tabular font-semibold text-warn">
+                          {count(Math.abs(rec.difference))}
+                        </span>{" "}
+                        apart — {fixed(rec.difference_pct, 2)}% of the larger, which is why
+                        the axis above is drawn across the counts rather than from zero. At
+                        true scale the marks would sit on top of each other.
+                      </>
+                    }
+                  />
 
-                  <ul className="m-0 mt-2 list-none space-y-1 p-0">
-                    {ends.map((end) => (
-                      <li
-                        key={end.who}
-                        className="font-mono text-xs break-words text-faint"
-                      >
-                        {count(end.n)} · {end.who} — {end.how}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <p className="mt-5 mb-0 border-t border-line pt-4 text-sm">
-                    <span className="tabular font-semibold text-warn">
-                      {count(rec.difference)}
-                    </span>{" "}
-                    <span className="text-dim">
-                      apart — {fixed(rec.difference_pct, 2)}% of the larger, which is
-                      why the axis above is drawn across the two counts rather than
-                      from zero. At true scale the marks would sit on top of each
-                      other.
-                    </span>
-                  </p>
                   {/* The emitter's own words. This is the sentence. */}
                   <p className="mt-2 mb-0 max-w-[72ch] text-sm text-dim">{rec.note}</p>
                 </Card>
@@ -1145,6 +1161,7 @@ export function RegistryView({
               three={d.third_party?.agents_with_feedback_three_ways}
               graph={d.third_party?.feedback_graph}
               cross={d.third_party?.feedback_cross_check}
+              reach={d.third_party?.feedback_reach}
             />
             <ScanLeaderboardCard leaderboard={d.third_party?.leaderboard} />
             <Census census={d.third_party?.census} />
@@ -1185,6 +1202,28 @@ export function RegistryView({
                     "there is deliberately nothing here" and an unresolved
                     selector is precisely that. The emitter's note says why, and
                     it is the argument: they are counted, not guessed. */}
+                {/* The negative findings, verbatim.
+                    These are the strongest claims in this artifact — that
+                    TermixEscrow implements *none* of ERC-8183's seven calls
+                    across 5,894 candidate signatures, and that
+                    `orders(bytes32)` returns thirteen words of which exactly
+                    one is decoded — and neither reached a page. The block above
+                    renders how many selectors were named; these say what the
+                    contract turned out not to be.
+
+                    Verbatim rather than paraphrased, the rule this file already
+                    follows for `rec.note`: a paraphrase of a refusal is how it
+                    becomes an apology. */}
+                {(d.aacp.not_erc8183 || d.aacp.order_decode) && (
+                  <div className="mt-5 space-y-3 border-t border-line pt-4">
+                    {d.aacp.not_erc8183 && (
+                      <p className="m-0 max-w-[72ch] text-sm text-dim">{d.aacp.not_erc8183}</p>
+                    )}
+                    {d.aacp.order_decode && (
+                      <p className="m-0 max-w-[72ch] text-sm text-dim">{d.aacp.order_decode}</p>
+                    )}
+                  </div>
+                )}
                 {d.aacp.escrow_selectors && (
                   <div className="mt-5 border-t border-line pt-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
@@ -1363,10 +1402,12 @@ function FeedbackReach({
   three,
   graph,
   cross,
+  reach,
 }: {
   three?: NonNullable<RegistryArtifact["third_party"]>["agents_with_feedback_three_ways"];
   graph?: NonNullable<RegistryArtifact["third_party"]>["feedback_graph"];
   cross?: NonNullable<RegistryArtifact["third_party"]>["feedback_cross_check"];
+  reach?: NonNullable<RegistryArtifact["third_party"]>["feedback_reach"];
 }) {
   if (!graph?.available) {
     return (
@@ -1388,21 +1429,90 @@ function FeedbackReach({
       {three?.available && (
         <>
           <p className="text-sm text-muted">{three.note}</p>
-          <DataTable
-            caption="How many agents anyone has ever rated"
-            columns={["Route", "Agents", "Out of"]}
-            notes="figures"
-            rows={three.readings.map((r) => ({
-              label: r.route + (r.carried_forward ? " (carried forward)" : ""),
-              value: count(r.agents),
-              note: count(r.of),
+          {/* The same mark as the two registry counts above, for the same
+              reason and now from the same component: three readings that will
+              not be reconciled are a range, and a table of three rows carries
+              the finding in the numbers and nothing in the shape.
+
+              Three rather than two is where the extraction earned itself. The
+              inline version labelled its ticks by alternating right and left,
+              which works for a pair and collides here — 438, 510 and 547 sit
+              inside a hundred. Above a pair the ticks go unlabelled and this
+              list is the record. */}
+          <Disagreement
+            readings={three.readings.map((r) => ({
+              who: r.route + (r.carried_forward ? " (carried forward)" : ""),
+              how: `of ${count(r.of)}`,
+              n: r.agents,
             }))}
+            ariaSentence={
+              `How many agents anyone has ever rated, three ways: ` +
+              three.readings
+                .map((r) => `${count(r.agents)} ${r.route}`)
+                .join(", ") +
+              `. ${count(three.low)} to ${count(three.high)}, a spread of ` +
+              `${count(three.spread)}. None is chosen.`
+            }
+            spreadNote={
+              <>
+                <span className="tabular font-semibold text-warn">
+                  {count(three.spread)}
+                </span>{" "}
+                apart — {count(three.low)} to {count(three.high)} on one quantity from one
+                index, which is why the axis is drawn across the readings rather than from
+                zero.
+              </>
+            }
           />
-          <p className="mt-2 font-mono text-xs text-faint">
-            {count(three.low)} to {count(three.high)}, a spread of {count(three.spread)} on one
-            quantity from one index.
-          </p>
         </>
+      )}
+
+      {/* Concentration, as a shape.
+          The two percentages below say the busiest address wrote 4% and the top
+          five wrote 21%, and a reader has to hold both and subtract to see what
+          the distribution actually is. It is a parts-of-a-whole with a bounded
+          denominator, which is what `TallyStrip` is for.
+
+          Scaled to `rows` — every feedback on the chain — rather than to the
+          three parts, because that is the denominator the claim is about. The
+          remainder is drawn in the neutral tone rather than a third colour:
+          "everyone else" is not a finding, it is what is left. */}
+      {graph.top_rater_share !== null && graph.top_five_rater_share !== null && (
+        <div className="mb-5">
+          <TallyStrip
+            total={graph.rows}
+            parts={[
+              {
+                label: "the busiest address",
+                tone: "bg-brand",
+                n: Math.round(graph.top_rater_share * graph.rows),
+              },
+              {
+                label: "the next four",
+                tone: "bg-brand/40",
+                n: Math.round(
+                  (graph.top_five_rater_share - graph.top_rater_share) * graph.rows,
+                ),
+              },
+              {
+                label: "everyone else",
+                tone: "bg-neutral/30",
+                n: Math.round((1 - graph.top_five_rater_share) * graph.rows),
+              },
+            ]}
+            ariaSentence={
+              `Of ${count(graph.rows)} feedback rows written by ` +
+              `${count(graph.distinct_raters)} distinct addresses: ` +
+              `${pct(graph.top_rater_share, 1)} by the busiest one, ` +
+              `${pct(graph.top_five_rater_share, 1)} by the busiest five.`
+            }
+          />
+          <p className="mt-2 mb-0 font-mono text-xs text-faint">
+            {pct(graph.top_rater_share, 1)} by the busiest address ·{" "}
+            {pct(graph.top_five_rater_share, 1)} by the busiest five · of{" "}
+            {count(graph.rows)} rows from {count(graph.distinct_raters)} addresses
+          </p>
+        </div>
       )}
 
       <DataTable
@@ -1448,8 +1558,42 @@ function FeedbackReach({
         <p className="mt-3 font-mono text-xs text-faint">
           The same index also disagrees with itself about how many feedbacks exist:{" "}
           {count(cross.summed_over_agents)} summed across agent rows against{" "}
-          {count(cross.counted_in_feedback_table)} in the feedback table, {count(cross.difference)}{" "}
-          apart.
+          {count(cross.counted_in_feedback_table)} in the feedback table,{" "}
+          {/* The magnitude, for the reason the reconciliation block above gives:
+              `difference` is `summed - counted` and is negative whenever the
+              table leads, which it does. This line read "-38 apart" — the
+              second instance of that defect on this page, found while fixing
+              the first. */}
+          {count(Math.abs(cross.difference ?? 0))} apart.
+        </p>
+      )}
+
+      {/* What separates a count from a star rating, which the artifact says and
+          nothing rendered.
+
+          `feedback_reach` carries `anchored` and an example row — the block and
+          the transaction that wrote it — and all eight of its fields were
+          unrendered. The claim it supports is the one this whole section is
+          for: every feedback in that total names a transaction a reader can
+          open, so the number is checkable rather than merely reported. A claim
+          like that with no example beside it is exactly the kind of assertion
+          this page exists to stop making. */}
+      {reach?.available && reach.anchored && reach.example_transaction_hash && (
+        <p className="mt-3 text-sm text-muted">
+          Every one of those rows names the transaction that wrote it, which is what
+          separates this count from a star rating —{" "}
+          <a
+            href={`https://bscscan.com/tx/${reach.example_transaction_hash}`}
+            className="font-mono text-xs break-all"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {shortAddress(reach.example_transaction_hash, 10, 8)}
+          </a>
+          {reach.example_block_number !== undefined && (
+            <> in block {count(reach.example_block_number)}</>
+          )}
+          , to pick one.
         </p>
       )}
     </Card>
@@ -1554,10 +1698,35 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
             <span className="font-mono normal-case">
               chain {ours.chain_id}
               {ours.block != null && ` · block ${ours.block.toLocaleString("en-US")}`}
+              {/* How old this reading is. The emitter computes it on every
+                  build from the record's mtime and nothing drew it, so the page
+                  presented a reading of unknown age as current — which is the
+                  one thing a record of a chain read must not do. It is 32.6
+                  hours as this is written, not zero. */}
+              {ours.age_hours != null && ` · read ${hours(ours.age_hours)} ago`}
             </span>
           }
           aside={<Pill tone={statusTone(ours.verdict || "UNKNOWN")}>{ours.verdict || "UNKNOWN"}</Pill>}
         />
+        {/* The whole tally, including the two that are zero.
+            The contract declared `checked` and `registered` as rendered here
+            and they were not: the guard matches a field by its leaf name, and
+            "registered" appears in this file twice in ordinary prose — "285,599
+            registered agents", "registered on BSC testnet". So the positive
+            direction of that check has the same weakness as the negative one it
+            was written to complement, and all four of these were unrendered.
+
+            `failed` and `unknown` are both zero today, which is exactly when an
+            unshown failure count is hardest to notice and most misleading the
+            day it stops being zero. A verdict pill beside a tally that omits
+            the failures is a verdict with no denominator. */}
+        {ours.summary && (
+          <p className="mt-1 mb-3 font-mono text-xs text-faint">
+            {count(ours.summary.registered)} registered of {count(ours.summary.checked)}{" "}
+            checked · {count(ours.summary.failed)} failed ·{" "}
+            {count(ours.summary.unknown)} unknown
+          </p>
+        )}
         {ours.owner && (
           <p className="m-0 text-sm text-dim">
             Owned by{" "}

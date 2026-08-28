@@ -1418,6 +1418,65 @@ describe("Overview routes the two integrations", () => {
   });
 });
 
+/**
+ * Two counts that will not be reconciled, and the sign that broke when they crossed.
+ *
+ * `/registry` rendered **"-5,312 apart — -1.90% of the larger"** for as long as
+ * 8004scan's count led ours, on screen and in the `aria-label`. Three things
+ * were wrong at once and all three had been right when written: a negative
+ * distance, a negative percentage, and a denominator that had quietly become
+ * the *smaller* count while the caption went on calling it the larger.
+ *
+ * Asserted against whichever way the artifact currently points, so the test
+ * does not itself assume a direction — which is the assumption that failed.
+ */
+describe("Registry: the gap between two counts of one registry", () => {
+  const rec = readArtifact<{
+    third_party?: {
+      reconciliation?: {
+        ours: number;
+        theirs: number;
+        difference: number;
+        difference_pct: number;
+      };
+    };
+  }>("registry.json").third_party?.reconciliation;
+
+  it("never renders a negative distance, whichever count is ahead", async () => {
+    if (!rec) return;
+    serveArtifacts();
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "Two counts of the same registry" });
+
+    const mark = screen.getByRole("img", {
+      name: /Two counts of the same registry/,
+    });
+    const spoken = mark.getAttribute("aria-label") ?? "";
+
+    expect(spoken).not.toMatch(/-[\d,]+ apart/);
+    expect(spoken).toContain(`${Math.abs(rec.difference).toLocaleString("en-US")} apart`);
+  });
+
+  it("states the gap as a share of the larger count, because that is what it calls it", () => {
+    if (!rec) return;
+    // The emitter's half. A share of `ours` was correct until `ours` stopped
+    // being the larger of the two, and nothing on either side noticed.
+    const larger = Math.max(rec.ours, rec.theirs);
+    const expected = Math.round((100 * Math.abs(rec.difference)) / larger * 1000) / 1000;
+
+    expect(rec.difference_pct).toBeCloseTo(expected, 3);
+    expect(rec.difference_pct).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps the sign on `difference`, because which one leads is a fact", () => {
+    if (!rec) return;
+    // Not `Math.abs` in the artifact: the direction has already changed once,
+    // and a page that wanted to say which index is ahead would have nothing to
+    // read if the emitter threw it away.
+    expect(Math.sign(rec.difference)).toBe(Math.sign(rec.ours - rec.theirs));
+  });
+});
+
 describe("Registry leads with the deliverable, and stops hiding four fields", () => {
   interface Status {
     checks: { name: string; status: string; detail: string }[];

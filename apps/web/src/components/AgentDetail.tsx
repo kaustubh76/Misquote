@@ -348,6 +348,24 @@ export function AgentDetail({
               </span>{" "}
               <span className="text-dim">— {adv.verdict}</span>
             </p>
+            {/* The two conditions the verdict rests on, beside it.
+                `RouterDetail` renders exactly this line and says why: "`material`
+                and `separated` were on this artifact and reached the page only
+                folded inside the verdict sentence." `/advantage` renders them
+                too. Only the LP cards did not, so two card types gave a reader
+                different qualifiers for one comparison.
+
+                Untoned, and deliberately. `/advantage` holds a `taskTone` whose
+                docstring records what happened when these were coloured:
+                `separated ? "pass" : "none"` painted a **loss** green, because
+                the glyph said pass and the number said loss, and the glyph is
+                what a reader takes in first. A third implementation of that rule
+                is the drift `ComparisonTable` exists to prevent — and the delta
+                above already carries its own sign class. */}
+            <p className="mt-1 mb-0 font-mono text-xs text-faint">
+              {adv.material ? "material" : "immaterial"} · bands{" "}
+              {adv.separated ? "separated" : "overlapping"}
+            </p>
           </Card>
         </Section>
       )}
@@ -431,6 +449,24 @@ export function AgentDetail({
             <p className="mt-4 mb-0 text-xs text-dim">
               {count(d.activity.executed)} recorded · {count(d.activity.failed)} failed ·{" "}
               {count(d.activity.dropped)} dropped as stale or capped
+            </p>
+            {/* What the live loop actually did, in this card and no other.
+                `activity.mints/rebalances/pulls` were on the artifact and
+                reached no page, so the only move counts a reader saw were the
+                replay's — 249 mints beside this loop's one, on the same screen,
+                with nothing saying the second number existed.
+
+                Deliberately **not** placed opposite the replay's three. This
+                file already corrected that error once: "They sat side by side
+                under one heading with no scale on either, so the gate histogram
+                read as an account of the replay's." These are half a million
+                counterfactual decisions against a quarter of an hour of real
+                ones — three orders of magnitude apart — and pairing them is
+                what makes two correct readings look like a contradiction. The
+                card states its own span above; these belong inside it. */}
+            <p className="mt-2 mb-0 text-xs text-dim">
+              {count(d.activity.mints)} mint · {count(d.activity.rebalances)} recentre ·{" "}
+              {count(d.activity.pulls)} pull
             </p>
             {d.activity.read_errors > 0 && (
               <p className="mt-2 mb-0 text-xs text-warn">
