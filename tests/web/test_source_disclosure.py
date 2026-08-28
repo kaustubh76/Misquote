@@ -255,3 +255,72 @@ def test_a_chain_report_carries_the_yield_task_when_a_rate_tape_exists() -> None
         f"Route task. Its tasks are {names}. A category that disappears without a "
         f"stated reason is exactly what this report exists to argue against."
     )
+
+
+# ── the half that was narrowed away, restored ────────────────────────────────
+
+
+def _views() -> dict[str, str]:
+    web = REPO / "apps" / "web" / "src"
+    return {p.name: p.read_text() for p in web.rglob("*.tsx") if not p.name.endswith(".test.tsx")}
+
+
+def test_every_view_that_publishes_a_delta_also_shows_its_tape() -> None:
+    """The failure this file is named for, guarded where it actually happened.
+
+    This module's docstring opens with the defect:
+
+        /advantage        Protect — Sentinel   -38.17pp   source: chain
+        /agent/sentinel   Sentinel             +0.72pp    source: synthetic
+
+    and its original fix was a view: "`SourceBanner` now leads every card, and
+    each side carries the other's figure and a link to it." That component was
+    later deleted, and this file was rewritten to guard the *artifact contract*
+    instead — honestly, and with the narrowing stated. But the artifact was
+    never the half that broke. `source` went on being written and stopped being
+    shown, `AGENT_FIELDS` recorded it as unrendered, and nothing failed.
+
+    `tearsheet/provenance.py::build_stamp` does not treat this as optional:
+    "chain" and "synthetic" "are two different claims, and the UI is required to
+    say which one it is showing."
+
+    So: a component that renders a `delta_pp` must also render the tape it came
+    from. Matched on `TapeSource` rather than on the word, because the word is
+    "chain" or "synthetic" and both appear in prose all over this codebase —
+    the same leaf-name weakness `test_artifact_contract.py` documents in both
+    directions.
+    """
+    views = _views()
+    #: Components that put a `delta_pp` in front of a reader.
+    #:
+    #: Named rather than detected: `delta_pp` reaches these through half a dozen
+    #: local aliases (`adv.delta_pp`, `task.delta_pp`, a `deltaPp` prop), and a
+    #: grep loose enough to catch all of them catches the type declarations too.
+    publishing = ("AgentCard.tsx", "RouterCard.tsx", "AgentDetail.tsx", "RouterDetail.tsx")
+
+    missing = [name for name in publishing if name in views and "TapeSource" not in views[name]]
+
+    assert not missing, (
+        "these render a delta and do not say which tape it came from — the "
+        f"defect this file is named for, one component at a time: {missing}"
+    )
+
+
+def test_the_advantage_page_says_which_tape_each_of_its_two_reports_ran_over() -> None:
+    """`/advantage` renders two reports and one of them is synthetic.
+
+    `advantage_short.json` is emitted by `make advantage-short` from a
+    deliberately truncated synthetic tape, so every task comes back withheld —
+    which is the point of the panel. The page labelled it "Deliberately short
+    tape", and short is not the same claim as synthetic: a short *chain* tape is
+    real history that ran out, a short *synthetic* one is a random walk cut off.
+
+    So the page showed a chain report and a synthetic report side by side and
+    distinguished them by length.
+    """
+    view = (REPO / "apps" / "web" / "src" / "app" / "advantage" / "view.tsx").read_text()
+
+    assert view.count("TapeSource") >= 3, (
+        "/advantage renders two reports; each needs its own tape disclosed "
+        "(one import plus one use per report)"
+    )

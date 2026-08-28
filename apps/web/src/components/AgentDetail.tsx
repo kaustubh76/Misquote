@@ -6,6 +6,7 @@ import { Section } from "@/components/Heading";
 import { AgentJournal } from "@/components/AgentJournal";
 import { SectionRail } from "@/components/SectionRail";
 import { Badge } from "@/components/Badge";
+import { TapeSource } from "@/components/TapeSource";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
@@ -389,7 +390,17 @@ export function AgentDetail({
             <CardHeader
               title="Replay"
               eyebrow={`${count(r.samples)} decisions · ${hours(r.hours)} of tape`}
-              aside={<Badge tone="warn">Counterfactual</Badge>}
+              aside={
+                <span className="flex flex-wrap items-center gap-2">
+                  <Badge tone="warn">Counterfactual</Badge>
+                  {/* On the replay card specifically, because `source` is a
+                      fact about the tape the replay ran over. The live-loop
+                      card beside it reads a journal, not a tape, and giving it
+                      the same mark would attach the claim to the wrong run —
+                      which is the error this section already corrected once. */}
+                  <TapeSource source={d.source} />
+                </span>
+              }
             />
             <DataTable
               caption="Replay activity"

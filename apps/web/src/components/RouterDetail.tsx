@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Band } from "@/components/Band";
+import { TapeSource } from "@/components/TapeSource";
 import { AgentJournal } from "@/components/AgentJournal";
 import { Card } from "@/components/Card";
 import { WithCitations } from "@/components/Cite";
@@ -312,9 +313,18 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
               </span>{" "}
               <span className="text-dim">{adv.verdict}</span>
             </p>
-            <p className="mt-1 mb-4 font-mono text-xs text-faint">
-              {adv.material ? "material" : "immaterial"} · bands{" "}
-              {adv.separated ? "separated" : "overlapping"}
+            <p className="mt-1 mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-faint">
+              <span>
+                {adv.material ? "material" : "immaterial"} · bands{" "}
+                {adv.separated ? "separated" : "overlapping"}
+              </span>
+              {/* And which tape. Router reads a rate tape rather than a swap
+                  tape, which makes its disclosure more load-bearing than the
+                  LP cards' rather than less: a reader comparing this delta
+                  against one of theirs is already comparing two different
+                  measurements, and the tape is the only thing on screen that
+                  says so. */}
+              <TapeSource source={data.source} />
             </p>
 
             <DataTable

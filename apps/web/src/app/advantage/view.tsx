@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { TallyStrip } from "@/components/TallyStrip";
+import { TapeSource } from "@/components/TapeSource";
 import { Card } from "@/components/Card";
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { Pill } from "@/components/Pill";
@@ -151,8 +152,17 @@ export function AdvantageView({
                     rather than one figure on it, and `Badge`'s own docstring
                     reserves itself for "a badge qualifies a number". */}
                 {d.badge && (
-                  <p className="mt-0 mb-2 font-mono text-xs tracking-wide text-warn">
+                  <p className="mt-0 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs tracking-wide text-warn">
                     {d.badge}
+                    {/* Which tape this report ran over. `test_source_disclosure.py`
+                        exists because `/advantage` once said `source: chain` for
+                        a task while `/agent/sentinel` said `source: synthetic`
+                        for the same agent, a sign flip one click apart, with
+                        neither page mentioning the other. That test was narrowed
+                        to guard the artifact when the component carrying this
+                        was deleted — and the artifact half was never the half
+                        that broke. */}
+                    <TapeSource source={d.source} />
                   </p>
                 )}
                 <Heading className="mt-0 mb-2 text-lg font-semibold">
@@ -322,6 +332,12 @@ export function AdvantageView({
               <Card>
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                   <Badge tone="neutral">Deliberately short tape</Badge>
+                  {/* Short and synthetic are different claims, and this panel
+                      only made the first. A short *chain* tape is real history
+                      that ran out; a short *synthetic* one is a random walk
+                      truncated on purpose. This report is the second, has been
+                      since it was added, and the page said so nowhere. */}
+                  <TapeSource source={short.value.source} />
                   <span className="font-mono text-xs text-faint">
                     {short.value.summary.withheld} of{" "}
                     {short.value.summary.tasks} withheld

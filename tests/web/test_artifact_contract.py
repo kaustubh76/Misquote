@@ -115,7 +115,10 @@ AGENT_FIELDS: dict[str, str] = {
     "agent": "AgentDetail.tsx",
     "pool": "AgentDetail.tsx",
     "badge": "AgentCard.tsx",
-    "source": "",  # recorded in the artifact; not rendered
+    "source": "AgentCard.tsx",  # `provenance.build_stamp` calls this required: "chain" and
+    # "synthetic" are not two qualities of one result, they are two claims,
+    # "and the UI is required to say which one it is showing". It stopped
+    # saying when `SourceBanner` was deleted.
     # The unit of every `*_quote` figure below. Added to the emitter without
     # being added here, which this test's own docstring is about: the omission
     # was invisible because the artifacts on disk predated the field, so the
@@ -261,7 +264,7 @@ ROUTER_FIELDS: dict[str, str] = {
     "category": "RouterCard.tsx",
     "venue": "RouterDetail.tsx",
     "venues": "RouterDetail.tsx",
-    "source": "",  # recorded in the artifact; not rendered
+    "source": "RouterCard.tsx",
     "counterfactual": "",
     "badge": "RouterCard.tsx",
     "quote_symbol": "RouterDetail.tsx",

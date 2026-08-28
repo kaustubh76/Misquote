@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { TapeSource } from "@/components/TapeSource";
 import { Card, CardHeader } from "@/components/Card";
 import { CompareToggle } from "@/components/CompareToggle";
 import { Band } from "@/components/Band";
@@ -55,6 +56,7 @@ export function RouterCard({
       />
 
       <Badge>{data.badge}</Badge>
+      <TapeSource source={data.source} />
 
       <p className="mt-4 mb-4 text-sm text-dim">{q.basis}</p>
 

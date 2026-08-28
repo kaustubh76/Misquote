@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
+import { TapeSource } from "@/components/TapeSource";
 import { Card, CardHeader } from "@/components/Card";
 import { CompareToggle } from "@/components/CompareToggle";
 import { CostBars } from "@/components/CostBars";
@@ -43,7 +44,17 @@ export function AgentCard({
         eyebrow={ref_.category}
         title={data.agent}
         href={`/agent/${ref_.slug}`}
-        aside={<Badge tone="warn">{data.badge}</Badge>}
+        aside={
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge tone="warn">{data.badge}</Badge>
+            {/* Which tape, beside the badge saying the position was never held.
+                Both qualify every figure on this card and neither is derivable
+                from the other: "counterfactual" says nothing happened,
+                `source` says whether the history it did not happen over was
+                real. `provenance.build_stamp` calls this one required. */}
+            <TapeSource source={data.source} />
+          </span>
+        }
       />
 
       {/* Two columns, and the card keeps every row it had.
