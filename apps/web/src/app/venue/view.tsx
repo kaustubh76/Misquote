@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
+import { Prose } from "@/components/Blocks";
 import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
@@ -292,7 +293,7 @@ export function VenueView({
               {d.divergences.map((row) => (
                 <Card key={row.what} className="!p-5">
                   <p className="m-0 text-sm font-semibold text-ink">
-                    {row.what}
+                    <Prose text={row.what} />
                   </p>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">

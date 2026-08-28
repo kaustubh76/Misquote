@@ -3,7 +3,7 @@
 import { Heading, Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
-import { Blocks, type Block } from "@/components/Blocks";
+import { Blocks, Prose, type Block } from "@/components/Blocks";
 import { Card } from "@/components/Card";
 import { ChipGroup } from "@/components/ChipGroup";
 import { ErrorNotice } from "@/components/Refusal";
@@ -311,7 +311,24 @@ export function AssumptionsView({
                                 <span className="shrink-0 font-mono text-xs text-warn">
                                   {e.id}
                                 </span>
-                                <span className="truncate">{e.title}</span>
+                                {/* Same string, same treatment — an index whose
+                                    entries read differently from the headings
+                                    they point at is a worse index. `truncate`
+                                    still clips it; the marks inside are inline.
+
+                                    `links={false}` because this whole row is
+                                    already an `<a href="#id">`, and three titles
+                                    name another assumption — "A1 is refused at
+                                    the decision", "published as G-4". A `<Cite>`
+                                    inside this anchor is an anchor inside an
+                                    anchor: the parser hoists it out, and
+                                    `/assumptions` threw React #418 on every
+                                    load until this prop existed. The ids still
+                                    read as text; they are links in the heading
+                                    the row points at. */}
+                                <span className="truncate">
+                                  <Prose text={e.title} links={false} />
+                                </span>
                               </a>
                             </li>
                           ))}
@@ -495,7 +512,15 @@ function EntryCard({
           <span className="rounded-sm border border-glass-line bg-panel-2/50 px-2 py-0.5 font-mono text-xs text-warn">
             {entry.id}
           </span>
-          <Heading className="m-0 min-w-0 text-md font-semibold break-words">{entry.title}</Heading>
+          {/* `Prose`, because these titles are written in markdown too.
+              Thirty-two of the eighty-two end in a dated suffix —
+              "**fixed 17 Aug 2026**" — and every one of them printed its own
+              asterisks, on the page that argues the sheet is a product surface
+              rather than a note. The body two blocks down has rendered markdown
+              since it was written; only the heading above it did not. */}
+          <Heading className="m-0 min-w-0 text-md font-semibold break-words">
+            <Prose text={entry.title} />
+          </Heading>
           {/* Words, not only a colour. `:target` gives a border tint and the
               programmatic focus does not reliably satisfy `:focus-visible` for
               a reader who arrived by clicking, so a mouse user landing here

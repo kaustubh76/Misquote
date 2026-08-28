@@ -159,3 +159,25 @@ export function readArtifact<T>(name: string): T {
 export function textFrom(value: string): RegExp {
   return new RegExp(value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"));
 }
+
+/**
+ * An artifact string as `Prose` puts it on the page.
+ *
+ * Every emitter here writes markdown, and `Prose` renders it — so `**material
+ * separation**` reaches the DOM as three nodes and a `getByText` on the raw
+ * artifact string matches nothing. That is not the page being wrong; it is the
+ * assertion comparing source to output.
+ *
+ * Mirrors `Blocks.tsx`'s split exactly: a link keeps its label and drops its
+ * href, and bold, emphasis and code spans keep their contents. Kept beside
+ * `textFrom` because they answer the same question — what does this artifact
+ * string look like once a component has had it — and both exist because the
+ * naive comparison fails against output that is correct.
+ */
+export function asRendered(value: string): string {
+  return value
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1");
+}

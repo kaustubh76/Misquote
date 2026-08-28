@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readArtifact, serveArtifacts } from "@/test/harness";
+import { asRendered, readArtifact, serveArtifacts } from "@/test/harness";
 import AssumptionsPage from "./page";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/assumptions" }));
@@ -64,7 +64,11 @@ describe("the index says what each entry is, not just that it exists", () => {
     for (const entry of sheet().entries) {
       const link = links.find((a) => a.getAttribute("href") === `#${entry.id}`)!;
       expect(link).toBeDefined();
-      expect(link.textContent).toContain(entry.title);
+      // `asRendered`, because these titles are markdown like everything else
+      // this repository emits — thirty-two of them end in "**fixed 17 Aug
+      // 2026**" — and the index renders them through `Prose`. Comparing the
+      // raw string to the DOM would fail against output that is right.
+      expect(link.textContent).toContain(asRendered(entry.title));
     }
   });
 

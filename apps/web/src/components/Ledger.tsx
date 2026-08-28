@@ -11,6 +11,7 @@
  * of the three that means something broke.
  */
 import { Badge } from "@/components/Badge";
+import { Prose } from "@/components/Blocks";
 import { Heading } from "@/components/Heading";
 import type { NotBuiltEntry } from "@/lib/artifacts";
 
@@ -39,11 +40,23 @@ export function NotBuiltCard({ entry }: { entry: NotBuiltEntry }) {
       <dl className="m-0 space-y-3 text-sm">
         <div>
           <dt className="text-xs tracking-wide text-faint uppercase">Would have</dt>
-          <dd className="m-0 text-dim">{entry.what}</dd>
+          <dd className="m-0 text-dim">
+            <Prose text={entry.what} />
+          </dd>
         </div>
         <div>
           <dt className="text-xs tracking-wide text-faint uppercase">Why it is not here</dt>
-          <dd className="m-0 text-dim">{entry.why}</dd>
+          {/* `Prose`, not the raw string. These two fields are written in
+              markdown by `tearsheet/ledger.py` like every other emitter here,
+              and this card printed the source characters: the Agent Studio
+              entry read "**The funding half of this blocker has closed**" with
+              the asterisks visible, and named `vetting/identity/97.json` and
+              `make identity-verify` inside literal backticks. A ledger of what
+              is missing is the last card on this site that should look
+              unfinished. */}
+          <dd className="m-0 text-dim">
+            <Prose text={entry.why} />
+          </dd>
         </div>
         <div>
           <dt className="text-xs tracking-wide text-faint uppercase">Check it</dt>

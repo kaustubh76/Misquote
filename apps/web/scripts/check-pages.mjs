@@ -179,6 +179,22 @@ for (const [colorScheme, width] of VIEWPORTS) {
   // test had not touched, always the same three react-dom frames. That is
   // roughly one in twenty loads against the one in ninety it shows when idle.
   //
+  // Confirmed a second time, and the load-tracking is now the strongest thing
+  // known about it. On a box holding a steady load average of 35 against 8
+  // cores, three consecutive runs each failed on exactly one route, and it was
+  // a different route every time — /vectors, then /registry, then /methods —
+  // with `rD <- oq <- iw` byte-identical in all three. Two of those three
+  // routes render nothing from the commit under test, which is the whole value
+  // of the observation: the route it names is not the route that changed.
+  //
+  // The distinguishing test, for whoever meets this next. This flake picks a
+  // random route and never repeats. A real hydration bug introduced by a commit
+  // fires on the *same* route every run — /assumptions did exactly that when a
+  // `<Cite>` ended up nested inside the index's own `<a href="#id">`, three
+  // viewports out of four, every run, and with a different third frame (`ik`,
+  // not `iw`). Same error number, opposite diagnosis. Count the runs and read
+  // the third frame before assuming either one.
+  //
   // Which fits what a hydration mismatch is: React commits the server HTML and
   // then reconciles, and a starved event loop widens every window in between.
   // If this is ever worth chasing properly, reproduce it under `stress-ng` or a

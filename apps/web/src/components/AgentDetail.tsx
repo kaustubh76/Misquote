@@ -6,10 +6,10 @@ import { Section } from "@/components/Heading";
 import { AgentJournal } from "@/components/AgentJournal";
 import { SectionRail } from "@/components/SectionRail";
 import { Badge } from "@/components/Badge";
+import { Prose } from "@/components/Blocks";
 import { TapeSource } from "@/components/TapeSource";
 import { Band } from "@/components/Band";
 import { Card, CardHeader } from "@/components/Card";
-import { WithCitations } from "@/components/Cite";
 import { DataTable } from "@/components/DataTable";
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { CostBars } from "@/components/CostBars";
@@ -549,7 +549,7 @@ export function AgentDetail({
           <ul className="m-0 list-none space-y-4 p-0">
             {d.caveats.map((c, i) => (
               <li key={i} className="border-l-2 border-warn-line pl-4 text-sm text-dim">
-                <WithCitations text={c} />
+                <Prose text={c} />
               </li>
             ))}
           </ul>

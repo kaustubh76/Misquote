@@ -1,5 +1,6 @@
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
+import { Prose } from "@/components/Blocks";
 import { Heading } from "@/components/Heading";
 import { Refusal } from "@/components/Refusal";
 import { count, fixed, shortAddress } from "@/lib/format";
@@ -169,6 +170,23 @@ function AgentRow({ row, feedback }: { row: ScanRow; feedback?: ScanFeedback }) 
         <span className="font-semibold text-ink">{row.name || `Agent #${row.token_id}`}</span>
         <span className="font-mono text-xs text-faint">#{row.token_id}</span>
       </div>
+      {/* Plain text, and deliberately — this is the one string on the page that
+          a stranger wrote. `description` is whatever whoever minted this
+          registry card chose to put there, and one of them on chain today is
+          already `**Crypto Research & Analysis AI Agent**`, bidding for bold.
+
+          `Prose` renders `[label](href)` as an anchor, so pointing it here would
+          hand an arbitrary link on our pages to whoever mints the next card.
+          That is the same primitive `erc8004._assert_fetchable` refuses for a
+          registry card's URI and `scan8004._decode_feedback_uri` refuses for a
+          feedback one: a value chosen by somebody else, acted on rather than
+          shown. The category note above goes through `Prose` because our
+          emitter wrote it — the line is who authored the string, not which
+          component renders it.
+
+          Their asterisks print as asterisks, which is the honest rendering of
+          what the registry actually holds. Guarded by
+          `tests/web/test_third_party_listings.py`. */}
       {row.description && (
         <p className="mt-1 line-clamp-2 text-sm text-muted">{row.description}</p>
       )}
@@ -224,7 +242,13 @@ export function ScanCategoryAgents({
         eyebrow="Third-party · 8004scan"
         aside={<Badge tone="neutral">{count(category.matched)} matched</Badge>}
       />
-      <p className="text-sm text-muted">{category.note}</p>
+      {/* Ours, not theirs. This sentence is written by our emitter *about*
+          their data, so it goes through `Prose` like every other line this
+          repository writes. The description a few lines down does not — see
+          the comment there. */}
+      <p className="text-sm text-muted">
+        <Prose text={category.note} />
+      </p>
 
       {category.agents.length === 0 ? (
         <Refusal

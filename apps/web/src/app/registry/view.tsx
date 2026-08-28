@@ -5,6 +5,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Card, CardHeader } from "@/components/Card";
+import { Prose } from "@/components/Blocks";
 import { DataTable } from "@/components/DataTable";
 import { Disagreement } from "@/components/Disagreement";
 import { SectionRail } from "@/components/SectionRail";
@@ -876,7 +877,16 @@ export function RegistryView({
                           {caveat && (
                             <strong className="mr-1 font-mono text-xs">{caveat[1]}</strong>
                           )}
-                          {caveat ? finding.slice(caveat[0].length).replace(/^:\s*/, "") : finding}
+                          {/* Only the remainder. The prefix above is sliced off and
+                              drives the tone, and it must stay a plain string for the
+                              regex that found it. */}
+                          <Prose
+                            text={
+                              caveat
+                                ? finding.slice(caveat[0].length).replace(/^:\s*/, "")
+                                : finding
+                            }
+                          />
                         </li>
                       );
                     })}

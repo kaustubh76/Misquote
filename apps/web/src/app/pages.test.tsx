@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readArtifact, serveArtifacts, textFrom } from "@/test/harness";
+import { asRendered, readArtifact, serveArtifacts, textFrom } from "@/test/harness";
 import type {
   AdvantageArtifact,
   AgentArtifact,
@@ -617,7 +617,11 @@ describe("Registry: the escrow claims only what was recorded", () => {
       (li) => li.textContent ?? ""
     );
     for (const finding of escrow.evidence ?? []) {
-      const tail = finding.slice(-40);
+      // Sliced after rendering, not before. These findings carry `jobCounter()`
+      // and `paymentToken()` in backticks, so the last forty characters of the
+      // artifact string and the last forty of the text on the page are not the
+      // same forty.
+      const tail = asRendered(finding).slice(-40);
       expect(items.some((text) => text.includes(tail))).toBe(true);
     }
   });
@@ -1285,8 +1289,15 @@ describe("Venue: the divergences, not the pool label", () => {
     render(<VenuePage />);
     await screen.findByRole("heading", { name: "Where it is not" });
 
+    // Read off `textContent` rather than through `getByText`, and the reason is
+    // the same one the escrow findings above give. One of these is "The router
+    // keeps `deadline` inside the params struct"; `deadline` renders as its own
+    // <code>, and `getByText` matches a node's *direct* text children only, so
+    // a whole-string match on a paragraph split into three nodes finds nothing
+    // and reports it as missing content.
+    const headings = [...document.querySelectorAll("p")].map((p) => p.textContent ?? "");
     for (const row of venue.divergences) {
-      expect(screen.getByText(row.what)).toBeInTheDocument();
+      expect(headings).toContain(asRendered(row.what));
     }
   });
 

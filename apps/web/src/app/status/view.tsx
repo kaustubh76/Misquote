@@ -5,6 +5,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import { TallyStrip } from "@/components/TallyStrip";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
+import { Prose } from "@/components/Blocks";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { LedgerTable } from "@/components/Ledger";
 import { Pill, statusTone } from "@/components/Pill";
@@ -234,7 +235,9 @@ export function StatusView({
                         {check.detail}
                       </p>
                       {check.remedy && (
-                        <p className="mt-2 mb-0 text-xs text-faint">→ {check.remedy}</p>
+                        <p className="mt-2 mb-0 text-xs text-faint">
+                          → <Prose text={check.remedy} />
+                        </p>
                       )}
                     </div>
                     <Pill tone={statusTone(check.status)}>{check.status}</Pill>

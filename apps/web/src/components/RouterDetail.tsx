@@ -5,7 +5,7 @@ import { Band } from "@/components/Band";
 import { TapeSource } from "@/components/TapeSource";
 import { AgentJournal } from "@/components/AgentJournal";
 import { Card } from "@/components/Card";
-import { WithCitations } from "@/components/Cite";
+import { Prose } from "@/components/Blocks";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
@@ -595,11 +595,15 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
         <Card>
           <ul className="m-0 list-none space-y-3 p-0 text-sm text-dim">
             {data.caveats.map((c) => (
-              // `WithCitations`, because these carry A- and P- ids and printed
-              // them as inert text. `AgentDetail` linkifies the same field, so
-              // the same caveat was a link on one tearsheet and not on another.
+              // `Prose`, which is `WithCitations` plus the markdown the emitter
+              // has always written. The citations came first: these carry A- and
+              // P- ids and printed them as inert text, and `AgentDetail`
+              // linkified the same field, so one caveat was a link on one
+              // tearsheet and not on another. The half still missing was the
+              // rest of the syntax — `make pools` and `pools.json` reached this
+              // list inside literal backticks.
               <li key={c}>
-                <WithCitations text={c} />
+                <Prose text={c} />
               </li>
             ))}
           </ul>

@@ -170,3 +170,37 @@ def test_every_published_share_carries_an_interval() -> None:
         assert bounds["high"] > bounds["low"] or sampled == 0, (
             f"{name}: a zero-width interval claims certainty from {sampled} observations"
         )
+
+
+def test_a_strangers_description_is_not_rendered_as_markdown() -> None:
+    """Their text prints as their text, formatting included.
+
+    `Prose` renders inline markdown, and this repository writes its prose in
+    markdown, so nearly every string on the site goes through it. A third-party
+    agent's `description` must not: it is written by whoever minted that
+    registry card, and one on chain today is already
+    `**Crypto Research & Analysis AI Agent**` — asking for bold on our page.
+
+    The link case is the one that matters. `Prose` turns `[label](href)` into an
+    anchor, so routing a stranger's string through it hands an arbitrary link on
+    our pages to whoever mints the next card. `erc8004._assert_fetchable`
+    refuses that primitive for a registry card's URI and
+    `scan8004._decode_feedback_uri` refuses it for a feedback one; this is the
+    same value arriving on the render side, and the answer is the same.
+
+    Checked against the source rather than the artifact, because it is a claim
+    about how the page renders and there is nowhere else to check it. The
+    category `note` on the same component *is* ours and does go through `Prose`
+    — the boundary is who authored the string, not which file draws it.
+    """
+    source = (REPO / "apps" / "web" / "src" / "components" / "ScanAgents.tsx").read_text()
+
+    assert "{row.description}" in source, (
+        "ScanAgents.tsx no longer renders `row.description` as a bare "
+        "expression — if it moved, move this guard with it"
+    )
+    assert "<Prose text={row.description}" not in source, (
+        "a third-party agent's description is being rendered as markdown: "
+        "whoever registered that card now chooses the emphasis, and the links, "
+        "on our page"
+    )
