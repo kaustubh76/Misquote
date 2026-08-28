@@ -895,6 +895,12 @@ THIRD_PARTY_FIELDS: dict[str, str] = {
     "third_party.feedback_graph.chain_id": "",
     # The feedback table's own total, and the two comparisons it feeds.
     "third_party.feedback_reach.available": "registry/view.tsx",
+    # Not missing from the page — it arrives through `feedback_cross_check`,
+    # which is where it earns its keep, compared against the sum over agent
+    # rows. Drawing it a second time under this block would put one number on
+    # the page twice under two names, which is the shape of a disagreement —
+    # and there is none here: this route and the walk agree exactly, which is
+    # the finding, not a defect to draw.
     "third_party.feedback_reach.feedbacks": "",
     "third_party.feedback_reach.anchored": "registry/view.tsx",
     "third_party.feedback_reach.example_transaction_hash": "registry/view.tsx",
@@ -1094,11 +1100,12 @@ REGISTRY_FIELDS: dict[str, str] = {
     "aacp.escrow_selectors.resolved": "registry/view.tsx",
     "aacp.escrow_selectors.total": "registry/view.tsx",
     "aacp.escrow_selectors.note": "registry/view.tsx",
-    # Two of the strongest findings in this artifact, and no view reads either:
-    # that TermixEscrow implements none of ERC-8183's seven calls across 5,894
-    # candidate signatures, and that `orders(bytes32)` returns 13 words of which
-    # exactly one is decoded. Contracted as unrendered so the gap is recorded
-    # rather than merely true.
+    # Two of the strongest findings in this artifact, and for a long time no
+    # view read either: that TermixEscrow implements none of ERC-8183's seven
+    # calls across 5,894 candidate signatures, and that `orders(bytes32)`
+    # returns 13 words of which exactly one is decoded. Both are prose the
+    # emitter writes and the escrow card now prints them under its own rule,
+    # beside `escrow_selectors.note`, which had been carrying the surface alone.
     "aacp.not_erc8183": "registry/view.tsx",
     "aacp.order_decode": "registry/view.tsx",
     "aacp.shares_our_identity_registry": "registry/view.tsx",
@@ -1146,9 +1153,11 @@ REGISTRY_FIELDS: dict[str, str] = {
     "ours.verdict": "registry/view.tsx",
     "ours.summary.checked": "registry/view.tsx",
     "ours.summary.registered": "registry/view.tsx",
-    # `checked` and `registered` render; these two do not. On the recorded run
-    # both are zero, which is exactly when an unrendered failure count is
-    # hardest to notice and most misleading if it ever stops being zero.
+    # The failing half of the same summary, which for a while did not render
+    # while `checked` and `registered` did. Both are zero on the recorded run,
+    # which is exactly when an unrendered failure count is hardest to notice and
+    # most misleading if it ever stops being zero — so it renders at zero too,
+    # rather than appearing only once there is something to report.
     "ours.summary.failed": "registry/view.tsx",
     "ours.summary.unknown": "registry/view.tsx",
     "ours.owner": "registry/view.tsx",
@@ -1156,8 +1165,9 @@ REGISTRY_FIELDS: dict[str, str] = {
     "ours.chain_id": "registry/view.tsx",
     "ours.explorer": "registry/view.tsx",
     # How stale the recorded reading is. Computed by the emitter on every build
-    # and drawn nowhere, so the page presents a reading of unknown age as
-    # current.
+    # and for several releases drawn nowhere, so the page presented a reading of
+    # unknown age as current. It has never been zero on any recorded run, and
+    # the card now says how old the reading is beside the verdict.
     "ours.age_hours": "registry/view.tsx",
     "ours.record": "registry/view.tsx",
     # The funding transaction that made the registrations possible, and the
@@ -1329,10 +1339,27 @@ def test_a_field_declared_unrendered_is_not_rendered() -> None:
     `registry/view.tsx` showed both.
 
     That matters beyond tidiness. A `""` is how this file records a **known
-    gap** — `ours.age_hours` is declared unrendered with the note that the page
-    "presents a reading of unknown age as current", and that note is the todo
-    list. A map where `""` also means "rendered, nobody updated it" is a todo
-    list with entries that are already done, which is a todo list nobody reads.
+    gap**, and the note beside it is the todo list. `ours.age_hours` was the
+    clearest one: declared unrendered, with the note that the page "presents a
+    reading of unknown age as current". It has since been rendered and the note
+    rewritten to say so, which is the discipline this test exists to enforce —
+    a map where `""` also means "rendered, nobody updated it" is a todo list
+    with entries that are already done, which is a todo list nobody reads.
+
+    Worth saying once, so the remaining count is not read as a backlog: the
+    bulk of the surviving `""` entries are decisions, not gaps. Reproducibility
+    fields (`identity.seed`); the machine-readable `tier` / `chain_id` /
+    `read_at` / `params` repeated on every third-party block, where `AnsweredBy`
+    answers the freshness question a reader actually has; `third_party.stats.*`,
+    because cross-chain totals are explicitly not comparable to the BSC figures
+    beside them; `build.*`, removed deliberately. The reasons are written per
+    block rather than per entry, so a lone `""` in the middle of one of those
+    runs is covered by the comment that heads it — and a `""` that is genuinely
+    a gap should say so in its own comment, on its own line.
+
+    Note what this test does **not** check: the prose. It reads the map, so a
+    comment can go on asserting a gap over an entry that names a renderer and
+    nothing fails. Three did, in the commit that closed them.
 
     ## What this cannot see
 

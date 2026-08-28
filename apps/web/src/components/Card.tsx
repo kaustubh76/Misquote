@@ -72,7 +72,23 @@ export function CardHeader({
           )}
         </Heading>
       </div>
-      {aside && <div className="shrink-0">{aside}</div>}
+      {/* `max-w-full` beside `shrink-0`, and the pair is the point.
+          `shrink-0` says a badge must not be squeezed narrower than its own
+          text, which is right. But a flex item that cannot shrink and has no
+          maximum sits at its max-content width forever, so the moment a second
+          badge joined the first — `TapeSource` beside the counterfactual
+          warning on every LP card — this row measured 403px inside a 347px
+          card and scrolled the whole document sideways at 390px. The aside's
+          own `flex-wrap` was there to handle exactly this and could never fire,
+          because nothing ever told it a width it had to fit in.
+
+          Capped rather than allowed to shrink: the badges wrap onto a second
+          line at full size instead of being compressed to fit on one. Found by
+          `make web-check`, which is the only check that lays anything out.
+          `AgentCard` carries a `min-w-0` for the same family of defect — a flex
+          or grid item sized by its own content, invisible at 1280 and pushing
+          the document sideways at 390. */}
+      {aside && <div className="max-w-full shrink-0">{aside}</div>}
     </div>
   );
 }

@@ -81,6 +81,56 @@ const VIEWPORTS = [
 
 if (shotsAt) mkdirSync(shotsAt, { recursive: true });
 
+/**
+ * The configured API origin, resolved once from the export's own `api.json`.
+ *
+ * Read from the served build rather than from the environment, because that is
+ * what the pages themselves read — a check that resolves the origin differently
+ * from the site is checking a different site.
+ */
+const apiOrigin = await (async () => {
+  const response = await fetch(`${BASE}/artifacts/api.json`);
+  if (!response.ok) return null;
+  const config = await response.json().catch(() => null);
+  return config?.base ?? null;
+})();
+
+/**
+ * Wake the API before any page asks it a question.
+ *
+ * `/tape` is the one route in the loop below that issues a live cross-origin
+ * request with no artifact behind it, so it is the only one whose settling
+ * depends on a host nobody here controls. That host is a free-tier instance
+ * that sleeps, and a cold start on one is tens of seconds — during which the
+ * browser holds an in-flight request and `networkidle` is never reached.
+ *
+ * **Insurance, not a diagnosis.** `/tape` did time out at thirty seconds twice
+ * while this was written, and a cold dyno was the first guess and was wrong:
+ * the API answered in 0.47–1.0s on ten consecutive measurements, the wake below
+ * reported `awake after 1s`, and the route timed out anyway. A faithful replay
+ * of this loop then passed all sixteen routes on a quiet machine. What the two
+ * failures had in common was a load average near forty on eight cores, which is
+ * the same condition the hydration note below found predicts trouble here.
+ *
+ * So this is kept for the case it genuinely covers — the first run of the day
+ * against a sleeping host — and the failures actually observed are handled by
+ * the raised timeout and the recorded-not-thrown navigation below. Naming a
+ * cause that measurement contradicts is the thing this repository is about.
+ *
+ * A dead or unreachable API is not a failure here: the page renders its refusal
+ * state, which is a thing this check should see rather than route around.
+ */
+if (apiOrigin) {
+  const started = Date.now();
+  const woke = await fetch(`${apiOrigin}/tape`, {
+    signal: AbortSignal.timeout(90_000),
+  })
+    .then((r) => r.ok)
+    .catch(() => false);
+  const took = Math.round((Date.now() - started) / 1000);
+  console.log(`  api   ${apiOrigin} ${woke ? "awake" : "unreachable"} after ${took}s`);
+}
+
 const browser = await chromium.launch();
 const failures = [];
 const titles = new Map();
@@ -143,11 +193,51 @@ for (const [colorScheme, width] of VIEWPORTS) {
     if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);
   });
 
+  // What is still in flight, so a navigation that never settles can say what it
+  // was waiting for instead of only that it waited. `networkidle` is a claim
+  // about the whole page's network, and when it fails the one thing worth
+  // knowing is which request did not come back.
+  const inFlight = new Map();
+  page.on("request", (r) => inFlight.set(r, Date.now()));
+  page.on("requestfinished", (r) => inFlight.delete(r));
+  page.on("requestfailed", (r) => inFlight.delete(r));
+
   for (const [name, path] of ROUTES) {
     const tag = `${name}-${colorScheme}-${width}`;
     problems.length = 0;
 
-    await page.goto(BASE + path, { waitUntil: "networkidle" });
+    // Recorded, not thrown. A `page.goto` rejection used to escape this loop
+    // as an uncaught exception and take the whole run with it — every remaining
+    // route, every remaining viewport, and all four passes below. That is not a
+    // hypothetical: one intermittent hang on `/tape` aborted a run that was
+    // also carrying 58px of overflow on `/` and on `/category/rebalancing/`,
+    // and the crash reported neither. A check that stops at the first problem
+    // reports one problem and implies there are no others.
+    //
+    // `networkidle` is kept rather than traded for `domcontentloaded`, because
+    // the measurement below needs the page *rendered* and `/tape` renders from
+    // a live read. The timeout is raised instead: the live API answers in half
+    // a second when measured directly, so a minute is not a wait for it, it is
+    // room for the browser to be starved — which is the condition the hydration
+    // note above already found predicts trouble on this loop.
+    const navFailure = await page
+      .goto(BASE + path, { waitUntil: "networkidle", timeout: 60_000 })
+      .then(() => null)
+      .catch((e) => {
+        const stuck = [...inFlight]
+          .map(([r, at]) => `${Math.round((Date.now() - at) / 1000)}s ${r.url()}`)
+          .slice(0, 3);
+        return (
+          `${e.message.split("\n")[0]}` +
+          (stuck.length ? ` — still in flight: ${stuck.join(", ")}` : " — nothing in flight")
+        );
+      });
+    if (navFailure) {
+      failures.push(`${tag}: ${navFailure}`);
+      console.log(`  FAIL  ${tag.padEnd(30)}  ${navFailure}`);
+      continue;
+    }
+
     // The views fetch after mount; give the render a beat to settle.
     await page.waitForTimeout(350);
 
@@ -534,13 +624,6 @@ const SCENARIOS = [
   ["/quote/", "quote-thin-tape", null],
 ];
 
-const apiOrigin = await (async () => {
-  const response = await fetch(`${BASE}/artifacts/api.json`);
-  if (!response.ok) return null;
-  const config = await response.json().catch(() => null);
-  return config?.base ?? null;
-})();
-
 const simCtx = await browser.newContext({ colorScheme: "dark", viewport: WIDE });
 for (const [route, scenario, needle] of SCENARIOS) {
   const page = await simCtx.newPage();
@@ -549,11 +632,18 @@ for (const [route, scenario, needle] of SCENARIOS) {
     if (apiOrigin && request.url().startsWith(apiOrigin)) reached.push(request.url());
   });
 
-  // `domcontentloaded`, not `networkidle`. `/tape` polls the live tape on a
-  // timer, so the network never goes idle there and a pass that waits for it
-  // hangs for thirty seconds and then fails on a page that is fine. Neither
-  // of these checks needs a settled network: one polls for the stamp it is
-  // waiting on, the other scrolls and reads the animation list.
+  // `domcontentloaded`, not `networkidle`. `/tape` reads the live tape with no
+  // artifact behind it, so its network settles only when a host outside this
+  // repository answers, and a pass that waits on that fails on a page that is
+  // fine. Neither of these checks needs a settled network anyway: one polls for
+  // the stamp it is waiting on, the other scrolls and reads the animation
+  // list.
+  //
+  // The earlier note here said the tape "polls on a timer". It does not —
+  // `tape/view.tsx` fetches once in a mount effect and never again. The symptom
+  // was real and the cause named was not, which is worth more than the tidier
+  // sentence: a slow first response and a repeating one look identical from
+  // here, and only one of them is fixed by waiting longer.
   await page.goto(`${BASE}${route}?scenario=${scenario}`, { waitUntil: "domcontentloaded" });
 
   // Polled, not slept. The scenario is two sequential fetches deep — the

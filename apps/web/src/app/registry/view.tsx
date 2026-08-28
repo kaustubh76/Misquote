@@ -1701,8 +1701,10 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
               {/* How old this reading is. The emitter computes it on every
                   build from the record's mtime and nothing drew it, so the page
                   presented a reading of unknown age as current — which is the
-                  one thing a record of a chain read must not do. It is 32.6
-                  hours as this is written, not zero. */}
+                  one thing a record of a chain read must not do. The figure
+                  it prints was named here and went stale on the next survey,
+                  which is a smaller version of the same defect; what matters is
+                  that it is a real age and not a placeholder. */}
               {ours.age_hours != null && ` · read ${hours(ours.age_hours)} ago`}
             </span>
           }
