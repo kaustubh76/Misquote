@@ -29,3 +29,20 @@ def db_path() -> Path:
 def journal_dir() -> Path:
     """Where the agents append their decision journals, one JSONL per agent."""
     return Path(os.environ.get("MISQUOTE_JOURNAL_DIR", REPO / "data" / "journal"))
+
+
+def artifacts_dir() -> Path:
+    """Where the generated artifacts live, resolved per call.
+
+    `service.ARTIFACTS` is the same directory as a module constant, and the
+    docstring above records why that is the older pattern rather than the one to
+    copy: resolved at import, it defeats `_isolate_state` and lets a test read
+    the developer's real artifacts while claiming to exercise the code.
+
+    New readers come through here. `MISQUOTE_ARTIFACTS` is honoured for the same
+    reason `service` honours it — a host may bundle the directory somewhere
+    other than the checkout layout.
+    """
+    return Path(
+        os.environ.get("MISQUOTE_ARTIFACTS", REPO / "apps" / "web" / "public" / "artifacts")
+    )

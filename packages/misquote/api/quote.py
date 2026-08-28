@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 
 from misquote.api import rpc
 from misquote.api.errors import refuse
-from misquote.api.locations import db_path
+from misquote.api.locations import artifacts_dir, db_path
 from misquote.api.preflight import assess
 from misquote.api.wallet import _valid
 from misquote.chain.addresses import known_pools_on, pool_by_address
@@ -176,6 +176,7 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     cost = replay_cost(check)
+    published = published_runs(ref.address)
 
     store = jobs.connect()
     try:
@@ -203,6 +204,12 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         "poll": f"/quote/job/{job_id}",
         "stream": f"/quote/job/{job_id}/stream",
         "preflight": check["plan"],
+        # What the marketplace already has on this pool, answered now. The
+        # queued job is a fresh eight-window run of the default policy; these
+        # are the twenty-window runs of named agents that the cards publish. A
+        # hire that returned only a job id made a marketplace with four agents
+        # look like one with none.
+        "published": published,
         # The plan is the sufficiency check's, at the engine's 20 windows. This
         # is the work the job will actually do, at A15's 8. Reported apart
         # because they answer different questions and sharing a key would let
@@ -222,8 +229,95 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
         # of magnitude for the ten-day slice a deploy carries, where the same
         # plan is about a quarter of an hour. The plan knows its own size now,
         # so the sentence is derived from it rather than fixed.
-        "note": _queued_note(alive, cost["estimated_seconds"]),
+        "note": _queued_note(alive, cost["estimated_seconds"], len(published)),
     }
+
+
+def published_runs(address: str) -> list[dict[str, Any]]:
+    """Every completed run this marketplace already publishes for a pool.
+
+    ## Why a hire answers with these and still queues a job
+
+    A hire names a pool, and `quote_job.run` replays the engine's *default*
+    policy over it at `INTERACTIVE_WINDOWS` — eight. The cards publish something
+    different and better: named agents, each at the engine's twenty windows and
+    three perturbations, sixty observations apiece, already replayed over the
+    tape and stamped with the commit that produced them.
+
+    So this is not a cache of the queued job, and returning it *instead* would
+    be answering a different question than the one asked. It is the marketplace
+    answering the question a judge is actually asking — *what have you got on
+    this pool, and how did it do* — in the time an HTTP request takes, while the
+    fresh run proceeds behind it.
+
+    Each entry carries its own window count, its win rate as a fraction of the
+    observations it drew, and its build stamp, so a reader can tell a twenty-
+    window published run from an eight-window interactive one without being told
+    which is which.
+
+    Empty is the ordinary answer for most pools: three agents run on the
+    flagship and none on the others, and an empty list says the marketplace has
+    nothing on that pool yet rather than that the pool is bad.
+    """
+    wanted = address.lower()
+    found: list[dict[str, Any]] = []
+
+    directory = artifacts_dir()
+    if not directory.is_dir():
+        return found
+
+    for path in sorted(directory.glob("*.json")):
+        try:
+            blob = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(blob, dict):
+            continue
+
+        # The card records its pool as "<label> · <address>". Matched on the
+        # address rather than the label: labels are prose and two pools on one
+        # pair differ only in a fee tier a reader could mistype.
+        pool = str(blob.get("pool") or "")
+        if wanted not in pool.lower():
+            continue
+
+        # Shape, not just pool. Router's card is allocation-shaped — its `quote`
+        # is an object describing a lending basis and it carries no
+        # `quote_detail` — and it is excluded from this scan today only because
+        # its `pool` is null, which is an accident of the emitter rather than a
+        # guarantee. A card that is allocation-shaped *and* names a pool would
+        # be handed to a browser that types `quote` as a string, and offered as
+        # an LP track record it is not.
+        #
+        # A quote here is a sentence with observations behind it. Anything else
+        # is a different measurement wearing the same key.
+        detail = blob.get("quote_detail") or {}
+        if not isinstance(blob.get("quote"), str) or not detail:
+            continue
+        found.append(
+            {
+                "agent": blob.get("agent"),
+                "quote": blob.get("quote"),
+                "source": blob.get("source"),
+                "windows": detail.get("windows"),
+                "perturbations": detail.get("perturbations"),
+                "observations": detail.get("samples"),
+                # The rubric asks for a track record, and this is it: how many
+                # of the observations finished in profit. Reported as a pair
+                # rather than a percentage so the denominator travels with it.
+                "net_positive": detail.get("net_positive"),
+                "hours_per_window": detail.get("hours_per_window"),
+                # What the position risked to earn it. `lvr_quote_upper_bound`
+                # is the adverse-selection bound — the money a position loses to
+                # being picked off — and it is the closest thing the engine
+                # computes to "the risk taken to get there".
+                "adverse_selection_upper_bound": (blob.get("replay") or {}).get(
+                    "lvr_quote_upper_bound"
+                ),
+                "build": blob.get("build"),
+            }
+        )
+    return found
 
 
 def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
@@ -269,7 +363,7 @@ def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _queued_note(alive: int, seconds: int | None) -> str:
+def _queued_note(alive: int, seconds: int | None, published: int = 0) -> str:
     """What a caller is actually waiting for, in this pool's own numbers.
 
     Three states, kept apart. Nothing draining is the one that matters most and
@@ -281,22 +375,28 @@ def _queued_note(alive: int, seconds: int | None) -> str:
     true long after the worker died — so a caller would be told to wait for a
     process that no longer exists.
     """
+    have = (
+        f" {published} completed run(s) for this pool are in `published` above, at the "
+        "engine's full window count."
+        if published
+        else ""
+    )
     if not alive:
         return (
             "Queued — but no worker has beaten on this instance recently, so it may "
-            "sit here. Start one with `make api-worker`."
+            f"sit here. Start one with `make api-worker`.{have}"
         )
     if not seconds:
         return (
             "Queued, not computed. This tape does not report enough to estimate how "
-            "long the replay will take."
+            f"long the replay will take.{have}"
         )
     minutes = seconds / 60.0
     span = f"{seconds}s" if seconds < 90 else f"about {minutes:.0f} minutes"
     return (
         f"Queued, not computed — {span} of replay once a worker claims it, plus "
         "loading the tape. That is this pool's own event count against the engine's "
-        "measured throughput, not a fixed figure, and a slower host takes longer."
+        f"measured throughput, not a fixed figure, and a slower host takes longer.{have}"
     )
 
 

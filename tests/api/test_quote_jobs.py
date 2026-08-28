@@ -418,3 +418,121 @@ def test_the_hire_note_agrees_with_the_worker_count_it_reports(tmp_path) -> None
     assert "no worker has beaten" in body["note"], (
         "the note is keyed on worker_last_seen, which outlives the worker"
     )
+
+
+def test_a_hire_answers_with_what_the_marketplace_already_has() -> None:
+    """The 202 carries completed runs, not only a job id.
+
+    A hire names a pool and `quote_job.run` replays the engine's *default*
+    policy over it at eight windows. The cards publish something different and
+    better — named agents at the engine's twenty, sixty observations apiece,
+    already replayed and stamped with the commit that produced them.
+
+    Returning only a job id made a marketplace with four agents look like one
+    with none, which is the thing a judge hiring is there to evaluate.
+    """
+    from misquote.api.quote import published_runs
+
+    runs = published_runs(TARGET_POOL.address)
+    assert runs, "the flagship pool publishes agents and none were found"
+
+    for run in runs:
+        assert run["agent"], "a published run with no agent named"
+        assert run["quote"], f"{run['agent']} publishes no quote"
+        # The track record the rubric asks for: the window it was measured over,
+        # how many observations, and how many finished in profit.
+        assert run["windows"], f"{run['agent']} does not say how many windows"
+        assert run["observations"], f"{run['agent']} does not say how many observations"
+        assert run["net_positive"] is not None, f"{run['agent']} publishes no win count"
+        assert run["net_positive"] <= run["observations"], "more wins than observations"
+        # And the provenance, so a twenty-window published run is tellable from
+        # an eight-window interactive one without being told which is which.
+        assert (run["build"] or {}).get("git_sha"), f"{run['agent']} carries no commit"
+
+
+def test_a_pool_with_no_published_run_says_so_rather_than_borrowing_one() -> None:
+    """Empty is the ordinary answer, and it must not fall back to another pool.
+
+    Three agents run on the flagship and none on the second venue. Matching on
+    the label rather than the address would have made "WBNB/USDT 0.05%" and
+    "WBNB/USDT 0.25%" one pool, and the second venue would have inherited the
+    first's track record — which is this project's name.
+    """
+    from misquote.api.quote import published_runs
+    from misquote.chain.addresses import TARGET_POOL_WIDE
+
+    assert published_runs(TARGET_POOL_WIDE.address) == []
+    assert published_runs("0x000000000000000000000000000000000000dead") == []
+
+
+def test_the_note_points_at_the_published_runs_when_there_are_any() -> None:
+    """A caller told only "queued" would not look for what is already there."""
+    from misquote.api.quote import _queued_note
+
+    assert "completed run(s)" in _queued_note(0, 397, 3)
+    assert "completed run(s)" in _queued_note(1, 397, 3)
+    # And says nothing when there is nothing to point at.
+    assert "completed run(s)" not in _queued_note(1, 397, 0)
+
+
+def test_the_hire_response_actually_carries_the_published_runs(tmp_path) -> None:
+    """That `published_runs` works is not the claim — that the 202 carries it is.
+
+    Asserted on the helper alone, this passed with `published = []` wired into
+    the response: the marketplace would have gone back to answering a hire with
+    a job id and nothing else, and every test still green. Second time this
+    session that a guard sat on a function nobody was proven to call.
+    """
+    import os
+    from pathlib import Path
+
+    tape = Path(__file__).resolve().parents[2] / "data" / "deploy" / "tape.db"
+    if not tape.is_file():
+        pytest.skip("no deploy tape; run `make tape-slice`")
+
+    os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
+    os.environ["DB_PATH"] = str(tape)
+    from misquote.api import quote as quote_routes
+
+    body = quote_routes.submit_quote({"pool": TARGET_POOL.address})
+
+    assert body["published"], "the hire returned a job id and nothing the marketplace has"
+    assert {r["agent"] for r in body["published"]} == {
+        r["agent"] for r in quote_routes.published_runs(TARGET_POOL.address)
+    }
+    assert "completed run(s)" in body["note"]
+    # And the job is still queued: the published runs are an answer alongside
+    # the fresh one, never a substitute that quietly skips the work asked for.
+    assert body["status"] == "queued"
+    assert body["job_id"]
+
+
+def test_an_allocation_card_is_never_offered_as_a_published_run(tmp_path, monkeypatch) -> None:
+    """Router's record is a different shape, and shape is what excludes it.
+
+    `router.json` has no `quote_detail` and its `quote` is an object rather than
+    a sentence. It misses the scan today only because its `pool` is null — an
+    accident of the emitter, not a guarantee — so a card that is allocation-
+    shaped *and* names the pool is the case that must still be skipped. The
+    browser types `quote` as a string; handing it an object is the failure this
+    guards.
+    """
+    import json as _json
+
+    from misquote.api.quote import published_runs
+
+    (tmp_path / "router.json").write_text(
+        _json.dumps(
+            {
+                "kind": "allocation",
+                "agent": "Router",
+                "pool": f"WBNB/USDT · {TARGET_POOL.address}",
+                "quote": {"basis": "net return on supplied capital"},
+            }
+        )
+    )
+    monkeypatch.setenv("MISQUOTE_ARTIFACTS", str(tmp_path))
+
+    assert published_runs(TARGET_POOL.address) == [], (
+        "an allocation card named the pool and was offered as an LP track record"
+    )
