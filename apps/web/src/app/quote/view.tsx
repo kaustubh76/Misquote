@@ -29,6 +29,30 @@ interface Holding {
   why_not: string[];
 }
 
+/**
+ * A run this marketplace already published for the pool being hired.
+ *
+ * Not a cache of the job just queued, and deliberately not rendered as one.
+ * The job replays the engine's *default* policy on the reduced interactive
+ * budget; these are named agents at the count each card publishes, already
+ * replayed over the tape and stamped with the commit that produced them. So
+ * they answer a different question — what has this marketplace got on this
+ * pool — and the answer arrives in the time an HTTP request takes.
+ *
+ * `quote` is a sentence rather than an object because `api/quote.py` skips any
+ * card without a `quote_detail`: Router's record is allocation-shaped and its
+ * quote is an object, and letting it through here would put one where a string
+ * is typed.
+ */
+interface PublishedRun {
+  agent: string;
+  quote: string;
+  windows?: number;
+  perturbations?: number;
+  observations?: number;
+  net_positive?: number;
+}
+
 /** A job as `/quote/job/{id}` reports it. */
 interface JobView {
   jobId: string;
@@ -46,6 +70,15 @@ interface JobView {
    * reader has just asked for the number and is being told no.
    */
   refusal?: { note?: string; remedy?: string; windows?: number; samples?: number };
+  /**
+   * What the marketplace already has on this pool, from the 202.
+   *
+   * It was on the wire and dropped at this boundary, so a hire showed a
+   * progress bar and nothing else — which made a marketplace with agents on
+   * this pool look like one with none, on the screen where somebody has just
+   * asked it for a number.
+   */
+  published?: PublishedRun[];
   /**
    * The quote, as the worker publishes it.
    *
@@ -472,7 +505,19 @@ function QuoteRun({
         const body = (await res.json()) as JobView & { job_id: string };
         setState({
           phase: "watching",
-          job: { ...body, jobId: state.job.jobId, done: 0, total: 0, phase: "" },
+          job: {
+            ...body,
+            jobId: state.job.jobId,
+            done: 0,
+            total: 0,
+            phase: "",
+            // `/quote/job/{id}` reports the job and knows nothing about the
+            // pool's published runs — those came with the 202. Spreading the
+            // body over the state would drop them at the moment the fresh
+            // number lands, which is exactly when there is something to
+            // compare it against.
+            published: state.job.published,
+          },
         });
       },
         onError: (message) => setState({ phase: "failed", message }),
@@ -506,7 +551,18 @@ function QuoteRun({
     if (res.status === 202 && body?.job_id) {
       return setState({
         phase: "watching",
-        job: { jobId: body.job_id, status: "queued", done: 0, total: 0, phase: "", note: body.note },
+        job: {
+          jobId: body.job_id,
+          status: "queued",
+          done: 0,
+          total: 0,
+          phase: "",
+          note: body.note,
+          // Kept across the whole watch, not only the queued frame: the
+          // published runs are what the fresh one has to be read against, and
+          // they stay true after it finishes.
+          published: Array.isArray(body.published) ? body.published : undefined,
+        },
       });
     }
 
@@ -612,6 +668,52 @@ function RunProgress({ job }: { job: JobView }) {
             </p>
           </>
         )
+      )}
+
+      {/* What the marketplace already has, while the fresh run is still
+          queued. This is the answer that arrives immediately, and without it a
+          hire on a pool three agents have replayed showed a progress bar and
+          nothing else.
+
+          Kept visually quieter than the live result below and labelled with
+          its own window count, because the two are not comparable: these are
+          full-budget published runs and the job is the reduced interactive one
+          A15 describes. Saying which is which is the whole reason the count
+          rides on each row rather than being stated once in prose. */}
+      {job.published && job.published.length > 0 && (
+        <div className="mt-4 min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
+          <p className="m-0 text-xs text-faint">
+            Already published for this pool — full-budget runs of named agents, not this
+            job.
+          </p>
+          <ul className="mt-2 mb-0 list-none space-y-2 p-0">
+            {job.published.map((run) => (
+              <li key={run.agent} className="min-w-0 text-sm">
+                <span className="text-ink">{run.agent}</span>{" "}
+                <span className="tabular text-dim [overflow-wrap:anywhere]">{run.quote}</span>
+                {(isNum(run.observations) || isNum(run.windows)) && (
+                  <span className="block text-xs text-faint">
+                    {isNum(run.net_positive) && isNum(run.observations) && (
+                      <>
+                        {count(run.net_positive)} of {count(run.observations)} observations
+                        finished in profit
+                      </>
+                    )}
+                    {isNum(run.net_positive) && isNum(run.observations) && isNum(run.windows) && (
+                      <> · </>
+                    )}
+                    {isNum(run.windows) && (
+                      <>
+                        {count(run.windows)} windows
+                        {isNum(run.perturbations) && <> × {count(run.perturbations)}</>}
+                      </>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {job.refusal && (

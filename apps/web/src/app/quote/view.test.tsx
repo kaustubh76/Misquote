@@ -309,3 +309,86 @@ describe("the tape belongs to whichever pool is still running", () => {
     expect(document.documentElement.dataset.tape).toBeUndefined();
   });
 });
+
+describe("a hire shows what the marketplace already has on the pool", () => {
+  /**
+   * The defect: `POST /quote` returns the pool's completed runs alongside the
+   * job id, and this view read `job_id` and `note` and dropped the rest. So a
+   * hire on the one pool three agents have replayed showed a progress bar and
+   * nothing else — a marketplace with a track record looking like one with
+   * none, on the screen where somebody has just asked it for a number.
+   */
+  const published = [
+    {
+      agent: "Grid",
+      quote: "21.91% to 31.06% (median 26.40%, annualised)",
+      windows: 20,
+      perturbations: 3,
+      observations: 60,
+      net_positive: 60,
+    },
+  ];
+
+  it("prints the published runs while the fresh one is still queued", async () => {
+    serveApi({
+      "/quote/eligibility/": () => json(eligible(holding("0xpoolA", "Pool A"))),
+      "/quote/job/": () => json({ status: "queued", progress: {}, events: 1 }),
+      "/quote": () => json({ job_id: "job-1", note: "queued", published }, 202),
+    });
+    const user = userEvent.setup();
+    render(<QuoteView stream={STREAM} />);
+    await check(user);
+    await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
+
+    expect(await screen.findByText("Grid")).toBeInTheDocument();
+    expect(screen.getByText(published[0].quote)).toBeInTheDocument();
+    // The track record, with its denominator travelling beside it.
+    expect(screen.getByText(/60 of 60 observations finished in profit/)).toBeInTheDocument();
+    // And the window count on the row, which is what tells a reader this is a
+    // full-budget published run rather than the reduced interactive one.
+    expect(screen.getByText(/20 windows/)).toBeInTheDocument();
+  });
+
+  it("keeps them after the job finishes, which is when they are worth reading", async () => {
+    let status: Record<string, unknown> = { status: "queued", progress: {}, events: 1 };
+    serveApi({
+      "/quote/eligibility/": () => json(eligible(holding("0xpoolA", "Pool A"))),
+      "/quote/job/": () => json(status),
+      "/quote": () => json({ job_id: "job-1", note: "queued", published }, 202),
+    });
+    const user = userEvent.setup();
+    render(<QuoteView stream={STREAM} />);
+    await check(user);
+    await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
+    expect(await screen.findByText("Grid")).toBeInTheDocument();
+
+    // `/quote/job/{id}` reports the job and knows nothing about the pool's
+    // published runs. Spreading its body over the state dropped them at the
+    // exact moment there was a fresh number to read them against.
+    status = {
+      status: "done",
+      progress: { done: 8, total: 8, phase: "" },
+      events: 2,
+      result: { p25: 1, p50: 2, p75: 3, samples: 24, interactive_budget: true },
+    };
+    expect(await screen.findByText(/Run on the reduced interactive budget/)).toBeInTheDocument();
+    expect(screen.getByText("Grid")).toBeInTheDocument();
+  });
+
+  it("draws nothing at all when the pool has no published run", async () => {
+    serveApi({
+      "/quote/eligibility/": () => json(eligible(holding("0xpoolA", "Pool A"))),
+      "/quote/job/": () => json({ status: "queued", progress: {}, events: 1 }),
+      "/quote": () => json({ job_id: "job-1", note: "queued", published: [] }, 202),
+    });
+    const user = userEvent.setup();
+    render(<QuoteView stream={STREAM} />);
+    await check(user);
+    await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
+
+    expect(await screen.findByText(/has not said how many replays this is yet/)).toBeInTheDocument();
+    // An empty heading over an empty list would read as "we have nothing and
+    // want you to notice"; the ordinary case is that most pools have no run.
+    expect(screen.queryByText(/Already published for this pool/)).not.toBeInTheDocument();
+  });
+});
