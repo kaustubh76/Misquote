@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { TallyStrip } from "@/components/TallyStrip";
+import { EngineStamp } from "@/components/EngineStamp";
 import { TapeSource } from "@/components/TapeSource";
 import { Card } from "@/components/Card";
 import { ComparisonTable } from "@/components/ComparisonTable";
@@ -165,6 +166,18 @@ export function AdvantageView({
                     <TapeSource source={d.source} />
                   </p>
                 )}
+                {/* And which engine scored them. This report and the agent
+                    cards it scores are written by different make targets, so
+                    they can be — and were — generated nine engine commits
+                    apart: this page said Warden loses to DIY by 64.29pp while
+                    /agent/warden said it beats DIY by 17.21pp. The commit was
+                    in both artifacts and on neither page. */}
+                <EngineStamp
+                  className="mb-3"
+                  sha={d.build?.git_sha}
+                  generatedAt={d.build?.generated_at}
+                  dirty={d.build?.git_dirty}
+                />
                 <Heading className="mt-0 mb-2 text-lg font-semibold">
                   Across all {count(d.summary.tasks)} tasks
                 </Heading>
@@ -338,6 +351,11 @@ export function AdvantageView({
                       truncated on purpose. This report is the second, has been
                       since it was added, and the page said so nowhere. */}
                   <TapeSource source={short.value.source} />
+                  <EngineStamp
+                    sha={short.value.build?.git_sha}
+                    generatedAt={short.value.build?.generated_at}
+                    dirty={short.value.build?.git_dirty}
+                  />
                   <span className="font-mono text-xs text-faint">
                     {short.value.summary.withheld} of{" "}
                     {short.value.summary.tasks} withheld

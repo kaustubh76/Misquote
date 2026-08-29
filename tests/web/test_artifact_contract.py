@@ -234,18 +234,29 @@ AGENT_FIELDS: dict[str, str] = {
     "advantage.baseline.lvr_quote_upper_bound": "AgentDetail.tsx",
     "advantage.baseline.costs_quote": "AgentDetail.tsx",
     "advantage.baseline.moves": "AgentDetail.tsx",
-    # Per-card provenance. Not rendered by any view — it is read by
-    # `scripts/go_no_go.py`'s `check_artifact_freshness`, which asks whether a
-    # published card still describes the engine that exists and answers
-    # UNVERIFIED for any artifact recording no commit. Every card recorded none
-    # until this block was added: they were stamped by proxy through
-    # `build.json`, so the gate could not go green and its own stated remedy —
-    # regenerate them — could not clear it either.
+    # Per-card provenance. Read by `scripts/go_no_go.py`'s
+    # `check_artifact_freshness`, which asks whether a published card still
+    # describes the engine that exists and answers UNVERIFIED for any artifact
+    # recording no commit. Every card recorded none until this block was added:
+    # they were stamped by proxy through `build.json`, so the gate could not go
+    # green and its own stated remedy — regenerate them — could not clear it.
+    #
+    # Three of the five now render, and the reason is a contradiction the gate
+    # could see and the pages could not. `/advantage` scores the same replay
+    # this card publishes and is written by a different make target, so the two
+    # were generated nine engine commits apart: one page said Warden beats DIY
+    # by 17.21pp, the other that it loses by 64.29pp. The commit that separated
+    # them was in both artifacts and on neither page. `EngineStamp` renders it,
+    # and `tests/web/test_artifact_agreement.py` fails on the state itself.
+    #
+    # `command` and `source` stay unrendered: the first is the same string on
+    # every card, and the second is answered where a reader asks it, by
+    # `TapeSource` beside the number.
     "build.command": "",
     "build.source": "",
-    "build.generated_at": "",
-    "build.git_sha": "",
-    "build.git_dirty": "",
+    "build.generated_at": "AgentDetail.tsx",
+    "build.git_sha": "AgentDetail.tsx",
+    "build.git_dirty": "AgentDetail.tsx",
 }
 
 
@@ -379,12 +390,16 @@ ROUTER_FIELDS: dict[str, str] = {
     "provenance.journal_rows": "",
     "provenance.hours_covered": "",
     "provenance.every_number_derived": "",
-    # Per-card provenance, read by `go_no_go.check_artifact_freshness`.
+    # Per-card provenance, read by `go_no_go.check_artifact_freshness` and now
+    # by the page. Router's card and the advantage report publish the same
+    # comparison from separate runs — `make router-card` against `make
+    # advantage` — so the two can drift apart with nothing on either saying so.
+    # See the longer note in `AGENT_FIELDS`.
     "build.command": "",
     "build.source": "",
-    "build.generated_at": "",
-    "build.git_sha": "",
-    "build.git_dirty": "",
+    "build.generated_at": "RouterDetail.tsx",
+    "build.git_sha": "RouterDetail.tsx",
+    "build.git_dirty": "RouterDetail.tsx",
 }
 
 

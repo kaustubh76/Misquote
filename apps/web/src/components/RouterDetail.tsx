@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Band } from "@/components/Band";
+import { EngineStamp } from "@/components/EngineStamp";
 import { TapeSource } from "@/components/TapeSource";
 import { AgentJournal } from "@/components/AgentJournal";
 import { Card } from "@/components/Card";
@@ -354,6 +355,18 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                   value: money(adv.baseline.net_quote, unit),
                 },
               ]}
+            />
+
+            {/* The engine behind this delta. Router's card is written by `make
+                router-card` and the advantage report by `make advantage`, so
+                these two publish the same comparison from separate runs — and
+                the day one is regenerated without the other, this line and the
+                one on /advantage stop matching. */}
+            <EngineStamp
+              className="mt-4"
+              sha={data.build?.git_sha}
+              generatedAt={data.build?.generated_at}
+              dirty={data.build?.git_dirty}
             />
           </Card>
         </Section>

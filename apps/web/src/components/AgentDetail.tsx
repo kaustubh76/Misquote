@@ -6,6 +6,7 @@ import { Section } from "@/components/Heading";
 import { AgentJournal } from "@/components/AgentJournal";
 import { SectionRail } from "@/components/SectionRail";
 import { Badge } from "@/components/Badge";
+import { EngineStamp } from "@/components/EngineStamp";
 import { Prose } from "@/components/Blocks";
 import { TapeSource } from "@/components/TapeSource";
 import { Band } from "@/components/Band";
@@ -434,6 +435,21 @@ export function AgentDetail({
                 ]}
               />
             </div>
+
+            {/* Which engine produced the figures above.
+                `/advantage` scores this same replay and publishes its own
+                verdict, and the two are written by different make targets — so
+                running one without the other left this page saying Warden beats
+                DIY by 17.21pp while /advantage said it loses by 64.29pp, from
+                runs nine engine commits apart. Neither page showed the commit
+                it used. `test_artifact_agreement.py` now fails on that state;
+                this is the same fact where a reader meets it. */}
+            <EngineStamp
+              className="mt-4"
+              sha={d.build?.git_sha}
+              generatedAt={d.build?.generated_at}
+              dirty={d.build?.git_dirty}
+            />
           </Card>
 
           <Card>

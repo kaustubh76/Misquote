@@ -346,6 +346,21 @@ export interface AdvantageBlock {
   };
 }
 
+/**
+ * Which commit produced the numbers in this artifact, and whether it was clean.
+ *
+ * Every emitter has written this since `tearsheet.provenance.build_stamp`
+ * existed and no view read it, so two artifacts generated five days and nine
+ * engine commits apart looked identical on the page. See `EngineStamp`.
+ */
+export interface BuildStampBlock {
+  command?: string;
+  generated_at?: string;
+  git_sha?: string | null;
+  git_dirty?: boolean | null;
+  source?: string;
+}
+
 export interface AgentArtifact {
   agent: string;
   pool: string;
@@ -358,6 +373,7 @@ export interface AgentArtifact {
   activity: ActivityBlock;
   caveats: string[];
   provenance: ProvenanceBlock;
+  build?: BuildStampBlock;
   counterfactual: boolean;
   badge: string;
   source: string;
@@ -473,6 +489,7 @@ export interface RouterArtifact {
    */
   venues: (RouterLendingVenue | RouterPoolVenue)[];
   source: string;
+  build?: BuildStampBlock;
   counterfactual: boolean;
   badge: string;
   quote_symbol?: string;
@@ -756,6 +773,7 @@ export interface AdvantageArtifact {
   counterfactual: boolean;
   badge: string;
   source: string;
+  build?: BuildStampBlock;
   /**
    * One capital basis for the whole report, or a pointer to the per-task ones.
    *
