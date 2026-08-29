@@ -437,6 +437,50 @@ export function AgentDetail({
           </Card>
 
           <Card>
+            {/* Never ran is not zero, and this card said zero.
+                Two of the three LP agents have never written the journal
+                file `provenance.journal` names, so on those two every figure
+                below read 0 — "0 decisions · 0.0h journalled", "0 recorded · 0
+                failed · 0 dropped", "0 mint · 0 recentre · 0 pull" — under a
+                `Live loop` badge, with each zero presented as a measurement of
+                a run that did not happen.
+
+                It is `/tape`'s argument on a different surface: "a quiet range
+                of blocks and a range nobody fetched both contain zero swaps,
+                and no query over the events can tell them apart". A loop that
+                held on every decision and a loop that never started both
+                produce zero decisions.
+
+                And the same page already said the opposite. `journal.json`
+                states the rule — "an agent absent from this object has never
+                run, which is an absence rather than an empty journal, and the
+                two are different claims" — and `AgentJournal` below honours it
+                for these exact two agents. Only this card did not.
+
+                Keyed on `provenance.journal_rows`, not on
+                `activity.decisions`. Zero decisions out of a journal that
+                exists is a real reading — the loop ran and held every time —
+                and it is the reading this card is for. Keying on the outcome
+                would erase it the day it happens. */}
+            {d.provenance.journal_rows === 0 ? (
+              <>
+                <CardHeader
+                  title="Why it held"
+                  aside={<Badge tone="neutral">Not run</Badge>}
+                />
+                <Refusal
+                  title="This agent's live loop has not run"
+                  reason={`Nothing was journalled to ${d.provenance.journal}, so there are no decisions to account for. The replay beside this card is a counterfactual over recorded tape; it is not a record of this loop.`}
+                  // No invented remedy, so no `floor`. The Makefile has a
+                  // target for Warden's loop and one for Router's, and none for
+                  // the other two — so a command named here would be a floor a
+                  // reader cannot stand on, which is the failure `floor` exists
+                  // to avoid. `test_make_targets.py` would catch the invention
+                  // anyway, and did catch the first draft of this comment.
+                />
+              </>
+            ) : (
+              <>
             <CardHeader
               title="Why it held"
               eyebrow={`${count(d.activity.decisions)} decisions · ${hours(d.activity.hours)} journalled`}
@@ -483,6 +527,8 @@ export function AgentDetail({
               <p className="mt-2 mb-0 text-xs text-warn">
                 {count(d.activity.read_errors)} read errors, survived.
               </p>
+            )}
+              </>
             )}
           </Card>
         </div>

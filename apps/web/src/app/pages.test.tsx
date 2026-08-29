@@ -394,6 +394,63 @@ describe("Agent detail", () => {
       ).toBeGreaterThan(0);
     }
   });
+
+  it("says the live loop has not run, rather than reporting it as zero", async () => {
+    // Grid and Sentinel have no journal — neither has ever written the file
+    // `provenance.journal` names — and this card rendered that as
+    // "0 decisions · 0.0h journalled",
+    // "0 recorded · 0 failed · 0 dropped" and "0 mint · 0 recentre · 0 pull",
+    // every figure a measurement of a run that did not happen.
+    //
+    // It is `/tape`'s argument on another surface: a loop that held on every
+    // decision and a loop that never started both produce zero decisions, and
+    // nothing in the counts tells them apart. `journal.json` states the rule
+    // this page was breaking — "an agent absent from this object has never run
+    // … the two are different claims" — and `AgentJournal` on this same page
+    // already honoured it for these exact two agents.
+    const grid = readArtifact<AgentArtifact>("grid.json");
+    if (grid.provenance.journal_rows > 0) return;
+
+    render(<AgentDetail slug="grid" />);
+    await screen.findByRole("heading", { name: "Grid" });
+
+    expect(
+      screen.getByRole("heading", { name: /live loop has not run/i })
+    ).toBeInTheDocument();
+    // The path, so the absence is checkable rather than asserted.
+    expect(screen.getByText(textFrom(grid.provenance.journal))).toBeInTheDocument();
+
+    // And none of the zeros. "Live loop" is the badge that framed them as a
+    // reading; the histogram's "of 0" would be the same claim in a mark.
+    expect(screen.queryByText("Live loop")).not.toBeInTheDocument();
+    // Anchored. The replay card beside this one legitimately renders "522,520
+    // decisions · 725.7h of tape", and an unanchored `/0 decisions/` matches
+    // the "20 decisions" inside it — the assertion would have failed against
+    // correct output, on the card it is not about.
+    expect(screen.queryByText(/^0 decisions/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^0 mint · /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/dropped as stale or capped/)).not.toBeInTheDocument();
+  });
+
+  it("still reports the loop that did run, in full", async () => {
+    // The other direction, and the reason the fix is not "hide the card when
+    // the numbers are small". Warden's loop ran; every figure it produced has
+    // to survive, or the refusal above would have been bought by deleting a
+    // real reading.
+    const warden = readArtifact<AgentArtifact>("warden.json");
+    if (warden.provenance.journal_rows === 0) return;
+
+    render(<AgentDetail slug="warden" />);
+    await screen.findByRole("heading", { name: "Warden" });
+
+    expect(screen.getByText("Live loop")).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`${warden.activity.decisions} decisions`))
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /live loop has not run/i })
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("Advantage", () => {

@@ -60,6 +60,15 @@ const ROUTES = [
   // every route in this list, which is exactly the shape of claim this file
   // exists to stop being made.
   ["agent-router", "/agent/router/"],
+  // The third agent page, and the only one in the never-ran branch. `grid` and
+  // `sentinel` have no live journal — neither has ever written the file its
+  // own `provenance.journal` names — so the "Why it held" card takes a
+  // different path here than on
+  // /agent/warden, and until this line that path had never been rendered by a
+  // browser. It had been rendering four rows of zeros as if they were
+  // measurements, on two routes this list did not visit, which is the same
+  // shape of claim the /agent/router line below was added for.
+  ["agent-grid", "/agent/grid/"],
   ["methods", "/methods/"],
   ["vectors", "/vectors/"],
   ["assumptions", "/assumptions/"],
@@ -144,7 +153,19 @@ for (const [colorScheme, width] of VIEWPORTS) {
   const page = await context.newPage();
 
   const problems = [];
-  page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+
+  // Chromium logs every non-2xx to the console as "Failed to load resource: the
+  // server responded with a status of 404 ()", with no URL on it. That line is
+  // the browser narrating the same response the handler below classifies, so a
+  // refusal produced two findings: one the response check now correctly clears,
+  // and one here that it could not reach.
+  //
+  // Counted rather than pattern-suppressed. Each classified refusal excuses one
+  // such line and no more, so a route that refuses once and genuinely 404s once
+  // still reports the second — which a blanket regex would have swallowed.
+  const NARRATED_STATUS = /^Failed to load resource: the server responded with a status of \d+/;
+  const consoleErrors = [];
+  page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
   // The URL and the top of the stack, because React error #418 — a hydration
   // mismatch — shows up here roughly once per sixty loads on a different route
   // each time, and has never reproduced on demand: not in five dedicated
@@ -205,8 +226,31 @@ for (const [colorScheme, width] of VIEWPORTS) {
     problems.push(`uncaught on ${page.url()}: ${e}${frames ? ` [${frames}]` : ""}`);
   });
   page.on("requestfailed", (r) => problems.push(`request failed: ${r.url()}`));
+  // A non-2xx is a problem unless it is a *refusal*, and the difference is in
+  // the body rather than the status.
+  //
+  // `lib/api.ts` defines the contract: the API answers a question it cannot
+  // answer with a non-2xx carrying `{detail: {error, remedy, …}}`, and
+  // `loadLive` turns that into a `RefusalError` the page renders. `/journal/
+  // <agent>` does exactly this for an agent that has never run — "no journal
+  // for 'grid'", listing the two agents that have one — and `AgentJournal`
+  // draws it. That is the service working, and this handler called it a
+  // failure the moment /agent/grid joined the route list.
+  //
+  // Checked rather than exempted. Matching the URL shape would have passed a
+  // genuinely broken journal route just as happily; reading the body asserts
+  // the thing that actually distinguishes them. The reads are collected and
+  // awaited below, because a promise resolving after `problems` is read is a
+  // check that reports nothing.
+  const bodies = [];
   page.on("response", (r) => {
-    if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);
+    if (r.status() < 400) return;
+    bodies.push(
+      r
+        .json()
+        .then((body) => (body?.detail?.error ? null : `${r.status()} ${r.url()}`))
+        .catch(() => `${r.status()} ${r.url()}`),
+    );
   });
 
   // What is still in flight, so a navigation that never settles can say what it
@@ -221,6 +265,8 @@ for (const [colorScheme, width] of VIEWPORTS) {
   for (const [name, path] of ROUTES) {
     const tag = `${name}-${colorScheme}-${width}`;
     problems.length = 0;
+    bodies.length = 0;
+    consoleErrors.length = 0;
 
     // Recorded, not thrown. A `page.goto` rejection used to escape this loop
     // as an uncaught exception and take the whole run with it — every remaining
@@ -256,6 +302,20 @@ for (const [colorScheme, width] of VIEWPORTS) {
 
     // The views fetch after mount; give the render a beat to settle.
     await page.waitForTimeout(350);
+
+    // Every non-2xx read and classified, before anything reads `problems`.
+    const classified = await Promise.all(bodies);
+    problems.push(...classified.filter(Boolean));
+
+    // Then the console, minus one narration per refusal.
+    let excused = classified.length - classified.filter(Boolean).length;
+    for (const text of consoleErrors) {
+      if (excused > 0 && NARRATED_STATUS.test(text)) {
+        excused -= 1;
+        continue;
+      }
+      problems.push(text);
+    }
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

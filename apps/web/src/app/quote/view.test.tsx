@@ -318,16 +318,22 @@ describe("a hire shows what the marketplace already has on the pool", () => {
    * nothing else — a marketplace with a track record looking like one with
    * none, on the screen where somebody has just asked it for a number.
    */
-  const published = [
-    {
-      agent: "Grid",
-      quote: "21.91% to 31.06% (median 26.40%, annualised)",
-      windows: 20,
-      perturbations: 3,
-      observations: 60,
-      net_positive: 60,
-    },
-  ];
+  // Named, not indexed. `published[0].quote` is `possibly undefined` under
+  // `noUncheckedIndexedAccess`, and `tsc` did not say so for as long as this
+  // line has existed: `incremental: true` reruns only changed files and their
+  // dependents, so a green typecheck was not a checked file. It surfaced the
+  // moment an unrelated edit to `test/harness.tsx` — which every test imports
+  // — invalidated the cache. Removing the index is the fix; a `!` would have
+  // asserted past a warning that was correct.
+  const publishedRun = {
+    agent: "Grid",
+    quote: "21.91% to 31.06% (median 26.40%, annualised)",
+    windows: 20,
+    perturbations: 3,
+    observations: 60,
+    net_positive: 60,
+  };
+  const published = [publishedRun];
 
   it("prints the published runs while the fresh one is still queued", async () => {
     serveApi({
@@ -341,7 +347,7 @@ describe("a hire shows what the marketplace already has on the pool", () => {
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
 
     expect(await screen.findByText("Grid")).toBeInTheDocument();
-    expect(screen.getByText(published[0].quote)).toBeInTheDocument();
+    expect(screen.getByText(publishedRun.quote)).toBeInTheDocument();
     // The track record, with its denominator travelling beside it.
     expect(screen.getByText(/60 of 60 observations finished in profit/)).toBeInTheDocument();
     // And the window count on the row, which is what tells a reader this is a

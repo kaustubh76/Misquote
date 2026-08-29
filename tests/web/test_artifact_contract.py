@@ -196,11 +196,17 @@ AGENT_FIELDS: dict[str, str] = {
     "activity.dropped": "AgentDetail.tsx",
     "activity.read_errors": "AgentDetail.tsx",
     "activity.held_by_gate": "GateHistogram.tsx",
-    # Recorded by the emitter and read by `scripts/go_no_go.py`; no view
-    # renders it. The site states what the numbers are, not how the run that
-    # produced them was bookkept.
-    "provenance.journal": "",
-    "provenance.journal_rows": "",
+    # Where the live loop's numbers came from, and whether there are any.
+    #
+    # Both were unrendered on the reasoning that the site states what the
+    # numbers are rather than how the run was bookkept. That held until it
+    # turned out two of the three agents have no run at all: `journal_rows` is
+    # the only field that separates a loop which held on every decision from a
+    # loop that never started, and the card was rendering the second as the
+    # first. It is the discriminator now, and `journal` is the path the refusal
+    # names so the absence is checkable rather than asserted.
+    "provenance.journal": "AgentDetail.tsx",
+    "provenance.journal_rows": "AgentDetail.tsx",
     "provenance.hours_covered": "",
     "provenance.every_number_derived": "",
     "replay.samples": "AgentCard.tsx",
