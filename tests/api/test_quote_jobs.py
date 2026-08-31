@@ -8,6 +8,9 @@ not errors stay distinguishable from the one that is.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("fastapi", reason="the `api` extra is not installed — `uv sync --extra api`")
@@ -293,7 +296,6 @@ def test_a_booted_worker_is_visible_before_it_claims_anything(tmp_path) -> None:
     live deploy leave a job `queued` for three minutes with no way to tell which
     of the two it was.
     """
-    import os
 
     os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
     from misquote.ops import jobs
@@ -326,7 +328,6 @@ def test_a_worker_that_stopped_beating_is_not_counted_as_draining(tmp_path) -> N
     instance whose worker died, "something drained this once" is true and
     useless, and would tell a caller to wait for a process that is gone.
     """
-    import os
     import time
 
     os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
@@ -355,7 +356,6 @@ def test_the_worker_announces_itself_by_draining(tmp_path) -> None:
     `drain(once=True)` against an empty queue claims nothing, and a worker must
     still be visible afterwards.
     """
-    import os
 
     os.environ["MISQUOTE_JOBS_DB"] = str(tmp_path / "jobs.db")
     from misquote.ops import jobs, worker
@@ -388,7 +388,6 @@ def test_the_hire_note_agrees_with_the_worker_count_it_reports(tmp_path) -> None
     is only reached when the pre-flight says a quote is possible; an empty tape
     refuses at 409 and never gets here.
     """
-    import os
     import time
     from pathlib import Path
 
@@ -483,7 +482,6 @@ def test_the_hire_response_actually_carries_the_published_runs(tmp_path) -> None
     a job id and nothing else, and every test still green. Second time this
     session that a guard sat on a function nobody was proven to call.
     """
-    import os
     from pathlib import Path
 
     tape = Path(__file__).resolve().parents[2] / "data" / "deploy" / "tape.db"
@@ -536,3 +534,45 @@ def test_an_allocation_card_is_never_offered_as_a_published_run(tmp_path, monkey
     assert published_runs(TARGET_POOL.address) == [], (
         "an allocation card named the pool and was offered as an LP track record"
     )
+
+
+def test_the_replay_reads_the_tape_the_service_reads(monkeypatch, tmp_path) -> None:
+    """One `DB_PATH`, or the API and the worker answer about different files.
+
+    `quote_job.run` hardcoded `data/misquote.db` while every other reader of the
+    tape — `api/locations.py::db_path`, `go_no_go.py`, the agents — honours
+    `DB_PATH`. On the deployment that is not a preference: the service answers
+    `/tape` from the committed slice with 60,853 swaps for the target pool, and
+    the replay opened a 245MB gitignored file absent from the checkout, found
+    nothing, and refused with *"the tape holds no swaps for 0x3669…"*.
+
+    Every word of that refusal was true about the file it opened and wrong about
+    the pool. Asserted here as agreement between the two resolvers rather than
+    against a literal path, so the next reader added to the system has to join
+    them rather than pick its own default.
+    """
+    from misquote.api import locations
+    from misquote.ops import quote_job
+
+    tape = tmp_path / "slice.db"
+    monkeypatch.setenv("DB_PATH", str(tape))
+
+    assert locations.db_path() == tape
+
+    # The function `run` calls, not a copy of its body — a test that reimplements
+    # the expression it is checking passes whatever the code does.
+    assert Path(quote_job.tape_db_path({})) == tape, (
+        "the replay resolved a different tape than the service reads; that "
+        "disagreement is reported to a caller as an absence, not as a "
+        "misconfiguration"
+    )
+
+
+def test_an_explicit_db_path_in_the_params_still_wins(monkeypatch, tmp_path) -> None:
+    """A job that names its tape means it. The environment is the fallback."""
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "from-env.db"))
+    named = str(tmp_path / "from-params.db")
+
+    from misquote.ops import quote_job
+
+    assert quote_job.tape_db_path({"db_path": named}) == named

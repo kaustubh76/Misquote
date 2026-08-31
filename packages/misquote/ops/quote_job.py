@@ -75,6 +75,32 @@ def meta_for(ref: PoolRef) -> PoolMeta:
     )
 
 
+def tape_db_path(params: dict[str, Any]) -> str:
+    """Which tape this replay reads: the job's, then `DB_PATH`, then the default.
+
+    A function rather than an expression inline, so the service and the worker
+    cannot drift apart again — and so a test can assert against *this* rather
+    than against a copy of it, which is the same mistake one level up.
+
+    `run` hardcoded `data/misquote.db` while every other reader of the tape
+    honours `DB_PATH`: `api/locations.py::db_path`, `go_no_go.py`, the agents.
+    On the deployment that is not a preference. The service reads the committed
+    slice at `data/deploy/tape.db` and answers `/tape` with 60,853 swaps for the
+    target pool; the replay opened a 245MB gitignored file absent from the
+    checkout, found nothing, and refused with *"the tape holds no swaps for
+    0x3669…"*.
+
+    Every word of that refusal was true about the file it opened and wrong about
+    the pool — two halves of one system disagreeing about where the truth lives,
+    reported to a caller as an absence. In the path that answers a hire.
+    """
+    return str(
+        params.get("db_path")
+        or os.environ.get("DB_PATH")
+        or jobs.REPO / "data" / "misquote.db"
+    )
+
+
 def load_events(db_path: Any, address: str) -> list[Event]:
     """Every swap for one pool, in time order."""
     conn = store.connect(db_path)
@@ -95,7 +121,7 @@ def run(conn: Any, job_id: str, params: dict[str, Any]) -> None:
     # the same unit the published cards do rather than fail. See P-32.
     capital = float(params.get("capital_quote") or DEFAULT_CAPITAL_QUOTE)
     windows = int(params.get("windows") or INTERACTIVE_WINDOWS)
-    tape_db = params.get("db_path") or str(jobs.REPO / "data" / "misquote.db")
+    tape_db = tape_db_path(params)
 
     jobs.progress(conn, job_id, 0, 0, phase="loading the tape")
     events = load_events(tape_db, ref.address)
