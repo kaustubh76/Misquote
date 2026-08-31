@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ConnectButton } from "@/components/ConnectButton";
 import { type Route, routesIn } from "@/lib/routes";
 
 
@@ -104,13 +105,25 @@ function useOverflowEdges<T extends HTMLElement>(current: string) {
     el.addEventListener("scroll", measure, { passive: true });
     // Width changes with the viewport and, on first paint, with the font the
     // labels land in. A resize listener alone misses the second.
-    const observer = new ResizeObserver(measure);
+    //
+    // The observer re-reveals as well as re-measuring, and that is a fix rather
+    // than tidying. `revealCurrent` otherwise runs only on navigation, so
+    // anything that narrows this band *after* that — the connect button
+    // appearing on hydration, then widening again when the balance arrives —
+    // pushes the active link out of view with nothing to bring it back. At
+    // 390px the whole strip is about one link wide, and the gate caught exactly
+    // this on ten routes at once: "the current page's nav link is scrolled out
+    // of view", on every page, in the narrow dark pass only.
+    const observer = new ResizeObserver(() => {
+      measure();
+      revealCurrent();
+    });
     observer.observe(el);
     return () => {
       el.removeEventListener("scroll", measure);
       observer.disconnect();
     };
-  }, [measure]);
+  }, [measure, revealCurrent]);
 
   // Keyed on the route, not run once on mount. The nav survives client-side
   // navigation, so `aria-current` moves under a component that never
@@ -222,7 +235,20 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-glass-line bg-glass backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pt-3">
+      {/* Wraps, and that is load-bearing at 390px rather than cosmetic.
+          
+          Adding the connect button put a third `shrink-0` item on this row, and
+          the route band — `min-w-0 flex-1` — is what gives way. At 390px it was
+          squeezed narrower than a single pill, so the current page's link could
+          not be shown inside its own scroller no matter where it scrolled to.
+          The browser gate reported "the current page's nav link is scrolled out
+          of view" on ten routes at once, which read as a scroll bug and was a
+          width bug: there was nowhere to scroll it *to*.
+          
+          So below `sm` the band takes a row of its own at full width, and the
+          logo shares the top row with the wallet and theme controls. Above
+          `sm` the order and the layout are exactly what they were. */}
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-5 pt-3">
         {/* A mark, not just a word. The wordmark was one of nine grey items in
             a horizontal strip and did not read as the way home. The glyph is
             the same P25-P75 band the favicon draws — a range with a median
@@ -246,9 +272,22 @@ export function Nav() {
           Misquote
         </Link>
 
-        <Band label="Primary" routes={routesIn("product")} pathname={pathname} />
+        {/* Wrapped rather than given a width class, because `Band` renders
+            `flex-1` on its own root and `flex: 1 1 0%` sets a flex-basis that
+            beats any `w-full` passed in — measured at 45.7px against a 60.3px
+            pill, which is why the first attempt at this changed nothing. The
+            wrapper is the flex item and carries the widths; inside a block
+            parent the nav's own `flex-1` is inert. */}
+        <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
+          <Band label="Primary" routes={routesIn("product")} pathname={pathname} />
+        </div>
 
-        <div className="shrink-0">
+        {/* The connect button before the theme toggle, because it is the
+            product's primary action and the toggle is a preference. `ml-auto`
+            only while the band is on its own row, so the pair sits against the
+            right edge opposite the wordmark instead of floating beside it. */}
+        <div className="ml-auto flex shrink-0 items-center gap-3 sm:ml-0">
+          <ConnectButton />
           <ThemeToggle />
         </div>
       </div>

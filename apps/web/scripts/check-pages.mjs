@@ -427,10 +427,16 @@ const NO_JS = [
   // saying what a simulation here is allowed to be.
   ["/demo/", 1200, "never on by default and never sticky"],
   ["/quote/", 1200, "not a button that returns a number"],
-  // The absence *is* the content here, so the needle is the sentence that
-  // states it. A prerender that dropped the refusal and left the plan would
-  // read as an activation page that works.
-  ["/activate/", 1800, "no Hire button"],
+  // Was `"no Hire button"`, which this page has stopped being true about — it
+  // grants a real session key now.
+  //
+  // The needle moved to the disclosure rather than to anything about the
+  // button, and that is the point. The old needle was never protecting the
+  // absence of a button; it was protecting the admission that the chain bounds
+  // this key by one cap and not four. That admission survived the rewrite,
+  // moved next to the signature where it changes a decision, and is the thing
+  // a future edit would be tempted to soften. So it is what gets pinned.
+  ["/activate/", 1800, "does not enforce the allowlist"],
   // Both needles come from the sentence each page exists to make, and neither
   // is a figure that a regenerated artifact could move. The first draft had
   // these the wrong way round — "declare no category" is the *detail* page's

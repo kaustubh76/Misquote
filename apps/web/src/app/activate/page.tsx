@@ -5,7 +5,7 @@ import { readArtifact } from "@/lib/build-artifact";
 export const metadata: Metadata = {
   title: "Activation, bounded and reversible",
   description:
-    "Hiring an agent should be bounded and reversible: an allowlist, a spend cap, an expiry, and a one-transaction revoke. Two of the four are enforced by the contract and proven on chapel with transaction hashes; the other two are enforced by nothing, so there is still no Hire button.",
+    "Hire an agent with a session key your wallet grants and can revoke. The contract enforces the expiry and the revoke; the allowlist and the spend cap are not enforced, and the button says so before you sign.",
 };
 
 /**

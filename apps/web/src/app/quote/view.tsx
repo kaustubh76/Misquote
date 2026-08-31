@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 import { Band } from "@/components/Band";
 import { ObservationGrid } from "@/components/ObservationGrid";
 import { Button } from "@/components/Button";
@@ -168,6 +169,12 @@ type State =
  */
 export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
   const [address, setAddress] = useState("");
+
+  // Offered, never filled in. This form's own promise is that it asks for
+  // nothing, and silently populating it with an address the page learned from
+  // a wallet connection would be the page taking something rather than being
+  // given it. One click is the whole difference and it is the honest one.
+  const { address: connected } = useAccount();
   const [state, setState] = useState<State>({ phase: "idle" });
 
   async function check(event: React.FormEvent) {
@@ -242,6 +249,18 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
         </div>
         <p className="mt-2 mb-0 text-xs text-faint">
           Read-only. This never asks for a key, a signature, or an approval.
+          {connected && !address && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={() => setAddress(connected)}
+                className="underline underline-offset-2"
+              >
+                Use my connected wallet
+              </button>
+            </>
+          )}
         </p>
       </form>
 

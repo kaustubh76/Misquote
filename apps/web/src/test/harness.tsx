@@ -1,3 +1,4 @@
+import { WalletProvider } from "@/components/WalletProvider";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { vi } from "vitest";
@@ -180,4 +181,20 @@ export function asRendered(value: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1");
+}
+
+
+/**
+ * A render wrapper supplying the wallet providers.
+ *
+ * `Nav` carries the connect button, and wagmi's hooks throw outside a
+ * `WagmiProvider` rather than returning a disconnected state — which is the
+ * right behaviour for a library whose misuse is otherwise silent. In the app
+ * the provider is at the root of `layout.tsx`, so a component tree without one
+ * is a test artefact, not a state a visitor can reach.
+ *
+ * Use as `render(<Nav />, { wrapper: WithWallet })`.
+ */
+export function WithWallet({ children }: { children: React.ReactNode }) {
+  return <WalletProvider>{children}</WalletProvider>;
 }

@@ -631,17 +631,13 @@ export function AgentDetail({
           `lib/routes.ts`, both in comments. No card, no detail page, no
           category page offered a route to it.
 
-          It is deliberately not a Hire button and must never become one.
-          `/activate` opens "There is no Hire button on this site" because no
-          Altana session-key module has been verified on either network, and
-          `check-pages.mjs` keeps a needle on that sentence so it cannot be
-          softened. The gap this closes is that a reader could not *reach* the
-          honest refusal — which is a worse failure than the refusal itself, and
-          the only one of the two this branch is entitled to fix. */}
+          This used to read "why there is no button", and pointed at a page
+          whose subject was a refusal. `/activate` now grants a real session key,
+          so the link says what it does. The needle in `check-pages.mjs` moved
+          from the absent button to the disclosure beside the present one — the
+          honesty was always the part worth protecting, not the absence. */}
       <p className="mt-10 text-sm text-dim">
-        <Link href="/activate">
-          What hiring this agent would involve, and why there is no button →
-        </Link>
+        <Link href="/activate">Hire this agent with a session key →</Link>
       </p>
     </div>
   );

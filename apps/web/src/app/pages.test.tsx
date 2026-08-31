@@ -149,12 +149,17 @@ describe("Overview", () => {
     }
   });
 
-  it("shows the fourth category as not built instead of omitting it", async () => {
+  it("still shows the fourth category rather than omitting it", async () => {
+    // The "Not built" half of this moved to `/status` with the ledger — see the
+    // Status test of the same name. What belongs here is the other half, and it
+    // is the half the title was always about: the allocation category is *on*
+    // the overview. Dropping a category because its agent is thin would make
+    // the marketplace look complete by hiding the gap, which is the failure
+    // this repository is named after.
     render(<OverviewPage />);
     expect(
       await screen.findByRole("heading", { name: "Router" })
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Not built").length).toBeGreaterThan(0);
   });
 
   it("stops loading — the skeleton is not the final state", async () => {
@@ -774,6 +779,19 @@ describe("Registry", () => {
 });
 
 describe("Status", () => {
+  it("shows the fourth category as not built instead of omitting it", async () => {
+    // Moved here from the Overview test of the same name when the ledger left
+    // the landing page. The claim is unchanged and is worth keeping wherever it
+    // lives: a capability the README advertises and the repository does not
+    // contain is rendered as absent, not quietly dropped. `/status` is where a
+    // reader goes to find out what is missing, which is the placement the
+    // landing page got wrong.
+    render(<StatusPage />);
+    await waitFor(() =>
+      expect(screen.getAllByText("Not built").length).toBeGreaterThan(0)
+    );
+  });
+
   it("renders the verdict, the exit code and every gate", async () => {
     const status = readArtifact<{
       outcome: string;
@@ -1484,7 +1502,11 @@ describe("Overview routes the two integrations", () => {
     // either — worse than the silence it replaces.
     serveArtifacts({ missing: ["venue.json", "status.json"] });
     render(<OverviewPage />);
-    await screen.findByRole("heading", { name: /Advertised, and not built/ });
+    // A settle signal, not an assertion: the page has to finish rendering
+    // before "these two links are absent" means anything. This waited on the
+    // ledger heading, which has moved to `/status`, so it waits on the evidence
+    // rail instead — the last block on the page either way.
+    await screen.findByRole("heading", { name: /What there is to check/ });
 
     expect(screen.queryByRole("link", { name: /The venue/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /The track/ })).toBeNull();

@@ -27,11 +27,12 @@ import { Heading } from "@/components/Heading";
  * existed. `ErrorNotice` below keeps `--bad` and stays the only red, because it
  * is the only one of the four that means something broke.
  *
- * `size="lg"` exists for one page. On `/activate` the refusal *is* the subject
- * — the page opens "There is no Hire button on this site" — and rendering the
- * thesis of a page at `text-sm` under a `text-3xl` heading about something else
- * inverts its hierarchy. Same component, same wording, same texture, one step
- * of scale.
+ * `size="lg"` was added for `/activate`, whose subject used to be a refusal
+ * headed "There is no Hire button on this site". That page grants a session key
+ * now and no longer renders one, so the variant is currently unused by any
+ * route. It is kept rather than deleted because the argument it encodes still
+ * holds: where a refusal is the thesis of a page rather than an aside to it,
+ * rendering it at `text-sm` under a `text-3xl` heading inverts the hierarchy.
  */
 export function Refusal({
   title,

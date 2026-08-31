@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WithWallet } from "@/test/harness";
 import { QuoteView } from "./view";
 
 /**
@@ -104,7 +105,7 @@ const STREAM = { eventSource: null, pollMs: 20 } as const;
 describe("the form asks for an address and promises nothing else", () => {
   it("will not submit an empty address, and says it needs no key", () => {
     serveApi({});
-    render(<QuoteView />);
+    render(<QuoteView />, { wrapper: WithWallet });
 
     expect(screen.getByLabelText("Wallet address")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Check my positions" })).toBeDisabled();
@@ -132,7 +133,7 @@ describe("a refusal for a wallet is an answer, not a fault", () => {
         ),
     });
     const user = userEvent.setup();
-    render(<QuoteView />);
+    render(<QuoteView />, { wrapper: WithWallet });
     await check(user);
 
     expect(
@@ -150,7 +151,7 @@ describe("a refusal for a wallet is an answer, not a fault", () => {
     // nothing on its own if every state on this page is quiet.
     serveApi({ "/quote/eligibility/": () => json({ detail: { error: "boom" } }, 503) });
     const user = userEvent.setup();
-    render(<QuoteView />);
+    render(<QuoteView />, { wrapper: WithWallet });
     await check(user);
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -171,7 +172,7 @@ describe("a queued job draws no denominator it has not been given", () => {
       "/quote": () => json({ job_id: "job-1", note: "queued behind 0" }, 202),
     });
     const user = userEvent.setup();
-    const { container } = render(<QuoteView stream={STREAM} />);
+    const { container } = render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await check(user);
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
 
@@ -247,7 +248,7 @@ describe("the tape belongs to whichever pool is still running", () => {
       ),
     );
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     const buttons = await startFirstPool(user);
 
     await user.click(buttons[1]!);
@@ -262,7 +263,7 @@ describe("the tape belongs to whichever pool is still running", () => {
   it("keeps reading when a second pool fails to start", async () => {
     twoPools(() => json({}, 500));
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     const buttons = await startFirstPool(user);
 
     await user.click(buttons[1]!);
@@ -290,7 +291,7 @@ describe("the tape belongs to whichever pool is still running", () => {
       "/quote": () => json({ job_id: "job-1" }, 202),
     });
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await check(user);
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
     await waitFor(() => expect(document.documentElement.dataset.tape).toBe("reading"));
@@ -302,7 +303,7 @@ describe("the tape belongs to whichever pool is still running", () => {
   it("releases the tape when the page goes away", async () => {
     twoPools(() => json({}, 500));
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await startFirstPool(user);
 
     cleanup();
@@ -342,7 +343,7 @@ describe("a hire shows what the marketplace already has on the pool", () => {
       "/quote": () => json({ job_id: "job-1", note: "queued", published }, 202),
     });
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await check(user);
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
 
@@ -363,7 +364,7 @@ describe("a hire shows what the marketplace already has on the pool", () => {
       "/quote": () => json({ job_id: "job-1", note: "queued", published }, 202),
     });
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await check(user);
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
     expect(await screen.findByText("Grid")).toBeInTheDocument();
@@ -388,7 +389,7 @@ describe("a hire shows what the marketplace already has on the pool", () => {
       "/quote": () => json({ job_id: "job-1", note: "queued", published: [] }, 202),
     });
     const user = userEvent.setup();
-    render(<QuoteView stream={STREAM} />);
+    render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
     await check(user);
     await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
 
@@ -468,7 +469,7 @@ describe("under a scenario, the page reaches nothing", () => {
     );
 
     const user = userEvent.setup();
-    render(<QuoteView />);
+    render(<QuoteView />, { wrapper: WithWallet });
     await check(user);
 
     const run = await screen.findByRole("button", { name: /Replay this pool/ }, { timeout: 5000 });

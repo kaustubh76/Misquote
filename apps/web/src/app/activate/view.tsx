@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { Prose } from "@/components/Blocks";
-import { Refusal } from "@/components/Refusal";
+import { HireFlow } from "@/components/HireFlow";
 import { AnsweredBy } from "@/components/AnsweredBy";
 import { loadLive, type Source } from "@/lib/api";
 
@@ -64,16 +64,23 @@ export interface SessionProof {
  * on chapel, read back live, revoked, and read back dead, with three
  * transaction hashes anyone can check without this site's cooperation.
  *
- * **There is still no Hire button, and the reason is narrower and worse.** The
- * keystore enforces the expiry and revocation. It does not enforce the allowlist
- * or the spend cap — those belong to a `validator` module nothing here has read,
- * and every grant on this deployment, ours and other people's, carries
- * `validator = 0x0`. A button offering four caps over a key the chain bounds by
- * one would be the misquote this project is named after, on the one page whose
- * subject is bounded authority.
+ * **There is a Hire button now, and the disclosure moved next to it.** For a
+ * long time this page refused instead: the keystore enforces the expiry and
+ * revocation but not the allowlist or the spend cap — those belong to a
+ * `validator` module nothing here has read, and every grant on this deployment,
+ * ours and other people's, carries `validator = 0x0` — so a button offering
+ * four caps over a key the chain bounds by one would have been the misquote
+ * this project is named after, on the page whose subject is bounded authority.
  *
- * `scripts/check-pages.mjs` matches "no Hire button" in the no-JS render of this
- * route, so that sentence stays whatever else changes.
+ * Every one of those facts is still true. What changed is the conclusion drawn
+ * from them. A marketplace that answers "can I hire an agent" with a paragraph
+ * is not being careful; the careful version grants the one cap the chain
+ * honours and names the two it does not, at the moment of signing, which is
+ * where a caveat can still change a decision. `HireFlow` carries it inline.
+ *
+ * `scripts/check-pages.mjs` now matches "does not enforce the allowlist" in the
+ * no-JS render of this route. The needle followed the honesty rather than the
+ * button, because the honesty is what it was protecting.
  *
  * Standing prose is prerendered; only the live capability read needs
  * JavaScript, and its absence renders the same answer from the fallbacks.
@@ -108,27 +115,31 @@ export function ActivateView({
   return (
     <>
       <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
-        Hiring an agent should be bounded and reversible.
+        Hire an agent. Bounded, reversible, yours to revoke.
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
-        An allowlist of what it may call, a cap on what it may spend, an expiry, and
-        a revoke you can send yourself. Two of those four are enforced by the
-        contract and have been exercised on chain, with hashes below. The other
-        two are not enforced by anything, and that is why this page still refuses.
+        A session key your wallet grants and your wallet can take back. The
+        contract enforces the expiry and the revoke; it does not enforce the
+        allowlist or the spend cap, and the button below says so before you sign
+        rather than after.
       </p>
 
-      {/* Bled to the container edge and one type step up, because on this page
-          the refusal is not an aside to the argument — it is the argument. The
-          wording is untouched: `scripts/check-pages.mjs` matches "no Hire
-          button" in the no-JS render of this route, and it is the sentence the
-          page exists to make either way. */}
+      {/* This page used to render a large refusal here, headed "There is no Hire
+          button on this site", and `scripts/check-pages.mjs` matched that
+          sentence in the no-JS pass.
+
+          The facts behind it were right and are unchanged — every grant on this
+          deployment carries `validator 0x0`, so the allowlist and the spend cap
+          are not enforced by anything. What was wrong was the conclusion. A
+          marketplace whose answer to "can I hire an agent" is a paragraph is not
+          being careful, it is being unusable; and the honest form of the same
+          argument is a button that grants the one cap the chain honours and
+          names the two it does not, at the moment of signing.
+
+          `HireFlow` carries that warning inline. The needle in `check-pages.mjs`
+          moved with it. */}
       <div className="-mx-5 mt-8 px-5">
-        <Refusal
-          size="lg"
-          title="There is no Hire button on this site"
-          reason="The keystore enforces an expiry and a revoke, and both are proven below. It does not enforce the allowlist or the spend cap — those belong to a validator module nothing here has read, and every grant on this deployment carries validator 0x0. A button offering four caps over a key the chain bounds by one would be worse than no button."
-          floor="A grant that renders more authority than the chain enforces is the misquote, committed by us."
-        />
+        <HireFlow />
       </div>
 
       <Section

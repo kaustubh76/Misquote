@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Backdrop } from "@/components/Backdrop";
+import { WalletProvider } from "@/components/WalletProvider";
 import { CompareTray } from "@/components/CompareTray";
 import { Nav } from "@/components/Nav";
 import { SimulationBanner } from "@/components/SimulationBanner";
@@ -83,6 +84,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
+        {/* Every wallet-aware component sits under this, and it is at the root
+            rather than around `/activate` alone because the connect button
+            lives in the nav — a visitor connects once and stays connected as
+            they move between pages. */}
+        <WalletProvider>
         {/* First child, and fixed at `z-index: -1`. It is visible only because
             `body` carries the page background and a root-element background
             propagates to the canvas, which paints behind negative-z children —
@@ -136,6 +142,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <code className="font-mono">index.json</code> lists the agents.
           </div>
         </noscript>
+        </WalletProvider>
       </body>
     </html>
   );

@@ -4,7 +4,6 @@ import { EvidenceRail, type EvidenceEntry } from "@/components/EvidenceRail";
 import { TickRule } from "@/components/TickRule";
 import { Button } from "@/components/Button";
 import { IntentInput } from "@/components/IntentInput";
-import { count } from "@/lib/format";
 import { routesIn } from "@/lib/routes";
 import { Section } from "@/components/Heading";
 import { Loadable } from "@/components/LoadingStatus";
@@ -14,10 +13,10 @@ import { AgentCard } from "@/components/AgentCard";
 import { RouterCard } from "@/components/RouterCard";
 import { AgentComparison } from "@/components/AgentComparison";
 import { Integrations } from "@/components/Integrations";
-import { NotBuiltCard } from "@/components/Ledger";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import {
+  ArtifactError,
   load,
   loadAgents,
   type AgentArtifact,
@@ -47,24 +46,35 @@ const DELIVERABLE_GATE = "agent advantage report";
 
 export function OverviewView({
   initialIndex,
+  initialAgents,
   evidence,
 }: {
   /**
    * Read from disk at build time by `app/page.tsx`, so the landing page is not
    * a heading and a spinner in the exported HTML.
    *
-   * Only these two. They are what the page needs to render the source banner,
-   * the ledger of what is not built, and the build stamp — the parts that are
-   * prose and structure rather than a replayed figure. The agent cards stay
-   * client-only on purpose: `loadAgents` fans out over the index at runtime and
-   * baking three more artifacts into every build to save one round trip is a
-   * worse trade than the round trip.
+   * This used to be the only artifact passed in, and the note here said the
+   * agent cards stayed client-only on purpose — one round trip being cheaper
+   * than three artifacts in every build. That held while the ledger gave the
+   * page its prerendered substance. It does not hold now that the ledger has
+   * moved to `/status`: see `initialAgents` below and the longer note in
+   * `app/page.tsx`.
    *
    * Undefined when the file could not be read. That is not an error here — the
    * client's own load runs regardless and owns the failure path, which is where
    * the remedy text and the tests already are.
    */
   initialIndex?: IndexArtifact;
+  /**
+   * The agent cards, read at build time. See the note in `app/page.tsx` for why
+   * this stopped being a bad trade the moment the ledger left this page.
+   *
+   * `undefined` means the build could not read them and the client's own fan-out
+   * owns the outcome, exactly as `initialIndex` does. An entry whose `artifact`
+   * is undefined is a card that will fill in on hydration rather than a card
+   * that failed — the failure path stays in `loadAgents`.
+   */
+  initialAgents?: { slug: string; name: string; artifact?: AgentArtifact }[];
   /**
    * One figure per evidence route, counted from its own artifact at build time
    * by `app/page.tsx`. Numbers rather than artifacts, because everything this
@@ -76,7 +86,29 @@ export function OverviewView({
   const [index, setIndex] = useState<Loaded<IndexArtifact> | null>(
     initialIndex ? { ok: true, value: initialIndex } : null
   );
-  const [agents, setAgents] = useState<AgentSlot[] | null>(null);
+  // Seeded from the build when it could read them, so the cards are in the
+  // exported HTML and there is no "Loading agent cards." on a fresh visit. The
+  // effect below still refetches and overwrites: a static export can be served
+  // long after its artifacts moved on, and the build's copy is a floor rather
+  // than the answer.
+  const [agents, setAgents] = useState<AgentSlot[] | null>(
+    initialAgents
+      ? initialAgents.map((a) => ({
+          slug: a.slug,
+          name: a.name,
+          result: a.artifact
+            ? { ok: true as const, value: a.artifact }
+            : {
+                ok: false as const,
+                error: new ArtifactError(
+                  `${a.slug}.json was not readable at build time`,
+                  `${a.slug}.json`,
+                  "network",
+                ),
+              },
+        }))
+      : null,
+  );
   const [venue, setVenue] = useState<Loaded<VenueSummary> | null>(null);
   const [status, setStatus] = useState<Loaded<StatusSummary> | null>(null);
 
@@ -380,27 +412,20 @@ export function OverviewView({
           </div>
         )}
 
-        {index?.ok && index.value.not_built.length > 0 && (
-          <Section
-            title="Advertised, and not built"
-            className="mt-12"
-            headingClassName="text-lg font-semibold"
-          >
-            {/* Sentences 2-3 restated the heading directly above and the
-                "Not built" badge on every card below. And "four" was typed
-                against a `not_built` list of five — a hardcoded count of the
-                artifact it introduces. The count is read now, or omitted. */}
-            <p className="mt-2 mb-5 max-w-[64ch] text-sm text-dim">
-              {count(index.value.not_built.length)} capabilities the README
-              advertises and this repository does not contain.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {index.value.not_built.map((entry) => (
-                <NotBuiltCard key={entry.name} entry={entry} />
-              ))}
-            </div>
-          </Section>
-        )}
+        {/* The ledger used to render here, and it was the largest thing on the
+            page: six cards, 1,828 words, 84% of the landing copy, every one of
+            them explaining something this repository does not contain.
+
+            It is not deleted — it renders in full on `/status`, beside the
+            gates, which is where a reader who wants to know what is missing
+            goes looking. What was wrong was the placement. A homepage that
+            leads with its own gaps is not honest, it is unreadable: the first
+            thing a visitor met was six apologies, and the agents they came for
+            were above the fold only by accident.
+
+            `ledger.py` remains the single source and `/status` still renders
+            every entry, so `test_the_ledger_parity_is_ordered_not_just_set_equal`
+            and `test_ledger_entries_are_complete` are untouched by this. */}
 
         {/* The map of the argument.
             This page used to end at the ledger, so the half of the site that

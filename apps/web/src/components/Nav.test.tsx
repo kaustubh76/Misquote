@@ -1,3 +1,4 @@
+import { WithWallet } from "@/test/harness";
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Nav } from "./Nav";
@@ -53,7 +54,7 @@ beforeEach(() => {
 
 describe("every route is in the nav, whether or not it is on screen", () => {
   it("renders a link for every page", () => {
-    render(<Nav />);
+    render(<Nav />, { wrapper: WithWallet });
     const header = screen.getByRole("banner");
 
     for (const [label, href] of ROUTES) {
@@ -66,7 +67,7 @@ describe("every route is in the nav, whether or not it is on screen", () => {
     // the overflowing links behind a breakpoint. That makes the bar tidy and
     // makes five of the seven pages unreachable, which is the state the fades
     // were added to get out of — not a state to formalise.
-    render(<Nav />);
+    render(<Nav />, { wrapper: WithWallet });
     const header = screen.getByRole("banner");
     // Every route, across both bands, plus the wordmark's link home.
     expect(within(header).getAllByRole("link")).toHaveLength(ROUTES.length + 1);
@@ -77,7 +78,7 @@ describe("every route is in the nav, whether or not it is on screen", () => {
   });
 
   it("marks the current page for assistive tech, not only with a colour", () => {
-    render(<Nav />);
+    render(<Nav />, { wrapper: WithWallet });
     const header = screen.getByRole("banner");
     expect(within(header).getByRole("link", { name: "Overview" })).toHaveAttribute(
       "aria-current",
@@ -100,7 +101,7 @@ describe("an agent detail page is somewhere, not nowhere", () => {
     vi.doMock("next/navigation", () => ({ usePathname: () => "/agent/warden" }));
     const { Nav: Detail } = await import("./Nav");
 
-    render(<Detail />);
+    render(<Detail />, { wrapper: WithWallet });
     const header = screen.getByRole("banner");
     const overview = within(header).getByRole("link", { name: "Overview" });
 
@@ -124,7 +125,7 @@ describe("the 404 lists the site it is refusing to show", () => {
     // who mistyped /vetting was told the site has no such page, on the one page
     // whose job is to say what the site does have.
     const { default: NotFound } = await import("@/app/not-found");
-    render(<NotFound />);
+    render(<NotFound />, { wrapper: WithWallet });
 
     for (const [label, href] of ROUTES) {
       expect(screen.getByRole("link", { name: new RegExp(label) })).toHaveAttribute(

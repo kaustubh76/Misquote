@@ -1,7 +1,7 @@
 import { OverviewView } from "./view";
 import { readArtifact } from "@/lib/build-artifact";
 import { entryOf, type EvidenceEntry } from "@/components/EvidenceRail";
-import type { IndexArtifact } from "@/lib/artifacts";
+import type { AgentArtifact, IndexArtifact } from "@/lib/artifacts";
 
 /**
  * A server component, so the landing page exists in the exported HTML.
@@ -75,10 +75,41 @@ function evidence(): Record<string, EvidenceEntry | null> {
   };
 }
 
+/**
+ * The agent cards, read at build time so they are in the exported HTML.
+ *
+ * `view.tsx` used to argue against this: "baking three more artifacts into
+ * every build to save one round trip is a worse trade than the round trip."
+ * That was true while the ledger sat below the cards, because the page had
+ * 1,100 words of prerendered substance either way and the cards arriving a beat
+ * later cost nothing a reader would notice.
+ *
+ * Removing the ledger flipped it. Without these, `/` renders the words
+ * "Loading agent cards." and nothing else about the product — a marketplace
+ * whose static HTML contains no agents. The round trip is no longer buying a
+ * smaller build, it is buying an empty landing page, and `check-pages.mjs`
+ * measures exactly that with its no-JS floor.
+ *
+ * Still not `assumptions.json`-shaped: the four agent artifacts are a few KB
+ * each against that file's 130KB, which is the size the original note was
+ * guarding against and the reason `evidence()` above passes counts rather than
+ * documents.
+ */
+function agentCards(index: IndexArtifact | undefined) {
+  if (!index) return undefined;
+  return index.agents.map((a) => ({
+    slug: a.slug,
+    name: a.name,
+    artifact: readArtifact<AgentArtifact>(`${a.slug}.json`),
+  }));
+}
+
 export default function OverviewPage() {
+  const index = readArtifact<IndexArtifact>("index.json");
   return (
     <OverviewView
-      initialIndex={readArtifact<IndexArtifact>("index.json")}
+      initialIndex={index}
+      initialAgents={agentCards(index)}
       evidence={evidence()}
     />
   );
