@@ -3,6 +3,7 @@
 import { EvidenceRail, type EvidenceEntry } from "@/components/EvidenceRail";
 import { TickRule } from "@/components/TickRule";
 import { Button } from "@/components/Button";
+import { IntentInput } from "@/components/IntentInput";
 import { count } from "@/lib/format";
 import { routesIn } from "@/lib/routes";
 import { Section } from "@/components/Heading";
@@ -224,8 +225,24 @@ export function OverviewView({
             The evidence keeps a button, because "does hiring an agent beat
             doing it yourself" is the question this whole site exists to answer
             and burying it under a browse link would be the opposite mistake. */}
+        {/* The one input §1 has promised since the beginning and the site never
+            had. It routes, and when it cannot it says so rather than picking —
+            see `lib/categories.ts::routeIntent`, which returns null for a tie as
+            well as for a miss. */}
+        <IntentInput agents={index?.ok ? index.value.agents : undefined} />
+
         <div className="rise-4 mt-6 flex flex-wrap gap-3">
           <Button href="/category">Find an agent by what you need done</Button>
+          {/* The on-ramp that did not exist.
+              `Readme.md` §5's definition of done is "an external tester
+              completes land → quote → activate → revoke with no dead end and no
+              instruction" — and nothing on this page, on a category page, or on
+              an agent card pointed at `/quote`. The whole journey's first edge
+              lived in the top nav, which is not somewhere a first-time reader
+              looks for a verb. */}
+          <Button href="/demo" tone="secondary">
+            See it work, without a wallet
+          </Button>
           <Button href="/advantage" tone="secondary">
             Does hiring one beat doing it yourself?
           </Button>

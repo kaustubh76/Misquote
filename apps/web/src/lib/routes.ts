@@ -39,6 +39,11 @@ export interface Route {
 
 export const ROUTES: readonly Route[] = [
   { href: "/", label: "Overview", group: "product" },
+  // Second, deliberately. The simulation layer shipped with no entry point at
+  // all — the only affordance in the UI was the button that *leaves* one — so a
+  // visitor had to know `?scenario=` existed and guess a fixture name. A feature
+  // nobody can find is one nobody built.
+  { href: "/demo", label: "Demo", group: "product" },
   { href: "/quote", label: "Quote", group: "product" },
   { href: "/activate", label: "Activate", group: "product" },
   { href: "/category", label: "Categories", group: "product" },

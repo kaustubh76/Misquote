@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -41,4 +41,67 @@ export function readArtifact<T>(name: string): T | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Every scenario fixture on disk, read while the site is being built.
+ *
+ * **Server components only**, for the reason above.
+ *
+ * The list is *derived from the directory* rather than written down, which is
+ * the same discipline the not-built ledger uses: a fixture that exists and is
+ * not listed, or a name listed and long since deleted, are both states nobody
+ * would notice. `/demo` renders whatever is here, so adding a fixture publishes
+ * it and deleting one un-publishes it.
+ *
+ * The `label`/`why` requirement is not this function's invention — `scenario.ts`
+ * already refuses to honour a fixture missing either, on the grounds that "a
+ * file that does not describe itself is not a scenario". Applying the same bar
+ * here keeps `/demo` from advertising a name the loader will decline.
+ */
+export interface ScenarioSummary {
+  name: string;
+  label: string;
+  why: string;
+  /** The API paths it answers for, so the page can say what it covers. */
+  paths: string[];
+  /**
+   * Where this state is worth looking at.
+   *
+   * Carried by the fixture rather than derived from its paths: a fixture
+   * stubbing `/quote/eligibility/{address}` could belong on `/quote` or on a
+   * wallet page that does not exist, and guessing would send a reader somewhere
+   * the state does not appear.
+   */
+  route: string;
+}
+
+export function readScenarios(): ScenarioSummary[] {
+  const dir = join(process.cwd(), "public", "scenarios");
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((f) => f.endsWith(".json"));
+  } catch {
+    return [];
+  }
+
+  const found: ScenarioSummary[] = [];
+  for (const file of names.sort()) {
+    try {
+      const body = JSON.parse(readFileSync(join(dir, file), "utf8"));
+      if (typeof body?.label !== "string" || typeof body?.why !== "string") continue;
+      found.push({
+        name: file.replace(/\.json$/, ""),
+        label: body.label,
+        why: body.why,
+        paths: Object.keys(body.responses ?? {}),
+        route: typeof body.route === "string" ? body.route : "",
+      });
+    } catch {
+      // A malformed fixture is one the loader would refuse too. Skipping it
+      // here shows the reader the same set the site can actually serve.
+      continue;
+    }
+  }
+  return found;
 }

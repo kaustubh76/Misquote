@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoriesFrom, categoryBySlug, categorySlug } from "@/lib/categories";
+import { categoriesFrom, categoryBySlug, categorySlug, routeIntent } from "@/lib/categories";
 import type { AgentRef } from "@/lib/artifacts";
 
 /**
@@ -67,5 +67,47 @@ describe("categoryBySlug", () => {
   it("returns undefined for a slug nobody publishes", () => {
     // Which the page renders as a refusal, not an empty category.
     expect(categoryBySlug("arbitrage", AGENTS)).toBeUndefined();
+  });
+});
+
+describe("routeIntent: the one input, and its refusal to guess", () => {
+  const agents: AgentRef[] = [
+    { name: "Warden", slug: "warden", category: "Rebalancing", built: true },
+    { name: "Grid", slug: "grid", category: "Market making", built: true },
+    { name: "Sentinel", slug: "sentinel", category: "Health", built: true },
+    { name: "Router", slug: "router", category: "Yield", built: true },
+  ];
+
+  it("routes a plain sentence to the category it names", () => {
+    expect(routeIntent("keep my liquidity in range", agents)?.slug).toBe("rebalancing");
+    expect(routeIntent("where is the best rate for idle stablecoins", agents)?.slug).toBe("yield");
+    expect(routeIntent("stop me getting picked off", agents)?.slug).toBe("health");
+    expect(routeIntent("a spread with an inventory ladder", agents)?.slug).toBe("market-making");
+  });
+
+  it("shows which words decided it", () => {
+    // The router is a keyword table, and on a site arguing that every answer
+    // traces to something, an input that teleports you somewhere without saying
+    // why is the wrong shape even when it is right.
+    const intent = routeIntent("my lp position keeps going out of range", agents);
+    expect(intent?.matched).toContain("out of range");
+  });
+
+  it("returns null for a miss rather than falling through to the first category", () => {
+    // `scenario.ts` names this mistake for scenario names — "showing a reader a
+    // state they did not select while telling them that they did". It is worse
+    // here, because the reader typed the thing being ignored.
+    expect(routeIntent("what is the weather in Lisbon", agents)).toBeNull();
+    expect(routeIntent("", agents)).toBeNull();
+    expect(routeIntent("a", agents)).toBeNull();
+  });
+
+  it("derives its categories from the index rather than a literal list", () => {
+    // A fifth copy of the taxonomy is what `categoriesFrom` exists to avoid, and
+    // the router must not reintroduce one: an index with no Yield agent cannot
+    // route to Yield.
+    const withoutYield = agents.filter((a) => a.category !== "Yield");
+    expect(routeIntent("best lending apr", withoutYield)).toBeNull();
+    expect(routeIntent("best lending apr", agents)?.slug).toBe("yield");
   });
 });

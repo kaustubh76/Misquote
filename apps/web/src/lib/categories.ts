@@ -110,3 +110,122 @@ export interface CategoryBasis {
   metric?: string;
   baseline?: string;
 }
+
+/**
+ * Words that point at a category, and the reason this is a lookup rather than a
+ * model.
+ *
+ * `Readme.md` §1 promises a landing with "one input — what do you want
+ * handled?" routing to one of four categories. The honest way to build that on a
+ * site whose whole argument is that every answer traces to something is a table
+ * somebody can read and disagree with.
+ *
+ * Chosen for **precision over recall**. A term that plausibly belongs to two
+ * categories is in neither list: "earn" reads as yield and is what an LP does;
+ * "quote" is this site's own word for a replay before it is anything about
+ * market making. Missing a match sends a reader to all four categories, which is
+ * where they were going anyway. A confident wrong match sends them to one page
+ * and tells them it is the answer.
+ */
+const INTENT: Record<string, readonly string[]> = {
+  Rebalancing: [
+    "rebalance",
+    "rebalancing",
+    "reposition",
+    "recentre",
+    "recenter",
+    "in range",
+    "out of range",
+    "concentrated",
+    "width",
+    "my position",
+    "lp position",
+  ],
+  "Market making": [
+    "market make",
+    "market making",
+    "market maker",
+    "spread",
+    "bid",
+    "ask",
+    "ladder",
+    "rungs",
+    "grid",
+    "fill rate",
+    "inventory",
+  ],
+  Health: [
+    "health",
+    "risk",
+    "de-risk",
+    "derisk",
+    "protect",
+    "liquidation",
+    "liquidated",
+    "safety",
+    "monitor",
+    "toxic",
+    "picked off",
+    "adverse selection",
+    "get out",
+  ],
+  Yield: [
+    "yield",
+    "lend",
+    "lending",
+    "supply",
+    "apr",
+    "apy",
+    "interest",
+    "best rate",
+    "rates",
+    "venue",
+    "route",
+    "idle",
+    "stablecoin",
+  ],
+};
+
+export interface Intent {
+  /** The category name as the index publishes it, e.g. `"Market making"`. */
+  category: string;
+  slug: string;
+  /** The words that matched, so the page can show its working. */
+  matched: string[];
+}
+
+/**
+ * What a sentence is asking for, or `null`.
+ *
+ * **Null on no match and null on a tie**, and both matter.
+ *
+ * Falling through to a first entry is the mistake `scenario.ts` calls out for
+ * scenario names — *"showing a reader a state they did not select while telling
+ * them, in the banner, that they did"* — and it is worse here, because the
+ * reader typed the thing being ignored. A tie means two categories matched
+ * equally well; picking either is a coin toss presented as a routing decision.
+ *
+ * The caller renders all four when this returns null. That is not a failure
+ * state: it is the category index, which is where the button beside the input
+ * goes anyway.
+ */
+export function routeIntent(text: string, agents: readonly AgentRef[] | undefined): Intent | null {
+  const needle = text.toLowerCase();
+  if (needle.trim().length < 2) return null;
+
+  const scored = categoriesFrom(agents).map((category) => {
+    const matched = (INTENT[category.name] ?? []).filter((word) => needle.includes(word));
+    return { category, matched };
+  });
+
+  const hits = scored.filter((s) => s.matched.length > 0);
+  if (hits.length === 0) return null;
+
+  hits.sort((a, b) => b.matched.length - a.matched.length);
+  // A tie is an ambiguous question, and answering one of those confidently is
+  // the failure this project is named after.
+  if (hits.length > 1 && hits[0]!.matched.length === hits[1]!.matched.length) return null;
+
+  const best = hits[0]!;
+  return { category: best.category.name, slug: best.category.slug, matched: best.matched };
+}
