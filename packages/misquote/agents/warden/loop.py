@@ -34,6 +34,9 @@ from typing import Any
 from misquote.agents.warden.live import WardenLive
 from misquote.chain.signer import KillSwitchEngaged
 from misquote.core.types import Action, Decision
+from misquote.ops import metrics
+from misquote.ops.alerts import notify
+from misquote.ops.heartbeat import Heartbeat
 
 DEFAULT_KILL_FILE = "ops/KILL"
 
@@ -95,10 +98,15 @@ class Journal:
 
     __slots__ = ("path", "rows")
 
-    def __init__(self, directory: str | Path | None = None) -> None:
+    def __init__(self, directory: str | Path | None = None, agent: str = "warden") -> None:
         base = Path(directory or os.environ.get("MISQUOTE_JOURNAL_DIR", "data/journal"))
         base.mkdir(parents=True, exist_ok=True)
-        self.path = base / "warden.jsonl"
+        # One file per agent. The name was hardcoded to `warden.jsonl`, which was
+        # correct while Warden was the only agent with an entrypoint and would
+        # have made Grid and Sentinel append their decisions into Warden's
+        # journal the moment they had one — a file the tearsheet reads as one
+        # agent's record.
+        self.path = base / f"{agent}.jsonl"
         self.rows = 0
 
     def write(self, record: dict[str, Any]) -> None:
@@ -146,12 +154,21 @@ class WardenLoop:
     max_actions_per_day: int = 8
     journal: Journal = field(default_factory=Journal)
     stats: LoopStats = field(default_factory=LoopStats)
+    #: Agent liveness, distinct from the job queue's worker heartbeat.
+    #:
+    #: Spec §10's acceptance list has said "heartbeat green" since the start and
+    #: nothing implemented it. Beaten on every completed decision cycle rather
+    #: than on a timer, because a timer proves the timer is running.
+    agent: str = "warden"
+    heartbeat: Heartbeat | None = None
     _stop: asyncio.Event = field(default_factory=asyncio.Event)
     _queue: ActionQueue = field(default_factory=ActionQueue)
 
     async def run(self, *, max_seconds: float | None = None) -> LoopStats:
         """Start every task and stop them all together when any one says stop."""
         self.stats.started_at = time.monotonic()
+        if self.heartbeat is None:
+            self.heartbeat = Heartbeat(agent=self.agent, journal=self.journal)
         tasks = [
             asyncio.create_task(self._watch_kill_file(), name="kill"),
             asyncio.create_task(self._decide_forever(), name="policy"),
@@ -187,6 +204,8 @@ class WardenLoop:
             if self.kill_file.exists():
                 self.stop(f"kill file present: {self.kill_file}")
                 self.journal.write({"event": "kill_switch", "path": str(self.kill_file)})
+                metrics.metric("kill_switch").labels(agent=self.agent).set(1)
+                notify(f"{self.agent}: kill file present at {self.kill_file}; loop stopping.")
                 return
             await asyncio.sleep(self.kill_poll_s)
 
@@ -216,6 +235,11 @@ class WardenLoop:
 
             self.stats.decisions += 1
             self.journal.decision(decision, head.ts)
+            # After the decision is journalled, never before it is made. An
+            # exporter on the decision path can delay one; this cannot.
+            if self.heartbeat is not None:
+                self.heartbeat.beat()
+            metrics.metric("decisions").labels(agent=self.agent).inc()
 
             if decision.action is not Action.HOLD:
                 if self.stats.actions_executed >= self.max_actions_per_day:
@@ -252,6 +276,12 @@ class WardenLoop:
                 await asyncio.to_thread(self.warden.perform, decision)
                 self.stats.actions_executed += 1
                 self.journal.decision(decision, at_ts, note="executed")
+                metrics.metric("actions").labels(
+                    agent=self.agent, kind=str(getattr(decision.action, "name", decision.action))
+                ).inc()
+                # Announced after it is journalled, so a hung HTTP request
+                # cannot sit between the action and its durable record.
+                notify(f"{self.agent}: executed {decision.action} at ts {at_ts}.")
             except KillSwitchEngaged as error:
                 self.stats.actions_failed += 1
                 self.journal.write({"event": "kill_switch_blocked_action", "error": str(error)})
@@ -260,3 +290,5 @@ class WardenLoop:
             except Exception as error:  # noqa: BLE001 — one failure is not fatal
                 self.stats.actions_failed += 1
                 self.journal.decision(decision, at_ts, note=f"failed: {str(error)[:200]}")
+                metrics.metric("action_failures").labels(agent=self.agent).inc()
+                notify(f"{self.agent}: action failed — {str(error)[:300]}")

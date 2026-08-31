@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
+import { Prose } from "@/components/Blocks";
 import { CheckList } from "@/components/CheckList";
 import { BadgeLookup } from "@/components/BadgeLookup";
 import { SectionRail } from "@/components/SectionRail";
@@ -48,10 +49,27 @@ export interface AddressArtifact {
 }
 
 interface VettingCheck {
+  /** Stable key, so a finding is something a proof-of-concept can join to.
+   *  Before this a finding was `(pool, name)` — free text, and rewording a
+   *  check silently broke every reference to it. */
+  id?: string;
   name: string;
   status: "PASS" | "WARN" | "FAIL" | "UNKNOWN";
   detail: string;
   provenance: string;
+}
+
+interface BadgeProof {
+  ran: boolean;
+  reason?: string;
+  record?: string;
+  coverage: {
+    checks: number;
+    provable: string[];
+    not_provable: Record<string, string>;
+    note: string;
+  };
+  proofs: { check_id: string; held: boolean; detail: string; block: number }[];
 }
 
 interface VettingPool {
@@ -63,6 +81,7 @@ interface VettingPool {
   verdict?: string;
   safe_to_provide?: boolean;
   checks?: VettingCheck[];
+  proof?: BadgeProof;
 }
 
 export interface VettingArtifact {
@@ -492,6 +511,8 @@ export function VettingView({
                   />
 
                   <CheckList checks={narrow(pool.checks)} />
+
+                  {pool.proof && <ProofBlock proof={pool.proof} />}
                 </Card>
               )}
             </Section>
@@ -693,5 +714,70 @@ export function VettingView({
         )}
       </Section>
     </Loadable>
+  );
+}
+
+
+/**
+ * What a finding's proof did, and what the unproven ones are.
+ *
+ * `Readme.md` §1 promises findings that ship an executable proof-of-concept.
+ * Three of the nine checks have one; the other six are readings, and there is
+ * no transaction that demonstrates a reading.
+ *
+ * **The unproven list is the load-bearing half.** Three green ticks beside nine
+ * checks reads as six failures unless the six say why they are absent, so this
+ * renders the reasons rather than a count. `vetting/proof.py` has a test
+ * asserting every check is either proven or explained.
+ */
+function ProofBlock({ proof }: { proof: BadgeProof }) {
+  const unprovable = Object.entries(proof.coverage.not_provable);
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <p className="mt-0 mb-2 text-xs tracking-wide text-faint uppercase">
+        They flag, we prove
+      </p>
+
+      {proof.ran ? (
+        <ul className="m-0 list-none space-y-1.5 p-0 text-sm">
+          {proof.proofs.map((entry) => (
+            <li key={entry.check_id} className="flex flex-wrap items-baseline gap-2">
+              <Pill tone={entry.held ? "pass" : "fail"}>
+                {entry.held ? "held" : "did not hold"}
+              </Pill>
+              <span className="font-mono text-xs text-ink">{entry.check_id}</span>
+              <span className="text-dim">{entry.detail}</span>
+              <span className="text-xs text-faint">
+                on a fork at block {entry.block.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-0 mb-0 text-sm text-dim">
+          <Prose text={proof.reason ?? "No proof has been executed on this badge."} />{" "}
+          {proof.coverage.provable.length} of {proof.coverage.checks} checks are
+          executable: {proof.coverage.provable.join(", ")}.
+        </p>
+      )}
+
+      {unprovable.length > 0 && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-faint">
+            {unprovable.length} of {proof.coverage.checks} checks have no
+            proof-of-concept, and why
+          </summary>
+          <ul className="mt-2 mb-0 list-none space-y-2 p-0 text-sm">
+            {unprovable.map(([id, why]) => (
+              <li key={id} className="border-glass-line border-l-2 pl-3">
+                <span className="font-mono text-xs text-ink">{id}</span>
+                <span className="block text-dim">{why}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 mb-0 text-xs text-faint">{proof.coverage.note}</p>
+        </details>
+      )}
+    </div>
   );
 }

@@ -1,0 +1,74 @@
+{
+  "block": 127862150,
+  "chain_id": 97,
+  "checks": [
+    {
+      "detail": "8,756 bytes at 0x6b8361C29d05D498b1a12B54A37310f94171E94A",
+      "name": "keyStore has code",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "3,609 bytes at 0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+      "name": "keyStoreController has code",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns ()",
+      "name": "keyStore.getKeys(address) answers",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns False",
+      "name": "keyStore.isValidKey(address,bytes32) answers",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns ''",
+      "name": "keyStore.getPublicKey(address,bytes32) answers",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 725716783448241",
+      "name": "keyStoreController.getRegistrationFeeInWei() answers",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "getKeys(0x00..00) returned 0 keys",
+      "name": "an address with no keys reads as having none",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "getRegistrationFeeInWei() is 725,716,783,448,241 wei (0.000726 native)",
+      "name": "the registration fee is readable",
+      "provenance": "P-27",
+      "status": "PASS"
+    },
+    {
+      "detail": "0x6b8361C29d05D498b1a12B54A37310f94171E94A vs 0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+      "name": "keyStore and controller are different contracts",
+      "provenance": "P-27",
+      "status": "PASS"
+    }
+  ],
+  "not_verified": [
+    "NOT VERIFIED: the caps. This checks the keystore \u2014 where a key is registered, read and revoked. The allowlist and the spend cap live in `registerKey`'s `validator` and `metadata` arguments and on the per-wallet Altana account, and nothing here has read either. An expiry that is enforced and an allowlist that is not would be worse than no grant at all.",
+    "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an `eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a contract that will accept *our* `registerKey` are different claims, and only the first is supported \u2014 which is P-18 pointed at ourselves.",
+    "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. Whether the controller accepts a direct EOA `registerKey` is unread here."
+  ],
+  "reason": "",
+  "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
+  "summary": {
+    "checked": 9,
+    "failed": 0,
+    "unknown": 0
+  },
+  "surveyed": true,
+  "verdict": "PASS"
+}

@@ -212,6 +212,23 @@ export interface RegistryArtifact {
     states: string[];
     terminal_states: string[];
     escrow: { available: boolean; address?: string; reason?: string; evidence?: string[] };
+    recourse?: Step[];
+    /** Selector -> what it means. None of these is in any ABI: `createJob`
+     *  reverts with bare four-byte selectors and no reason string, so each was
+     *  isolated by varying one argument at a time. Three were then matched to a
+     *  name; the rest say "unresolved" rather than guessing one. */
+    errors?: Record<string, string>;
+    /** What happened when the flow was actually sent, as opposed to priced. */
+    proof?: {
+      ran: boolean;
+      reason?: string;
+      job_id?: number;
+      escrowed?: boolean;
+      mined?: string[];
+      reverted?: string[];
+      not_escrowed_because?: string;
+      transactions?: { call: string; tx_hash?: string; explorer?: string; reverted?: string; meaning?: string }[];
+    };
   };
   identity: {
     surveyed: boolean;
@@ -831,6 +848,135 @@ export function RegistryView({
               </div>
             </Card>
           </Section>
+
+          {/* ------------------------------------------------- what happened -- */}
+          {/* The section above prices a sequence. This is what the chain did
+              when it was sent, and the two are deliberately not merged: one is
+              a claim about a standard, the other is a claim about transaction
+              hashes, and a reader should be able to tell which they are looking
+              at. */}
+          {d.hire_flow.proof?.ran ? (
+            <Section
+              id="hired"
+              title="And what happened when we sent it"
+              className="mt-10"
+              headingClassName="mb-2 text-lg font-semibold"
+              intro={
+                <>
+                  The ledger said this was blocked because nothing here could
+                  sign. That was wrong &mdash; the four agents above were
+                  registered by this same signer. What was missing was an{" "}
+                  <strong>ABI</strong>, recovered from the deployed kernel&rsquo;s
+                  bytecode rather than copied from a table. Job{" "}
+                  <span className="font-mono">{d.hire_flow.proof.job_id}</span> on
+                  chapel is the result.
+                </>
+              }
+            >
+              <Card>
+                <ol className="m-0 list-none space-y-3 p-0">
+                  {(d.hire_flow.proof.transactions ?? []).map((sent, index) => (
+                    <li key={`${sent.call}-${index}`} className="flex gap-3">
+                      <span
+                        className={`tabular mt-0.5 shrink-0 rounded-full px-2 py-0.5 font-mono text-xs ${
+                          sent.tx_hash ? "bg-brand-bg text-brand" : "bg-panel-2 text-fail"
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="font-mono text-sm text-ink">{sent.call}</span>
+                        {sent.tx_hash && sent.explorer ? (
+                          <a
+                            className="block truncate font-mono text-xs text-dim underline"
+                            href={sent.explorer}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {sent.tx_hash}
+                          </a>
+                        ) : (
+                          <>
+                            <span className="block font-mono text-xs text-fail">
+                              reverted {sent.reverted}
+                            </span>
+                            {sent.meaning && (
+                              <span className="block text-xs text-dim">{sent.meaning}</span>
+                            )}
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+
+                <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                  <Pill tone="pass">
+                    mined: {(d.hire_flow.proof.mined ?? []).join(", ") || "nothing"}
+                  </Pill>
+                  <Pill tone="fail">
+                    reverted: {(d.hire_flow.proof.reverted ?? []).join(", ") || "nothing"}
+                  </Pill>
+                  <Pill tone={d.hire_flow.proof.escrowed ? "pass" : "fail"}>
+                    escrowed: {String(d.hire_flow.proof.escrowed ?? false)}
+                  </Pill>
+                </div>
+
+                {d.hire_flow.proof.not_escrowed_because && (
+                  <p className="mt-4 mb-0 max-w-[70ch] text-sm text-dim">
+                    <strong className="text-ink">Why no escrow.</strong>{" "}
+                    <Prose text={d.hire_flow.proof.not_escrowed_because} />
+                  </p>
+                )}
+              </Card>
+
+              {d.hire_flow.errors && (
+                <Card className="mt-4">
+                  <p className="mt-0 mb-3 text-xs tracking-wide text-faint uppercase">
+                    What reverts, and what it means
+                  </p>
+                  <p className="mt-0 mb-4 max-w-[70ch] text-sm text-dim">
+                    None of these is in any ABI &mdash; the kernel fails with bare
+                    four-byte selectors and no reason string. Each was isolated by
+                    varying one argument at a time; three were then matched to a
+                    name, and where both methods answered they agreed. The rest are
+                    counted, not guessed.
+                  </p>
+                  <ul className="m-0 list-none space-y-2 p-0 text-sm">
+                    {Object.entries(d.hire_flow.errors).map(([selector, meaning]) => (
+                      <li key={selector} className="border-glass-line border-l-2 pl-3">
+                        <span className="font-mono text-xs text-ink">{selector}</span>
+                        <span className="block text-dim">{meaning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {d.hire_flow.recourse?.length ? (
+                <Card className="mt-4">
+                  <p className="mt-0 mb-3 text-xs tracking-wide text-faint uppercase">
+                    If nobody settles
+                  </p>
+                  <ul className="m-0 list-none space-y-2 p-0 text-sm">
+                    {d.hire_flow.recourse.map((step) => (
+                      <li key={step.call}>
+                        <span className="font-mono text-xs text-ink">{step.call}</span>{" "}
+                        <span className="text-faint">· {step.sender}</span>
+                        <span className="block text-dim">{step.why}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 mb-0 max-w-[70ch] text-xs text-faint">
+                    Deliberately not counted among the seven. It is an alternative
+                    ending, not an eighth transaction &mdash; nobody sends both this
+                    and <span className="font-mono">settle</span>, so folding it in
+                    would make the published count describe a hire nobody performs.
+                  </p>
+                </Card>
+              ) : null}
+            </Section>
+          ) : null}
 
           {/* ----------------------------------------------------- the escrow -- */}
           <Section id="escrow" title="The escrow contract">

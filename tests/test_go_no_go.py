@@ -596,3 +596,155 @@ def test_a_delegate_declaration_that_does_not_match_the_key_still_fails(
     check = gng.check_signer_configured(True)
     assert check.status == gng.FAIL
     assert "MISQUOTE_SIGNER_ADDRESS" in check.detail
+
+
+# --- the burn-in gate -------------------------------------------------------
+#
+# `test_a_tape_with_a_hole_in_it_does_not_pass` above is the same test for the
+# same defect on a different quantity. The tape gate computed
+# `(max(ts) - min(ts))` and passed a database holding one day at each end of a
+# twenty-six day span; the burn-in gate computed `(max(ts) - min(ts))` and passed
+# two ten-minute runs a day apart. One was fixed and the lesson was recorded as a
+# fact about tapes, so it did not reach the other.
+
+
+def _journal(tmp_path, monkeypatch, files: dict[str, list[dict]]):
+    """A journal directory, written the way `Journal.write` writes one."""
+    import json
+
+    gng = load()
+    directory = tmp_path / "journal"
+    directory.mkdir(exist_ok=True)
+    for name, rows in files.items():
+        (directory / f"{name}.jsonl").write_text("".join(json.dumps(row) + "\n" for row in rows))
+    monkeypatch.setenv("MISQUOTE_JOURNAL_DIR", str(directory))
+    return gng
+
+
+def _run(start: int, hours: float, *, chain_id: int = 97, interval: int = 5) -> list[dict]:
+    """One continuous run: a `run_start` and a decision every `interval` seconds."""
+    rows = [
+        {
+            "event": "run_start",
+            "agent": "warden",
+            "chain_id": chain_id,
+            "reconciled": True,
+            "ts": start,
+        }
+    ]
+    for offset in range(0, int(hours * 3600), interval):
+        rows.append({"event": "decision", "ts": start + offset})
+    return rows
+
+
+def test_two_short_runs_a_day_apart_do_not_pass(tmp_path, monkeypatch) -> None:
+    """The defect, stated as a test.
+
+    The journal is opened in append mode, so one file holds every run the agent
+    has ever made. `(max - min)` over that file is the distance between the two
+    ends and says nothing about the middle — so ten minutes on Monday and ten
+    minutes on Tuesday reported **25.0h** and passed a gate whose own remediation
+    line reads "the gate is 24h *unattended*".
+    """
+    gng = _journal(
+        tmp_path,
+        monkeypatch,
+        {"warden": _run(0, 10 / 60) + _run(25 * 3600, 10 / 60)},
+    )
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert "2 run(s)" in check.detail
+    # The number the old gate would have printed, carried beside the real one so
+    # a reader can see which question is being answered.
+    # The number the old gate would have printed is ~25h (the gap plus the run);
+    # the real one is ~0.2h. Both appear, so a reader can see which question is
+    # being answered rather than having to know.
+    assert "file spans 25." in check.detail
+    assert "unbroken run 0.2h" in check.detail
+
+
+def test_one_unbroken_day_does_pass(tmp_path, monkeypatch) -> None:
+    """A gate that can never go green says nothing."""
+    gng = _journal(tmp_path, monkeypatch, {"warden": _run(0, 24.5)})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.PASS, check.detail
+    assert "1 run(s)" in check.detail
+
+
+def test_a_mainnet_journal_is_not_a_testnet_burn_in(tmp_path, monkeypatch) -> None:
+    """The gate is named `24h testnet burn-in` and never looked at the chain.
+
+    This is not hypothetical: the journal committed to this repository records
+    `chain_id: 56`. A 24-hour version of it would have passed a gate whose name
+    says testnet.
+    """
+    gng = _journal(tmp_path, monkeypatch, {"warden": _run(0, 24.5, chain_id=56)})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED
+    assert "not chapel only" in check.detail
+
+
+def test_other_agents_journals_are_visible_rather_than_ignored(tmp_path, monkeypatch) -> None:
+    """Journals became per-agent, and this gate read one hardcoded filename.
+
+    `Journal` writes `{agent}.jsonl`, so every agent but the Warden landed in a
+    file the gate could not see. A 24-hour Grid burn-in left it reporting 0.0h —
+    not wrong about the Warden, and silent about the evidence that existed.
+    """
+    gng = _journal(
+        tmp_path,
+        monkeypatch,
+        {"warden": _run(0, 1), "grid": _run(0, 3), "sentinel": _run(0, 2)},
+    )
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED
+    assert "grid 3.0h" in check.detail and "sentinel 2.0h" in check.detail
+
+
+def test_a_missing_warden_journal_says_what_it_did_find(tmp_path, monkeypatch) -> None:
+    """ "No burn-in" and "a burn-in by a different agent" are different facts."""
+    gng = _journal(tmp_path, monkeypatch, {"grid": _run(0, 25)})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED
+    assert "no warden journal" in check.detail
+    assert "grid 25.0h" in check.detail
+
+
+def test_a_half_written_final_line_loses_one_row_not_the_file(tmp_path, monkeypatch) -> None:
+    """What a killed process leaves. Refusing the whole file would lose the
+    evidence the run is trying to produce."""
+    import json
+
+    gng = load()
+    directory = tmp_path / "journal"
+    directory.mkdir(exist_ok=True)
+    rows = _run(0, 24.5)
+    text = "".join(json.dumps(r) + "\n" for r in rows) + '{"event": "decis'
+    (directory / "warden.jsonl").write_text(text)
+    monkeypatch.setenv("MISQUOTE_JOURNAL_DIR", str(directory))
+
+    check = gng.check_burn_in()
+    assert check.status == gng.PASS, check.detail
+
+
+def test_the_gap_threshold_is_derived_from_the_cadences() -> None:
+    """Not a round number somebody liked.
+
+    The policy decides every 5s and the chain is polled every 60s, so the
+    threshold has to sit above the poll interval — comfortably, or a slow tick
+    reads as a restart — and below anything a crash-and-restart could hide in.
+    """
+    from misquote.chain.live_source import DEFAULT_POLL_SECONDS
+
+    gng = load()
+    assert gng.BURN_IN_MAX_GAP_S > DEFAULT_POLL_SECONDS * 5
+    assert gng.BURN_IN_MAX_GAP_S < 3600, "an hour-long hole is a restart, not a tick"
+
+    # And it must actually split on that boundary.
+    assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S + 1])) == 2
+    assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S - 1])) == 1

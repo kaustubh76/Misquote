@@ -67,6 +67,11 @@ OPAQUE = frozenset(
         # this test a snapshot of somebody else's ABI.
         "hire_flow_contracts.56",
         "hire_flow_contracts.97",
+        # Keyed by four-byte revert selector, which is the chain's vocabulary
+        # rather than ours — contracting these would make this test a snapshot
+        # of somebody else's custom errors, and a deployment that adds one would
+        # fail a test about our schema.
+        "hire_flow.errors",
         "aacp.contracts",
         "aacp.escrow_interface",
         "identity.identity_registry",
@@ -1103,6 +1108,58 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.escrow.available": "registry/view.tsx",
     "hire_flow.escrow.address": "registry/view.tsx",
     "hire_flow.escrow.evidence": "registry/view.tsx",
+    # TermiX's own agent count, and ours read in the same build.
+    #
+    # Declared unrendered because their consumer is not a page: `sync_docs.py`'s
+    # `explorer_block` turns them into the `<!-- derived:explorer -->` table in
+    # `FOR_JUDGES.md`. That is the whole reason they are emitted — the document
+    # published 304,790 as prose, with no constant and no function behind it, and
+    # by the time anyone looked again it read 320,243.
+    #
+    # `withheld_fields` and `withheld_reason` are the opposite of a gap: the
+    # explorer returns `reputationScore` / `passRate` / `onTimeRate`, this
+    # repository refuses to publish a reputation score, and naming what was
+    # received and declined is a stronger claim than silently not fetching it.
+    "aacp.explorer_agents.read": "",
+    "aacp.explorer_agents.path": "",
+    "aacp.explorer_agents.total": "",
+    "aacp.explorer_agents.page_size": "",
+    "aacp.explorer_agents.total_pages": "",
+    "aacp.explorer_agents.sort_order": "",
+    "aacp.explorer_agents.ours": "",
+    "aacp.explorer_agents.ours_at_block": "",
+    "aacp.explorer_agents.gap": "",
+    "aacp.explorer_agents.gap_note": "",
+    "aacp.explorer_agents.withheld_fields": "",
+    "aacp.explorer_agents.withheld_reason": "",
+    "hire_flow.errors": "registry/view.tsx",
+    "hire_flow.recourse": "registry/view.tsx",
+    "hire_flow.proof.ran": "registry/view.tsx",
+    "hire_flow.proof.job_id": "registry/view.tsx",
+    "hire_flow.proof.escrowed": "registry/view.tsx",
+    "hire_flow.proof.mined": "registry/view.tsx",
+    "hire_flow.proof.reverted": "registry/view.tsx",
+    "hire_flow.proof.not_escrowed_because": "registry/view.tsx",
+    "hire_flow.proof.transactions": "registry/view.tsx",
+    # Carried in the artifact and deliberately not rendered.
+    #
+    # These are the run's own bookkeeping: which addresses it used, what it
+    # spent, and the raw words `getJob` returned. A reader who wants them has
+    # the record path; putting fifteen undecoded 32-byte words on the page would
+    # be publishing bytes as though they were findings, which is the thing
+    # `JOB_STRUCT_IS_UNDECODED` exists to refuse.
+    "hire_flow.proof.chain_id": "",
+    "hire_flow.proof.client": "",
+    "hire_flow.proof.budget": "",
+    "hire_flow.proof.record": "",
+    "hire_flow.proof.gas_spent_wei": "",
+    "hire_flow.proof.job_exists": "",
+    "hire_flow.proof.job_words": "",
+    "hire_flow.proof.success_criterion": "",
+    "hire_flow.proof.addresses.kernel": "",
+    "hire_flow.proof.addresses.router": "",
+    "hire_flow.proof.addresses.policy": "",
+    "hire_flow.proof.addresses.erc20": "",
     # Both rendered, and neither can be named here. The page looks these up by
     # chain id — `d.hire_flow_contracts?.[chainId]` — so the leaf is `56` and
     # `97`, and this guard matches leaves as literal strings. `"56"` happens to

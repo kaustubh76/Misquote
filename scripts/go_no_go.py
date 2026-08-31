@@ -97,6 +97,69 @@ def check_offline_suite() -> Check:
     return Check("offline test suite", PASS, last)
 
 
+def check_lint() -> Check:
+    """`make lint`: ruff over the whole tree.
+
+    **This gate never ran ruff.** Fifteen checks, three of them shelling out to
+    pytest and one to `make web-check`, and the linter that every file in the
+    repository is written to satisfy was not among them — nor is there a CI file
+    anywhere, so nothing but a human ever ran it.
+
+    That is a small hole with a specific consequence: `ruff` here catches unused
+    imports and undefined names, which is the class of defect that survives a
+    green suite by living on a path no test takes. `tests/test_no_dead_definitions.py`
+    exists for exactly that class and cannot see inside a function body.
+
+    FAIL rather than UNVERIFIED when ruff is absent, unlike the browser suite:
+    ruff is a **core** dependency in `pyproject.toml`, so a machine that cannot
+    run it has a broken install rather than a missing optional toolchain.
+    """
+    code, output = _run(["make", "lint"], timeout=300)
+    lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
+    last = lines[-1] if lines else "no output"
+    if code != 0:
+        named = [line for line in lines if line.startswith(("packages/", "scripts/", "tests/"))][:3]
+        return Check("lint", FAIL, "; ".join(named) or last, "make lint")
+    return Check("lint", PASS, last)
+
+
+def check_web_component_suite() -> Check:
+    """`make web-test`: vitest over the component layer.
+
+    **Also never run by this gate, and the omission was easy to miss** because
+    `check_web_browser_suite` sits right here and looks like it covers the web.
+    It does not: `web-check` loads the built export in Chromium, and `web-test`
+    is 405 jsdom tests over the components and the artifact contract. They catch
+    different things — the browser pass found routes fetching from page-relative
+    paths, and the component pass is what holds the field contract, the prose
+    rendering and the dead-export scan.
+
+    With no CI file in the repository, neither ran anywhere except by hand.
+
+    UNVERIFIED when node is absent, for the reason the browser suite gives.
+    """
+    code, output = _run(["make", "web-test"], timeout=900)
+    lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
+    last = lines[-1] if lines else "no output"
+
+    if "command not found" in output or "ENOENT" in output:
+        return Check(
+            "web component suite",
+            UNVERIFIED,
+            "node or pnpm is not installed, so no component test ran",
+            "install the node toolchain, then make web-test",
+        )
+    if code != 0:
+        failed = [line for line in lines if "FAIL" in line or "✕" in line][:3]
+        return Check(
+            "web component suite",
+            FAIL,
+            "; ".join(failed) or last,
+            "make web-test",
+        )
+    return Check("web component suite", PASS, last)
+
+
 def check_web_browser_suite() -> Check:
     """`make web-check`: the built export, loaded in a real browser.
 
@@ -921,10 +984,112 @@ def check_position_cap(mainnet: bool) -> Check:
     return Check("position cap", PASS, f"{value:,.0f} in quote units")
 
 
+#: How long a hole in the journal has to be before the run stopped rather than
+#: ticked slowly.
+#:
+#: Derived from the cadences rather than picked: the policy decides every 5s
+#: (spec section 8's delta-s) and the chain is polled every 60s
+#: (`chain/live_source.py::DEFAULT_POLL_SECONDS`, because 5s of `eth_getLogs` is
+#: refused by every public endpoint — matrix D-9). Fifteen minutes is fifteen
+#: poll intervals: long enough that no slow tick reaches it, short enough that a
+#: crash-and-restart cannot hide inside it.
+BURN_IN_MAX_GAP_S = 15 * 60
+
+#: The agent whose burn-in the gate is about. Spec section 10's acceptance list
+#: names the Warden and nothing else, so the others are reported and not gated —
+#: but they are *reported*, which is the half that was missing.
+BURN_IN_AGENT = "warden"
+
+
+def unbroken_runs(
+    stamps: list[int], *, max_gap_s: int = BURN_IN_MAX_GAP_S
+) -> list[tuple[int, int]]:
+    """Contiguous runs of timestamps, split wherever the clock jumps.
+
+    The journal is opened in append mode, so one file holds every run the agent
+    has ever made. Without this, "how long did it run" and "how far apart are the
+    two ends of the file" are the same query — and they are wildly different
+    questions.
+    """
+    if not stamps:
+        return []
+    ordered = sorted(stamps)
+    runs: list[tuple[int, int]] = []
+    start = previous = ordered[0]
+    for stamp in ordered[1:]:
+        if stamp - previous > max_gap_s:
+            runs.append((start, previous))
+            start = stamp
+        previous = stamp
+    runs.append((start, previous))
+    return runs
+
+
+def _journal_summary(path: Path) -> dict[str, Any]:
+    """One agent's journal: its longest unbroken run, and what chain it was on."""
+    rows = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            # A half-written final line is what a killed process leaves. Skipping
+            # it loses one decision; refusing the whole file loses the evidence.
+            continue
+
+    stamps = [r["ts"] for r in rows if isinstance(r.get("ts"), int)]
+    runs = unbroken_runs(stamps)
+    longest = max((end - start for start, end in runs), default=0)
+    chains = {r["chain_id"] for r in rows if isinstance(r.get("chain_id"), int)}
+    return {
+        "agent": path.stem,
+        "rows": len(rows),
+        "runs": len(runs),
+        "hours": longest / 3600,
+        "span_hours": ((max(stamps) - min(stamps)) / 3600) if stamps else 0.0,
+        "chains": chains,
+        "errors": sum(1 for r in rows if r.get("event") == "decide_error"),
+        "reconciled": any("reconciled" in r for r in rows if r.get("event") == "run_start"),
+    }
+
+
 def check_burn_in() -> Check:
+    """24 hours *unattended*, measured as the longest unbroken run.
+
+    ## Three defects this had, and the third is the one that matters
+
+    **It read one hardcoded file**, `warden.jsonl`. Journals became per-agent, so
+    Grid, Sentinel and Router write files this gate could not see — a 24-hour
+    Grid burn-in would have left it reporting 0.0h.
+
+    **It never checked the chain**, in a gate called `24h testnet burn-in`.
+
+    **And it computed `(max(ts) - min(ts)) / 3600`.** The journal is opened in
+    append mode, so that is the distance between the two ends of the file and says
+    nothing about the middle: **two ten-minute runs a day apart reported 25h and
+    passed.** The remediation line said "the gate is 24h *unattended*", which is
+    exactly what a span cannot distinguish.
+
+    `check_tape` had this defect and fixed it, in those words — *"a database
+    holding one day at each end of a twenty-six day span reported 'spanning 26.0
+    days' and passed"*. The lesson was recorded there as a fact about the tape
+    rather than as a habit about time, so it did not generalise. Both numbers are
+    now the longest unbroken run.
+    """
     journal = Path(os.environ.get("MISQUOTE_JOURNAL_DIR", REPO / "data" / "journal"))
-    path = journal / "warden.jsonl"
-    if not path.exists():
+    if not journal.is_dir():
+        return Check(
+            "24h testnet burn-in",
+            UNVERIFIED,
+            "no journal directory from a burn-in run",
+            "run the agent on testnet for 24h; the journal is the evidence",
+        )
+
+    summaries = sorted(
+        (_journal_summary(p) for p in journal.glob("*.jsonl")), key=lambda s: -s["hours"]
+    )
+    if not summaries:
         return Check(
             "24h testnet burn-in",
             UNVERIFIED,
@@ -932,23 +1097,47 @@ def check_burn_in() -> Check:
             "run the agent on testnet for 24h; the journal is the evidence",
         )
 
-    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    stamped = [r["ts"] for r in rows if isinstance(r.get("ts"), int)]
-    if not stamped:
-        return Check("24h testnet burn-in", UNVERIFIED, "journal has no timestamped decisions")
-
-    hours = (max(stamped) - min(stamped)) / 3600
-    errors = [r for r in rows if r.get("event") == "decide_error"]
-    if hours < 24:
+    others = ", ".join(f"{s['agent']} {s['hours']:.1f}h" for s in summaries if s["hours"])
+    mine = next((s for s in summaries if s["agent"] == BURN_IN_AGENT), None)
+    if mine is None:
         return Check(
             "24h testnet burn-in",
             UNVERIFIED,
-            f"journal covers {hours:.1f}h across {len(rows):,} rows",
-            "the gate is 24h unattended",
+            f"no {BURN_IN_AGENT} journal; found {others or 'nothing timestamped'}",
+            f"the gate is the {BURN_IN_AGENT}'s — spec section 10 names it",
         )
-    return Check(
-        "24h testnet burn-in", PASS, f"{hours:.1f}h, {len(rows):,} rows, {len(errors)} read errors"
+
+    if not mine["rows"] or not mine["hours"]:
+        return Check(
+            "24h testnet burn-in", UNVERIFIED, f"{BURN_IN_AGENT} journal has no timestamped rows"
+        )
+
+    # A mainnet journal is not a testnet burn-in, whatever its length.
+    if mine["chains"] and mine["chains"] != {97}:
+        return Check(
+            "24h testnet burn-in",
+            UNVERIFIED,
+            f"{BURN_IN_AGENT} journal records chain(s) {sorted(mine['chains'])}, not chapel only",
+            "this gate is the testnet burn-in; run it with --chain 97",
+        )
+
+    detail = (
+        f"{BURN_IN_AGENT} longest unbroken run {mine['hours']:.1f}h "
+        f"across {mine['runs']} run(s), {mine['rows']:,} rows"
     )
+    if mine["span_hours"] - mine["hours"] > 1:
+        # The number the old gate would have reported, kept beside the real one.
+        detail += f" (file spans {mine['span_hours']:.1f}h — the gate is the run, not the span)"
+    if not mine["reconciled"]:
+        detail += "; no run_start records `reconciled`, so this journal predates the boot reconcile"
+    if not mine["chains"]:
+        detail += "; no chain_id recorded, so which network is unknown"
+    if others and others != f"{BURN_IN_AGENT} {mine['hours']:.1f}h":
+        detail += f". Also: {others}"
+
+    if mine["hours"] < 24:
+        return Check("24h testnet burn-in", UNVERIFIED, detail, "the gate is 24h unattended")
+    return Check("24h testnet burn-in", PASS, f"{detail}, {mine['errors']} read errors")
 
 
 # --- reporting -------------------------------------------------------------
@@ -966,6 +1155,14 @@ SKIPPED_BY_FAST = (
     # gate that shells out to a production build does not belong on a target the
     # artifact pipeline runs.
     "web browser suite",
+    # Skipped by `--fast` for the same reason: `make status` writes `/status`
+    # from the fast pass, and a gate that shells out to node does not belong on
+    # a target the artifact pipeline runs. Both are in the full gate, which is
+    # the point — neither was in *any* gate before, and with no CI file in this
+    # repository that meant ruff and 405 component tests ran only when a human
+    # remembered.
+    "web component suite",
+    "lint",
     "chain and fork suite",
 )
 
@@ -983,6 +1180,8 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
         checks += [
             check_offline_suite(),
             check_replay_invariants(),
+            check_lint(),
+            check_web_component_suite(),
             check_web_browser_suite(),
             check_chain_suite(),
         ]

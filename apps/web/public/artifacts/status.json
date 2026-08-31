@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-08-26T11:21:29+00:00",
+  "generated_at": "2026-08-31T06:10:23+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --fast --json",
     "source": "local checks",
-    "generated_at": "2026-08-26T11:21:29+00:00",
-    "git_sha": "a1a8af3",
+    "generated_at": "2026-08-31T06:10:23+00:00",
+    "git_sha": "c71dad9",
     "git_dirty": true
   },
   "mainnet": false,
@@ -12,13 +12,16 @@
   "skipped": [
     "offline test suite",
     "replay invariants (T1-T4, L1)",
+    "web browser suite",
+    "web component suite",
+    "lint",
     "chain and fork suite"
   ],
   "checks": [
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 206 deselected, 1 warning in 5.19s",
+      "detail": "7 passed, 206 deselected, 1 warning in 2.26s",
       "remedy": "",
       "blocking": false
     },
@@ -32,7 +35,7 @@
     {
       "name": "dry run",
       "status": "PASS",
-      "detail": "MISQUOTE_DRY_RUN=1",
+      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
       "remedy": "",
       "blocking": false
     },
@@ -88,20 +91,40 @@
     {
       "name": "artifacts match the engine",
       "status": "UNVERIFIED",
-      "detail": "advantage.json is 4 engine commit(s) behind 237c678; advantage_short.json is 4 engine commit(s) behind eb040ed",
+      "detail": "build.json is 8 engine commit(s) behind a1a8af3; warden.json is 8 engine commit(s) behind a1a8af3; grid.json is 8 engine commit(s) behind a1a8af3; sentinel.json is 8 engine commit(s) behind a1a8af3; advantage.json is 12 engine commit(s) behind 237c678; advantage_short.json is 12 engine commit(s) behind eb040ed",
       "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
       "blocking": true,
       "data": {
         "behind": [
           {
+            "artifact": "build.json",
+            "recorded_sha": "a1a8af3",
+            "commits": 8
+          },
+          {
+            "artifact": "warden.json",
+            "recorded_sha": "a1a8af3",
+            "commits": 8
+          },
+          {
+            "artifact": "grid.json",
+            "recorded_sha": "a1a8af3",
+            "commits": 8
+          },
+          {
+            "artifact": "sentinel.json",
+            "recorded_sha": "a1a8af3",
+            "commits": 8
+          },
+          {
             "artifact": "advantage.json",
             "recorded_sha": "237c678",
-            "commits": 4
+            "commits": 12
           },
           {
             "artifact": "advantage_short.json",
             "recorded_sha": "eb040ed",
-            "commits": 4
+            "commits": 12
           }
         ],
         "unstamped": []
@@ -182,8 +205,8 @@
     {
       "name": "24h testnet burn-in",
       "status": "UNVERIFIED",
-      "detail": "journal covers 0.2h across 181 rows",
-      "remedy": "the gate is 24h unattended",
+      "detail": "warden journal records chain(s) [56], not chapel only",
+      "remedy": "this gate is the testnet burn-in; run it with --chain 97",
       "blocking": true
     },
     {

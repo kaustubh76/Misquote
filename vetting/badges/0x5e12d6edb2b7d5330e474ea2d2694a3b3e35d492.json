@@ -3,54 +3,63 @@
   "checks": [
     {
       "detail": "getPool() agrees with the address",
+      "id": "factory",
       "name": "factory resolves it",
       "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
       "status": "PASS"
     },
     {
       "detail": "0.25% -> spacing 50",
+      "id": "tick-spacing",
       "name": "tick spacing matches tier",
       "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
       "status": "PASS"
     },
     {
       "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+      "id": "protocol-fee",
       "name": "protocol fee read",
       "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
       "status": "PASS"
     },
     {
       "detail": "token0 18, token1 18",
+      "id": "decimals",
       "name": "decimals read",
       "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
       "status": "PASS"
     },
     {
-      "detail": "tick -58679",
+      "detail": "tick -58703",
+      "id": "initialised",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=200, [-58900, -58500]",
+      "detail": "w_min=200, [-58950, -58550]",
+      "id": "mintable-range",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
       "status": "PASS"
     },
     {
       "detail": "1,576,166,738,998,165,198 \u2014 a 1% share is 15,761,667,389,981,652",
+      "id": "liquidity-depth",
       "name": "liquidity supports a position",
       "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
       "status": "PASS"
     },
     {
       "detail": "4,413 and 2,138 bytes",
+      "id": "tokens-are-contracts",
       "name": "both tokens are contracts",
       "provenance": "an \"ERC-20\" with no code is an address somebody typed",
       "status": "PASS"
     },
     {
       "detail": "5 recorded value(s) still agree",
+      "id": "recorded-matches-chain",
       "name": "recorded values match chain",
       "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
       "status": "PASS"

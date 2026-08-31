@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
+import { Prose } from "@/components/Blocks";
 import { Refusal } from "@/components/Refusal";
 import { AnsweredBy } from "@/components/AnsweredBy";
 import { loadLive, type Source } from "@/lib/api";
@@ -20,33 +21,70 @@ interface Capability {
   module: string | null;
   reason: string;
   searched: string[];
+  evidence?: string[];
   grant_plan: Step[];
   revoke_plan: Step[];
   readable_without_a_signer: string[];
+  not_readable_here?: string[];
   needs_a_signer: string[];
 }
 
+interface ProofTx {
+  call: string;
+  tx: string;
+  explorer: string;
+}
+
+export interface SessionKeySurvey {
+  verdict?: string;
+  block?: number | null;
+  checks?: { name: string; status: string; detail: string }[];
+  not_verified?: string[];
+}
+
+export interface SessionProof {
+  transactions?: ProofTx[];
+  valid_after_grant?: boolean;
+  valid_after_revoke?: boolean;
+  key_store?: string;
+  owner?: string;
+  caps_enforced?: boolean;
+}
+
 /**
- * The activation surface, built before there is anything to activate against.
+ * The activation surface, and the half of it that is now proven on chain.
  *
- * `Readme.md` §1 puts the caps subset on the never-cut list, and it has been a
- * docstring for the life of the project. What blocks it is not the code: it is
- * that no Altana session-key module has been verified on either network, so
- * there is no address to send a grant to. `sessions/keys.py::SESSION_KEY_MODULE`
- * is empty and `tests/web/test_ledger.py` reads that symbol to check the
- * published claim, which means the day someone records a real address this page
- * and the ledger both have to change or the suite goes red.
+ * This page was built before there was anything to activate against, and said
+ * so: no Altana session-key module had been verified, so a grant had nowhere to
+ * go. That reason was a statement about `vetting/addresses/` rather than about
+ * the chain — the SDK published the addresses the whole time, in the same
+ * package `JOB_ESCROW` was verified from. P-27.
  *
- * The page is worth having anyway, because the *plan* is a fact about the caps
- * subset rather than about a deployment. "Revoking is one transaction, sent by
- * you" is the product's central activation claim, and it can be shown — and
- * checked — before an address exists. What must never appear here is a Hire
- * button, which is the whole reason the ledger entry says what it says.
+ * So the page now carries a round trip instead of a plan for one: a key granted
+ * on chapel, read back live, revoked, and read back dead, with three
+ * transaction hashes anyone can check without this site's cooperation.
+ *
+ * **There is still no Hire button, and the reason is narrower and worse.** The
+ * keystore enforces the expiry and revocation. It does not enforce the allowlist
+ * or the spend cap — those belong to a `validator` module nothing here has read,
+ * and every grant on this deployment, ours and other people's, carries
+ * `validator = 0x0`. A button offering four caps over a key the chain bounds by
+ * one would be the misquote this project is named after, on the one page whose
+ * subject is bounded authority.
+ *
+ * `scripts/check-pages.mjs` matches "no Hire button" in the no-JS render of this
+ * route, so that sentence stays whatever else changes.
  *
  * Standing prose is prerendered; only the live capability read needs
- * JavaScript, and its absence renders as the same refusal the API returns.
+ * JavaScript, and its absence renders the same answer from the fallbacks.
  */
-export function ActivateView() {
+export function ActivateView({
+  proof,
+  survey,
+}: {
+  proof?: SessionProof;
+  survey?: SessionKeySurvey;
+}) {
   const [cap, setCap] = useState<Capability | null>(null);
   const [source, setSource] = useState<Source | null>(null);
   const [checked, setChecked] = useState(false);
@@ -74,9 +112,9 @@ export function ActivateView() {
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
         An allowlist of what it may call, a cap on what it may spend, an expiry, and
-        a revoke you can send yourself. That is the whole of what activation is
-        here — and it is not built, because there is no verified contract to send
-        it to.
+        a revoke you can send yourself. Two of those four are enforced by the
+        contract and have been exercised on chain, with hashes below. The other
+        two are not enforced by anything, and that is why this page still refuses.
       </p>
 
       {/* Bled to the container edge and one type step up, because on this page
@@ -88,11 +126,8 @@ export function ActivateView() {
         <Refusal
           size="lg"
           title="There is no Hire button on this site"
-          reason={
-            cap?.reason ??
-            "No Altana session-key module has been verified on either network, so a grant would have nowhere to go."
-          }
-          floor="A button that did nothing would be worse than an absent one."
+          reason="The keystore enforces an expiry and a revoke, and both are proven below. It does not enforce the allowlist or the spend cap — those belong to a validator module nothing here has read, and every grant on this deployment carries validator 0x0. A button offering four caps over a key the chain bounds by one would be worse than no button."
+          floor="A grant that renders more authority than the chain enforces is the misquote, committed by us."
         />
       </div>
 
@@ -102,25 +137,30 @@ export function ActivateView() {
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-5 max-w-[62ch] text-dim">
-          These are facts about the caps subset, not about any deployment — the
-          count does not change when an address is finally recorded. Both
-          transactions are sent by you; neither is sent by us, and no key of yours
-          leaves your wallet.
+          Read off the verified deployment, not off the standard. The count was
+          right before anyone checked and every reason given for it was wrong:
+          there is no token approval, and the second transaction is a bootstrap
+          the contract requires of a wallet that has never registered a key. Both
+          are sent by you; neither is sent by us, and no key of yours leaves your
+          wallet.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader
               title="Granting"
-              eyebrow="two transactions"
-              aside={<Pill tone="none">Not available</Pill>}
+              eyebrow="two transactions, once per wallet"
+              aside={<Pill tone="pass">Proven on chapel</Pill>}
             />
             <StepList steps={cap?.grant_plan ?? FALLBACK_GRANT} />
             <p className="mt-3 mb-0 text-xs text-faint">
-              The approve is the one that gets forgotten. A session key that may
-              spend a token needs that token approved to the module first, so a
-              demo showing only the grant looks like a one-transaction flow until
-              it is run.
+              This page used to say the first transaction was an ERC-20 approve.
+              It is not — running it returned{" "}
+              <span className="font-mono">KeyStore: account not bootstrapped</span>,
+              and the root key that clears it{" "}
+              <span className="font-mono">must not expire</span>. A wallet that has
+              already bootstrapped sends one transaction, and whether it has is
+              read rather than assumed.
             </p>
           </Card>
 
@@ -128,16 +168,73 @@ export function ActivateView() {
             <CardHeader
               title="Revoking"
               eyebrow="one transaction"
-              aside={<Pill tone="none">Not available</Pill>}
+              aside={<Pill tone="pass">Proven on chapel</Pill>}
             />
             <StepList steps={cap?.revoke_plan ?? FALLBACK_REVOKE} />
             <p className="mt-3 mb-0 text-xs text-faint">
-              One, sent by you, with no cooperation from the agent required. That
-              is the claim the caps subset is for.
+              One, sent by you, with no cooperation from the agent required — the
+              one claim on this page that survived contact with the ABI unchanged.
+              What reading it added is <em>where</em>: the revoke goes to the
+              keyStore and the grant to the keyStoreController, two different
+              contracts.
             </p>
           </Card>
         </div>
       </Section>
+
+      {proof?.transactions?.length ? (
+        <Section
+          title="The round trip, on chain"
+          className="mt-10"
+          headingClassName="text-lg font-semibold"
+        >
+          <p className="mt-2 mb-5 max-w-[62ch] text-dim">
+            Everything else on this site is a <em>reading</em> of chain state,
+            which has to be trusted to have been taken honestly. These are
+            transaction hashes — a third-party-hosted record of an action, which
+            you can check without this page&rsquo;s cooperation. Grant, read back
+            live, revoke, read back dead.
+          </p>
+
+          <ol className="m-0 list-none space-y-3 p-0">
+            {proof.transactions.map((tx, index) => (
+              <li key={tx.tx} className="flex gap-3">
+                <span className="tabular mt-0.5 shrink-0 rounded-full bg-brand-bg px-2 py-0.5 font-mono text-xs text-brand">
+                  {index + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="font-mono text-sm text-ink">{tx.call}</span>
+                  <a
+                    className="block truncate font-mono text-xs text-dim underline"
+                    href={tx.explorer}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {tx.tx}
+                  </a>
+                </span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-5 flex flex-wrap gap-3 text-sm">
+            <Pill tone={proof.valid_after_grant ? "pass" : "fail"}>
+              isValidKey after grant: {String(proof.valid_after_grant)}
+            </Pill>
+            <Pill tone={proof.valid_after_revoke === false ? "pass" : "fail"}>
+              isValidKey after revoke: {String(proof.valid_after_revoke)}
+            </Pill>
+            <Pill tone="fail">caps enforced: {String(proof.caps_enforced ?? false)}</Pill>
+          </div>
+
+          <p className="mt-4 mb-0 max-w-[62ch] text-sm text-dim">
+            The third pill is the one that keeps this page honest. The key really
+            was bounded and really was withdrawn; what the chain never enforced
+            was the allowlist or the spend cap, so they are reported as absent
+            rather than folded into a green tick with the two that worked.
+          </p>
+        </Section>
+      ) : null}
 
       <Section
         title="What was searched"
@@ -145,9 +242,12 @@ export function ActivateView() {
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-3 max-w-[62ch] text-dim">
-          A refusal that does not say where it looked is not checkable. These are
-          the address records this repository keeps, and none of them contains a
-          session-key module.
+          A refusal that does not say where it looked is not checkable — and this
+          list is the whole reason the refusal lasted as long as it did. It used
+          to name three files, all of them this repository&rsquo;s own output, and
+          conclude from their contents that no session-key module had been
+          verified anywhere. The addresses were in a package we had already read a
+          different table out of.
         </p>
         <ul className="m-0 list-none space-y-1 p-0 font-mono text-sm text-dim">
           {(cap?.searched ?? FALLBACK_SEARCHED).map((where) => (
@@ -155,24 +255,60 @@ export function ActivateView() {
           ))}
         </ul>
         <p className="mt-4 mb-0 max-w-[62ch] text-sm text-dim">
-          The precedent for closing this is{" "}
-          <Link href="/registry">the hire flow</Link>: an address earns a place in
-          the code by passing the same three-way check — it is a contract, it
-          answers the calls we make, and it was observed on a live network — and
-          not by appearing in a vendor&rsquo;s SDK.
+          The bar did not move: an address earns a place in the code by passing
+          the same three-way check <Link href="/registry">the hire flow</Link>{" "}
+          uses — it is a contract, it answers the calls we make, and it was
+          observed on a live network — and not by appearing in a vendor&rsquo;s
+          SDK. What changed is that somebody finally ran it.
         </p>
       </Section>
 
+      {survey?.not_verified?.length ? (
+        <Section
+          title="What the verification does not establish"
+          className="mt-10"
+          headingClassName="text-lg font-semibold"
+        >
+          <p className="mt-2 mb-4 max-w-[62ch] text-dim">
+            {survey.checks?.length ?? 0} checks passed against the deployment
+            {typeof survey.block === "number"
+              ? `, read at block ${survey.block.toLocaleString()}`
+              : ""}
+            . This is the other half of the record, and the half worth more: a
+            passing check says what was read, never what the reading covers. The
+            escrow that cleared four real checks and implemented none of ERC-8183
+            is why this section exists.
+          </p>
+          <ul className="m-0 list-none space-y-3 p-0 text-sm text-dim">
+            {survey.not_verified.map((line) => (
+              <li key={line} className="border-glass-line border-l-2 pl-3">
+                <Prose text={line} />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+
       <Heading className="mt-10 mb-2 text-md font-semibold">
-        What would be readable, and what needs your signature
+        What is readable, what is not, and what needs your signature
       </Heading>
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-3">
         <Column
           title="Readable without a signer"
           items={cap?.readable_without_a_signer ?? FALLBACK_READABLE}
         />
+        <Column
+          title="Not readable here"
+          items={cap?.not_readable_here ?? FALLBACK_NOT_READABLE}
+        />
         <Column title="Needs a signature" items={cap?.needs_a_signer ?? ["grant", "revoke"]} />
       </div>
+      <p className="mt-3 mb-0 max-w-[62ch] text-sm text-faint">
+        The middle column used to be part of the first one. Four things were
+        listed as readable and no code read any of them; reading the deployment
+        did not turn four promises into four reads, it showed that two of them are
+        enforced somewhere nobody here has looked.
+      </p>
 
       {/* This said "Read live from the activation endpoint" in prose — the same
           claim `AnsweredBy` makes, hand-rolled here because the component did
@@ -234,34 +370,43 @@ function Column({ title, items }: { title: string; items: string[] }) {
  */
 const FALLBACK_GRANT: Step[] = [
   {
-    name: "approve",
+    name: "initialRegisterKey",
     sender: "owner",
-    what: "approve the spend cap's token to the session-key module",
+    what:
+      "bootstrap the account with a root key, on the keyStoreController. Payable, and its expiry must be zero — the contract refuses a root key that expires",
   },
   {
-    name: "grant",
+    name: "registerKey",
     sender: "owner",
-    what: "register the session key with its allowlist, cap and expiry",
+    what:
+      "register the session key with its expiry, on the keyStoreController; payable, and the fee is read at send time because it moves",
   },
 ];
 
 const FALLBACK_REVOKE: Step[] = [
   {
-    name: "revoke",
+    name: "revokeKey",
     sender: "owner",
-    what: "revoke the session key; the agent's next transaction reverts",
+    what:
+      "revoke the session key, on the keyStore — a different contract from the grant; the agent's next transaction reverts",
   },
 ];
 
 const FALLBACK_SEARCHED = [
-  "vetting/addresses/56.json",
-  "vetting/addresses/erc8183-56.json",
-  "vetting/addresses/erc8183-97.json",
+  "@altananetwork/sdk@0.8.0 dist/config.js",
+  "@altananetwork/sdk@0.8.0 dist/internal/keystore.js",
+  "vetting/addresses/session-keys-56.json",
+  "vetting/addresses/session-keys-97.json",
 ];
 
 const FALLBACK_READABLE = [
-  "the allowlist a key was granted",
-  "its spend cap and how much is left",
-  "its expiry",
-  "whether it has been revoked",
+  "which key ids a wallet has registered (keyStore.getKeys)",
+  "whether a key is still live, i.e. not revoked (keyStore.isValidKey)",
+  "the key itself (keyStore.getPublicKey)",
+  "what a grant costs right now (keyStoreController.getRegistrationFeeInWei)",
+];
+
+const FALLBACK_NOT_READABLE = [
+  "the allowlist a key was granted — it is the validator module's, and this repository has not read that module",
+  "its spend cap and how much is left — same place, same absence",
 ];

@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from misquote.registry import erc8004, erc8183
+from misquote.registry import erc8004, erc8183, hire
 from misquote.registry.erc8004 import IDENTITY_REGISTRY
 from misquote.tearsheet import provenance
 
@@ -199,7 +199,48 @@ def hire_flow() -> dict[str, Any]:
         "states": list(erc8183.STATES),
         "terminal_states": list(erc8183.TERMINAL),
         "escrow": escrow,
+        # The client's way out when nobody settles. `recourse()` is deliberately
+        # not part of `steps()` — it is an alternative terminal branch, and
+        # folding it in would make `transaction_count()` report a hire as costing
+        # eight when no hire ever does.
+        "recourse": [
+            {"call": step.call, "sender": step.sender, "contract": step.contract, "why": step.why}
+            for step in erc8183.recourse()
+        ],
+        # What reverts, and what each revert means. None of these is in any ABI:
+        # `createJob` fails with bare four-byte selectors and no reason string, so
+        # each was isolated by varying one argument at a time and three were then
+        # matched to a name by preimage search. The four that were not are
+        # recorded as unresolved rather than named, which is the rule
+        # `aacp.ESCROW_SELECTORS_RESOLVED` set.
+        "errors": {**hire.CREATE_JOB_ERRORS, **hire.FLOW_ERRORS},
+        "proof": _hire_proof(),
     }
+
+
+#: The chapel run, published beside the flow it exercised.
+#:
+#: `hire_flow()` describes a sequence; this is what happened when it was sent.
+#: The two are kept apart because one is a claim about a standard and the other
+#: is a claim about three transaction hashes, and a reader should be able to tell
+#: which they are looking at.
+HIRE_PROOF_PATH = REPO / "vetting" / "identity" / "hire-97.json"
+
+
+def _hire_proof() -> dict[str, Any]:
+    """The recorded chapel run, or an honest absence."""
+    if not HIRE_PROOF_PATH.is_file():
+        return {
+            "ran": False,
+            "reason": "no hire has been run — `MISQUOTE_DRY_RUN=0 make hire` writes this",
+        }
+    try:
+        record = json.loads(HIRE_PROOF_PATH.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return {"ran": False, "reason": f"{HIRE_PROOF_PATH.name} could not be read: {error}"}
+    record["ran"] = True
+    record["record"] = str(HIRE_PROOF_PATH.relative_to(REPO))
+    return record
 
 
 #: Where a survey lives between the chain read that produced it and the artifact
@@ -389,6 +430,73 @@ def survey_chain(sample: int, seed: int) -> dict[str, Any]:
         }
 
 
+def _explorer_agents(aacp) -> dict[str, Any]:
+    """Their explorer's agent count, and ours **read at the same moment**.
+
+    The gap between the two is the only interesting thing here, and it is only
+    interesting if both numbers were taken together. The first version of this
+    compared their live total against `identity.population` — a figure from
+    whenever the last survey ran — and produced a gap of **-39,954**, i.e. their
+    index appearing to hold forty thousand agents the registry does not have.
+
+    That is not a finding, it is two clocks. The registry grows by roughly a
+    thousand registrations an hour, so any comparison across two read times
+    measures the delay and calls it a discrepancy — which is the shape of P-8 and
+    of every stale-artifact defect in this repository.
+
+    So the chain read happens here, beside the HTTP read, and the gap is computed
+    once from the pair rather than by a renderer subtracting two fields it found
+    lying near each other.
+    """
+    try:
+        explorer = aacp.fetch_explorer_agents(aacp.BSC_MAINNET)
+    except Exception as exc:  # noqa: BLE001 — their outage is not our failure
+        return {
+            "read": False,
+            "reason": f"{type(exc).__name__}: {exc}",
+            "note": (
+                "Not read this build. The figure is theirs and lives on their "
+                "service; publishing the last one we saw would be the stale "
+                "number this field exists to retire."
+            ),
+        }
+
+    # Ours, now. `highest_agent_id` binary-searches `ownerOf` because
+    # `totalSupply()` reverts on this proxy — see erc8004.py.
+    try:
+        w3 = _connect()
+        registry = erc8004.IdentityRegistry(w3, aacp.BSC_MAINNET)
+        ours = erc8004.highest_agent_id(registry)
+        block = int(w3.eth.block_number)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "read": True,
+            **explorer,
+            "ours": None,
+            "gap": None,
+            "gap_note": (
+                f"the registry high-water id was not read this build "
+                f"({type(exc).__name__}), so there is no same-moment pair and no "
+                f"gap. Comparing their live total against a stored figure would "
+                f"measure the delay between two reads and call it a discrepancy."
+            ),
+        }
+
+    return {
+        "read": True,
+        **explorer,
+        "ours": ours,
+        "ours_at_block": block,
+        "gap": ours - explorer["total"],
+        "gap_note": (
+            "Both read in the same build. A positive gap is their indexing lag "
+            "behind the registry; the registry grows by roughly a thousand "
+            "registrations an hour, so a gap measured across two read times "
+            "would be that delay rather than a property of their index."
+        ),
+    }
+
+
 def aacp_overlap() -> dict[str, Any]:
     """What we already share with TermiX's protocol, if the module exists.
 
@@ -435,6 +543,18 @@ def aacp_overlap() -> dict[str, Any]:
                 "from their PENDING_ACCEPT ones."
             ),
             "contracts": contracts,
+            # How many agents their explorer indexes, read rather than recited.
+            #
+            # `FOR_JUDGES.md` published this figure as prose — 304,790 — with no
+            # constant, no function and no way to re-derive it. By the time
+            # anyone looked again it was 320,230. A load-bearing number that
+            # cannot be regenerated is a claim, which is the whole subject of
+            # this repository.
+            #
+            # Fails soft: this is one HTTP call to somebody else's service inside
+            # an emitter that otherwise touches no network, and `make registry`
+            # should not fail because their explorer is briefly down.
+            "explorer_agents": _explorer_agents(aacp),
             "note": (
                 "A snapshot of TermiX's published table, recorded to be checked "
                 "against — never a source of truth for signing. Their own docs say "

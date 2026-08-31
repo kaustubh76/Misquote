@@ -91,25 +91,40 @@ misquote/
 │   ├── REQUIREMENTS_MATRIX.md    # every review complaint → status
 │   ├── ASSUMPTIONS.md            # the published assumption sheet (renders in UI)
 │   └── SUNDAY_REVIEW.md          # scope parking lot
-├── packages/
+├── packages/misquote/            # one installed package; every path below is inside it
 │   ├── core/                     # A-S math: reservation price, spread, ticks
 │   ├── estimators/               # σ EWMA, κ fit, gas medians (trailing-only)
 │   ├── lvr/                      # realized-LVR accountant (spec §4, eq. 3)
 │   ├── replay/                   # no-look-ahead replay engine (spec §6)
 │   ├── indexer/                  # BSC events: swaps/mints/burns/liquidations
-│   ├── registry/                 # ERC-8004 read/registration + ERC-8183 hire
+│   ├── chain/                    # RPC, signer, position manager, executor
+│   ├── registry/                 # ERC-8004 + ERC-8183 hire + TermiX auth
 │   ├── sessions/                 # Altana caps subset: grant/inspect/revoke
-│   └── tearsheet/                # ledger → metrics → report generator
-├── agents/
-│   ├── warden/                   # flagship (spec-governed)
-│   ├── grid/
-│   ├── sentinel/
-│   └── router/                   # Yield: allocation policy + dry entrypoint
+│   ├── vetting/                  # nine on-chain checks + the fork proofs
+│   ├── api/                      # FastAPI: artifacts, quotes, /metrics
+│   ├── ops/                      # metrics, heartbeat, alerts, the job queue
+│   ├── tearsheet/                # ledger → metrics → report generator
+│   └── agents/
+│       ├── warden/               # flagship (spec-governed)
+│       ├── grid/                 # Market making
+│       ├── sentinel/             # Health
+│       └── router/               # Yield: allocation policy
 ├── apps/
 │   └── web/                      # Next.js front-end (landing/cards/quotes/panel)
-├── vetting/                      # fork-lab checks + badge generator
-└── ops/                          # deploy scripts, monitoring, runbooks
+├── vetting/                      # badge records, address readings, the forge lab
+└── ops/
+    ├── RUNBOOK.md                # what to do when something is wrong
+    ├── forge_deps.txt            # pinned commits for the vendored Solidity
+    └── KILL                      # absent, and its presence stops every broadcast
 ```
+
+Two corrections, because this tree was wrong in ways worth naming rather than
+quietly fixing. Everything under `packages/` is really under
+`packages/misquote/` — the paths listed here were not importable. And `ops/` was
+described as holding "deploy scripts, monitoring, runbooks" while holding one
+pinned-dependency list; the monitoring lives in `packages/misquote/ops/`, which
+this tree did not mention at all, and the runbook now exists. Deploy is
+`render.yaml` and `scripts/serve.sh`, at the root.
 
 ## 3. Stack
 
@@ -177,10 +192,23 @@ hardening, README-for-judges. Submit by Sep 9.
   (timestamp asserts), T4 (passive self-consistency ≤ 1 bp) all green on one
   real pool's 30-day history.
 - **sessions:** grant → visible in Keystore → agent tx through session →
-  revoke → agent tx fails. **Not met.** `sessions/keys.py` publishes the caps
-  subset as a transaction plan and `SESSION_KEY_MODULE` is deliberately empty,
-  because no Altana module has been verified on either network. There is no
-  Hire button, and `/activate` says so.
+  revoke → agent tx fails. **Partly met, and the split is the point.** The
+  grant/revoke round trip is done on chapel with three mined transactions —
+  `initialRegisterKey`, `registerKey`, `revokeKey`, with `isValidKey` reading
+  true and then false — recorded in `vetting/identity/session-keys-97.json` and
+  rendered on `/activate`.
+
+  This said **Not met**, on the grounds that "no Altana module has been verified
+  on either network". That was a claim about `vetting/addresses/`: the SDK
+  published `keyStore` and `keyStoreController` for both chains all along, in
+  the same package `JOB_ESCROW` was verified from. **P-27.**
+
+  What is **not** met is the caps. The keystore enforces the expiry and the
+  revoke; the allowlist and the spend cap belong to a `validator` module nobody
+  here has read, and every grant on this deployment carries `validator = 0x0`.
+  So `VALIDATOR_MODULE` is empty for the reason `SESSION_KEY_MODULE` used to be,
+  there is still no Hire button, and `/activate` says which two of the four caps
+  are real.
 - **registry:** our 4 agents resolvable via ERC-8004 read; hire callable via
   ERC-8183 from the web app. **Not met** — see above. The registry *read* path
   is built and surveys 280,287 agent ids; the write path has never been run.
@@ -222,8 +250,18 @@ caps · the tearsheet.
       now carries two verified addresses and `escrow_address()` returns them
       (**P-24**). What is still not invoked is the **write** path, which needs a
       signer.
-- [ ] ERC-8183 hire call invoked from an external script successfully (no
-      permissioning surprises).
+- [x] ERC-8183 hire call invoked from an external script successfully — **and
+      there were permissioning surprises, which is the useful half.**
+      `scripts/hire_agent.py` (`make hire`) mined `approve`, `createJob` and
+      `setBudget` on chapel; job 746 reads back with our client, provider,
+      evaluator and budget. Seven revert selectors came out of it, none in any
+      ABI, each isolated by varying one argument at a time and three then matched
+      to a name: the **hook is mandatory** (`address(0)` reverts
+      `HookRequired()`, and only the EvaluatorRouter is accepted, against an EIP
+      that calls it an optional extension), `expiredAt` is an absolute timestamp
+      with a ceiling, and the evaluator may not be zero. `fund` did not mine and
+      no code closes that: the payment token is owner-minted and this signer
+      holds none. See **P-28** and `registry/hire.py`.
 - [ ] Agent Studio CLI hello-world deployed. The router *path* is answered by
       `agents/router/policy.py`; only the deployment is open, and it needs a
       funded wallet.

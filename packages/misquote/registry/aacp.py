@@ -64,8 +64,19 @@ is what a caller uses before signing anything.
 ## Credentials
 
 Public endpoints — config, stats, explorer, discovery — need none, which is why
-the read-only half works today. Authenticated calls need a wallet-signed nonce
-exchanged for a session JWT, and that is the same blocker as the 24h burn-in.
+the read-only half works today.
+
+This section used to end *"authenticated calls need a wallet-signed nonce
+exchanged for a session JWT, and that is the same blocker as the 24h burn-in."*
+Both halves were wrong. The burn-in gate reads journal timestamps and never
+touches a signer, so the two were never one blocker; and the nonce exchange is
+built — `registry/authenticate.py`, SIWE, signing the message the server returns
+verbatim. **P-29.**
+
+The endpoints were never private. A GET on any unmatched `/api/v1/*` path returns
+`401 UNAUTHORIZED`, which is a blanket middleware and says nothing about whether
+a path exists; POST separates them, because the public ones validate their
+fields. Worth knowing before concluding an API is closed.
 """
 
 from __future__ import annotations
@@ -107,6 +118,31 @@ CONFIG_PATH = "/api/v1/config/contracts"
 # possible: it returns real orders with their budgets, which is what let the
 # on-chain struct be decoded by agreement rather than by guesswork.
 EXPLORER_PATH = "/api/v1/explorer/jobs"
+
+#: The other half of their public explorer, and the reason it now has a constant.
+#:
+#: `docs/FOR_JUDGES.md` published *"`/api/v1/explorer/agents` reports 304,790
+#: agents against a mainnet high-water id of 304,927"* — a load-bearing figure in
+#: the argument that mainnet registration is sufficient to appear there. **The
+#: endpoint had no constant and no function anywhere in this repository.** The
+#: number was prose: unreproducible, uncheckable, and by the time anyone looked
+#: again it read 320,230.
+#:
+#: That is the defect this project is named after, committed in the document that
+#: exists to disclose it. A number that cannot be re-derived is a claim.
+EXPLORER_AGENTS_PATH = "/api/v1/explorer/agents"
+
+#: Fields their explorer returns per agent that this repository will not publish.
+#:
+#: `erc8004.REPUTATION_IS_NOT_DISPLAYED` gives the reason and a test asserts
+#: there is no `reputation_score` anywhere: after Sybil-flagged feedback is
+#: removed, **77.9% of rated BSC agents have none left** — 29,444 reviews from 76
+#: unique reviewers. A score computed from that looks precise and means nothing.
+#:
+#: Named rather than merely not-read, because "we did not fetch it" and "we
+#: fetched it and refuse to show it" are different claims and only the second one
+#: survives someone adding a field to a passthrough.
+EXPLORER_FIELDS_NOT_PUBLISHED = ("reputationScore", "passRate", "onTimeRate")
 
 # --- what the escrow actually implements ------------------------------------
 #
@@ -307,6 +343,65 @@ def fetch_public_jobs(chain_id: int = BSC_MAINNET, *, timeout: float = 15.0) -> 
     return items
 
 
+def fetch_explorer_agents(chain_id: int = BSC_MAINNET, *, timeout: float = 20.0) -> dict:
+    """How many agents their explorer indexes, and the page shape it says so with.
+
+    Public, no credentials — the same half of their API `fetch_public_jobs` uses.
+
+    Returns the pagination envelope and **drops every row**. That is deliberate
+    and it is the whole design of this function: the only reason to call it is
+    that `FOR_JUDGES.md` already published the total, and the rows carry
+    `reputationScore` / `passRate` / `onTimeRate`
+    (`EXPLORER_FIELDS_NOT_PUBLISHED`). A function that returned them would put a
+    reputation score one attribute access away from a page, in a repository whose
+    argument is that such a score is meaningless here.
+
+    `total` is a **count**, and counts are the thing this project says score
+    nothing — "a user should be able to make a genuinely informed call on which
+    agent to hire" is not answered by a population. It is read because it was
+    published, not because it is interesting.
+    """
+    import httpx
+
+    url = api_base(chain_id) + EXPLORER_AGENTS_PATH
+    _assert_fetchable(url)
+    response = httpx.get(url, timeout=timeout, follow_redirects=False)
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or "total" not in payload:
+        raise ValueError(f"unexpected explorer shape: {type(payload).__name__}")
+
+    rows = payload.get("items") or []
+    withheld = sorted(
+        {
+            field
+            for row in rows
+            if isinstance(row, dict)
+            for field in row
+            if field in EXPLORER_FIELDS_NOT_PUBLISHED
+        }
+    )
+    return {
+        "path": EXPLORER_AGENTS_PATH,
+        "total": int(payload["total"]),
+        "page_size": int(payload.get("pageSize", 0)),
+        "total_pages": int(payload.get("totalPages", 0)),
+        # `sort_order`, not `sort`: the field contract matches leaves by name and
+        # `sort` collides with `Array.prototype.sort` in the views, which makes
+        # the leaf look rendered wherever anything sorts anything.
+        "sort_order": (payload.get("filters") or {}).get("sort", ""),
+        # What came back and is not being published, by name. An empty list here
+        # would mean their shape changed, which is worth seeing.
+        "withheld_fields": withheld,
+        "withheld_reason": (
+            "reputation is deliberately not displayed: after Sybil-flagged feedback "
+            "is removed, 77.9% of rated BSC agents have none left (29,444 reviews "
+            "from 76 unique reviewers). A score computed from that would look "
+            "precise and mean nothing."
+        ),
+    }
+
+
 def read_order(w3, escrow: str, order_id: str) -> list[int]:
     """`orders(bytes32)` -> its 13 words, undecoded.
 
@@ -336,21 +431,61 @@ def order_budget(words: list[int]) -> float:
     return words[ORDER_WORD_BUDGET] / 1e18
 
 
-def implements_erc8183(w3, escrow: str) -> bool:
-    """Does this escrow expose ERC-8183's job interface at all?
+#: Accessors that, if any one answers, mean a contract exposes ERC-8183's job
+#: state. A **set**, not a name, and the reason is the pair of findings either
+#: side of it.
+#:
+#: P-18 concluded `TermixEscrow` implements none of ERC-8183 — correct, and it
+#: still does not. P-24 then found a kernel that does, in a table the EIP does
+#: not publish and the ecosystem does, whose accessor is **`jobCounter()`** and
+#: which reads 56,632 jobs on BSC mainnet. This probe checked three names, none
+#: of them that one, and so returned False for a contract that had passed every
+#: check `scripts/verify_erc8183.py` makes.
+#:
+#: A false negative here is the same defect as P-18's false positive, pointed
+#: the other way: the EIP is Draft, deployments differ in how they spell the
+#: accessor, and a probe that hardcodes one spelling is testing a vocabulary
+#: rather than an interface. Add names as deployments are found; never narrow
+#: this to the one in front of you.
+ERC8183_ACCESSORS: tuple[str, ...] = (
+    "jobCounter()",
+    "jobCount()",
+    "nextJobId()",
+    "jobs(uint256)",
+)
 
-    Cheap, and the check that should have run before the address was ever
-    recorded as one. `jobs(uint256)` reverting is the observable.
+
+def answering_accessors(w3, escrow: str) -> tuple[str, ...]:
+    """Which of `ERC8183_ACCESSORS` this contract answers. Possibly none.
+
+    Probes all four rather than stopping at the first, because *which* one
+    answers is the reading worth having. P-18 recorded that three names reverted
+    and read that as "the accessors are named something else"; P-24 found the
+    name that answers on a different contract. A caller told only `True` learns
+    neither fact, and a report that prints the answering spelling makes the next
+    deployment's difference visible instead of invisible.
     """
     from eth_utils import keccak
 
-    for signature in ("jobs(uint256)", "nextJobId()", "jobCount()"):
+    answered: list[str] = []
+    for signature in ERC8183_ACCESSORS:
         try:
             w3.eth.call({"to": w3.to_checksum_address(escrow), "data": keccak(text=signature)[:4]})
         except Exception:  # noqa: BLE001 — a revert is the answer, not an error
             continue
-        return True
-    return False
+        answered.append(signature)
+    return tuple(answered)
+
+
+def implements_erc8183(w3, escrow: str) -> bool:
+    """Does this escrow expose ERC-8183's job interface at all?
+
+    Cheap, and the check that should have run before the address was ever
+    recorded as one. Any one accessor answering is sufficient; requiring all of
+    them would refuse every real deployment, since no contract implements four
+    spellings of one idea.
+    """
+    return bool(answering_accessors(w3, escrow))
 
 
 IDENTITY_ABI = json.loads(
@@ -432,10 +567,10 @@ def verify(w3, chain_id: int = BSC_MAINNET) -> Evidence:
         evidence.record(
             "implements ERC-8183",
             implements,
-            "jobs(uint256)/nextJobId()/jobCount() answer"
+            f"one of {', '.join(ERC8183_ACCESSORS)} answers"
             if implements
-            else "all three of jobs(uint256), nextJobId() and jobCount() revert — "
-            "order-keyed escrow, not an ERC-8183 job escrow (P-18)",
+            else f"all of {', '.join(ERC8183_ACCESSORS)} revert — order-keyed "
+            "escrow, not an ERC-8183 job escrow (P-18)",
         )
     return evidence
 
@@ -443,16 +578,21 @@ def verify(w3, chain_id: int = BSC_MAINNET) -> Evidence:
 __all__ = [
     "API_BASE",
     "CONTRACTS",
+    "ERC8183_ACCESSORS",
     "ESCROW_INTERFACE",
+    "EXPLORER_AGENTS_PATH",
+    "EXPLORER_FIELDS_NOT_PUBLISHED",
     "EXPLORER_PATH",
     "ORDER_WORDS",
     "ORDER_WORD_BUDGET",
     "Evidence",
     "NoDeployment",
     "UnsafeURL",
+    "answering_accessors",
     "api_base",
     "contracts",
     "fetch_live_contracts",
+    "fetch_explorer_agents",
     "fetch_public_jobs",
     "implements_erc8183",
     "mismatches",

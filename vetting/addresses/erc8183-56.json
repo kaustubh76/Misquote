@@ -1,4 +1,5 @@
 {
+  "block": 118717822,
   "chain_id": 56,
   "checks": [
     {
@@ -32,7 +33,13 @@
       "status": "PASS"
     },
     {
-      "detail": "returns 56637",
+      "detail": "jobCounter() answers; jobCount(), nextJobId(), jobs(uint256) revert",
+      "name": "kernel answers an ERC-8183 accessor",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 56665",
       "name": "commerce.jobCounter() answers",
       "provenance": "P-24",
       "status": "PASS"
@@ -62,7 +69,7 @@
       "status": "PASS"
     },
     {
-      "detail": "jobCounter() is 56,637",
+      "detail": "jobCounter() is 56,665",
       "name": "jobs created on this deployment",
       "provenance": "P-24",
       "status": "PASS"
@@ -71,10 +78,42 @@
   "reason": "",
   "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
   "summary": {
-    "checked": 11,
+    "checked": 12,
     "failed": 0,
     "unknown": 0
   },
   "surveyed": true,
+  "termix_contrast": {
+    "checks": [
+      {
+        "detail": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c -> 170 bytes",
+        "name": "escrow has code",
+        "status": "PASS"
+      },
+      {
+        "detail": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 vs our 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        "name": "identity registry is ours",
+        "status": "PASS"
+      },
+      {
+        "detail": "name() = 'AgentIdentity'",
+        "name": "identity registry answers",
+        "status": "PASS"
+      },
+      {
+        "detail": "0x55d398326f99059fF775485246999027B3197955",
+        "name": "settlement token is ours",
+        "status": "PASS"
+      },
+      {
+        "detail": "all of jobCounter(), jobCount(), nextJobId(), jobs(uint256) revert \u2014 order-keyed escrow, not an ERC-8183 job escrow (P-18)",
+        "name": "implements ERC-8183",
+        "status": "FAIL"
+      }
+    ],
+    "expected_verified": false,
+    "subject": "TermiX TermixEscrow_USDT (P-18)",
+    "verified": false
+  },
   "verdict": "PASS"
 }

@@ -177,11 +177,38 @@ def test_ledger_entries_still_describe_reality(entry: ledger.NotBuilt) -> None:
             f"{module_name}.{symbol} now holds {value!r} — update tearsheet/ledger.py"
         )
 
+    elif match := re.search(r"(\w+) is (\d+)$", raw_claim.strip()):
+        # "…/warden/__main__.py — BROADCAST_CHAIN is 97". The sixth form, and a
+        # generalisation of the fifth rather than a new idea: `<NAME> is empty`
+        # checks a container's emptiness, this checks a constant's *value*.
+        #
+        # It exists because "signing on mainnet is not built" is not a claim
+        # about a missing file or an absent import — the executor is wired and
+        # the imports are there. What makes the claim true is a constant that
+        # says chapel, and pointing the evidence anywhere else would have meant
+        # wording the entry vaguely to fit the vocabulary. The evidence should
+        # name the thing that would have to change.
+        #
+        # Imported and compared, not grepped, for the reason the fifth form
+        # gives: the claim must track the value the rest of the system sees.
+        assert path.exists(), f"{path_text.strip()} no longer exists"
+        symbol, expected = match.group(1), int(match.group(2))
+        module_name = (
+            path.relative_to(REPO / "packages").with_suffix("").as_posix().replace("/", ".")
+        )
+        module = importlib.import_module(module_name)
+        value = getattr(module, symbol, None)
+        assert value is not None, f"{module_name}.{symbol} no longer exists"
+        assert value == expected, (
+            f"{entry.name} is listed as blocked because {symbol} is {expected}, "
+            f"but {module_name}.{symbol} is now {value!r} — update tearsheet/ledger.py"
+        )
+
     else:
         pytest.fail(
             f"{entry.name}'s evidence {entry.evidence!r} states no checkable claim. "
             "Use 'empty directory', 'docstring only', 'no <file>.py', "
-            "'does not import <Name>', or '<NAME> is empty'."
+            "'does not import <Name>', '<NAME> is empty', or '<NAME> is <number>'."
         )
 
 

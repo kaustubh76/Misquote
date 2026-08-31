@@ -58,13 +58,6 @@ ALLOWED: dict[str, str] = {
         "than constrains. Kept because the description is worth having; noted "
         "because a Protocol nobody annotates with enforces nothing."
     ),
-    "fetch_live_contracts": (
-        "AACP C1. TermiX's docs say their live contract table is authoritative "
-        "over any snapshot, and this fetches it so `mismatches()` can compare. "
-        "Nothing calls it yet because nothing signs yet — the check belongs on "
-        "the signing path, and that path does not exist. Built ahead, and "
-        "recorded as built-ahead rather than allowed to look wired."
-    ),
 }
 
 

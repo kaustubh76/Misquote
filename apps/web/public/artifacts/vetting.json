@@ -2,68 +2,77 @@
   "badge_dir": "vetting/badges",
   "build": {
     "command": "python scripts/vetting_report.py --chain 56",
-    "generated_at": "2026-08-25T09:42:36+00:00",
-    "git_dirty": false,
-    "git_sha": "99a32f6",
+    "generated_at": "2026-08-31T05:59:05+00:00",
+    "git_dirty": true,
+    "git_sha": "c71dad9",
     "source": "chain-read badges on disk"
   },
   "chain_id": 56,
   "pools": [
     {
-      "age_hours": 117.9,
+      "age_hours": 46.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
         {
           "detail": "getPool() agrees with the address",
+          "id": "factory",
           "name": "factory resolves it",
           "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
           "status": "PASS"
         },
         {
           "detail": "0.05% -> spacing 10",
+          "id": "tick-spacing",
           "name": "tick spacing matches tier",
           "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
           "detail": "feeProtocol 3400 \u2014 LPs keep 66%, effective 3.300bps",
+          "id": "protocol-fee",
           "name": "protocol fee read",
           "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
           "status": "PASS"
         },
         {
           "detail": "token0 18, token1 18",
+          "id": "decimals",
           "name": "decimals read",
           "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
           "status": "PASS"
         },
         {
-          "detail": "tick -64752",
+          "detail": "tick -65337",
+          "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=40, [-64800, -64720]",
+          "detail": "w_min=40, [-65380, -65300]",
+          "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "3,233,876,951,067,468,072,845,826 \u2014 a 1% share is 32,338,769,510,674,680,774,656",
+          "detail": "3,204,628,323,273,655,231,437,309 \u2014 a 1% share is 32,046,283,232,736,553,467,904",
+          "id": "liquidity-depth",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
           "status": "PASS"
         },
         {
           "detail": "4,413 and 3,124 bytes",
+          "id": "tokens-are-contracts",
           "name": "both tokens are contracts",
           "provenance": "an \"ERC-20\" with no code is an address somebody typed",
           "status": "PASS"
         },
         {
           "detail": "5 recorded value(s) still agree",
+          "id": "recorded-matches-chain",
           "name": "recorded values match chain",
           "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
           "status": "PASS"
@@ -72,65 +81,125 @@
       "label": "PancakeSwap v3 WBNB/USDT 0.05%",
       "path": "vetting/badges/0x36696169c63e42cd08ce11f5deebbcebae652050.json",
       "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
-      "read_at": "2026-08-20T11:50:02+00:00",
+      "proof": {
+        "coverage": {
+          "checks": 9,
+          "not_provable": {
+            "decimals": "a reading. `decimals()` returns 18 or it does not, and the consequence of getting it wrong \u2014 every amount off by 10^12 on BSC \u2014 is arithmetic in our code rather than behaviour in the pool's",
+            "initialised": "a reading of `sqrtPriceX96`. The *consequence* \u2014 that a pinned pool cannot be provided to \u2014 is proven by `mintable-range`, which sends a real mint. That forward reference used to point at a check which was itself unproven, so it promised something nothing delivered",
+            "protocol-fee": "a reading, not a behaviour. `slot0.feeProtocol` is a number; there is no transaction that demonstrates it, and P-8 was caught by two of our own numbers disagreeing rather than by anything executable",
+            "recorded-matches-chain": "this check *is* the differential: it compares what we recorded against what chain says. A proof-of-concept for it would be the same comparison run twice",
+            "tokens-are-contracts": "a reading of `extcodesize`. An 'ERC-20' with no code fails at the first call, so the demonstration is any transfer at all \u2014 there is no separate thing to prove"
+          },
+          "note": "A check earns a proof-of-concept when its consequence is something a transaction can demonstrate. The rest are readings, and executing a reading is theatre.",
+          "provable": [
+            "factory",
+            "liquidity-depth",
+            "mintable-range",
+            "tick-spacing"
+          ]
+        },
+        "proofs": [
+          {
+            "block": 119099478,
+            "check_id": "factory",
+            "detail": "getPool returns this pool",
+            "held": true,
+            "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+          },
+          {
+            "block": 119099478,
+            "check_id": "tick-spacing",
+            "detail": "both bounds sit on the pool's grid",
+            "held": true,
+            "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+          },
+          {
+            "block": 119099478,
+            "check_id": "liquidity-depth",
+            "detail": "pool liquidity is at or above the floor",
+            "held": true,
+            "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+          },
+          {
+            "block": 119099478,
+            "check_id": "mintable-range",
+            "detail": "the position manager accepted a mint at the badge's bounds",
+            "held": true,
+            "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+          }
+        ],
+        "ran": true,
+        "record": "vetting/runs/proof-0x36696169c63e42cd08ce11f5deebbcebae652050.json"
+      },
+      "read_at": "2026-08-29T07:46:26+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 117.9,
+      "age_hours": 46.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
         {
           "detail": "getPool() agrees with the address",
+          "id": "factory",
           "name": "factory resolves it",
           "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
           "status": "PASS"
         },
         {
           "detail": "0.25% -> spacing 50",
+          "id": "tick-spacing",
           "name": "tick spacing matches tier",
           "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
           "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+          "id": "protocol-fee",
           "name": "protocol fee read",
           "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
           "status": "PASS"
         },
         {
           "detail": "token0 18, token1 18",
+          "id": "decimals",
           "name": "decimals read",
           "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
           "status": "PASS"
         },
         {
-          "detail": "tick -64755",
+          "detail": "tick -65331",
+          "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-65000, -64600]",
+          "detail": "w_min=200, [-65550, -65150]",
+          "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "8,350,504,034,261,124,099,708 \u2014 a 1% share is 83,505,040,342,611,247,104",
+          "detail": "13,070,861,288,116,040,224,573 \u2014 a 1% share is 130,708,612,881,160,388,608",
+          "id": "liquidity-depth",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
           "status": "PASS"
         },
         {
           "detail": "4,413 and 3,124 bytes",
+          "id": "tokens-are-contracts",
           "name": "both tokens are contracts",
           "provenance": "an \"ERC-20\" with no code is an address somebody typed",
           "status": "PASS"
         },
         {
           "detail": "5 recorded value(s) still agree",
+          "id": "recorded-matches-chain",
           "name": "recorded values match chain",
           "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
           "status": "PASS"
@@ -139,65 +208,96 @@
       "label": "PancakeSwap v3 WBNB/USDT 0.25%",
       "path": "vetting/badges/0x1401ff943d08a7e098328c1d3a9d388923b115d2.json",
       "pool": "0x1401ff943D08a7E098328C1d3a9d388923B115D2",
-      "read_at": "2026-08-20T11:50:11+00:00",
+      "proof": {
+        "coverage": {
+          "checks": 9,
+          "not_provable": {
+            "decimals": "a reading. `decimals()` returns 18 or it does not, and the consequence of getting it wrong \u2014 every amount off by 10^12 on BSC \u2014 is arithmetic in our code rather than behaviour in the pool's",
+            "initialised": "a reading of `sqrtPriceX96`. The *consequence* \u2014 that a pinned pool cannot be provided to \u2014 is proven by `mintable-range`, which sends a real mint. That forward reference used to point at a check which was itself unproven, so it promised something nothing delivered",
+            "protocol-fee": "a reading, not a behaviour. `slot0.feeProtocol` is a number; there is no transaction that demonstrates it, and P-8 was caught by two of our own numbers disagreeing rather than by anything executable",
+            "recorded-matches-chain": "this check *is* the differential: it compares what we recorded against what chain says. A proof-of-concept for it would be the same comparison run twice",
+            "tokens-are-contracts": "a reading of `extcodesize`. An 'ERC-20' with no code fails at the first call, so the demonstration is any transfer at all \u2014 there is no separate thing to prove"
+          },
+          "note": "A check earns a proof-of-concept when its consequence is something a transaction can demonstrate. The rest are readings, and executing a reading is theatre.",
+          "provable": [
+            "factory",
+            "liquidity-depth",
+            "mintable-range",
+            "tick-spacing"
+          ]
+        },
+        "proofs": [],
+        "ran": false,
+        "reason": "no proof has been executed \u2014 `make vet-prove` writes one"
+      },
+      "read_at": "2026-08-29T07:46:43+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 117.9,
+      "age_hours": 46.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
         {
           "detail": "getPool() agrees with the address",
+          "id": "factory",
           "name": "factory resolves it",
           "provenance": "P-6: Pancake's pool deployer has a different init-code hash",
           "status": "PASS"
         },
         {
           "detail": "0.25% -> spacing 50",
+          "id": "tick-spacing",
           "name": "tick spacing matches tier",
           "provenance": "P-6: the factory's own feeAmountTickSpacing(), 0 for a tier it does not enable",
           "status": "PASS"
         },
         {
           "detail": "feeProtocol 3200 \u2014 LPs keep 68%, effective 17.000bps",
+          "id": "protocol-fee",
           "name": "protocol fee read",
           "provenance": "P-1, P-8: 3400 on WBNB/USDT, 3200 on TSLAx/USDT \u2014 no constant is right",
           "status": "PASS"
         },
         {
           "detail": "token0 18, token1 18",
+          "id": "decimals",
           "name": "decimals read",
           "provenance": "BSC's USDT/USDC are 18 decimals, not Ethereum's 6",
           "status": "PASS"
         },
         {
-          "detail": "tick -58679",
+          "detail": "tick -58703",
+          "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-58900, -58500]",
+          "detail": "w_min=200, [-58950, -58550]",
+          "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
           "detail": "1,576,166,738,998,165,198 \u2014 a 1% share is 15,761,667,389,981,652",
+          "id": "liquidity-depth",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
           "status": "PASS"
         },
         {
           "detail": "4,413 and 2,138 bytes",
+          "id": "tokens-are-contracts",
           "name": "both tokens are contracts",
           "provenance": "an \"ERC-20\" with no code is an address somebody typed",
           "status": "PASS"
         },
         {
           "detail": "5 recorded value(s) still agree",
+          "id": "recorded-matches-chain",
           "name": "recorded values match chain",
           "provenance": "P-8: fee_protocol was recorded as 0 by reading slot0[2], not slot0[5]",
           "status": "PASS"
@@ -206,7 +306,29 @@
       "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
       "path": "vetting/badges/0x5e12d6edb2b7d5330e474ea2d2694a3b3e35d492.json",
       "pool": "0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
-      "read_at": "2026-08-20T11:50:21+00:00",
+      "proof": {
+        "coverage": {
+          "checks": 9,
+          "not_provable": {
+            "decimals": "a reading. `decimals()` returns 18 or it does not, and the consequence of getting it wrong \u2014 every amount off by 10^12 on BSC \u2014 is arithmetic in our code rather than behaviour in the pool's",
+            "initialised": "a reading of `sqrtPriceX96`. The *consequence* \u2014 that a pinned pool cannot be provided to \u2014 is proven by `mintable-range`, which sends a real mint. That forward reference used to point at a check which was itself unproven, so it promised something nothing delivered",
+            "protocol-fee": "a reading, not a behaviour. `slot0.feeProtocol` is a number; there is no transaction that demonstrates it, and P-8 was caught by two of our own numbers disagreeing rather than by anything executable",
+            "recorded-matches-chain": "this check *is* the differential: it compares what we recorded against what chain says. A proof-of-concept for it would be the same comparison run twice",
+            "tokens-are-contracts": "a reading of `extcodesize`. An 'ERC-20' with no code fails at the first call, so the demonstration is any transfer at all \u2014 there is no separate thing to prove"
+          },
+          "note": "A check earns a proof-of-concept when its consequence is something a transaction can demonstrate. The rest are readings, and executing a reading is theatre.",
+          "provable": [
+            "factory",
+            "liquidity-depth",
+            "mintable-range",
+            "tick-spacing"
+          ]
+        },
+        "proofs": [],
+        "ran": false,
+        "reason": "no proof has been executed \u2014 `make vet-prove` writes one"
+      },
+      "read_at": "2026-08-29T07:47:01+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     }

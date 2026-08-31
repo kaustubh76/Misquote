@@ -1,11 +1,11 @@
 {
-  "age_hours": 206.3,
+  "age_hours": 299.4,
   "block": 116328079,
   "build": {
     "command": "python scripts/addresses_report.py --chain 56",
-    "generated_at": "2026-08-25T09:42:54+00:00",
-    "git_dirty": false,
-    "git_sha": "99a32f6",
+    "generated_at": "2026-08-29T06:52:15+00:00",
+    "git_dirty": true,
+    "git_sha": "c71dad9",
     "source": "chain reads recorded on disk"
   },
   "chain_id": 56,
@@ -79,7 +79,8 @@
   ],
   "erc8183": {
     "56": {
-      "age_hours": 73.1,
+      "age_hours": 0.6,
+      "block": 118717822,
       "chain_id": 56,
       "checks": [
         {
@@ -113,7 +114,13 @@
           "status": "PASS"
         },
         {
-          "detail": "returns 56637",
+          "detail": "jobCounter() answers; jobCount(), nextJobId(), jobs(uint256) revert",
+          "name": "kernel answers an ERC-8183 accessor",
+          "provenance": "P-24",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns 56665",
           "name": "commerce.jobCounter() answers",
           "provenance": "P-24",
           "status": "PASS"
@@ -143,26 +150,59 @@
           "status": "PASS"
         },
         {
-          "detail": "jobCounter() is 56,637",
+          "detail": "jobCounter() is 56,665",
           "name": "jobs created on this deployment",
           "provenance": "P-24",
           "status": "PASS"
         }
       ],
-      "read_at": "2026-08-22T08:38:09+00:00",
+      "read_at": "2026-08-29T06:15:41+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-56.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
       "summary": {
-        "checked": 11,
+        "checked": 12,
         "failed": 0,
         "unknown": 0
       },
       "surveyed": true,
+      "termix_contrast": {
+        "checks": [
+          {
+            "detail": "0xCE02f987D8b8AF694E13C8a843Db9c77caBF544c -> 170 bytes",
+            "name": "escrow has code",
+            "status": "PASS"
+          },
+          {
+            "detail": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 vs our 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+            "name": "identity registry is ours",
+            "status": "PASS"
+          },
+          {
+            "detail": "name() = 'AgentIdentity'",
+            "name": "identity registry answers",
+            "status": "PASS"
+          },
+          {
+            "detail": "0x55d398326f99059fF775485246999027B3197955",
+            "name": "settlement token is ours",
+            "status": "PASS"
+          },
+          {
+            "detail": "all of jobCounter(), jobCount(), nextJobId(), jobs(uint256) revert \u2014 order-keyed escrow, not an ERC-8183 job escrow (P-18)",
+            "name": "implements ERC-8183",
+            "status": "FAIL"
+          }
+        ],
+        "expected_verified": false,
+        "subject": "TermiX TermixEscrow_USDT (P-18)",
+        "verified": false
+      },
       "verdict": "PASS"
     },
     "97": {
-      "age_hours": 73.1,
+      "age_hours": 0.6,
+      "block": 127861451,
       "chain_id": 97,
       "checks": [
         {
@@ -196,7 +236,13 @@
           "status": "PASS"
         },
         {
-          "detail": "returns 596",
+          "detail": "jobCounter() answers; jobCount(), nextJobId(), jobs(uint256) revert",
+          "name": "kernel answers an ERC-8183 accessor",
+          "provenance": "P-24",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns 744",
           "name": "commerce.jobCounter() answers",
           "provenance": "P-24",
           "status": "PASS"
@@ -226,18 +272,18 @@
           "status": "PASS"
         },
         {
-          "detail": "jobCounter() is 596",
+          "detail": "jobCounter() is 744",
           "name": "jobs created on this deployment",
           "provenance": "P-24",
           "status": "PASS"
         }
       ],
-      "read_at": "2026-08-22T08:38:38+00:00",
+      "read_at": "2026-08-29T06:15:17+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-97.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
       "summary": {
-        "checked": 11,
+        "checked": 12,
         "failed": 0,
         "unknown": 0
       },
@@ -248,6 +294,213 @@
   "read_at": "2026-08-16T19:26:01+00:00",
   "reason": "",
   "record": "vetting/addresses/56.json",
+  "session_key_proof": {
+    "age_hours": 0.2,
+    "caps_enforced": false,
+    "caps_note": "The keystore enforces the expiry. The allowlist and spend cap are not enforced here: they belong to the validator module's metadata and to the per-wallet Altana account, and this grant carries validator=0x0 and empty metadata \u2014 the same shape every other grant observed on this deployment uses.",
+    "chain_id": 97,
+    "expiry_ts": 1787988930,
+    "gas_spent_wei": 61474900000000,
+    "grants_now": [
+      {
+        "bounded_by": "revocation alone \u2014 no validator and no expiry",
+        "caps_enforced": false,
+        "caps_note": "no validator module: the allowlist and spend cap are enforced by nothing at this layer",
+        "expiry_ts": 0,
+        "key_id": "0x83b60aeb63d5fce7919cd8c24e1969cd86bb518a531732f123696142ba2c02f6",
+        "metadata": "0x",
+        "public_key": "0x04b1308f43798e3e6652a1eeaf74cbdab03ddc87d86c0a3454af3a9511e98eebaaf1d3efd0a760f8a577c78ea7dcd3549dc03c2edffc55a519188dbd9d58fd0f67",
+        "valid": true,
+        "validator": "0x0000000000000000000000000000000000000000"
+      }
+    ],
+    "key_store": "0x6b8361C29d05D498b1a12B54A37310f94171E94A",
+    "key_store_controller": "0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+    "owner": "0xbF4ef75a443E00415Ee2E368caC089e0834930E6",
+    "read_at": "2026-08-29T06:37:52+00:00",
+    "record": "vetting/identity/session-keys-97.json",
+    "registration_fee_wei": 725716783448241,
+    "root_key_id": "0x83b60aeb63d5fce7919cd8c24e1969cd86bb518a531732f123696142ba2c02f6",
+    "session_key_id": "0xcfd64839e7931bd16a4fed20ddd97a7a2d2dd4765bcbe19b50966be8883b91e9",
+    "transactions": [
+      {
+        "call": "initialRegisterKey",
+        "explorer": "https://testnet.bscscan.com/tx/0x3fb798403e1c500c76411eaa47feba5230290b242a349d73b6b661caaa605a15",
+        "gas_cost_wei": 28447700000000,
+        "tx": "0x3fb798403e1c500c76411eaa47feba5230290b242a349d73b6b661caaa605a15"
+      },
+      {
+        "call": "registerKey",
+        "explorer": "https://testnet.bscscan.com/tx/0x8eb79bf6ce1514196a4aa965859294e3c25d3938654b868321eab2fb821da7f8",
+        "gas_cost_wei": 28734800000000,
+        "tx": "0x8eb79bf6ce1514196a4aa965859294e3c25d3938654b868321eab2fb821da7f8"
+      },
+      {
+        "call": "revokeKey",
+        "explorer": "https://testnet.bscscan.com/tx/0x206ff5347611ce2381773a27f7249b9f334c692a32ae0c14abe269177ba9fb9d",
+        "gas_cost_wei": 4292400000000,
+        "tx": "0x206ff5347611ce2381773a27f7249b9f334c692a32ae0c14abe269177ba9fb9d"
+      }
+    ],
+    "valid_after_grant": true,
+    "valid_after_revoke": false
+  },
+  "session_keys": {
+    "56": {
+      "age_hours": 0.5,
+      "block": 118718463,
+      "chain_id": 56,
+      "checks": [
+        {
+          "detail": "8,756 bytes at 0x6572427ED530BadcF7375Cf9A4709D8d2b0E7E0a",
+          "name": "keyStore has code",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "3,609 bytes at 0x0834Ee2C9BdC3E3efF0a2dC34393D4B0e546A555",
+          "name": "keyStoreController has code",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns ()",
+          "name": "keyStore.getKeys(address) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns False",
+          "name": "keyStore.isValidKey(address,bytes32) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns ''",
+          "name": "keyStore.getPublicKey(address,bytes32) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns 726868274705776",
+          "name": "keyStoreController.getRegistrationFeeInWei() answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "getKeys(0x00..00) returned 0 keys",
+          "name": "an address with no keys reads as having none",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "getRegistrationFeeInWei() is 726,868,274,705,776 wei (0.000727 native)",
+          "name": "the registration fee is readable",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "0x6572427ED530BadcF7375Cf9A4709D8d2b0E7E0a vs 0x0834Ee2C9BdC3E3efF0a2dC34393D4B0e546A555",
+          "name": "keyStore and controller are different contracts",
+          "provenance": "P-27",
+          "status": "PASS"
+        }
+      ],
+      "not_verified": [
+        "NOT VERIFIED: the caps. This checks the keystore \u2014 where a key is registered, read and revoked. The allowlist and the spend cap live in `registerKey`'s `validator` and `metadata` arguments and on the per-wallet Altana account, and nothing here has read either. An expiry that is enforced and an allowlist that is not would be worse than no grant at all.",
+        "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an `eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a contract that will accept *our* `registerKey` are different claims, and only the first is supported \u2014 which is P-18 pointed at ourselves.",
+        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. Whether the controller accepts a direct EOA `registerKey` is unread here."
+      ],
+      "read_at": "2026-08-29T06:20:16+00:00",
+      "reason": "",
+      "record": "vetting/addresses/session-keys-56.json",
+      "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
+      "summary": {
+        "checked": 9,
+        "failed": 0,
+        "unknown": 0
+      },
+      "surveyed": true,
+      "verdict": "PASS"
+    },
+    "97": {
+      "age_hours": 0.5,
+      "block": 127862150,
+      "chain_id": 97,
+      "checks": [
+        {
+          "detail": "8,756 bytes at 0x6b8361C29d05D498b1a12B54A37310f94171E94A",
+          "name": "keyStore has code",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "3,609 bytes at 0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+          "name": "keyStoreController has code",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns ()",
+          "name": "keyStore.getKeys(address) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns False",
+          "name": "keyStore.isValidKey(address,bytes32) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns ''",
+          "name": "keyStore.getPublicKey(address,bytes32) answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "returns 725716783448241",
+          "name": "keyStoreController.getRegistrationFeeInWei() answers",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "getKeys(0x00..00) returned 0 keys",
+          "name": "an address with no keys reads as having none",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "getRegistrationFeeInWei() is 725,716,783,448,241 wei (0.000726 native)",
+          "name": "the registration fee is readable",
+          "provenance": "P-27",
+          "status": "PASS"
+        },
+        {
+          "detail": "0x6b8361C29d05D498b1a12B54A37310f94171E94A vs 0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+          "name": "keyStore and controller are different contracts",
+          "provenance": "P-27",
+          "status": "PASS"
+        }
+      ],
+      "not_verified": [
+        "NOT VERIFIED: the caps. This checks the keystore \u2014 where a key is registered, read and revoked. The allowlist and the spend cap live in `registerKey`'s `validator` and `metadata` arguments and on the per-wallet Altana account, and nothing here has read either. An expiry that is enforced and an allowlist that is not would be worse than no grant at all.",
+        "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an `eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a contract that will accept *our* `registerKey` are different claims, and only the first is supported \u2014 which is P-18 pointed at ourselves.",
+        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. Whether the controller accepts a direct EOA `registerKey` is unread here."
+      ],
+      "read_at": "2026-08-29T06:20:22+00:00",
+      "reason": "",
+      "record": "vetting/addresses/session-keys-97.json",
+      "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
+      "summary": {
+        "checked": 9,
+        "failed": 0,
+        "unknown": 0
+      },
+      "surveyed": true,
+      "verdict": "PASS"
+    }
+  },
   "summary": {
     "checked": 11,
     "failed": 0,
@@ -255,7 +508,7 @@
   },
   "surveyed": true,
   "venus": {
-    "age_hours": 98.8,
+    "age_hours": 191.9,
     "block": 117187851,
     "chain_id": 56,
     "checks": [

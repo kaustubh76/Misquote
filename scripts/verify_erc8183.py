@@ -41,6 +41,8 @@ from eth_abi import decode
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 
+from misquote.registry.aacp import ERC8183_ACCESSORS, answering_accessors
+from misquote.registry.aacp import verify as verify_termix
 from misquote.registry.erc8004 import IDENTITY_REGISTRY
 
 RPCS: dict[int, tuple[str, ...]] = {
@@ -88,8 +90,15 @@ PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
 
 class Report:
-    def __init__(self, chain_id: int) -> None:
+    def __init__(self, chain_id: int, block: int | None = None) -> None:
         self.chain_id = chain_id
+        # What block the readings were taken at. Its siblings record one —
+        # `56.json` and `venus-56.json` both carry `block` — and these two did
+        # not, so a record justifying two mainnet escrow addresses could not be
+        # dated by anything except the file's mtime. The evidence strings in
+        # `registry/erc8183.py` carry "read 21 Aug 2026 at block 117,226,038" as
+        # *prose*, which is a number nothing can re-derive or contradict.
+        self.block = block
         self.checks: list[dict[str, str]] = []
 
     def add(self, name: str, status: str, detail: str, provenance: str = "P-24") -> None:
@@ -114,6 +123,7 @@ class Report:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "block": self.block,
             "chain_id": self.chain_id,
             # Present because every sibling record carries it, and the shared
             # renderer branches on it: a block without `surveyed` renders as a
@@ -159,7 +169,11 @@ def call(w3: Web3, address: str, signature: str) -> Any:
 
 
 def survey(w3: Web3, chain_id: int) -> Report:
-    report = Report(chain_id)
+    try:
+        head = w3.eth.block_number
+    except Exception:  # noqa: BLE001 — an undated record beats a run that dies dating it
+        head = None
+    report = Report(chain_id, block=head)
     table = CANDIDATES[chain_id]
 
     # 1. Bytecode.
@@ -188,6 +202,26 @@ def survey(w3: Web3, chain_id: int) -> Report:
             return None
         report.add(f"{role}.{signature} answers", PASS, f"returns {value}")
         return value
+
+    # Which accessors answer, driven by `aacp.ERC8183_ACCESSORS` rather than by a
+    # spelling written down here. This script hardcoded `jobCounter()` while the
+    # probe that gates `JOB_ESCROW` checked three *other* names — so the two
+    # halves of one question disagreed about what the question was, and the
+    # module's own docstring cited this script as the reason it had been widened.
+    # One tuple, both readers.
+    answered = answering_accessors(w3, table["commerce"])
+    report.add(
+        "kernel answers an ERC-8183 accessor",
+        PASS if answered else FAIL,
+        f"{', '.join(answered)} answers"
+        + (
+            f"; {', '.join(a for a in ERC8183_ACCESSORS if a not in answered)} revert"
+            if len(answered) < len(ERC8183_ACCESSORS)
+            else ""
+        )
+        if answered
+        else f"all of {', '.join(ERC8183_ACCESSORS)} revert",
+    )
 
     counter = answers("commerce", "jobCounter()")
     token = answers("commerce", "paymentToken()")
@@ -221,6 +255,51 @@ def survey(w3: Web3, chain_id: int) -> Report:
     return report
 
 
+def contrast(w3: Web3, chain_id: int) -> dict[str, Any] | None:
+    """The other contract, checked by the same probe, in the same run.
+
+    `aacp.verify()` is that module's headline function and it had **no caller
+    outside its own tests** — no script, no Makefile target, no API route. A
+    verification nobody runs is a verification that rots, which is the same
+    complaint this script exists to answer for the addresses above.
+
+    Running both here is not tidiness. P-18 (TermiX's escrow implements none of
+    ERC-8183) and P-24 (Altana's kernel implements it, with 56,632 jobs) are one
+    finding pointed in two directions, and they were established months apart by
+    code that never met. Printed together, the same probe produces both, and a
+    reader can see that the negative is about a contract rather than about the
+    standard.
+
+    Returns None off mainnet: TermiX documents chains 56 and 8453 only, and
+    `aacp` raises rather than defaulting for anything else.
+    """
+    from misquote.registry.aacp import NoDeployment
+
+    try:
+        evidence = verify_termix(w3, chain_id)
+    except NoDeployment as error:
+        print(f"\n  (no TermiX contrast on chain {chain_id}: {error})")
+        return None
+
+    print()
+    print(evidence.render())
+    print(
+        "\n  Expected. P-18 is the finding that this escrow is order-keyed, not\n"
+        "  job-keyed, so `verify()` refusing it is the gate working rather than\n"
+        "  a failure. It is recorded here, beside a kernel that does implement\n"
+        "  the standard, so neither reading can be mistaken for the other."
+    )
+    return {
+        "subject": "TermiX TermixEscrow_USDT (P-18)",
+        "verified": evidence.ok,
+        "expected_verified": False,
+        "checks": [
+            {"name": name, "status": PASS if ok else FAIL, "detail": detail}
+            for name, ok, detail in evidence.checks
+        ],
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--chain", type=int, default=56, choices=(56, 97))
@@ -234,10 +313,19 @@ def main() -> int:
     report = survey(w3, args.chain)
     print(f"\nverdict  {report.verdict}")
 
+    termix = contrast(w3, args.chain)
+
     if args.out:
         out = Path(args.out.replace("{chain}", str(args.chain)))
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+        record = report.to_dict()
+        # Kept beside the survey rather than inside its `checks`: the verdict is
+        # about the Altana deployment, and a failing-by-design contrast folded
+        # into the same list would drag it to FAIL and read as this script
+        # refusing the addresses it just verified.
+        if termix is not None:
+            record["termix_contrast"] = termix
+        out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
         print(f"recorded -> {out}")
 
     if report.verdict != PASS:

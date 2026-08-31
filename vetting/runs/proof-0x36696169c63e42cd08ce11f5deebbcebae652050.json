@@ -1,0 +1,52 @@
+{
+  "chain_id": 56,
+  "coverage": {
+    "checks": 9,
+    "not_provable": {
+      "decimals": "a reading. `decimals()` returns 18 or it does not, and the consequence of getting it wrong \u2014 every amount off by 10^12 on BSC \u2014 is arithmetic in our code rather than behaviour in the pool's",
+      "initialised": "a reading of `sqrtPriceX96`. The *consequence* \u2014 that a pinned pool cannot be provided to \u2014 is proven by `mintable-range`, which sends a real mint. That forward reference used to point at a check which was itself unproven, so it promised something nothing delivered",
+      "protocol-fee": "a reading, not a behaviour. `slot0.feeProtocol` is a number; there is no transaction that demonstrates it, and P-8 was caught by two of our own numbers disagreeing rather than by anything executable",
+      "recorded-matches-chain": "this check *is* the differential: it compares what we recorded against what chain says. A proof-of-concept for it would be the same comparison run twice",
+      "tokens-are-contracts": "a reading of `extcodesize`. An 'ERC-20' with no code fails at the first call, so the demonstration is any transfer at all \u2014 there is no separate thing to prove"
+    },
+    "note": "A check earns a proof-of-concept when its consequence is something a transaction can demonstrate. The rest are readings, and executing a reading is theatre.",
+    "provable": [
+      "factory",
+      "liquidity-depth",
+      "mintable-range",
+      "tick-spacing"
+    ]
+  },
+  "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+  "proofs": [
+    {
+      "block": 119099478,
+      "check_id": "factory",
+      "detail": "getPool returns this pool",
+      "held": true,
+      "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+    },
+    {
+      "block": 119099478,
+      "check_id": "tick-spacing",
+      "detail": "both bounds sit on the pool's grid",
+      "held": true,
+      "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+    },
+    {
+      "block": 119099478,
+      "check_id": "liquidity-depth",
+      "detail": "pool liquidity is at or above the floor",
+      "held": true,
+      "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+    },
+    {
+      "block": 119099478,
+      "check_id": "mintable-range",
+      "detail": "the position manager accepted a mint at the badge's bounds",
+      "held": true,
+      "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+    }
+  ],
+  "verdict": "PASS"
+}

@@ -74,125 +74,212 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),
     NotBuilt(
-        name="Altana session keys",
+        name="Altana session keys: the caps",
         category="Activation",
         what=(
-            "The caps subset: allowlist, spend cap, expiry, Keystore, and one-"
-            "transaction revoke, so hiring an agent is bounded and reversible."
+            "The half of the caps subset this deployment does not enforce: the "
+            "allowlist and the spend cap. Expiry and one-transaction revoke are "
+            "built and proven on chain; these two are not."
         ),
         why=(
-            "The caps subset is enumerated and priced — `sessions/keys.py` "
-            "publishes the grant as two transactions and the revoke as one — but "
-            "no Altana session-key module has been verified on either network, so "
-            "there is no address to send them to. That is why no page here has a "
-            "Hire button: the button would not do anything."
+            "**The blocker moved, and the half that closed is the bigger half.** "
+            "This entry used to say no Altana session-key module had been verified "
+            "on either network, so there was nowhere to send a grant. That was a "
+            "statement about `vetting/addresses/`, not about the world: "
+            "`@altananetwork/sdk@0.8.0` publishes `keyStore` and "
+            "`keyStoreController` for both BSC networks in `dist/config.js` — the "
+            "same package, at the same version, that `JOB_ESCROW` was verified "
+            "from — and nobody here had opened it. That is P-24 repeating one "
+            "module over, and it is written up as **P-27**.\n\n"
+            "`scripts/verify_session_keys.py` ran the same three-way check on both "
+            "chains and every check passed, so `make session-keys` then granted a "
+            "key on chapel, read it back live, revoked it, and read it back dead — "
+            "three mined transactions in `vetting/identity/session-keys-97.json`. "
+            "Grant, visible, revoke, gone is `Readme.md` §5's definition of done "
+            "for activation, and it is met for expiry and revocation.\n\n"
+            "**What is not built is the caps.** The keystore enforces the expiry "
+            "and nothing else. An allowlist and a spend cap would live in a "
+            "`validator` module's `metadata`, and every grant observed on this "
+            "deployment — ours and other people's — carries `validator = 0x0` and "
+            "empty metadata. So no validator module has been read, and "
+            "`SessionKeyWriter.grant` refuses to send a capped-looking grant "
+            "unless the caller passes `allow_unenforced_caps=True`. A page "
+            "rendering four caps over a key the chain bounds by one would be the "
+            "misquote this project is named after, committed by us, on the "
+            "activation page."
         ),
-        evidence="packages/misquote/sessions/keys.py — SESSION_KEY_MODULE is empty",
+        evidence="packages/misquote/sessions/keys.py — VALIDATOR_MODULE is empty",
     ),
     NotBuilt(
-        name="Vetting proof-of-concepts",
+        name="Vetting proof-of-concepts: the five readings",
         category="Due diligence",
         what=(
-            'The second half of "they flag, we prove": each badge finding '
-            "shipping a Foundry script that demonstrates it on a mainnet fork, so "
-            "a claim about a pool is executable rather than assertable."
+            "An executable demonstration for the five badge checks that do not "
+            "have one. Four of the nine now do, including the mint."
         ),
         why=(
-            # "eight" for as long as this entry has existed. `badge.py` runs nine
-            # `_check_*` functions and its own docstring says nine; the site
-            # renders this sentence directly above a card listing all nine, so
-            # the miscount was visible on the page it qualifies.
-            # `test_ledger.test_the_ledger_counts_the_checks_that_exist` counts
-            # the functions rather than trusting either prose.
-            "The badge itself is built — `python -m misquote.vetting` reads nine "
-            "checks off chain and writes vetting/badges/<pool>.json — and the fork "
-            "lab under vetting/forge exists and runs. Nothing joins them: a FAIL "
-            "today is a sentence, not a transaction that reverts."
+            "**The mint is built, and finding out why it did not work is the "
+            "useful part.** `Badge.s.sol` now sends a real mint through the "
+            "verified NonfungiblePositionManager at the badge's **own published "
+            "bounds**, funded by whale impersonation for USDT and wrapping for "
+            "WBNB. Four of four findings held on a BSC fork.\n\n"
+            "It failed twice first, and both failures were **silent** — the proof "
+            "did not crash, it published `held: false` and read exactly like a "
+            "finding that did not hold.\n\n"
+            "1. **A v3 position is an ERC-721 and the prover is its recipient.** "
+            "Without `onERC721Received` the transfer rejects it, so the mint "
+            "reverts — with **empty return data**, so `catch Error(string)` never "
+            "fires and the honest report is 'no reason given'. Identical "
+            "parameters minted from an EOA with `status: 1`.\n"
+            "2. **`estimate_gas` measures the caught path of a `try/catch`.** "
+            "Estimating a function that catches a failing inner call measures the "
+            "cheap branch; sending on that estimate gives the inner call 63/64 of "
+            "almost nothing, it runs out of gas, and the catch fires. "
+            "Self-fulfilling, perfectly stable, and it produces the same empty "
+            "revert data as a bare `revert()`. Written up as **P-30**.\n\n"
+            "That also retires a dangling promise: `initialised`'s reason says "
+            "its consequence *is proven by `mintable-range` instead* — a forward "
+            "reference which, until now, pointed at a check that was itself "
+            "unproven.\n\n"
+            "**The remaining five are readings, and that is the honest ceiling.** "
+            "`decimals()` returns 18 or it does not; `slot0.feeProtocol` is a "
+            "number. There is no transaction that demonstrates a reading, and "
+            "wrapping one in a fork call would be theatre. `vetting/proof.py`'s "
+            "`UNPROVEN` names each with its reason, and a test asserts every "
+            "check is either proven or explained — because four green ticks "
+            "beside nine checks otherwise reads as five failures."
         ),
-        evidence="vetting/forge/script/ — no Badge.s.sol",
+        evidence="packages/misquote/vetting/proof.py — no Prover.sol",
     ),
     NotBuilt(
-        name="Signing on a live chain",
+        name="Signing on mainnet",
         category="Operations",
         what=(
-            "`make warden` broadcasting the decisions it already makes correctly, "
-            "against chapel or mainnet, rather than recording them."
+            "`make warden` broadcasting the decisions it already makes correctly "
+            "against **BSC mainnet**, with capital at risk."
         ),
         why=(
-            "The executor now exists and is proven. `chain/executor.py` mints, "
-            "recentres and withdraws through the verified NonfungiblePositionManager, "
-            "and nine tests exercise it against a forked BSC with real "
-            "transactions — including that a recentre which cannot open leaves the "
-            "wallet flat rather than stranded, and that a withdrawal reaches the "
-            "wallet rather than stopping at `tokensOwed`. The agent also now "
-            "reconciles against the chain on boot, so a restart adopts the "
-            "position the wallet really holds instead of minting a second one "
-            "over the top of it — which is what made an unattended run unsafe. "
-            "What is missing is a funded wallet and the decision to use one: "
-            "`make warden` is still wired to the recording executor, and the "
-            "go/no-go is the gate for changing that."
+            "**Chapel is wired; mainnet is the gate.** This entry read "
+            "*'`make warden` is still wired to the recording executor'*, and the "
+            "evidence was that `__main__.py` does not import `ChainExecutor`. "
+            "Both were true, and the reason underneath was narrower than either: "
+            "`main` had no `Web3` in scope at all — `build_source` returns a "
+            "`BscReader` built from a list of endpoints and never exposed one — "
+            "so this was a plumbing gap wearing a capability's clothes, the same "
+            "shape as the hire flow's *'nothing here can sign'* (P-28).\n\n"
+            "`build_executor` now constructs `BscSigner` -> `PositionManager` -> "
+            "`ChainExecutor` behind **three gates whose default is refuse**: "
+            "`--broadcast` must be passed, the chain must be chapel (mainnet is "
+            "refused in code, not by convention), and `MISQUOTE_DRY_RUN` must be "
+            "`0`, which also triggers `assert_signs_for_operator`. Everything "
+            "downstream was already wired — `reconcile()` adopts the real "
+            "position the moment it is handed an executor with `observe()`.\n\n"
+            "What is not built is the decision to point it at chain 56 and a "
+            "funded wallet there. `check_burn_in`, `check_signer_configured` and "
+            "`check_position_cap` all report UNVERIFIED, and `make go-no-go` is "
+            "the gate for changing that — not a flag.\n\n"
+            "**Nor has anything run unattended for 24 hours**, which is the other "
+            "half and used to be a ledger entry of its own. That entry is gone "
+            "because everything it named — Prometheus metrics, an agent "
+            "heartbeat, Telegram alerting, and `ops/RUNBOOK.md` with the eight "
+            "procedures they imply — is built. What is left is wall clock, and "
+            "duplicating a gate as a ledger entry only made two things point at "
+            "the same constant.\n\n"
+            "`check_burn_in` is the place that says it, and it says it properly "
+            "now: it measures the **longest unbroken run** in each agent's "
+            "journal rather than the span of an append-only file (which counted "
+            "two ten-minute runs a day apart as 25 hours), it reads every agent's "
+            "journal rather than one hardcoded filename, and it refuses a journal "
+            "recording chain 56 in a gate named *testnet* burn-in — which the "
+            "only journal on disk does."
         ),
-        evidence=(
-            # Names the capability, not a filename. An earlier wording pointed at
-            # a file no plan ever proposed writing, so the claim would have kept
-            # reading as true even after signing was wired through the entrypoint
-            # that actually exists — an absence check aimed at the wrong absence.
-            "packages/misquote/agents/warden/__main__.py — does not import ChainExecutor"
-        ),
+        evidence="packages/misquote/agents/warden/__main__.py — BROADCAST_CHAIN is 97",
     ),
     NotBuilt(
-        name="TermiX authenticated API",
+        name="TermiX listing",
         category="Registry",
         what=(
-            "Listing our agents on TermiX's own platform, and any authenticated "
-            "read of their order book — the half of their API that is not public."
+            "Our four agents appearing on TermiX's own platform. The "
+            "authenticated API itself is built and the session works; the "
+            "listing is what does not follow from it."
         ),
         why=(
-            "Blocked on a wallet-signed nonce exchanged for a session JWT, which "
-            "is the same signing path the 24h burn-in needs and which does not "
-            "exist yet. Deliberately not half-built: an auth module that cannot "
-            "complete the exchange would look present on this page while doing "
-            "nothing. The public half does work and carries the finding that "
-            "matters — `/api/v1/explorer/jobs` needs no credentials and is what "
-            "let a real order be read back and decoded (P-18)."
+            "**The blocker was wrong in both halves, and this is the fourth time "
+            "that has happened here.** It read: *blocked on a wallet-signed nonce "
+            "exchanged for a session JWT, which is the same signing path the 24h "
+            "burn-in needs and which does not exist yet.*\n\n"
+            "Signing was a **wrapper** gap — `signer.account` is a public "
+            "`LocalAccount` and has been able to sign messages all along; there "
+            "was no `sign_message` and `encode_defunct` appeared nowhere. And it "
+            "is not the burn-in's path at all: `check_burn_in` reads journal "
+            "timestamps and never touches a signer. Written up as **P-29**, after "
+            "P-24, P-27 and P-28 — a blocker recorded one level too high stops the "
+            "work that would clear it.\n\n"
+            "The endpoints were never private either. A GET on any unmatched "
+            "`/api/v1/*` path returns 401, so GET probes prove nothing — but POST "
+            "separates them, and `/auth/nonce` and `/auth/wallet` both answer "
+            "`400 walletAddress: Required`. It is SIWE: the server returns the "
+            "exact message to sign, and `registry/authenticate.py` signs that "
+            "string verbatim rather than reconstructing it.\n\n"
+            "**`make termix-login` completes the exchange**, and the "
+            "authenticated read the entry asked for works: `/api/v1/agents` "
+            "returns 401 unauthenticated and answers with a token. The record is "
+            "in `vetting/identity/termix-auth.json` and carries **no "
+            "credential** — a test asserts the file holds no token, no refresh "
+            "token, no signature and no nonce.\n\n"
+            "**What is left is the listing, and no token fixes it.** That "
+            "authenticated read answers `0 items` — asked as ourselves, from the "
+            "endpoint their own dashboard reads. Their backend is chain 56 only "
+            "(`aacp.API_BASE` has no 97 key, because there is no testnet "
+            "deployment) and our four agents are on chapel. So they are invisible "
+            "to it by construction, which is the same reason `/registry` already "
+            "published — now confirmed from the authenticated side instead of "
+            "inferred from the public one."
         ),
-        evidence="packages/misquote/registry/ — no authenticate.py",
+        evidence="packages/misquote/registry/ — no list_agents.py",
     ),
     NotBuilt(
-        name="ERC-8183 hire flow",
+        name="ERC-8183 escrow",
         category="Registry",
         what=(
-            "A Hire button that escrows a job against a deployed ERC-8183 "
-            "contract, in the seven transactions `erc8183.steps()` prices."
+            "A Hire button that **escrows** a job. Creating, budgeting and reading "
+            "one back is done and on chain; moving money into it is not."
         ),
         why=(
-            "The blocker moved, and it is worth being exact about which half "
-            "closed. It used to be that **no verified deployment existed** — the "
-            "EIP is Draft and publishes no reference addresses, and TermiX's "
-            "`TermixEscrow` was carried as one and removed because its bytecode "
-            "implements none of the calls (P-18). That is no longer the "
-            "situation: `scripts/verify_erc8183.py` checked Altana's published "
-            "AgenticCommerce kernel three ways on both BSC networks and every "
-            "check passed — 56,632 jobs on mainnet, 581 on chapel, and a "
-            "registry field byte-identical to the one this repository verified "
-            "independently from the PancakeSwap side. `JOB_ESCROW` now carries "
-            "both addresses with their readings (P-24). "
-            "What is still missing is the **button**: escrowing a job means "
-            "signing five client transactions and moving real USDT, and nothing "
-            "here can sign. That is the same gate that keeps `make warden` on "
-            "the recording executor, and it has not moved."
+            "**This entry has now been wrong in three ways, each less wrong than "
+            "the last.** It said no verified deployment existed (P-18 removed "
+            "`TermixEscrow`; P-24 found Altana's kernel and `JOB_ESCROW` carries "
+            "both chains). It then said the blocker was that *nothing here can "
+            "sign* — which was false when written: `chain/signer.py` signs, and "
+            "`registry/identity.py` broadcast six chapel transactions whose "
+            "hashes are in `vetting/identity/97.json`. What was actually missing "
+            "was an **ABI**, and the difference matters: 'we cannot sign' invites "
+            "waiting, 'we have no ABI' invites reading a dispatch table.\n\n"
+            "`registry/erc8183_abi.py` is that table, recovered from deployed "
+            "bytecode rather than copied — which immediately caught `submit`, "
+            "whose real signature is `submit(uint256,bytes32,bytes)` against the "
+            "EIP's two arguments. `make hire` then ran the flow on chapel: "
+            "`approve`, `createJob` and `setBudget` **mined**, and job 746 reads "
+            "back with our client, provider, evaluator and budget "
+            "(`vetting/identity/hire-97.json`).\n\n"
+            "**Two steps did not.** `fund()` moves the deployment's payment "
+            "token, and that token is owner-minted — `mint` reverts `Ownable: "
+            "caller is not the owner`, there is no faucet among its 59 "
+            "selectors, and the signer holds none. So the escrow cannot be "
+            "exercised from here at any price, and no amount of code closes it. "
+            "`registerJob` reverts for every policy argument tried, consistent "
+            "with the hook having registered the job already — an inference from "
+            "a revert, recorded as one.\n\n"
+            "Four permissioning surprises came out of it, none in any ABI and all "
+            "found by varying one argument at a time: the **hook is mandatory** "
+            "(`address(0)` reverts `HookRequired()`, and only the EvaluatorRouter "
+            "is accepted, against an EIP that calls it an optional extension), "
+            "`expiredAt` is an absolute timestamp with a ceiling, and the "
+            "evaluator may not be zero. `Readme.md` §8's D1 box asked for this "
+            "call invoked from an external script *with no permissioning "
+            "surprises*; there were seven errors, three named and four counted."
         ),
-        evidence="packages/misquote/registry/ — no signer.py",
-    ),
-    NotBuilt(
-        name="Ops surface",
-        category="Operations",
-        what="Prometheus metrics and Telegram alerting for the live agent loop.",
-        why=(
-            "Declared as an optional dependency group and never wired. The Warden "
-            "loop writes a JSONL journal instead, which is what the tearsheet reads."
-        ),
-        evidence="packages/misquote/ops/__init__.py — docstring only",
+        evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),
 )
 

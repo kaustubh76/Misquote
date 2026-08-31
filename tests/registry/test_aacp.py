@@ -169,7 +169,24 @@ def test_the_order_state_is_not_claimed() -> None:
 
 @pytest.mark.chainfork
 def test_the_recorded_table_still_verifies_on_chain() -> None:
-    """A recorded chain reading that nobody re-reads is one that rots."""
+    """A recorded chain reading that nobody re-reads is one that rots.
+
+    This asserted `evidence.ok`, and **it had been failing since P-18** — silently,
+    because `chainfork` is deselected from `make test` and only `make fork-diff`
+    and the go/no-go's chain suite ever run it.
+
+    `verify()` is the gate on `JOB_ESCROW`, and P-18's whole finding is that
+    `TermixEscrow` must not pass it. So `ok` is False *by construction* and will
+    stay False for as long as the finding holds: the test was demanding the
+    opposite of what the module was written to conclude.
+
+    What re-reading this table is actually for is **drift**, and the escrow is an
+    upgradeable proxy — the module's own evidence records that escrowed funds sit
+    behind code its owner can replace. So the readings are asserted one by one:
+    the four table facts still hold, and the interface is still absent. If TermiX
+    ever upgrades that proxy into an ERC-8183 escrow, the last assertion goes red
+    and P-18 needs rewriting rather than re-passing.
+    """
     from web3 import Web3
 
     from misquote.registry.aacp import verify
@@ -187,7 +204,27 @@ def test_the_recorded_table_still_verifies_on_chain() -> None:
         pytest.skip("no BSC endpoint answered")
 
     evidence = verify(w3, BSC_MAINNET)
-    assert evidence.ok, evidence.render()
+    readings = {name: (ok, detail) for name, ok, detail in evidence.checks}
+
+    for name in (
+        "escrow has code",
+        "identity registry is ours",
+        "identity registry answers",
+        "settlement token is ours",
+    ):
+        assert readings[name][0], f"{name}: {readings[name][1]}\n{evidence.render()}"
+
+    implements, detail = readings["implements ERC-8183"]
+    assert implements is False, (
+        "TermixEscrow now answers an ERC-8183 accessor. It is an upgradeable "
+        "proxy, so this is a real possibility rather than a flaky read — and it "
+        f"would mean P-18 is stale, not that this test is. Reading: {detail}"
+    )
+
+    assert not evidence.ok, (
+        "verify() is the gate on JOB_ESCROW and P-18 is the finding that this "
+        "address must not clear it"
+    )
 
 
 @pytest.mark.chainfork
@@ -332,3 +369,160 @@ def test_the_verification_can_still_pass_when_the_interface_is_there() -> None:
 
     assert evidence.ok, evidence.failures
     assert ("implements ERC-8183", True) in [(n, ok) for n, ok, _ in evidence.checks]
+
+
+def test_the_accessor_probe_is_a_set_not_a_spelling() -> None:
+    """P-18 and P-24 are the same defect pointed in opposite directions.
+
+    P-18 found `TermixEscrow` implements none of ERC-8183 — true, and still
+    true. P-24 then found a kernel that does, in a table the EIP does not
+    publish and the ecosystem does, reading 56,632 jobs on BSC mainnet. Its
+    accessor is `jobCounter()`.
+
+    This probe checked `jobs(uint256)`, `nextJobId()` and `jobCount()` — none of
+    them that one — so it returned False for a contract that had passed every
+    check `scripts/verify_erc8183.py` makes. A false negative in the function
+    written to gate `JOB_ESCROW` is exactly as bad as the false positive it was
+    written to prevent.
+
+    The EIP is Draft and deployments differ in how they spell the accessor, so
+    the probe tests an interface only if it tests a set of names.
+    """
+    from misquote.registry.aacp import ERC8183_ACCESSORS
+
+    assert "jobCounter()" in ERC8183_ACCESSORS, (
+        "the one deployment this repository has verified answers jobCounter(), "
+        "and a probe that omits it refuses a real ERC-8183 kernel"
+    )
+    assert len(ERC8183_ACCESSORS) > 1, "one spelling is a vocabulary, not an interface"
+
+
+def test_a_contract_answering_any_accessor_counts_as_erc8183() -> None:
+    """Any one is sufficient. Requiring all of them would refuse every real
+    deployment, since no contract implements four spellings of one idea."""
+    from eth_utils import keccak
+
+    from misquote.registry import aacp
+
+    def only(signature: str):
+        """A chain where exactly one accessor answers and the rest revert."""
+        wanted = keccak(text=signature)[:4]
+
+        class _Eth:
+            @staticmethod
+            def call(tx):
+                if tx["data"][:4] == wanted:
+                    return (0).to_bytes(32, "big")
+                raise ValueError("execution reverted")
+
+        class _W3:
+            eth = _Eth()
+
+            @staticmethod
+            def to_checksum_address(address):
+                return address
+
+        return _W3()
+
+    for answered in aacp.ERC8183_ACCESSORS:
+        assert aacp.implements_erc8183(only(answered), "0x" + "11" * 20), answered
+
+    # And a contract answering none of them is not one.
+    assert not aacp.implements_erc8183(only("somethingElse()"), "0x" + "11" * 20)
+
+
+def test_the_verify_script_reads_the_shared_accessor_tuple() -> None:
+    """One tuple, both readers — asserted, because it was two before.
+
+    `scripts/verify_erc8183.py` hardcoded `"jobCounter()"` while
+    `implements_erc8183` probed three *other* names, and the accessor tuple's own
+    docstring cited that script as the reason it had been widened. So the module
+    pointed at the script and the script had never heard of the module: the two
+    halves of one question disagreed about what the question was, and neither
+    could catch the other drifting.
+
+    A source read rather than a call, because the defect is *duplication* and a
+    behavioural test cannot see it — a script with its own private copy of the
+    right four names passes every runtime assertion.
+    """
+    from pathlib import Path
+
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py"
+    ).read_text()
+
+    assert "ERC8183_ACCESSORS" in script, (
+        "the script must take the accessor spellings from aacp rather than "
+        "keeping its own list"
+    )
+    assert "answering_accessors" in script
+
+    body = script.split('"""', 2)[-1]  # skip the module docstring, which names them as prose
+    for spelling in ("jobCount()", "nextJobId()", "jobs(uint256)"):
+        assert spelling not in body, (
+            f"{spelling} is written out in the script body — it belongs in "
+            "ERC8183_ACCESSORS, where both readers can see it"
+        )
+
+
+def test_the_verify_script_runs_the_termix_contrast() -> None:
+    """`aacp.verify()` had no caller outside these tests.
+
+    No script, no Makefile target, no API route, no page — the module's headline
+    function, exercised only by the file asserting it exists. That is the same
+    rot this script was written to prevent for the addresses it checks, and it
+    had it.
+    """
+    from pathlib import Path
+
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py"
+    ).read_text()
+
+    assert "verify as verify_termix" in script
+    assert "verify_termix(w3" in script, "imported and not called is not a caller"
+
+
+def test_answering_accessors_reports_which_one_answered() -> None:
+    """`True` loses the reading that mattered.
+
+    P-18 recorded three reverting names and concluded "the accessors are named
+    something else"; P-24 found the name that answers. A probe that returns only
+    a boolean throws away exactly the fact that separated those two findings, so
+    this one returns the spellings and `implements_erc8183` is derived from it.
+    """
+    from eth_utils import keccak
+
+    from misquote.registry import aacp
+
+    def only(*signatures: str):
+        wanted = {keccak(text=s)[:4] for s in signatures}
+
+        class _Eth:
+            @staticmethod
+            def call(tx):
+                if tx["data"][:4] in wanted:
+                    return (0).to_bytes(32, "big")
+                raise ValueError("execution reverted")
+
+        class _W3:
+            eth = _Eth()
+
+            @staticmethod
+            def to_checksum_address(address):
+                return address
+
+        return _W3()
+
+    address = "0x" + "11" * 20
+
+    # The real chapel/mainnet kernel: one spelling answers, three revert.
+    assert aacp.answering_accessors(only("jobCounter()"), address) == ("jobCounter()",)
+
+    # TermiX's escrow: none of them.
+    assert aacp.answering_accessors(only("orders(bytes32)"), address) == ()
+    assert not aacp.implements_erc8183(only("orders(bytes32)"), address)
+
+    # Order follows ERC8183_ACCESSORS, not the order they happened to answer in.
+    every = aacp.answering_accessors(only(*aacp.ERC8183_ACCESSORS), address)
+    assert every == aacp.ERC8183_ACCESSORS

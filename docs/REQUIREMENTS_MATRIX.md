@@ -492,6 +492,280 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-30 · Two ways for a proof to fail silently, and both report the finding as false — **31 Aug 2026**
+
+Building the `mintable-range` proof-of-concept produced two failures worth more than the proof. The
+mint reverted twice, and **neither time did anything crash**. `scripts/vetting_proof.py` published
+`held: false` with a straight face, `/vetting` rendered it, and the reading was indistinguishable
+from *the pool will not accept a position at these bounds* — a badge check failing, on a pool the
+badge had passed.
+
+A proof harness that cannot tell "the claim is false" from "my harness is broken" is worse than no
+harness, because it produces confident negatives.
+
+**1. A v3 position is an ERC-721, and the prover is its recipient.**
+
+`mint(params)` hands the position NFT to `params.recipient`. The prover contract is `msg.sender`, so
+`recipient` is `address(this)` — and a contract that does not implement `onERC721Received` is
+rejected by the transfer. The mint reverts.
+
+It reverts with **empty return data**. `catch Error(string memory reason)` never fires, only
+`catch (bytes memory)` does, and the most honest thing the contract can say is "no reason given".
+
+What isolated it was running the *identical* parameters from an EOA: same pool, same bounds, same
+amounts, same approvals, same deadline — `estimate_gas` returned 396,833 and the receipt came back
+`status: 1`. The only difference between the two calls was who was being handed the token.
+
+**2. `estimate_gas` measures the caught path of a `try/catch`.**
+
+The second failure survived the fix, and it is the more general one.
+
+`proveMintable` wraps the mint in `try/catch` — correctly, because a revert *is* the answer and the
+answer has to reach the event rather than the transaction. But `build_transaction` without an
+explicit gas limit calls `estimate_gas`, and estimation runs the function: the inner call fails, the
+catch fires, the function returns cheaply, and **the estimate is the cost of the failing branch**.
+
+Send with that estimate and the EVM's 63/64 rule hands the inner call almost nothing. It runs out of
+gas. The catch fires. The estimate was correct.
+
+The loop is closed, self-fulfilling and perfectly stable — it does not flake, it fails the same way
+every time, which is exactly what makes it read as a finding. And out-of-gas produces the same empty
+return data as a bare `revert()`, so it is indistinguishable from defect 1.
+
+*Fixed:* `MINT_GAS = 1_500_000`, passed explicitly, with the reasoning at the call site and a test
+asserting the mint is never sent on an estimate.
+
+**The shape both share.** A guard that catches failure will catch its own failure to run, and report
+it in the same field. `try/catch` around the thing under test, `catch` around a missing dependency, a
+timeout around a call that was never made — each one turns "this did not work" into "this is false".
+The repository already had one of these: `read_job`'s first existence test was
+`any(int(w, 16) for w in words)`, which is true for every id that never existed because the ABI head
+offsets are non-zero (P-28).
+
+*The lesson worth keeping:* when a proof reports a negative, the first question is whether the proof
+ran. Both defects here were found by asking it — the EOA comparison for the first, and "what does an
+estimate of a catch measure" for the second — and neither would have been found by reading the code,
+because the code was right in both cases.
+
+### P-29 · A closed API, concluded from a 401 that every path returns — **31 Aug 2026**
+
+The fourth instance of one defect. P-24: *"no verified deployment exists"*. P-27: *"no session-key
+module has been verified"*. P-28: *"nothing here can sign"*. And now:
+
+> Blocked on a wallet-signed nonce exchanged for a session JWT, **which is the same signing path the
+> 24h burn-in needs and which does not exist yet.**
+
+**Three claims, all false.**
+
+**1. It is not the burn-in's path.** `check_burn_in` reads timestamps out of a JSONL journal. It
+never touches a signer, a key or a signature. The two items were recorded as one blocker on a
+resemblance — both involve a wallet — and nothing checked it.
+
+**2. Signing was a wrapper gap.** `BscSigner.__slots__` carries `account`; it is a `LocalAccount`,
+and `sign_message(encode_defunct(...))` has worked since the file was written. What was missing was a
+method. `encode_defunct` appeared nowhere in the repository, which is what made "does not exist yet"
+feel true — the absence of a *wrapper* reads exactly like the absence of a *capability*.
+
+**3. The endpoints were never private**, and the reason nobody noticed is worth more than the
+finding. Their API returns `401 UNAUTHORIZED` for **any** unmatched path under `/api/v1/`:
+
+| probe | result |
+|---|---|
+| `GET /api/v1/auth/nonce` | `401` |
+| `GET /api/v1/definitely-not-a-real-endpoint-xyz` | `401` |
+| `GET /api/v1/zzz/qqq` | `401` |
+
+So a GET probe cannot distinguish *protected* from *nonexistent*, and every reconnaissance that used
+one concluded the auth surface was closed. **POST separates them**, because the public endpoints
+validate their fields before authorising anything:
+
+| probe | result |
+|---|---|
+| `POST /api/v1/auth/nonce {}` | `400 walletAddress: Required` |
+| `POST /api/v1/auth/wallet {}` | `400 walletAddress: Required` |
+| `POST /api/v1/auth/refresh {}` | `400 refreshToken: Required` |
+
+An error code that is uniform across a namespace carries no information about that namespace. Reading
+one as though it did is the same mistake as reading `jobs(uint256)` reverting as "the accessors are
+named something else" (P-18) — a negative result with one explanation assumed and others unchecked.
+
+**It is SIWE, and the message is theirs.** `/auth/nonce` returns EIP-4361 — a nonce, a domain, a
+chainId, a ten-minute `expiresAt`, and the exact `message` string. `registry/authenticate.py` signs
+**that string verbatim**. Reconstructing a SIWE message from its parts is the standard way to produce
+a signature that recovers to the correct address and still fails verification: one character of
+whitespace, one field ordering, one timestamp rounded differently.
+
+**The exchange completes.** `make termix-login` gets a nonce, signs it as the operator, and receives
+an access token and a refresh token. `/api/v1/agents` — `401` unauthenticated — answers. The record
+in `vetting/identity/termix-auth.json` carries **no credential**, and a test asserts the file holds
+no token, no refresh token, no signature and no nonce; `Session.evidence()` has no field that could
+hold one, so recording more would take a visible code change rather than an attribute access.
+
+**What closing it revealed is that the item was mis-titled.** The entry's `what` was *"listing our
+agents on TermiX's own platform, **and** any authenticated read of their order book"* — two things
+joined by an *and*, of which auth only ever gated the second. The authenticated read now works and
+returns **`0 items`**: asked as ourselves, with a token, from the endpoint their own dashboard reads.
+Their backend is chain 56 only and the four agents are on chapel, so they are invisible to it by
+construction. That was already published on `/registry` as an inference from the public explorer; it
+is now a reading from the authenticated side, which is a stronger claim about the same fact.
+
+*The lesson worth keeping:* a uniform error is not evidence. When every path in a namespace answers
+identically, the answer is about the namespace's middleware and not about the path — and the way to
+find out is to change the *method*, not the path.
+
+### P-28 · The hire flow was blocked on an ABI, and the ledger said it was blocked on signing — **29 Aug 2026**
+
+The `ERC-8183 hire flow` ledger entry gave its blocker as:
+
+> escrowing a job means signing five client transactions and moving real USDT, and **nothing here
+> can sign**
+
+That was false when it was written. `chain/signer.py` signs, and `registry/identity.py` broadcast
+**six chapel transactions** whose hashes were already in `vetting/identity/97.json` and rendered on
+`/registry`. What was actually missing was an **ABI** — there was no calldata builder for
+`createJob`, `setBudget` or `fund` anywhere in `packages/`.
+
+The difference is not pedantry. *"We cannot sign"* names a capability nobody has, and the response is
+to wait. *"We have no ABI"* names a file nobody wrote, and the response is to read a dispatch table.
+The entry pointed at a gate that was already open.
+
+**Recovering the interface immediately paid for the method.** `registry/erc8183_abi.py` resolves every
+signature against the PUSH4 selectors in the deployed implementation rather than copying Altana's
+published ABI — the technique `aacp.py` used for P-18, run forwards. `submit` did not resolve under
+the EIP's shape. It took **21,060 candidate signatures** over 36 names to find:
+
+    EIP / erc8183.steps()   submit(jobId, deliverable)          two arguments
+    the deployment          submit(uint256,bytes32,bytes)       three
+
+A client built from the standard encodes two words, hits a selector that does not exist, and reverts
+with **no reason string** — on transaction six of seven, after the money is escrowed.
+
+**Then it ran.** `make hire` against chapel: `approve`, `createJob` and `setBudget` mined; job **746**
+reads back with our client, provider, evaluator and a 1e18 budget (`vetting/identity/hire-97.json`).
+
+**Four permissioning surprises, which is what `Readme.md` §8's D1 box asked about.** None is in any
+ABI — `createJob` reverts with bare four-byte selectors — so each was isolated by varying one argument
+at a time, then matched to a name by preimage search where possible. Where both methods answered they
+agreed, and that agreement is the evidence:
+
+| selector | isolated behaviour | name |
+|---|---|---|
+| `0x55c45de1` | hook is `address(0)` | `HookRequired()` |
+| `0x1a5d3d5f` | hook is any other contract, or an EOA | unresolved |
+| `0xd92e233d` | evaluator is `address(0)` | unresolved |
+| `0xf7a0748c` | `expiredAt` zero or in the past | unresolved |
+| `0xb40b2a0e` | `expiredAt` too far ahead | `ExpiryTooLong()` |
+| `0xff97b861` | `fund()` with a zero budget | `ZeroBudget()` |
+| `0xc94463e3` | `registerJob`, every policy argument | unresolved |
+
+**The hook is the surprise.** The EIP treats it as an optional extension point and `steps()` recorded
+it as one. On this deployment `address(0)` — the natural way to say *no hook* — reverts, and so does
+the kernel itself, the OptimisticPolicy, and an EOA. **Only the EvaluatorRouter is accepted.** Three
+of the seven are named; the other four are recorded by selector with their observed behaviour, because
+a name that has not been confirmed is a guess that will later be quoted.
+
+**Two steps did not mine, and neither closes with code.**
+
+- **`fund` cannot be exercised at any price.** The deployment's payment token is owner-minted:
+  `mint(address,uint256)` reverts `Ownable: caller is not the owner`, there is no faucet among its
+  **59 selectors**, and the signer's balance is 0. So the escrow half of ERC-8183 is unreachable from
+  here, and the ledger says so rather than reporting a zero-budget job as a completed hire.
+- **`registerJob` reverts for every policy argument tried**, including the OptimisticPolicy the
+  deployment publishes. That is consistent with the hook having registered the job already — which
+  would make step 3 of `steps()` a no-op here — but it is an **inference from a revert**, and nothing
+  has read a registration back out to confirm it. Recorded as an inference.
+
+**A third defect, caught by the read path.** `read_job`'s first existence test was
+`any(int(word, 16) for word in words)`, which is **true for every id that has never existed**: an
+unknown job returns thirteen words of which two are non-zero, and those two are `0x20` and `0x160` —
+the ABI head offsets every dynamic-struct return carries. This is **P-18's trap in a new costume**;
+there it was thirteen zero words for an order in the wrong settlement book, here it is a well-formed
+answer for a job that was never created. Existence is now the requested id coming back in word 1,
+which is also the only field in the struct confirmed by agreement: ask for 743, get `0x2e7`.
+
+*The lesson worth keeping:* a blocker recorded one level too high stops the work that would clear it.
+"Nothing here can sign" and "nothing here has an ABI for this contract" have the same consequence
+today and completely different next actions.
+
+### P-27 · The session-key refusal was a search of our own output directory, reported as a search of the world — **29 Aug 2026**
+
+`sessions/keys.py` kept `SESSION_KEY_MODULE` empty and said why, in a docstring headed *"Why
+there is no address here"*:
+
+> `vetting/addresses/` holds `56.json`, `venus-56.json`, `erc8183-56.json` and `erc8183-97.json`
+> — nothing session-key shaped — because nobody has run the three-way check against an Altana
+> session-key module
+
+Every clause is true. The inference is not. `SEARCHED` named three files, **all of them this
+repository's own output**, and the module concluded from their contents that no session-key
+module had been verified anywhere. A search list containing only your own artifacts can only
+ever tell you what you already knew.
+
+`@altananetwork/sdk@0.8.0` publishes the addresses in `dist/config.js` — chains 1, 56, 97 and
+8453 — and the ABI in `dist/internal/keystore.js`. **That is the same package, at the same
+version, that `JOB_ESCROW` was verified from.** This repository had already read
+`ERC8183_ADDRESSES` out of it and never opened the file beside it.
+
+**This is P-24 repeating, one module over**, and P-24's own closing line is the diagnosis:
+*"no verified deployment exists" and "we have not verified a deployment" are different
+sentences.* The lesson was written down and did not generalise, because it was recorded as a
+fact about ERC-8183 rather than as a habit about search.
+
+**Every check passed, both chains.** `scripts/verify_session_keys.py`, the same three ways
+`verify_erc8183.py` looks:
+
+| | chain 56 | chain 97 |
+|---|---|---|
+| keyStore | 8,756 bytes | 8,756 |
+| keyStoreController | 3,609 bytes | 3,609 |
+| `getKeys` / `isValidKey` / `getPublicKey` | answer | answer |
+| `getRegistrationFeeInWei()` | 726,868,274,705,776 wei | 725,716,783,448,241 |
+| keyStore ≠ keyStoreController | yes | yes |
+
+Byte-identical code sizes across the two chains, so what was exercised on chapel is not a
+different contract from the one on 56.
+
+**Four corrections that only running it could produce.** Each is a revert message or a chain
+reading, not a reading of the SDK:
+
+1. **There is no `approve`.** `grant_plan()` returned `approve` then `grant`, on the reasoning
+   that a spend cap needs its token approved to the module. The fee is native BNB paid as the
+   call's `value`, and the spend cap is not an allowance to this contract at all. A demo built
+   from the old plan sends an `approve` to a contract that never pulls a token.
+2. **`registerKey` reverts on a fresh wallet** — `KeyStore: account not bootstrapped`. The first
+   key goes through `initialRegisterKey`. So the count of two was right and both reasons for it
+   were wrong.
+3. **The root key must not expire** — `initialRegisterKey` with any non-zero expiry reverts
+   `KeyStore: root key must not expire`. This also explains a live chapel key reading
+   `expiry_ts: 0` and `valid: true` at once: not an expired key still working, a root key doing
+   what the contract requires. Zero is *no expiry*, so an accidental zero is an unbounded grant
+   rather than a dead one, and `grant_call` refuses it.
+4. **The grant and the revoke are on different contracts.** `registerKey` on the
+   keyStoreController, `revokeKey` on the keyStore. Nothing about the caps subset predicts that.
+
+**The registration fee is not a constant.** Three reads minutes apart returned
+723,464,592,130,675 / 725,716,783,448,241 / 726,868,274,705,776. A page rendering a cached
+figure quotes a price the chain will not honour, which is this project's own name, on the
+activation page. `registration_fee()` is read per grant and the docstring says why.
+
+**Proven, not described.** `make session-keys` granted a key on chapel, read it back live,
+revoked it, and read it back dead — three mined transactions in
+`vetting/identity/session-keys-97.json`, `isValidKey` true then false. That is `Readme.md` §5's
+definition of done for activation, and it is the first evidence on this site that a grant is
+bounded *and* reversible rather than merely enumerated.
+
+**What is still not built, and it is the more interesting half.** The keystore enforces the
+**expiry** and **revocation**. It does not enforce the **allowlist** or the **spend cap**: those
+would live in a `validator` module's `metadata`, and every grant observed on this deployment —
+ours and other people's, read off chain — carries `validator = 0x0` and empty metadata. So
+`VALIDATOR_MODULE` is empty for exactly the reason `SESSION_KEY_MODULE` used to be, to the same
+bar, and `SessionKeyWriter.grant` refuses to send a capped-looking grant unless the caller
+passes `allow_unenforced_caps=True`. Two of the four caps are real; a page rendering four would
+be the misquote.
+
+*The lesson worth keeping:* a refusal is only as good as its search list, and a search list made
+of your own artifacts is not a search. `SEARCHED` now names the SDK first.
+
 ### P-26 · Three thresholds were numbers correct for quantities they were not applied to — **25 Aug 2026**
 
 Prompted by an audit against the PancakeSwap track's criterion — *"the agent must deliver a real

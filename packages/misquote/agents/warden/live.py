@@ -116,10 +116,21 @@ class WardenLive:
         *,
         params: Params | None = None,
         capital_quote: float = DEFAULT_CAPITAL_QUOTE,
+        policy=None,
     ) -> None:
         self.meta = meta
         self.params = params or Params()
-        self.engine = Engine(meta, self.params)
+        # The same seam `Engine` already exposes, passed through rather than
+        # re-implemented. Without it this class hardcoded the A-S policy, so
+        # `agents/grid` and `agents/sentinel` had no way to run live — the
+        # replay engine has run all three since Step 7 and the *live* driver
+        # could only ever run one, which made "four agents at equal depth" true
+        # of the replay and false of the process list.
+        #
+        # `None` keeps Warden's `decide` as the default, so every existing
+        # caller — including test L1, which compares this driver's decisions to
+        # the replay's byte for byte — is unaffected.
+        self.engine = Engine(meta, self.params, policy=policy)
         self.source = source
         self.executor = executor
         self.capital_quote = capital_quote

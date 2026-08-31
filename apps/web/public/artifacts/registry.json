@@ -22,6 +22,24 @@
       "resolved": 21,
       "total": 65
     },
+    "explorer_agents": {
+      "gap": 137,
+      "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
+      "ours": 320454,
+      "ours_at_block": 119102941,
+      "page_size": 20,
+      "path": "/api/v1/explorer/agents",
+      "read": true,
+      "sort_order": "reputation_desc",
+      "total": 320317,
+      "total_pages": 16016,
+      "withheld_fields": [
+        "onTimeRate",
+        "passRate",
+        "reputationScore"
+      ],
+      "withheld_reason": "reputation is deliberately not displayed: after Sybil-flagged feedback is removed, 77.9% of rated BSC agents have none left (29,444 reviews from 76 unique reviewers). A score computed from that would look precise and mean nothing."
+    },
     "not_erc8183": "TermixEscrow implements none of the seven calls erc8183.steps() models, across 5,894 candidate signatures. Jobs are keyed by a bytes32 order id, not the EIP's uint256 jobId, which is why jobs(uint256), nextJobId() and jobCount() all revert. Verified against the live contract in tests/registry/test_termix_escrow_fork.py.",
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
     "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
@@ -29,13 +47,23 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-28T06:59:46+00:00",
+    "generated_at": "2026-08-31T06:24:25+00:00",
     "git_dirty": true,
-    "git_sha": "c7ae77d",
+    "git_sha": "c71dad9",
     "source": "recorded survey"
   },
   "hire_flow": {
     "client_transaction_count": 5,
+    "errors": {
+      "0x1a5d3d5f": "hook is not an accepted hook contract (name unresolved)",
+      "0x32d53d69": "fund() on a job with a real budget, from a wallet holding none of the payment token. Name unresolved across 360 candidates. The allowance was set and the balance was zero, so the reading is consistent with the kernel's pull failing \u2014 and it is a reading, not a decode",
+      "0x55c45de1": "HookRequired() \u2014 hook is the zero address",
+      "0xb40b2a0e": "ExpiryTooLong() \u2014 expiredAt is too far in the future",
+      "0xc94463e3": "registerJob reverts on a job created with the router as its hook, for every policy argument tried including the OptimisticPolicy the deployment publishes. Name unresolved. The behaviour is consistent with the hook having registered the job already, which would make step 3 of erc8183.steps() a no-op on this deployment \u2014 but that is an inference from a revert, and nothing here has read a registration back out to confirm it",
+      "0xd92e233d": "evaluator is the zero address (name unresolved)",
+      "0xf7a0748c": "expiredAt is zero or in the past \u2014 it is an absolute timestamp, not a duration (name unresolved)",
+      "0xff97b861": "ZeroBudget() \u2014 fund() refuses a budget of zero, so a job with no budget cannot be escrowed even as a gesture"
+    },
     "escrow": {
       "address": "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
       "available": true,
@@ -49,6 +77,93 @@
         "SECURITY: the kernel, the EvaluatorRouter and the registry are 130-byte proxies, so the code that would hold escrowed funds is upgradeable by its owner. What was verified is what those addresses delegate to today. Nothing here checks who may change that, and a reader routing real money should."
       ]
     },
+    "proof": {
+      "addresses": {
+        "erc20": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+        "kernel": "0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE",
+        "policy": "0x4F4678D4439feC812Ac7674Bb3Efb4C8f5Fb78A6",
+        "router": "0xD7d36D66d2F1B608A0F943f722D27e3744f66F25"
+      },
+      "budget": 1000000000000000000,
+      "chain_id": 97,
+      "client": "0xbF4ef75a443E00415Ee2E368caC089e0834930E6",
+      "escrowed": false,
+      "gas_spent_wei": 50895400000000,
+      "job_exists": true,
+      "job_id": 746,
+      "job_words": [
+        "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "0x00000000000000000000000000000000000000000000000000000000000002ea",
+        "0x000000000000000000000000bf4ef75a443e00415ee2e368cac089e0834930e6",
+        "0x000000000000000000000000bf4ef75a443e00415ee2e368cac089e0834930e6",
+        "0x000000000000000000000000bf4ef75a443e00415ee2e368cac089e0834930e6",
+        "0x0000000000000000000000000000000000000000000000000000000000000160",
+        "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000",
+        "0x000000000000000000000000000000000000000000000000000000006a9bc11d",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x000000000000000000000000d7d36d66d2f1b608a0f943f722d27e3744f66f25",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x00000000000000000000000000000000000000000000000000000000000000b2",
+        "0x54686520706f736974696f6e2077617320696e2072616e676520666f72206174",
+        "0x206c6561737420373025206f662073616d706c6573206f76657220746865206a",
+        "0x6f622077696e646f772c207265636f6d70757465642066726f6d20636861696e",
+        "0x2073746174652e2042696e6172792c20616e64206974206e65656473206e6f20",
+        "0x636f756e7465726661637475616c20e2809420737065632073656374696f6e20",
+        "0x342e322c20676170206974656d20472d332e0000000000000000000000000000"
+      ],
+      "mined": [
+        "approve",
+        "createJob",
+        "setBudget"
+      ],
+      "not_escrowed_because": "The deployment's payment token is owner-minted: mint(address,uint256) reverts `Ownable: caller is not the owner`, there is no faucet among its 59 selectors, and this signer's balance is 0. So the escrow half cannot be exercised from here at any price, and fund() also refuses a zero budget outright (ZeroBudget(), 0xff97b861). createJob and setBudget are real transactions on a real deployment; fund is not among them, and this field is why rather than an omission.",
+      "ran": true,
+      "record": "vetting/identity/hire-97.json",
+      "reverted": [
+        "registerJob",
+        "fund"
+      ],
+      "success_criterion": "The position was in range for at least 70% of samples over the job window, recomputed from chain state. Binary, and it needs no counterfactual \u2014 spec section 4.2, gap item G-3.",
+      "transactions": [
+        {
+          "call": "approve",
+          "explorer": "https://testnet.bscscan.com/tx/0x9416726bee9e2fa1e755bea6baa3893c7880eb1b5c843e387dc6c6576c04fb1f",
+          "gas_cost_wei": 6025700000000,
+          "tx_hash": "0x9416726bee9e2fa1e755bea6baa3893c7880eb1b5c843e387dc6c6576c04fb1f"
+        },
+        {
+          "call": "createJob",
+          "explorer": "https://testnet.bscscan.com/tx/0x22f0e0e5040fd663c020892215d5bab353063aef4215ef4dcd1b136d028eb3e2",
+          "gas_cost_wei": 35253500000000,
+          "tx_hash": "0x22f0e0e5040fd663c020892215d5bab353063aef4215ef4dcd1b136d028eb3e2"
+        },
+        {
+          "call": "registerJob",
+          "meaning": "registerJob reverts on a job created with the router as its hook, for every policy argument tried including the OptimisticPolicy the deployment publishes. Name unresolved. The behaviour is consistent with the hook having registered the job already, which would make step 3 of erc8183.steps() a no-op on this deployment \u2014 but that is an inference from a revert, and nothing here has read a registration back out to confirm it",
+          "reverted": "0xc94463e3"
+        },
+        {
+          "call": "setBudget",
+          "explorer": "https://testnet.bscscan.com/tx/0x09e07f152d1adfdd0dee60bc0cc1fe7ed69e901ce5391431eda321e279d5ec4e",
+          "gas_cost_wei": 9616200000000,
+          "tx_hash": "0x09e07f152d1adfdd0dee60bc0cc1fe7ed69e901ce5391431eda321e279d5ec4e"
+        },
+        {
+          "call": "fund",
+          "meaning": "fund() on a job with a real budget, from a wallet holding none of the payment token. Name unresolved across 360 candidates.",
+          "reverted": "0x32d53d69"
+        }
+      ]
+    },
+    "recourse": [
+      {
+        "call": "claimRefund",
+        "contract": "kernel",
+        "sender": "client",
+        "why": "after expiredAt, with no settlement: the client reclaims the escrowed budget. The answer to 'what if nobody ever completes the job'"
+      }
+    ],
     "states": [
       "Open",
       "Funded",
@@ -98,7 +213,7 @@
         "contract": "kernel",
         "is_erc8183": true,
         "sender": "provider",
-        "why": "Funded -> Submitted; the deliverable is a bytes32"
+        "why": "Funded -> Submitted. The deployment's signature is submit(uint256,bytes32,bytes) \u2014 three arguments, not the EIP's two: a client encoding the standard's shape hits a selector that does not exist and reverts with no reason string. It took 21,060 candidate signatures to find (registry/erc8183_abi.py)"
       },
       {
         "call": "settle",
@@ -986,7 +1101,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 43.9,
+    "age_hours": 115.3,
     "agents": [
       {
         "agent": "warden",

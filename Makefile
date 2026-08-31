@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: registry-census journal
+.PHONY: termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -139,6 +139,65 @@ clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
+termix-login:  ## authenticate against TermiX's platform and read the half that needs it
+	# Requires --authenticate to do anything, and that is deliberate: a signature
+	# spends nothing, so MISQUOTE_DRY_RUN does not cover this one and the guard is
+	# at the call site instead of in a config file somebody set last month.
+	#
+	# The token is held in memory and never written. The record says the exchange
+	# happened and for whom; it is not a way to repeat it.
+	#
+	# Nothing here loads .env; export it.
+	$(UV) run python scripts/termix_login.py --authenticate --out
+
+ledger:  ## republish index.json's not-built ledger. No replay.
+	# `not_built` is a pure projection of `tearsheet/ledger.py` and was written
+	# only by the two emitters that replay a tape first — so editing one sentence
+	# of a ledger entry cost an hour of replay to publish, and the cheapest way to
+	# keep the suite green was to not edit the ledger. This writes that field and
+	# nothing else, so it cannot overwrite a replayed number with a stale one.
+	$(UV) run python scripts/ledger_report.py
+
+vet-prove:  ## execute a badge's findings on a mainnet fork. Needs foundry + a fork url.
+	# The second half of "they flag, we prove". `make vet` writes the badge;
+	# this one sends transactions that either revert or do not, at the values the
+	# badge published rather than at fresh ones — a proof that re-read the pool
+	# could pass while the published finding was wrong.
+	#
+	# Three of the nine checks are provable and the other six are named with the
+	# reason, because three green ticks against nine checks otherwise reads as
+	# six silent failures.
+	BSC_RPC_URL=$${BSC_RPC_URL:-https://bsc-rpc.publicnode.com} \
+	  $(UV) run python scripts/vetting_proof.py --pool $(TARGET_POOL_ADDR) --out
+
+grid:  ## run Grid against a live chain. It records rather than signs, by choice.
+	# Grid and Sentinel had no entrypoint at all until `WardenLive` accepted a
+	# policy: the replay engine has run all four agents since Step 7 and the
+	# live driver could only ever run one, so "four agents at equal depth" was
+	# true of the replay and false of the process list.
+	$(UV) run python -m misquote.agents.grid --chain $(CHAIN) --seconds $(WARDEN_S)
+
+sentinel:  ## run Sentinel against a live chain. It records rather than signs, by choice.
+	# The agent most likely to notice if the live path and the replay path ever
+	# diverge on the imbalance estimator: its primary signal *is* section 3.4's
+	# z-score, and running it is what proved that arm had been passing a
+	# hardcoded 0.0 and could never fire (V-3).
+	$(UV) run python -m misquote.agents.sentinel --chain $(CHAIN) --seconds $(WARDEN_S)
+
+find-equity-pool:  ## re-derive the TSLAx pool constants from chain
+	# `chain/addresses.py` says "every field below was read off chain by
+	# scripts/find_equity_pool.py" and there was no target, so the command that
+	# produced those constants could not be re-run through make. A reading whose
+	# instrument is unreachable is a reading nobody can repeat.
+	$(UV) run python scripts/find_equity_pool.py
+
+serve:  ## the deployed process topology: API plus worker, as render.yaml runs it
+	# `make api` starts uvicorn only, and `render.yaml` starts `scripts/serve.sh`
+	# which starts both — so local and deployed differed, and the difference was
+	# the half that drains the quote queue. A demo that works locally and hangs
+	# on the deployed site is the shape that produces.
+	sh scripts/serve.sh
+
 go-no-go:  ## the mainnet gate: runs every check and refuses to go green on an unverified one
 	$(UV) run python scripts/go_no_go.py
 
@@ -183,12 +242,55 @@ advantage:  ## hired agent vs doing it yourself, on the indexed tape
 advantage-demo:  ## same, on a synthetic tape long enough to clear the 24h window floor
 	$(UV) run python -u scripts/advantage.py --synthetic $(ADV_N)
 
+TARGET_POOL_ADDR ?= 0x36696169C63e42cd08ce11f5deeBbCeBae652050
+HIRE_BUDGET ?= 1000000000000000000
+
 erc8183-verify:  ## check the published ERC-8183 deployment against chain, three ways
 	# The sibling of `venus-verify`, and it had no target at all — the script
 	# existed, five prose references pointed at it, and nothing ran it. Its
 	# readings justify two mainnet escrow addresses, so they are worth being
 	# reproducible by a command rather than by a path somebody remembers.
-	$(UV) run python scripts/verify_erc8183.py --chain $(CHAIN) --out
+	#
+	# Both chains, not $(CHAIN). `JOB_ESCROW` carries an entry for 56 *and* 97
+	# and `addresses_report.py` publishes both records, so a target that refreshed
+	# one of them left the other aging behind a command that looked like it had
+	# just been run. It also runs the TermiX contrast, which is the only caller
+	# `aacp.verify()` has outside its own tests.
+	$(UV) run python scripts/verify_erc8183.py --chain 56 --out
+	$(UV) run python scripts/verify_erc8183.py --chain 97 --out
+
+session-keys-verify:  ## check the Altana session-key deployment against chain, three ways
+	# The sibling of `erc8183-verify`, and it did not exist because the module it
+	# serves said no such deployment had been verified. That was a statement about
+	# `vetting/addresses/`, not about the world: the SDK publishes the addresses,
+	# in the same package `JOB_ESCROW` was verified from. See P-27.
+	$(UV) run python scripts/verify_session_keys.py --chain 56 --out
+	$(UV) run python scripts/verify_session_keys.py --chain 97 --out
+
+session-keys:  ## grant a session key, read it back, revoke it, read that back. WRITES.
+	# The sibling of `identity-register`, and the same posture: without
+	# MISQUOTE_DRY_RUN=0 this plans and prices against the live keystore and sends
+	# nothing, which is the form worth running by default. Broadcasting is
+	#   MISQUOTE_DRY_RUN=0 make session-keys
+	# and the variable belongs on that one command rather than in .env.
+	#
+	# Nothing here loads .env; export it, as with BSC_RPC_URL.
+	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+hire:  ## create an ERC-8183 job on the verified kernel and read it back. WRITES.
+	# The D1 checklist's "hire call invoked from an external script successfully
+	# (no permissioning surprises)". There were seven surprises; they are in
+	# `registry/hire.py`, three named and four counted.
+	#
+	# Same posture as `identity-register` and `session-keys`: without
+	# MISQUOTE_DRY_RUN=0 this plans and prices against the live kernel and sends
+	# nothing. Broadcasting is
+	#   MISQUOTE_DRY_RUN=0 make hire
+	# and the variable belongs on that one command rather than in .env.
+	#
+	# `fund` will revert whatever the budget: the payment token is owner-minted
+	# and this signer holds none. That is recorded, not worked around.
+	$(UV) run python scripts/hire_agent.py --chain $(IDENTITY_CHAIN) --budget $(HIRE_BUDGET) --out
 
 venus-verify:  ## check every Venus market against chain, three ways, and record it
 	# The gate for the whole Yield category. Exits non-zero below two verified
@@ -389,7 +491,7 @@ pools:  ## which Pancake pool, at what width, as P25-P75 bands. reads the tape.
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-auto router-card advantage-auto advantage-short registry venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
+artifacts: showcase-auto router-card ledger advantage-auto advantage-short registry venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
 	# `judges` sits second-to-last on purpose: it derives its blocks from the
 	# artifacts above it, and `status` runs the go/no-go gate — which now
 	# checks the document is current, so it has to see the synced version.

@@ -97,6 +97,23 @@ def main(argv: list[str] | None = None) -> int:
     payload["erc8183"] = {
         str(chain): read_record(Path(args.records), chain, prefix="erc8183-") for chain in (56, 97)
     }
+    # The Altana session-key deployment, verified the same three ways and aged
+    # the same way. It existed nowhere on this site because the module it serves
+    # said no such deployment had been verified — a claim about this directory
+    # rather than about the chain. See P-27.
+    payload["session_keys"] = {
+        str(chain): read_record(Path(args.records), chain, prefix="session-keys-")
+        for chain in (56, 97)
+    }
+    # And the round trip, which is a different class of evidence from everything
+    # above. The records in `vetting/addresses/` are *readings* — they have to be
+    # trusted to have been taken honestly. This one is transaction hashes: a
+    # third-party-hosted record of an action, checkable without this page's
+    # cooperation. `registry_report.py` publishes the ERC-8004 registrations for
+    # the same reason.
+    payload["session_key_proof"] = read_record(
+        REPO / "vetting" / "identity", 97, prefix="session-keys-"
+    )
     payload["build"] = provenance.build_stamp(
         f"python scripts/addresses_report.py --chain {args.chain}",
         source="chain reads recorded on disk",

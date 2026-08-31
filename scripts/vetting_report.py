@@ -102,8 +102,39 @@ def badges_on_disk(directory: Path) -> dict[str, dict[str, Any]]:
         badge["path"] = shown(path)
         badge["read_at"] = read_at.isoformat(timespec="seconds")
         badge["age_hours"] = round((now - read_at).total_seconds() / 3600, 1)
+        badge["proof"] = proof_for(badge)
         found[str(badge.get("pool", "")).lower()] = badge
     return found
+
+
+def proof_for(badge: dict[str, Any]) -> dict[str, Any]:
+    """Which of this badge's findings are executable, and which ran.
+
+    Two separable things, and keeping them separate is the point. **Coverage**
+    needs no chain and no toolchain — it is computed from the badge on disk — so
+    it ships on every build and the six unprovable checks always carry their
+    reason. **Proofs** need foundry, anvil and a fork url, so a build without
+    them reports `ran: false` rather than omitting the section, which would read
+    as nothing to prove.
+    """
+    from misquote.vetting import proof as vp
+
+    payload: dict[str, Any] = {"coverage": vp.coverage(badge), "ran": False, "proofs": []}
+
+    record = vp.RUN_DIR / f"proof-{str(badge.get('pool', '')).lower()}.json"
+    if not record.is_file():
+        payload["reason"] = "no proof has been executed — `make vet-prove` writes one"
+        return payload
+    try:
+        ran = json.loads(record.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        payload["reason"] = f"{record.name} could not be read: {error}"
+        return payload
+
+    payload["ran"] = True
+    payload["proofs"] = ran.get("proofs", [])
+    payload["record"] = shown(record)
+    return payload
 
 
 def survey(chain_id: int, directory: Path) -> dict[str, Any]:

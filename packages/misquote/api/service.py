@@ -245,6 +245,38 @@ app.add_middleware(
 )
 
 
+@app.get("/metrics")
+def prometheus_metrics():
+    """The exporter, or a refusal naming the extra that is missing.
+
+    **Never an empty exposition.** A scraper cannot tell "prometheus-client is
+    not installed" from "the agent has made no decisions" — the body is empty in
+    both cases — and only one of those is a fact about the agent. That is the
+    same distinction `/sessions/{owner}` refuses to blur between an empty wallet
+    and an unreachable chain.
+
+    Outside the `add_api_route` block below because it returns a `Response` with
+    Prometheus's own content type rather than JSON.
+    """
+    from fastapi import Response
+
+    from misquote.ops import metrics as ops_metrics
+
+    try:
+        body, content_type = ops_metrics.exposition()
+    except RuntimeError as error:
+        raise refuse(
+            501,
+            error=str(error),
+            remedy="uv sync --extra ops",
+            note=(
+                "No exposition was produced. An empty body would be "
+                "indistinguishable from an agent that has done nothing."
+            ),
+        ) from error
+    return Response(content=body, media_type=content_type)
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     """Liveness, and explicitly not a statement about the data.
@@ -270,6 +302,7 @@ def index() -> dict[str, Any]:
         "reads": str(ARTIFACTS),
         "routes": {
             "/health": "liveness",
+            "/metrics": "Prometheus exposition, or a 501 naming the missing extra",
             "/artifacts": "every artifact with the commit it records",
             "/artifacts/{name}": "one artifact, verbatim",
             "/agents": "the generated agent index",
@@ -287,8 +320,8 @@ def index() -> dict[str, Any]:
             "/wallet/{address}/positions": "a wallet's v3 positions, and which we could replay",
             "/quote/preflight": "whether each pool's tape could support a quote",
             "/quote/eligibility/{address}": "what one wallet holds, and which of it is quotable",
-            "/sessions/capability": "what activation would consist of, and why it is not possible",
-            "/sessions/{owner}": "the grants an address holds, once there is a module to ask",
+            "/sessions/capability": "what activation consists of, and which caps the chain enforces",
+            "/sessions/{owner}": "the grants an address holds, read off the verified keystore",
             "POST /quote": "enqueue a replay, or refuse before anyone waits",
             "/quote/job/{job_id}": "where a queued replay got to",
             "/quote/job/{job_id}/stream": "the same, as server-sent events",

@@ -1,0 +1,48 @@
+{
+  "caps_enforced": false,
+  "caps_note": "The keystore enforces the expiry. The allowlist and spend cap are not enforced here: they belong to the validator module's metadata and to the per-wallet Altana account, and this grant carries validator=0x0 and empty metadata \u2014 the same shape every other grant observed on this deployment uses.",
+  "chain_id": 97,
+  "expiry_ts": 1787988930,
+  "gas_spent_wei": 61474900000000,
+  "grants_now": [
+    {
+      "bounded_by": "revocation alone \u2014 no validator and no expiry",
+      "caps_enforced": false,
+      "caps_note": "no validator module: the allowlist and spend cap are enforced by nothing at this layer",
+      "expiry_ts": 0,
+      "key_id": "0x83b60aeb63d5fce7919cd8c24e1969cd86bb518a531732f123696142ba2c02f6",
+      "metadata": "0x",
+      "public_key": "0x04b1308f43798e3e6652a1eeaf74cbdab03ddc87d86c0a3454af3a9511e98eebaaf1d3efd0a760f8a577c78ea7dcd3549dc03c2edffc55a519188dbd9d58fd0f67",
+      "valid": true,
+      "validator": "0x0000000000000000000000000000000000000000"
+    }
+  ],
+  "key_store": "0x6b8361C29d05D498b1a12B54A37310f94171E94A",
+  "key_store_controller": "0xb530D1971f5453F3359518343F05D0AedFfF7e12",
+  "owner": "0xbF4ef75a443E00415Ee2E368caC089e0834930E6",
+  "registration_fee_wei": 725716783448241,
+  "root_key_id": "0x83b60aeb63d5fce7919cd8c24e1969cd86bb518a531732f123696142ba2c02f6",
+  "session_key_id": "0xcfd64839e7931bd16a4fed20ddd97a7a2d2dd4765bcbe19b50966be8883b91e9",
+  "transactions": [
+    {
+      "call": "initialRegisterKey",
+      "explorer": "https://testnet.bscscan.com/tx/0x3fb798403e1c500c76411eaa47feba5230290b242a349d73b6b661caaa605a15",
+      "gas_cost_wei": 28447700000000,
+      "tx": "0x3fb798403e1c500c76411eaa47feba5230290b242a349d73b6b661caaa605a15"
+    },
+    {
+      "call": "registerKey",
+      "explorer": "https://testnet.bscscan.com/tx/0x8eb79bf6ce1514196a4aa965859294e3c25d3938654b868321eab2fb821da7f8",
+      "gas_cost_wei": 28734800000000,
+      "tx": "0x8eb79bf6ce1514196a4aa965859294e3c25d3938654b868321eab2fb821da7f8"
+    },
+    {
+      "call": "revokeKey",
+      "explorer": "https://testnet.bscscan.com/tx/0x206ff5347611ce2381773a27f7249b9f334c692a32ae0c14abe269177ba9fb9d",
+      "gas_cost_wei": 4292400000000,
+      "tx": "0x206ff5347611ce2381773a27f7249b9f334c692a32ae0c14abe269177ba9fb9d"
+    }
+  ],
+  "valid_after_grant": true,
+  "valid_after_revoke": false
+}

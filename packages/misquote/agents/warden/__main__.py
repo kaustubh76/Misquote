@@ -11,25 +11,38 @@ So **every journal in this repo has zero rows**, every tearsheet reports its
 provenance journal empty, and every verdict on every card is computed from a
 replay because there has never been a run to compute one from.
 
-## It does not sign, and that is a wiring choice rather than a missing capability
+## It records by default, and can broadcast on chapel
 
 `chain/executor.py` defines `ChainExecutor`, which mints, adjusts and closes a
 position through the NonfungiblePositionManager, and nine tests exercise it
 against a forked BSC with real transactions. It exists and it works.
 
-This entrypoint deliberately does not use it. It wires `RecordingExecutor`
-(below) instead, so the actions the policy decides on are journalled rather than
-broadcast.
+For a long time this entrypoint could not reach it, and the ledger recorded that
+as "does not import ChainExecutor". True, and slightly misleading in the same way
+the hire flow's "nothing here can sign" was (P-28): the obstacle was that `main`
+had **no `Web3` in scope at all**. `build_source` returns a `BscReader` built
+from a *list* of endpoints and never exposed one, so wiring the executor was more
+than an import line and less than a missing capability.
 
-There is still no `--live` flag, but the reason has changed: the gate is no
-longer missing code, it is a funded wallet on a chain that matters and a
-go/no-go that is green rather than NOT YET. A flag would invite someone to cross
-that gate with a keystroke. What runs here is the real policy, on real chain
-state, at the real cadence, writing a real journal.
+`build_executor` now makes the choice, and `--broadcast` is the flag that was
+deliberately absent before. What changed is that the flag can no longer be the
+whole gate:
 
-That is worth having on its own. It is the difference between "the loop is tested"
-and "the loop has run", and it produces the journal every card's provenance block
-currently has to say is empty.
+- **`--broadcast` must be passed.** The default is to record.
+- **The chain must be chapel.** Mainnet is refused in code, not by convention —
+  `check_burn_in`, `check_signer_configured` and `check_position_cap` all report
+  UNVERIFIED, and `make go-no-go` is what changes that.
+- **`MISQUOTE_DRY_RUN` must be `0`**, which `BscSigner` enforces on its own and
+  which also triggers `assert_signs_for_operator`.
+
+Three gates whose default is refuse, rather than one flag. The earlier version of
+this docstring argued that a flag "would invite someone to cross that gate with a
+keystroke", and that is still right — which is why there are three of them and
+why the mainnet one is not a flag at all.
+
+Recording is worth having on its own. It is the difference between "the loop is
+tested" and "the loop has run", and it produces the journal every card's
+provenance block otherwise has to say is empty.
 
 ## What it is honest about
 
@@ -60,6 +73,7 @@ from misquote.chain.addresses import pool_for
 from misquote.chain.live_source import DEFAULT_POLL_SECONDS, LiveChainSource
 from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Params, PoolMeta, PositionState
 from misquote.indexer.reader import BscReader, connect_all
+from misquote.ops import metrics
 
 
 class RecordingExecutor:
@@ -174,7 +188,7 @@ def reconcile(warden: WardenLive, executor: object, journal: Journal) -> Positio
     return held
 
 
-def build_source(chain_id: int, poll_seconds: float) -> tuple[LiveChainSource, PoolMeta]:
+def build_source(chain_id: int, poll_seconds: float) -> tuple[LiveChainSource, PoolMeta, object]:
     pool = pool_for(chain_id)
     meta = PoolMeta(
         address=pool.address,
@@ -194,11 +208,98 @@ def build_source(chain_id: int, poll_seconds: float) -> tuple[LiveChainSource, P
     except RuntimeError as error:
         raise SystemExit(str(error)) from error
     reader = BscReader(endpoints, pace_seconds=0.2)
-    return LiveChainSource(meta, reader, poll_seconds=poll_seconds), meta
+    # The first endpoint, returned alongside the source.
+    #
+    # `BscReader` takes a list and rotates; a signer takes one connection and
+    # must keep taking the same one, because nonces are per-endpoint-view. So
+    # this hands back a single `Web3` rather than the reader's list, and it is
+    # returned rather than reached for later — `main` had no `w3` in scope at
+    # all, which is the concrete reason "wire the executor" was more than an
+    # import line.
+    return LiveChainSource(meta, reader, poll_seconds=poll_seconds), meta, endpoints[0]
+
+
+#: The only chain this entrypoint will broadcast on.
+#:
+#: Not a preference. `check_burn_in`, `check_signer_configured` and
+#: `check_position_cap` all report UNVERIFIED until a 24-hour run exists and the
+#: operator — not the burn-in wallet — has signed, and `make go-no-go` is the
+#: gate for changing that. Until it says GO, mainnet broadcasting is refused
+#: here rather than left to whoever types the flag.
+BROADCAST_CHAIN = 97
+
+
+def build_executor(args, meta, w3, journal):
+    """The executor, and whether it can spend. Returns `(executor, can_sign)`.
+
+    `ChainExecutor` has existed and worked for a long time — it mints, recentres
+    and withdraws through the verified NonfungiblePositionManager, and nine tests
+    exercise it against a forked BSC with real transactions. What kept it out of
+    this entrypoint was not the code and not, in the end, a missing capability:
+    it was that `main` had no `Web3` in scope, because `build_source` returns a
+    `BscReader` built from a *list* of endpoints and never exposed one.
+
+    So the ledger's "does not import ChainExecutor" was true and slightly
+    misleading, the same shape as the hire flow's "nothing here can sign" (P-28).
+
+    **Three gates, and none of them is a keystroke.** `--broadcast` must be
+    passed, the chain must be chapel, and `MISQUOTE_DRY_RUN` must be `0` — the
+    last of which `BscSigner` enforces on its own and which also triggers
+    `assert_signs_for_operator`. The default of all three is refuse.
+    """
+    if not args.broadcast:
+        return RecordingExecutor(journal), False
+
+    if args.chain != BROADCAST_CHAIN:
+        raise SystemExit(
+            f"--broadcast is refused on chain {args.chain}. This entrypoint "
+            f"broadcasts on chapel ({BROADCAST_CHAIN}) only: the go/no-go's "
+            f"burn-in, signer and position-cap gates all report UNVERIFIED, and "
+            f"`make go-no-go` is what changes that — not this flag."
+        )
+
+    from misquote.chain.addresses import deployment_for
+    from misquote.chain.executor import ChainExecutor
+    from misquote.chain.nfpm import PositionManager
+    from misquote.chain.signer import BscSigner
+
+    signer = BscSigner(w3, kill_file=DEFAULT_KILL_FILE)
+    if signer.dry_run:
+        raise SystemExit(
+            "--broadcast was passed and MISQUOTE_DRY_RUN is not 0, so the signer "
+            "would refuse on the first send. Set it on this one command; never "
+            "in .env."
+        )
+
+    manager = PositionManager(signer, meta, deployment_for(args.chain))
+    print(f"  signer   {signer.address}")
+    print(f"  nfpm     {manager.deployment.position_manager}")
+    return ChainExecutor(manager), True
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    """Warden, which is `run_agent` with the default policy."""
+    return run_agent(name="warden", policy=None, argv=argv, description=__doc__)
+
+
+def run_agent(
+    *,
+    name: str,
+    policy,
+    argv: list[str] | None = None,
+    description: str | None = None,
+) -> int:
+    """One live agent, whichever policy it runs.
+
+    Extracted from `main` so Grid and Sentinel could have entrypoints without a
+    second copy of the gates. Three of the four flags below are refusals —
+    `--broadcast`, the chapel check, and `MISQUOTE_DRY_RUN` — and a duplicated
+    entrypoint is how one of them goes missing from one agent.
+
+    `policy=None` is Warden's own `decide`, so `main` above is this function with
+    a default and nothing about the Warden path changed.
+    """
+    parser = argparse.ArgumentParser(description=description or __doc__)
     parser.add_argument("--chain", type=int, default=56, choices=(56, 97))
     parser.add_argument("--seconds", type=float, default=600.0, help="0 runs until killed")
     parser.add_argument("--interval", type=int, default=5, help="decision cadence, spec Δs")
@@ -207,11 +308,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--capital", type=float, default=DEFAULT_CAPITAL_QUOTE)
     parser.add_argument("--journal-dir", default=os.environ.get("MISQUOTE_JOURNAL_DIR"))
+    parser.add_argument(
+        "--broadcast",
+        action="store_true",
+        help="sign and send on chapel. Refused on mainnet; MISQUOTE_DRY_RUN=0 is also required",
+    )
     args = parser.parse_args(argv)
 
-    source, meta = build_source(args.chain, args.poll)
-    journal = Journal(args.journal_dir)
-    executor = RecordingExecutor(journal)
+    source, meta, w3 = build_source(args.chain, args.poll)
+    journal = Journal(args.journal_dir, agent=name)
+    executor, can_sign = build_executor(args, meta, w3, journal)
 
     warden = WardenLive(
         meta,
@@ -219,18 +325,33 @@ def main(argv: list[str] | None = None) -> int:
         executor,
         params=Params(sample_interval_s=args.interval),
         capital_quote=args.capital,
+        policy=policy,
     )
     loop = WardenLoop(
         warden=warden,
         kill_file=Path(DEFAULT_KILL_FILE),
         sample_interval_s=args.interval,
         journal=journal,
+        agent=name,
     )
 
+    # The loop's own exporter, if a port was asked for. Silent when it was not,
+    # which is the default: `make api` already serves /metrics for that process,
+    # and an agent that opened a port nobody requested would be a second
+    # listener to secure.
+    exporter = metrics.serve()
+
+    print(f"  agent    {name}")
+    if exporter:
+        print(f"  metrics  http://127.0.0.1:{exporter}/metrics")
     print(f"  pool     {meta.address}  (chain {meta.chain_id})")
     print(f"  cadence  decide every {args.interval}s, poll the chain every {args.poll:.0f}s")
     print(f"  journal  {journal.path}")
-    print("  signing  RECORDED, not broadcast — this entrypoint wires RecordingExecutor")
+    print(
+        "  signing  BROADCAST through ChainExecutor"
+        if can_sign
+        else "  signing  RECORDED, not broadcast — this entrypoint wires RecordingExecutor"
+    )
     print(f"  stop     touch {DEFAULT_KILL_FILE}, or wait for the deadline\n")
 
     try:
@@ -247,11 +368,12 @@ def main(argv: list[str] | None = None) -> int:
     journal.write(
         {
             "event": "run_start",
+            "agent": name,
             "pool": meta.address,
             "chain_id": meta.chain_id,
             "sample_interval_s": args.interval,
             "poll_seconds": args.poll,
-            "can_sign": False,
+            "can_sign": can_sign,
             "head_block": head.block,
             "head_ts": head.ts,
             "reconciled": adopted is not None,

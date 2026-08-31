@@ -128,7 +128,12 @@ describe("Overview: Router's venues, and what became of them", () => {
 
     render(<OverviewPage />);
     await screen.findByRole("heading", { name: "Router" });
-    expect(screen.queryByText(/ticks/)).not.toBeInTheDocument();
+    // A *width*, not the word. `/ticks/` searched the whole document and matched
+    // the phrase "three green ticks" in a not-built ledger entry — prose about
+    // checkmarks, on a page that also renders the ledger. The claim is that no
+    // tick range is rendered, and a range is always a number followed by the
+    // unit, so that is what this looks for.
+    expect(screen.queryByText(/[\d,]+\s*ticks/)).not.toBeInTheDocument();
   });
 });
 

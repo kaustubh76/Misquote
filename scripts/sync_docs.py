@@ -216,6 +216,50 @@ def registry_block() -> list[str] | None:
     ]
 
 
+def explorer_block() -> list[str] | None:
+    """TermiX's own agent count, read rather than recited.
+
+    This document published *"`/api/v1/explorer/agents` reports 304,790 agents"*
+    as prose. The endpoint had no constant and no function anywhere in the
+    repository, so the figure could not be re-derived by anybody — including us —
+    and by the time somebody looked again it read 320,230.
+
+    It is a **count**, which this project's own scope note says scores nothing.
+    The reason it is here is narrower and worse: it was already here, in a
+    document whose argument is that every number traces to a chain query or a
+    published assumption.
+    """
+    payload = _artifact("registry.json")
+    explorer = ((payload or {}).get("aacp") or {}).get("explorer_agents") or {}
+    if not explorer.get("read"):
+        return None
+
+    rows = [
+        "| | |",
+        "|---|---|",
+        f"| agents TermiX's explorer indexes | **{explorer['total']:,}** |",
+        f"| endpoint | `{explorer['path']}`, public, no credentials |",
+    ]
+
+    # `ours` and `gap` come from the emitter, which read both in one build. This
+    # renderer deliberately does **not** subtract two fields it found lying near
+    # each other: the first version did, against `identity.population` from
+    # whenever the last survey ran, and reported a gap of -39,954 — two clocks,
+    # not a finding. The registry grows ~1,000/hour.
+    ours, gap = explorer.get("ours"), explorer.get("gap")
+    if isinstance(ours, int) and isinstance(gap, int):
+        rows.append(
+            f"| the registry's own high-water id, read in the same build | {ours:,} ({gap:+,}) |"
+        )
+        rows.append(
+            "| what the gap is | their indexing lag behind the registry, not a sign-up funnel |"
+        )
+    withheld = explorer.get("withheld_fields") or []
+    if withheld:
+        rows.append(f"| fields returned and deliberately not published | {', '.join(withheld)} |")
+    return rows
+
+
 def mechanism_block() -> list[str] | None:
     """How the agent spent its actions, from the task with the most of them.
 
@@ -368,6 +412,7 @@ BLOCKS = {
     "advantage": advantage_block,
     "tape": tape_block,
     "registry": registry_block,
+    "explorer": explorer_block,
     "mechanism": mechanism_block,
 }
 

@@ -69,6 +69,41 @@ PINNED_TICKS_FROM_EDGE = 100
 MIN_LIQUIDITY_FOR_EPS = 10**15
 
 
+#: A stable key per check, so a finding is something other code can refer to.
+#:
+#: Until this existed a finding was the pair `(badge["pool"], check["name"])` and
+#: the name was a **free-text string duplicated at every call site** — `"a
+#: mintable range exists"` appears four times inside `_check_mintable` alone.
+#: Nothing could join to a finding: not a proof-of-concept script, not a page
+#: anchor, not a second run. Rewording a check for clarity silently broke every
+#: reference to it, and nothing would have failed.
+#:
+#: Derived here rather than passed at each `add()` call for the same reason the
+#: name is not: thirty call sites is thirty chances for the id and the name to
+#: disagree. `add()` looks the name up and **raises for one that is not
+#: declared**, so a new check cannot reach an artifact without an id.
+CHECK_IDS: dict[str, str] = {
+    "factory resolves it": "factory",
+    "tick spacing matches tier": "tick-spacing",
+    "protocol fee read": "protocol-fee",
+    "decimals read": "decimals",
+    "initialised and not pinned": "initialised",
+    "a mintable range exists": "mintable-range",
+    "liquidity supports a position": "liquidity-depth",
+    "both tokens are contracts": "tokens-are-contracts",
+    "recorded values match chain": "recorded-matches-chain",
+}
+
+
+class UndeclaredCheck(KeyError):
+    """A check reached `add()` with no entry in `CHECK_IDS`.
+
+    An exception rather than a generated slug: auto-slugging the name would put
+    the id back in the same position the name was in — derived from prose that
+    can be reworded — which is the property this map exists to remove.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class Check:
     """One finding, with the reading that produced it and where it came from."""
@@ -77,6 +112,14 @@ class Check:
     status: str
     detail: str
     provenance: str
+
+    @property
+    def id(self) -> str:
+        """The stable key. Looked up, never derived from `name`."""
+        try:
+            return CHECK_IDS[self.name]
+        except KeyError:  # pragma: no cover — `add` refuses first
+            raise UndeclaredCheck(self.name) from None
 
     @property
     def blocking(self) -> bool:
@@ -93,6 +136,13 @@ class Badge:
     checks: list[Check] = field(default_factory=list)
 
     def add(self, name: str, status: str, detail: str, provenance: str) -> None:
+        if name not in CHECK_IDS:
+            raise UndeclaredCheck(
+                f"{name!r} has no entry in CHECK_IDS. Every check needs a stable "
+                f"id: a finding is what a proof-of-concept, a page anchor and a "
+                f"second run all join on, and a free-text name breaks all three "
+                f"the moment somebody rewords it."
+            )
         self.checks.append(Check(name, status, detail, provenance))
 
     @property
@@ -136,6 +186,7 @@ class Badge:
             "safe_to_provide": self.safe_to_provide,
             "checks": [
                 {
+                    "id": c.id,
                     "name": c.name,
                     "status": c.status,
                     "detail": c.detail,

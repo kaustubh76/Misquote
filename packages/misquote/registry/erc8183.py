@@ -368,13 +368,54 @@ def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
             "either party may set it, so a price can be agreed",
         ),
         Step("fund", "client", "kernel", "Open -> Funded; the money is now escrowed"),
-        Step("submit", "provider", "kernel", "Funded -> Submitted; the deliverable is a bytes32"),
+        Step(
+            "submit",
+            "provider",
+            "kernel",
+            "Funded -> Submitted. The deployment's signature is "
+            "submit(uint256,bytes32,bytes) — three arguments, not the EIP's "
+            "two: a client encoding the standard's shape hits a selector that "
+            "does not exist and reverts with no reason string. It took 21,060 "
+            "candidate signatures to find (registry/erc8183_abi.py)",
+        ),
         Step(
             "settle",
             "evaluator",
             "router",
             "releases escrow or opens a dispute, on the EvaluatorRouter. The "
             "OptimisticPolicy's disputeWindow() is 604,800s on mainnet",
+        ),
+    )
+
+
+def recourse() -> tuple[Step, ...]:
+    """What the client can send when nobody settles. Not part of `steps()`.
+
+    `claimRefund(uint256)` is on the kernel — selector `0x5b7baf64`, present in
+    the deployed dispatch table — and it was modelled nowhere, which left the
+    published flow with no answer to the obvious question: *what happens to my
+    money if the provider never submits?*
+
+    **Deliberately not appended to `steps()`.** It is an alternative terminal
+    branch, not an eighth transaction: nobody sends both `settle` and
+    `claimRefund`, so folding it in would make `transaction_count()` report a
+    hire as costing eight when no hire ever does. The count is derived from the
+    sequence precisely so it means something, and quietly widening the sequence
+    to include a branch would be the kind of number this project exists to
+    refuse.
+
+    What it does change is the answer to "who bears the risk". The EIP's
+    evaluator is mandatory and only it may complete or reject, so a client whose
+    evaluator goes silent is not stuck — they wait out `expiredAt` and reclaim.
+    That is worth publishing beside the flow rather than discovering.
+    """
+    return (
+        Step(
+            "claimRefund",
+            "client",
+            "kernel",
+            "after expiredAt, with no settlement: the client reclaims the escrowed "
+            "budget. The answer to 'what if nobody ever completes the job'",
         ),
     )
 
@@ -454,13 +495,30 @@ def render() -> str:
         "  nothing in the standard batches these away.",
         "",
     ]
+    lines += [
+        "  If nobody settles, the client's recourse after expiredAt is:",
+        "",
+    ]
+    for step in recourse():
+        lines.append(f"     {step.call:<11} {step.sender:<9} — {step.why}")
+    lines.append("")
+
     if JOB_ESCROW:
         chains = ", ".join(str(c) for c in sorted(JOB_ESCROW))
         lines += [
             f"  Escrow verified on chain {chains}. What was checked, and what was",
-            "  not, is in JOB_ESCROW_EVIDENCE — including that nobody has yet read",
-            "  an ERC-8183 job back out of it, and that the contract holding",
+            "  not, is in JOB_ESCROW_EVIDENCE — including that the contract holding",
             "  escrowed funds is upgradeable by its owner.",
+            "",
+            # This used to end "including that nobody has yet read an ERC-8183 job
+            # back out of it". Somebody has: `registry/hire.py` reads jobs off the
+            # chapel kernel and this repository created one. Leaving the sentence
+            # would have been the under-claiming direction of the same defect the
+            # ledger keeps catching in the over-claiming one.
+            "  A job has been read back, and one created: see registry/hire.py and",
+            "  vetting/identity/hire-97.json. What has *not* happened is an escrow —",
+            "  fund() moves the deployment's payment token and that token is",
+            "  owner-minted, so this repository cannot hold one at any price.",
         ]
     else:
         lines += [

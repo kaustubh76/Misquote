@@ -299,6 +299,10 @@ def test_every_handler_is_actually_routed() -> None:
 
     expected = (
         ("/health", api.health),
+        # Outside the `add_api_route` block in `service.py` because it returns a
+        # `Response` with Prometheus's own content type rather than JSON, which
+        # is exactly the case this tuple exists to catch.
+        ("/metrics", api.prometheus_metrics),
         ("/", api.index),
         ("/artifacts", api.artifacts),
         ("/artifacts/{name}", api.artifact),

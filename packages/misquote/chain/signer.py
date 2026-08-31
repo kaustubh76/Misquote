@@ -139,6 +139,51 @@ class BscSigner:
     def dry_run(self) -> bool:
         return self._dry_run
 
+    # --- signing something that is not a transaction -----------------------
+
+    def sign_message(self, text: str, *, authorising: bool = False) -> str:
+        """An EIP-191 signature over a message. Returns `0x`-prefixed hex.
+
+        Here rather than in the module that needs it, because `signer.py`'s whole
+        claim is that there is one place that signs. `account` is a public
+        attribute, so a caller could reach `signer.account.sign_message(...)`
+        today — and then the guards below would apply to transactions only, which
+        is how a second signing path comes to exist.
+
+        ## Why the dry-run flag does not gate this, and what does
+
+        `MISQUOTE_DRY_RUN` exists to stop the wallet **spending**. An EIP-191
+        signature moves no money, costs no gas and touches no chain, so refusing
+        it under dry run would be the flag doing something it was not written to
+        do — and the failure mode is worse than it sounds: somebody would set
+        `MISQUOTE_DRY_RUN=0` in order to log in, and leave it set.
+
+        It is not free either. A signature over somebody's nonce authenticates as
+        this wallet, which is why `authorising` is required and explicit. A
+        boolean the caller has to pass is a decision at the call site; a flag
+        inherited from the environment is a decision nobody remembers making.
+
+        **The kill switch still applies.** It says stop, and continuing to
+        authenticate as the operator while the operator has said stop is not the
+        exception it might look like.
+        """
+        if not authorising:
+            raise ValueError(
+                "sign_message authenticates as this wallet, so the caller has to "
+                "say so: pass authorising=True. It is deliberately not gated on "
+                "MISQUOTE_DRY_RUN — a signature spends nothing, and making the "
+                "dry-run flag mean two things is how it stops meaning one."
+            )
+        if not text.strip():
+            raise ValueError("refusing to sign an empty message")
+
+        self.check_kill_switch()
+
+        from eth_account.messages import encode_defunct
+
+        signed = self.account.sign_message(encode_defunct(text=text))
+        return "0x" + signed.signature.hex().removeprefix("0x")
+
     # --- the guards --------------------------------------------------------
 
     def check_kill_switch(self) -> None:

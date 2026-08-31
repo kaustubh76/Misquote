@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 2,083 tests, no network, ~35s
+make test                     # 2,236 tests, no network, ~35s
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -49,7 +49,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**2123 tests: 2083 offline, 40 against a live chain or a fork.**
+**2280 tests: 2236 offline, 44 against a live chain or a fork.**
 
 ---
 
@@ -362,6 +362,23 @@ project exists to argue against.
   exponential is still the wrong functional form, and an r² of 0.85 is what pure
   Brownian noise produces, so the fit is a measurement rather than a
   vindication.
+- **Warden can broadcast on chapel now, and mainnet is refused in code.** This
+  bullet said `make warden` "is still wired to the recording executor", and the
+  ledger's evidence was that `__main__.py` does not import `ChainExecutor`. Both
+  true; the reason underneath was narrower than either. `main` had **no `Web3` in
+  scope at all** — `build_source` returns a `BscReader` built from a list of
+  endpoints and never exposed one — so this was a plumbing gap wearing a
+  capability's clothes, the same shape as the hire flow's "nothing here can
+  sign" (P-28).
+
+  `build_executor` now constructs the signer, the position manager and the
+  executor behind **three gates whose default is refuse**: `--broadcast` must be
+  passed, the chain must be chapel (mainnet raises, it is not a flag), and
+  `MISQUOTE_DRY_RUN` must be `0`, which also triggers
+  `assert_signs_for_operator`. Everything downstream was already wired —
+  `reconcile()` adopts the real position the moment it is handed an executor with
+  `observe()`.
+
 - **No 24-hour burn-in — but the loop has run, and the executor is proven.**
   `make warden` runs the real policy against real BSC state and writes a real
   journal; verified at 139 decisions over fifteen minutes, 0 polls refused.
@@ -394,6 +411,42 @@ project exists to argue against.
   calibrated threshold would be is recorded there and deliberately not
   implemented.
 
+- **The gate did not run the linter or the component suite, and now does.**
+  `make go-no-go` had fifteen checks, three shelling out to pytest and one to a
+  browser build — and it ran neither `ruff` nor the 405 vitest tests that hold
+  the artifact field contract, the prose rendering and the dead-export scan.
+  There is no CI file in this repository either, so both ran only when somebody
+  remembered. They are gates now (`lint`, `web component suite`), skipped by
+  `--fast` for the same reason the browser pass is: `make status` writes
+  `/status` from the fast pass and should not shell out to node.
+
+- **All four agents can now be run as processes, not just replayed.** `Readme.md`
+  §1 commits to four agents at equal depth and the replay engine has put three
+  policies through one engine since Step 7 — but the *live* driver hardcoded
+  Warden's policy, so `make grid` and `make sentinel` did not exist. `Engine`
+  already exposed a `policy=` seam; `WardenLive` simply never passed it through.
+  One line, and the claim is now true of the process list as well as the replay.
+  The journal is per-agent for the same reason — it was `warden.jsonl` for
+  everybody, which would have merged three agents' decisions into one file the
+  tearsheet reads as one agent's record.
+
+- **Metrics, a heartbeat and alerting exist.** `prometheus-client` and
+  `python-telegram-bot` had been declared in an `ops` extra since the project
+  started, installed, and imported nowhere — with `tests/test_layering.py`
+  guarding pure layers against code that was never written. `/metrics` serves an
+  exposition or a **501 naming the missing extra**, never an empty body: a
+  scraper cannot tell an uninstalled client from an idle agent. The heartbeat is
+  a **timestamp rather than a boolean**, because a hung process stops updating
+  either one and only the clock says how long ago. Telegram returns `False`
+  silently when unconfigured, because a notifier that raises takes the agent down
+  to announce that the agent is up.
+
+  **No PnL, fee APR or position value is exported**, and that is the deliberate
+  part. Those are computed once by the replay accountant with their assumptions
+  attached; a second derivation reachable by a different path is how two numbers
+  in one system come to disagree, which is P-8's shape and has already happened
+  here twice.
+
 - **Nothing has traded with real money**, and the go/no-go will not let it until
   the above are green.
 - **Why TermiX's dashboard reads zero, which is the answer to the obvious
@@ -410,11 +463,26 @@ project exists to argue against.
      `tests/registry/test_aacp.py` enumerates 97 by name as a chain that raises.
      Chapel was chosen anyway. Recorded here rather than quietly corrected.
   2. **Their explorer would have found us on mainnet, with no platform flow at
-     all.** `/api/v1/explorer/agents` reports **304,790** agents against a
-     mainnet high-water id of **304,927** — a gap of 137, which is indexing lag.
-     It indexes the registry, not their own sign-up funnel. So mainnet
-     registration is sufficient to appear there, and it is deferred rather than
-     blocked.
+     all.** It indexes the registry, not their own sign-up funnel — the gap
+     between the two counts below is indexing lag. So mainnet registration is
+     sufficient to appear there, and it is deferred rather than blocked.
+
+     These two numbers were **typed** here, as 304,790 against 304,927. The
+     endpoint had no constant and no function anywhere in this repository, so
+     nobody — us included — could re-derive them, and by the time anyone looked
+     again the first had moved by more than fifteen thousand. That is the defect
+     this project is named after, in the document that exists to disclose it.
+     Generated now, from `aacp.fetch_explorer_agents`:
+
+<!-- derived:explorer — regenerated by `make judges`; do not hand-edit -->
+| | |
+|---|---|
+| agents TermiX's explorer indexes | **320,317** |
+| endpoint | `/api/v1/explorer/agents`, public, no credentials |
+| the registry's own high-water id, read in the same build | 320,454 (+137) |
+| what the gap is | their indexing lag behind the registry, not a sign-up funnel |
+| fields returned and deliberately not published | onTimeRate, passRate, reputationScore |
+<!-- /derived:explorer -->
   3. **"Orders" is not downstream of registration at all.** TermiX's orders are
      keyed by `chainOrderId`, a bytes32 minted by their own platform, held in a
      separate escrow per settlement currency. There is no path from an ERC-8004
@@ -422,8 +490,21 @@ project exists to argue against.
      through the ERC-8183 flow, which needs five signed client transactions and
      real USDC and is on the not-built ledger.
 
-  The listing-side half — their authenticated API — is also on that ledger,
-  blocked on a wallet-signed nonce exchanged for a session JWT.
+  **Their authenticated API is built, and it confirms the point rather than
+  fixing it.** This said the listing side was "blocked on a wallet-signed nonce
+  exchanged for a session JWT" — three claims, all false, and written up as
+  **P-29**. The nonce exchange is SIWE and its endpoints were never private: their
+  API answers `401` for *every* unmatched path under `/api/v1/`, so a GET probe
+  cannot tell protected from nonexistent, and every look that used one concluded
+  the surface was closed. A POST distinguishes them, because the public endpoints
+  validate their fields first.
+
+  `make termix-login` now completes the exchange as the operator and reads the
+  half that needs a token. It answers **`0 items`** — asked as ourselves, with a
+  credential, from the endpoint their own dashboard reads. The three reasons above
+  are unchanged; what has changed is that the first of them is now a reading
+  rather than an inference. The token is never written to disk, and a test asserts
+  the evidence file holds no token, no refresh token, no signature and no nonce.
 
 - **The four agents are registered on ERC-8004, and the wallet that owns them is
   declared.** `Readme.md` has said all four "register ERC-8004 identities" since
@@ -493,7 +574,43 @@ project exists to argue against.
   once `MISQUOTE_DRY_RUN=0`. The escape hatch is a second declaration, never an
   absent one.
 
-- **Session keys and the ERC-8183 hire flow** are not built. **Router now is** —
+- **Session keys are half built, and the half that closed was closed by
+  looking.** This said they were not built at all, because "no Altana session-key
+  module has been verified on either network". That was a statement about our own
+  `vetting/addresses/` directory — `@altananetwork/sdk@0.8.0` publishes
+  `keyStore` and `keyStoreController` for both BSC networks, in the same package,
+  at the same version, that `JOB_ESCROW` was verified from. Nobody here had
+  opened the file next to the one we had already read.
+
+  **That is P-24 happening again, one module over**, and it is written up as
+  **P-27**. The lesson had been recorded as a fact about ERC-8183 rather than as
+  a habit about search, so it did not generalise.
+
+  `make session-keys-verify` ran the same three-way check on both chains and
+  every check passed; `make session-keys` then granted a key on chapel, read it
+  back live, revoked it, and read it back dead. Three mined transactions,
+  `isValidKey` true then false, in `vetting/identity/session-keys-97.json` and on
+  `/activate`. Everything else on this site is a *reading* of chain state, which
+  has to be trusted to have been taken honestly; this is the second thing here
+  that is a transaction hash instead.
+
+  Running it corrected four things no amount of reading the SDK would have: there
+  is no ERC-20 `approve` in the flow, `registerKey` reverts on a fresh wallet
+  (`KeyStore: account not bootstrapped`), the root key that fixes that **must not
+  expire**, and the grant and revoke live on two different contracts.
+
+  **What is not built is the caps, and that is the more interesting half.** The
+  keystore enforces the expiry and revocation. The allowlist and the spend cap
+  belong to a `validator` module, and every grant on this deployment — ours and
+  other people's, read off chain — carries `validator = 0x0` and empty metadata.
+  So two of the four caps are enforced and two are enforced by nothing.
+  `VALIDATOR_MODULE` is empty for exactly the reason `SESSION_KEY_MODULE` used to
+  be, `SessionKeyWriter.grant` refuses to send a capped-looking grant without an
+  explicit `allow_unenforced_caps=True`, and there is still no Hire button. A
+  page offering four caps over a key the chain bounds by one would be this
+  project's own name, on the page about bounded authority.
+
+- **The ERC-8183 hire flow** is not built. **Router now is** —
   the fourth category, and with it all four the main track asks for at equal
   depth.
 

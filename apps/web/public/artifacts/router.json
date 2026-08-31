@@ -62,9 +62,9 @@
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "build": {
     "command": "python scripts/router_showcase.py",
-    "generated_at": "2026-08-27T06:48:15+00:00",
+    "generated_at": "2026-08-29T07:53:51+00:00",
     "git_dirty": true,
-    "git_sha": "58c4345",
+    "git_sha": "c71dad9",
     "source": "chain"
   },
   "capital_quote": 10000.0,

@@ -1,4 +1,5 @@
 {
+  "block": 127861451,
   "chain_id": 97,
   "checks": [
     {
@@ -32,7 +33,13 @@
       "status": "PASS"
     },
     {
-      "detail": "returns 596",
+      "detail": "jobCounter() answers; jobCount(), nextJobId(), jobs(uint256) revert",
+      "name": "kernel answers an ERC-8183 accessor",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
+      "detail": "returns 744",
       "name": "commerce.jobCounter() answers",
       "provenance": "P-24",
       "status": "PASS"
@@ -62,7 +69,7 @@
       "status": "PASS"
     },
     {
-      "detail": "jobCounter() is 596",
+      "detail": "jobCounter() is 744",
       "name": "jobs created on this deployment",
       "provenance": "P-24",
       "status": "PASS"
@@ -71,7 +78,7 @@
   "reason": "",
   "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
   "summary": {
-    "checked": 11,
+    "checked": 12,
     "failed": 0,
     "unknown": 0
   },
