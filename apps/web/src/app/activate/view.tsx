@@ -142,18 +142,26 @@ export function ActivateView({
         <HireFlow />
       </div>
 
+      {/* Was "What a grant would consist of", in the conditional, on a page
+          that could not perform one. The button above performs it now, so this
+          says what you are signing rather than what signing would be like.
+
+          Three paragraphs of development history came out with the retitle —
+          which transaction was wrongly called an ERC-20 approve, what the
+          bootstrap revert said, which claim survived contact with the ABI. All
+          of it is true and none of it belongs between a reader and a button:
+          it is an account of how this page was corrected, not of what happens
+          when you press the thing. The corrections live in the git history and
+          in `/assumptions`, where a reader who wants them is looking for them. */}
       <Section
-        title="What a grant would consist of"
+        title="What you are signing"
         className="mt-10"
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-5 max-w-[62ch] text-dim">
-          Read off the verified deployment, not off the standard. The count was
-          right before anyone checked and every reason given for it was wrong:
-          there is no token approval, and the second transaction is a bootstrap
-          the contract requires of a wallet that has never registered a key. Both
-          are sent by you; neither is sent by us, and no key of yours leaves your
-          wallet.
+          Both transactions are sent by you. No key of yours leaves your wallet,
+          and the second one is a bootstrap the contract requires only of a
+          wallet that has never registered a key.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -165,13 +173,8 @@ export function ActivateView({
             />
             <StepList steps={cap?.grant_plan ?? FALLBACK_GRANT} />
             <p className="mt-3 mb-0 text-xs text-faint">
-              This page used to say the first transaction was an ERC-20 approve.
-              It is not — running it returned{" "}
-              <span className="font-mono">KeyStore: account not bootstrapped</span>,
-              and the root key that clears it{" "}
-              <span className="font-mono">must not expire</span>. A wallet that has
-              already bootstrapped sends one transaction, and whether it has is
-              read rather than assumed.
+              A wallet that has already bootstrapped sends one, not two — and
+              whether it has is read, not assumed.
             </p>
           </Card>
 
@@ -183,10 +186,8 @@ export function ActivateView({
             />
             <StepList steps={cap?.revoke_plan ?? FALLBACK_REVOKE} />
             <p className="mt-3 mb-0 text-xs text-faint">
-              One, sent by you, with no cooperation from the agent required — the
-              one claim on this page that survived contact with the ABI unchanged.
-              What reading it added is <em>where</em>: the revoke goes to the
-              keyStore and the grant to the keyStoreController, two different
+              Sent by you, needing no cooperation from the agent. It goes to the
+              keyStore; the grant goes to the keyStoreController — two different
               contracts.
             </p>
           </Card>
@@ -252,13 +253,12 @@ export function ActivateView({
         className="mt-10"
         headingClassName="text-lg font-semibold"
       >
+        {/* This opened by justifying the refusal — "the whole reason the
+            refusal lasted as long as it did" — which is orphaned framing now
+            that the page hires. The list below is the part that was ever
+            checkable, and it stands without the apology in front of it. */}
         <p className="mt-2 mb-3 max-w-[62ch] text-dim">
-          A refusal that does not say where it looked is not checkable — and this
-          list is the whole reason the refusal lasted as long as it did. It used
-          to name three files, all of them this repository&rsquo;s own output, and
-          conclude from their contents that no session-key module had been
-          verified anywhere. The addresses were in a package we had already read a
-          different table out of.
+          Where the code looked for a session-key module before it found one.
         </p>
         <ul className="m-0 list-none space-y-1 p-0 font-mono text-sm text-dim">
           {(cap?.searched ?? FALLBACK_SEARCHED).map((where) => (
@@ -266,11 +266,10 @@ export function ActivateView({
           ))}
         </ul>
         <p className="mt-4 mb-0 max-w-[62ch] text-sm text-dim">
-          The bar did not move: an address earns a place in the code by passing
-          the same three-way check <Link href="/registry">the hire flow</Link>{" "}
-          uses — it is a contract, it answers the calls we make, and it was
-          observed on a live network — and not by appearing in a vendor&rsquo;s
-          SDK. What changed is that somebody finally ran it.
+          An address earns a place in the code by passing the same three-way
+          check <Link href="/registry">the hire flow</Link> uses — it is a
+          contract, it answers the calls we make, and it was observed on a live
+          network — never by appearing in a vendor&rsquo;s SDK.
         </p>
       </Section>
 
@@ -315,10 +314,12 @@ export function ActivateView({
         <Column title="Needs a signature" items={cap?.needs_a_signer ?? ["grant", "revoke"]} />
       </div>
       <p className="mt-3 mb-0 max-w-[62ch] text-sm text-faint">
-        The middle column used to be part of the first one. Four things were
-        listed as readable and no code read any of them; reading the deployment
-        did not turn four promises into four reads, it showed that two of them are
-        enforced somewhere nobody here has looked.
+        {/* Was an account of how these three columns came to be split — four
+            things once listed as readable that no code read. True, and about
+            this page's history rather than about the reader's key. What
+            survives is the fact that changes what they should expect. */}
+        Two of these caps are enforced somewhere nobody here has looked, which
+        is why they are listed apart from the ones this site can read.
       </p>
 
       {/* This said "Read live from the activation endpoint" in prose — the same
