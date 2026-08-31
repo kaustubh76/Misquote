@@ -12,7 +12,14 @@
   },
   "cost_bnb": "0.000147926",
   "endpoint": "/api/v1/agents",
-  "finding": "TermiX attributes an agent to the wallet that **minted** it, not to the wallet that owns it now. Warden (323262) was minted by the delegate when a silently-ignored --fund-operator fell through to registering, then transferred to the operator; it does not appear. Grid, Sentinel and Router were minted straight to the operator and do. Indexing lag does not explain it: 323262 is the *oldest* of the four, so under a lag hypothesis it would have appeared first and the three later ids would be missing. The opposite is true.",
+  "finding": "TermiX attributes an agent to the wallet that **minted** it, not to the wallet that owns it now. Warden (323262) was minted by the delegate when a silently-ignored --fund-operator fell through to registering, then transferred to the operator; it does not appear. Grid, Sentinel and Router were minted straight to the operator and do. Indexing lag does not explain it: 323262 is the *oldest* of the four, so under a lag hypothesis it would have appeared first and the three later ids would be missing. The opposite is true. Confirmed a second time once their index passed 323,334: the absence survives the lag being gone.",
+  "lag_ruled_out": {
+    "explorer_total_at_first_read": 323166,
+    "explorer_total_now": 323517,
+    "our_highest_id": 323334,
+    "read_at": 1788199991,
+    "reading": "At the first check their index stood at 323,166 \u2014 below all four of our ids \u2014 so lag was still a live explanation. It now stands at 323,517, past every one of them, and warden 323262 is still absent while grid, sentinel and router are listed. The index has overtaken the id and not found it, which is the difference between not-yet and not-attributed."
+  },
   "listed_by_termix": {
     "grid": 323332,
     "router": 323334,

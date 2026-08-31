@@ -107,6 +107,17 @@ services:
       # repo root, which is the working directory the start command runs from.
       - key: DB_PATH
         value: data/deploy/tape.db
+      # One replay process, because this instance is one small share of a big
+      # host and `os.cpu_count()` cannot tell the difference.
+      #
+      # `quote_job.replay_jobs()` reads the cgroup quota and would arrive here
+      # on its own; this states it anyway. The failure it prevents is not a slow
+      # replay — it is the container being killed and the ephemeral queue going
+      # with it, which presents as a job that simply vanishes mid-run. That is
+      # far too quiet a failure to leave depending on whether `/sys/fs/cgroup`
+      # is readable on some future host.
+      - key: MISQUOTE_REPLAY_JOBS
+        value: "1"
 
 # The worker no longer needs a service of its own — `scripts/serve.sh` runs it
 # beside uvicorn in the web service above, on the free plan. What a paid worker

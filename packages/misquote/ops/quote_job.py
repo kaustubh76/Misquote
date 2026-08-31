@@ -27,6 +27,7 @@ give honestly.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from misquote.chain.addresses import PoolRef, pool_by_address
@@ -50,8 +51,51 @@ INTERACTIVE_WINDOWS = 8
 #: The engine's own default, for telling a reduced run apart from a full one.
 DEFAULT_WINDOWS = 20
 
+def replay_jobs() -> int:
+    """How many processes to fork for the window x perturbation replays.
+
+    ## `os.cpu_count()` is the wrong number inside a container
+
+    It reports the **host's** cores, not the share this container may use. On the
+    free instance this deploys to that is the difference between 1 and something
+    like 16, and each fork is a full interpreter that copies the event list —
+    Python's refcounting writes to every object it touches, so copy-on-write
+    does not save you. Sixteen of those in a 512MB box does not run slowly, it
+    gets the container killed.
+
+    That is what was happening: a replay would reach "loading the tape" and then
+    the job would *vanish*, because the container restarted and took the
+    ephemeral `jobs.db` with it. It happened on the 60,853-swap pool and just as
+    reliably on the 85-swap one, which is what ruled out data volume and pointed
+    here.
+
+    So the cgroup quota is read first, since that is the only number that
+    describes this container. `MISQUOTE_REPLAY_JOBS` overrides everything, for a
+    host where the quota is unreadable or a caller who knows better.
+    """
+    override = os.environ.get("MISQUOTE_REPLAY_JOBS")
+    if override:
+        return max(1, int(override))
+
+    # cgroup v2: "$QUOTA $PERIOD", or "max $PERIOD" when uncapped.
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota != "max":
+            return max(1, int(float(quota) / float(period)))
+    except (OSError, ValueError):
+        pass
+
+    # Affinity beats `cpu_count` where it is honoured, and is a no-op elsewhere.
+    try:
+        available = len(os.sched_getaffinity(0))
+    except AttributeError:  # not Linux
+        available = os.cpu_count() or 2
+
+    return max(1, available - 1)
+
+
 #: Processes to spread the window x perturbation replays across.
-JOBS = max(1, (os.cpu_count() or 2) - 1)
+JOBS = replay_jobs()
 
 
 def meta_for(ref: PoolRef) -> PoolMeta:
