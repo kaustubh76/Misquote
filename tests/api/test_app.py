@@ -8,7 +8,10 @@ service computes a summary it becomes a second implementation of something
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import signal
 from pathlib import Path
 
 import pytest
@@ -528,3 +531,57 @@ def test_the_worker_route_says_which_absence_it_found(client) -> None:
     # says the start command never ran, the other says the worker ran and died
     # — including a death too early to print anything.
     assert "pid" in body["started"]
+
+
+def test_the_api_starts_a_worker_when_nothing_else_has(tmp_path, monkeypatch) -> None:
+    """The deployment's start command is not the blueprint's, so the API does it.
+
+    `/worker` on the live instance reported no pid and no log at a directory the
+    API itself writes `jobs.db` into — so `scripts/serve.sh` never ran, and every
+    hire queued forever behind a worker nobody started. Nothing in this
+    repository can reach that dashboard; the process that is running can start
+    the one that is not.
+
+    A subprocess, never a thread: `ranges.quote()` raises if entered twice in one
+    process and `fork_map` must fork from a single-threaded parent, which is why
+    the worker was outside uvicorn to begin with. Those constraints are about a
+    *process*, and a `Popen` clears them the same way `serve.sh` does.
+    """
+    from misquote.api import service
+
+    monkeypatch.setenv("MISQUOTE_JOBS_DB", str(tmp_path / "jobs.db"))
+    monkeypatch.setenv("MISQUOTE_WORKER_LOG", str(tmp_path / "worker.log"))
+    monkeypatch.setenv("MISQUOTE_WORKER_PID", str(tmp_path / "worker.pid"))
+
+    outcome = service.start_worker_if_absent()
+    try:
+        assert outcome.startswith("started a worker, pid "), outcome
+        assert (tmp_path / "worker.pid").exists()
+    finally:
+        pid_file = tmp_path / "worker.pid"
+        if pid_file.exists():
+            with contextlib.suppress(ProcessLookupError, ValueError):
+                os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
+
+
+def test_it_refuses_to_put_a_second_drainer_on_one_queue(tmp_path, monkeypatch) -> None:
+    """Two workers on one queue is worse than none — both claim, one wins."""
+    from misquote.api import service
+
+    monkeypatch.setenv("MISQUOTE_JOBS_DB", str(tmp_path / "jobs.db"))
+    monkeypatch.setenv("MISQUOTE_WORKER_LOG", str(tmp_path / "worker.log"))
+    monkeypatch.setenv("MISQUOTE_WORKER_PID", str(tmp_path / "worker.pid"))
+    # This process is certainly alive, which is what the pid guard reads.
+    (tmp_path / "worker.pid").write_text(str(os.getpid()))
+
+    assert "not starting another" in service.start_worker_if_absent()
+
+
+def test_the_autostart_can_be_switched_off(tmp_path, monkeypatch) -> None:
+    """Same variable `serve.sh` honours, so one setting governs both paths."""
+    from misquote.api import service
+
+    monkeypatch.setenv("MISQUOTE_JOBS_DB", str(tmp_path / "jobs.db"))
+    monkeypatch.setenv("MISQUOTE_API_WORKER", "0")
+
+    assert service.start_worker_if_absent() == "MISQUOTE_API_WORKER=0 — not starting one"

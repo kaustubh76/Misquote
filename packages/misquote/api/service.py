@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -219,7 +220,90 @@ def census() -> dict[str, Any]:
     }
 
 
+def _worker_paths() -> tuple[Path, Path]:
+    """Where the worker's output and pid live. Shared with `scripts/serve.sh`."""
+    return (
+        Path(os.environ.get("MISQUOTE_WORKER_LOG", REPO / "data" / "worker.log")),
+        Path(os.environ.get("MISQUOTE_WORKER_PID", REPO / "data" / "worker.pid")),
+    )
+
+
+def start_worker_if_absent() -> str:
+    """Spawn the queue worker when nothing else has, and say what happened.
+
+    ## Why the API starts it at all
+
+    `scripts/serve.sh` starts the worker beside uvicorn, and on the deployment
+    this runs on **it does not run**: `/worker` reported no pid and no log at a
+    path the API itself writes `jobs.db` into, so the start command is not the
+    blueprint's. Nothing in this repository can reach that dashboard, and the
+    consequence is that every hire queues forever.
+
+    So the process that *is* running starts the one that is not. This is
+    belt-and-braces rather than a replacement — with `serve.sh` in place the
+    liveness check below finds a worker and this does nothing.
+
+    ## A subprocess, never a thread
+
+    The constraint that put the worker outside uvicorn in the first place still
+    holds: `ranges.quote()` raises if entered twice in one process, and
+    `fork_map` must fork from a single-threaded parent, which an ASGI server is
+    not. A `Popen` is a separate process with its own interpreter, so it clears
+    both — the same way `serve.sh` does, from a different parent.
+    """
+    import subprocess
+    import sys
+
+    from misquote.ops import jobs as ops_jobs
+
+    if os.environ.get("MISQUOTE_API_WORKER", "1") == "0":
+        return "MISQUOTE_API_WORKER=0 — not starting one"
+
+    store = ops_jobs.connect()
+    try:
+        if ops_jobs.workers_alive(store):
+            return "a worker is already beating; not starting another"
+    finally:
+        store.close()
+
+    log_path, pid_path = _worker_paths()
+    # A recorded pid that is still alive means serve.sh got there first and its
+    # worker simply has not had time to announce. Starting a second one would
+    # put two drainers on one queue.
+    if pid_path.exists():
+        try:
+            os.kill(int(pid_path.read_text().strip()), 0)
+            return "a recorded worker pid is still running; not starting another"
+        except (ProcessLookupError, ValueError, PermissionError):
+            pass
+
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = log_path.open("a", buffering=1)
+        child = subprocess.Popen(  # noqa: S603 — our own module, no shell
+            [sys.executable, "-m", "misquote.ops.worker"],
+            stdout=handle,
+            stderr=handle,
+            cwd=str(REPO),
+        )
+        pid_path.write_text(str(child.pid))
+        return f"started a worker, pid {child.pid}"
+    except Exception as error:  # noqa: BLE001 — the API must come up regardless
+        # Reported, never raised. A queue nobody drains is a degraded service;
+        # an API that will not boot is an outage, and trading one for the other
+        # would be the worse bargain.
+        return f"could not start a worker: {type(error).__name__}: {error}"
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    app.state.worker_start = start_worker_if_absent()
+    print(f"api: {app.state.worker_start}", flush=True)
+    yield
+
+
 app = FastAPI(
+    lifespan=_lifespan,
     title="Misquote artifacts",
     version="1",
     description=(
@@ -323,6 +407,7 @@ def worker_status():
         "workers_alive": alive,
         "worker_last_seen": last_seen,
         "started": started,
+        "api_start_attempt": getattr(app.state, "worker_start", "the API has not run its startup hook"),
         "log_path": str(log_path),
         "log": tail,
         "note": note,
