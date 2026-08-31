@@ -38,8 +38,23 @@ set -eu
 if [ "${MISQUOTE_API_WORKER:-1}" != "0" ]; then
     # `--once` is deliberately not used: this drains forever, and one bad job
     # fails that job rather than the loop (`run_one` finishes every exit path).
-    python -m misquote.ops.worker &
-    echo "serve.sh: worker started (pid $!), jobs db ${MISQUOTE_JOBS_DB:-data/jobs.db}"
+    # Output captured, not discarded, and the reason is a deployment that took
+    # two days to explain.
+    #
+    # `&` detaches the worker from `set -eu`, so a worker that dies at startup
+    # takes the whole queue with it and says nothing: the API keeps accepting
+    # jobs, `workers_alive` reads 0, and `worker_last_seen` reads null. On a
+    # host whose logs are not to hand — a free Render instance, say — there is
+    # then no way to tell "the worker crashed" from "the worker was never
+    # started", which are different bugs with different fixes.
+    #
+    # `/worker` serves the tail of this file, so the answer arrives over HTTP
+    # instead of over a support ticket.
+    mkdir -p "$(dirname "${MISQUOTE_WORKER_LOG:-data/worker.log}")" 2>/dev/null || true
+    python -m misquote.ops.worker >>"${MISQUOTE_WORKER_LOG:-data/worker.log}" 2>&1 &
+    worker_pid=$!
+    echo "$worker_pid" > "${MISQUOTE_WORKER_PID:-data/worker.pid}" 2>/dev/null || true
+    echo "serve.sh: worker started (pid $worker_pid), jobs db ${MISQUOTE_JOBS_DB:-data/jobs.db}"
 else
     echo "serve.sh: MISQUOTE_API_WORKER=0 — API only, jobs will queue undrained"
 fi

@@ -245,6 +245,95 @@ app.add_middleware(
 )
 
 
+@app.get("/worker")
+def worker_status():
+    """Whether anything is draining the queue, and what it said if it is not.
+
+    ## Why this is a route rather than a log line
+
+    `POST /quote` already reports `workers_alive` and `worker_last_seen`, and on
+    a deployment with no worker both read as absence — `0` and `null`. That is
+    honest and it is not diagnosable: a worker that crashed at startup and a
+    worker that was never started produce identical readings, and they are
+    different bugs.
+
+    `scripts/serve.sh` backgrounds the worker with `&`, which detaches it from
+    `set -eu`, so its death is silent by construction. It now redirects that
+    process's output to a file and this serves the tail. On a host whose logs
+    are not to hand — a free instance that has already spun down twice — the
+    answer arrives over HTTP instead of over a support ticket.
+
+    Read-only and cheap: a stat, a seek to the last few KB, and two queries the
+    submit path already makes.
+    """
+    from misquote.ops import jobs as ops_jobs
+
+    log_path = Path(os.environ.get("MISQUOTE_WORKER_LOG", REPO / "data" / "worker.log"))
+    tail: list[str] = []
+    note = "no worker log on disk; serve.sh either did not run or could not write one"
+    if log_path.exists():
+        # Bounded read. The log is append-only and a long-lived instance's could
+        # be large; only the end of it says why the process is not here now.
+        size = log_path.stat().st_size
+        with log_path.open("rb") as handle:
+            handle.seek(max(0, size - 8192))
+            tail = handle.read().decode("utf-8", "replace").splitlines()[-40:]
+        note = f"{size:,} bytes, last {len(tail)} line(s)"
+
+    # The pid file separates the two absences the log cannot always tell apart.
+    #
+    # `serve.sh` writes it immediately after the `&`, so it exists whenever
+    # serve.sh ran at all. A recorded pid with no live process means the worker
+    # started and died — including a death too early to print anything, which
+    # is the case an empty log leaves ambiguous. No pid file at all means
+    # serve.sh never ran, or could not write, and the start command is what to
+    # look at.
+    #
+    # Same container, so `kill(pid, 0)` is a real answer here rather than a
+    # guess about somebody else's process table.
+    pid_path = Path(os.environ.get("MISQUOTE_WORKER_PID", REPO / "data" / "worker.pid"))
+    recorded_pid: int | None = None
+    pid_alive: bool | None = None
+    if pid_path.exists():
+        try:
+            recorded_pid = int(pid_path.read_text().strip())
+            os.kill(recorded_pid, 0)
+            pid_alive = True
+        except (ProcessLookupError, ValueError):
+            pid_alive = False
+        except PermissionError:
+            # It exists and belongs to somebody else — still alive.
+            pid_alive = True
+
+    store = ops_jobs.connect()
+    try:
+        alive = ops_jobs.workers_alive(store)
+        last_seen = ops_jobs.worker_last_seen(store)
+    finally:
+        store.close()
+
+    if recorded_pid is None:
+        started = "no pid recorded: serve.sh did not run, or could not write one"
+    elif pid_alive:
+        started = f"pid {recorded_pid} is running"
+    else:
+        started = f"pid {recorded_pid} was recorded and is gone: it started, then died"
+
+    return {
+        "workers_alive": alive,
+        "worker_last_seen": last_seen,
+        "started": started,
+        "log_path": str(log_path),
+        "log": tail,
+        "note": note,
+        "reading": (
+            "a worker is draining this queue"
+            if alive
+            else "nothing is draining this queue; the log above is why, if it says anything"
+        ),
+    }
+
+
 @app.get("/metrics")
 def prometheus_metrics():
     """The exporter, or a refusal naming the extra that is missing.
@@ -303,6 +392,7 @@ def index() -> dict[str, Any]:
         "routes": {
             "/health": "liveness",
             "/metrics": "Prometheus exposition, or a 501 naming the missing extra",
+            "/worker": "whether anything drains the queue, and the worker log if not",
             "/artifacts": "every artifact with the commit it records",
             "/artifacts/{name}": "one artifact, verbatim",
             "/agents": "the generated agent index",

@@ -303,6 +303,10 @@ def test_every_handler_is_actually_routed() -> None:
         # `Response` with Prometheus's own content type rather than JSON, which
         # is exactly the case this tuple exists to catch.
         ("/metrics", api.prometheus_metrics),
+        # Same reason as `/metrics`: declared with a decorator rather than in
+        # the `add_api_route` block, so nothing but this tuple would notice if
+        # it stopped being advertised.
+        ("/worker", api.worker_status),
         ("/", api.index),
         ("/artifacts", api.artifacts),
         ("/artifacts/{name}", api.artifact),
@@ -495,3 +499,32 @@ def test_the_published_api_config_advertises_the_same_routes() -> None:
             f"{path} is served and unadvertised — the failure `api/tape.py`'s own "
             "docstring describes, one step further along"
         )
+
+
+def test_the_worker_route_says_which_absence_it_found(client) -> None:
+    """`0` and `null` are honest and not diagnosable. This says which.
+
+    A worker that crashed at startup and a worker that was never started
+    produce identical readings from `POST /quote` — `workers_alive: 0`,
+    `worker_last_seen: null` — and they are different bugs. `serve.sh`
+    backgrounds the worker with `&`, which detaches it from `set -eu`, so the
+    death is silent by construction and the only witness is whatever the
+    process printed on its way out.
+
+    Asserted on the *shape* rather than on a live worker: the offline suite has
+    no queue being drained, which is precisely the state this route exists to
+    explain.
+    """
+    body = client.get("/worker").json()
+
+    assert body["workers_alive"] == 0
+    assert isinstance(body["log"], list)
+    # The distinguishing field. Without it the caller learns that nothing is
+    # draining and not one thing about why.
+    assert "no worker log on disk" in body["note"] or "bytes" in body["note"]
+    assert "draining" in body["reading"]
+    # The half the log cannot always answer. `serve.sh` writes the pid straight
+    # after the `&`, so its absence and a dead pid mean different things: one
+    # says the start command never ran, the other says the worker ran and died
+    # — including a death too early to print anything.
+    assert "pid" in body["started"]
