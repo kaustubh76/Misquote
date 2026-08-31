@@ -492,6 +492,110 @@ provision is Cartea, Drissi & Monga, *SIAM J. Financial Mathematics* 15(3), 2024
 ([arXiv:2309.08431](https://arxiv.org/abs/2309.08431)), which derives closed-form range boundaries
 and reuses none of A-S's equations.
 
+### P-32 · Every quote the site served was `0.00% to 0.00%`, and the engine called it sufficient — **31 Aug 2026**
+
+Found by refusing to fabricate a demo fixture. The plan said record a real job rather than assemble
+one from the published cards; the real job came back with **`p25 = p50 = p75 = 0.0`** and
+`distinct_returns: 1` — 24 replays over **3,035,494 events** of the real 30-day tape, every one
+returning the identical number.
+
+**The chain, four links, each individually reasonable:**
+
+1. `/quote`'s "Replay this pool" sends `{pool}` and nothing else.
+2. `api/quote.py` forwards `payload.get("capital_quote")` — `None`.
+3. `ops/quote_job.py` did `float(params.get("capital_quote") or 0.0)`. `None` became **0.0**.
+4. `replay/ranges.py` did `fraction = r.net_quote / capital_quote if capital_quote > 0 else 0.0`.
+
+Every return is therefore exactly `0.0`, the percentiles of a constant are that constant, and
+`sufficient=True` publishes it. **The flagship flow — the Personal Quote Engine, the thing
+`Readme.md` §1 calls the kill-shot — answered every hire with a zero range that looked like an
+answer.** On the deployed site, to anyone who pressed the button.
+
+**Why it survived.** Every guard that should have caught it was pointed elsewhere. `A1` refuses a
+position that breaches the liquidity ceiling. `A5` refuses too few windows, too few observations, too
+short a window. `verdict()` refuses to call a rate on fewer than thirty. None of them asks whether the
+*denominator* is real, and `distinct_returns` — which was computed, carried on the `Quote`, and
+serialised into the job result — is guarded by **nothing**. The one field that named the symptom was
+published beside the wrong answer.
+
+**The shape, for the third time this week.** `if capital_quote > 0 else 0.0` is a guard that returns
+a **plausible value** instead of refusing, and it is silent in exactly the case it should be loudest.
+P-30 was `estimate_gas` measuring the caught branch of a `try/catch` and an ERC-721 recipient with no
+receiver; P-31 was a browser assertion on an interaction that never fired. Each one reports its own
+inability to produce an answer *as* an answer. Zero is the most dangerous default there is, because it
+is a number.
+
+**Fixed in two places, and the split is the point.**
+
+- **The engine refuses.** `capital_quote <= 0` now returns `sufficient=False` with its reason, in the
+  same shape as the A1 branch directly above it. A default *inside* the engine would make it quietly
+  quote a size nobody asked for, which is the same defect wearing better clothes.
+- **The job defaults**, to `DEFAULT_CAPITAL_QUOTE` — the unit the published cards already use. That is
+  the caller that knows what capital means to it, and a hire naming only a pool should get the
+  marketplace's own unit rather than an error.
+
+`tests/replay/test_ranges.py` pins all three cases: zero refused, negative refused (`> 0` meant `-1`
+took the same silent branch), and a positive capital still dividing plainly.
+
+*The lesson worth keeping:* a division guard is a refusal wearing a conditional. `x / y if y > 0 else
+0.0` reads as defensive and is an assertion that zero is the right answer when the input is missing —
+and on a site whose argument is that every number traces to something, the number with nothing behind
+it is the one that gets published.
+
+### P-31 · A simulation layer that was complete, deployed, and could not fire — **31 Aug 2026**
+
+`lib/scenario.ts` is 161 lines of carefully-argued simulation: a scenario short-circuits above
+`apiBase()` so no request is issued, it can only ever be labelled `simulated`, its refusals are
+terminal, and it is never default and never sticky. Three fixtures were committed. All three are
+**served in production** — fetched off `misquote.vercel.app`, all 200.
+
+**Nothing linked to any of it.** The only affordance in the entire UI was the button that *leaves* a
+simulation. To reach the feature you had to know `?scenario=` existed and then guess one of three
+names printed on no page, in no README, and in no judge document. Commit `c651036` touched
+`layout.tsx` for the banner mount and nothing else in the UI; the follow-up added browser assertions
+and still no way in.
+
+That is the fifth instance of this repository's recurring defect — built and wired to no reader,
+after `PAYMENT_TOKEN`, `aacp.verify()`, `erc8183.render()` and `fetch_live_contracts`. But two things
+underneath it were worse.
+
+**1. The flagship fixture was dead code.** `quote-thin-tape` records the refusal the feature exists
+to expose — *"the most important thing this site does"*, per its own `why`. `scenarioResponse` was
+reachable from exactly one place, `loadLive`, and `/quote` does not read, it **posts**:
+`app/quote/view.tsx` called `apiBase()` and then a raw `fetch`, **below** the short-circuit. Its only
+key, `"POST /quote"`, reached `loadLive` in one unit test and nowhere else.
+
+The consequence is worse than an unused file. Under `?scenario=quote-thin-tape` the page rendered the
+simulation banner and then issued a **real request to the live API** — a page saying *simulated*
+while talking to production, which is precisely what the four rules exist to prevent.
+
+**2. The guard passed vacuously.** `check-pages.mjs` listed that route as
+`["/quote/", "quote-thin-tape", null]` — needle `null`, so the refusal text was never asserted. What
+it did assert, beneath a comment reading `// The load-bearing one.`, was that **zero** requests
+reached the API. That held trivially, *because nothing was ever submitted*.
+
+This is **P-30 in a new place**: a check reporting its own inability to run as a pass. The pattern
+now has four instances — `try/catch` plus `estimate_gas`, an ERC-721 recipient with no receiver,
+`read_job`'s `any(word != 0)`, and a browser assertion on an interaction that never fires. The tell
+is the same each time: *the check cannot distinguish "the claim is false" from "I did not run".*
+
+**Fixed.** `postLive` carries the same short-circuit for submissions, with the same ordering above
+`apiBase()`; `/quote`'s enqueue and its job read both go through it, and `apiBase` is no longer
+imported by that page at all — which is the property, stated as an import. The browser gate now
+**types an address and clicks Replay** before asserting, so "reached the API 0 times" means
+something. And `/demo` renders the fixture list off disk, so a state that exists is advertised and
+one that is deleted is not.
+
+**What a happy path cost, and why it was recorded rather than written.** No completed quote result
+existed anywhere on disk. The fixture is a real job against the real 30-day tape: the API's own
+estimate was 24 replays over 3,035,494 events, and it was run rather than assembled from the cards.
+A demo whose headline number was invented would be the thing this project is named after, on the page
+built to show the product working.
+
+*The lesson worth keeping:* a feature with no entry point and a test that cannot fail are the same
+mistake at two altitudes — something that looks present and is not exercised. The question that finds
+both is "what would break if this were deleted?"
+
 ### P-30 · Two ways for a proof to fail silently, and both report the finding as false — **31 Aug 2026**
 
 Building the `mintable-range` proof-of-concept produced two failures worth more than the proof. The

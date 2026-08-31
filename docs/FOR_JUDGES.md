@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 2,236 tests, no network, ~35s
+make test                     # 2,247 tests, no network, ~35s
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -22,6 +22,25 @@ make go-no-go                 # the mainnet gate — it currently says NOT YET
 
 `make go-no-go` is the one worth running first. It is a checklist that executes,
 and it refuses to go green on anything nobody has checked.
+
+**If you have twenty seconds rather than twenty minutes**, open
+[`/demo`](https://misquote.vercel.app/demo) and take the guided run. It reaches a
+P25–P75 range without a wallet, an API, or a funded anything — four steps, each a
+real page carrying a simulation banner, ending on three mined chapel transactions
+that are not simulated at all.
+
+That page exists because the simulation layer behind it did not have one. It had
+been complete, tested and deployed for weeks with nothing anywhere linking to it,
+and the single fixture written for the flagship refusal **could not fire** —
+`/quote` submitted below the scenario short-circuit, so a page displaying the word
+*simulated* was talking to production. **P-31.**
+
+Building it found something worse, and it is the reason the recording was insisted
+on rather than assembled: **every quote the deployed site served was
+`0.00% to 0.00%`.** A missing `capital_quote` became `0.0`, a division guard read
+`if capital_quote > 0 else 0.0`, and every replay returned exactly zero — which the
+engine published as a range and called sufficient. Found by running a real job on
+the real tape and reading `distinct_returns: 1`. **P-32.**
 
 ---
 
@@ -49,7 +68,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**2280 tests: 2236 offline, 44 against a live chain or a fork.**
+**2291 tests: 2247 offline, 44 against a live chain or a fork.**
 
 ---
 

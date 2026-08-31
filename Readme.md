@@ -214,7 +214,24 @@ hardening, README-for-judges. Submit by Sep 9.
   is built and surveys 280,287 agent ids; the write path has never been run.
 - **tearsheet:** report generated from ledger with zero hand-entered numbers.
 - **web:** an external tester completes land → quote → activate → revoke with
-  no dead end and no instruction.
+  no dead end and no instruction. **Partly met, and it is the only bullet here
+  that never had a verdict written against it** — which is itself the finding.
+
+  The arc now runs, from `/demo`: land → a recorded wallet → a real replay's
+  P25–P75 range → the three mined chapel transactions on `/activate`. The last
+  step is deliberately *not* simulated; walking to real receipts is better
+  evidence than miming a grant beside them.
+
+  Two qualifications. Steps two and three are **simulated**, banner-marked, and
+  recorded from a real job on the real tape — a live run needs a warm worker and
+  tens of minutes. And "no instruction" is not met for a visitor who arrives
+  with a BSC position of their own: they still paste an address and wait.
+
+  What made this worth doing was not the missing page. The simulation layer had
+  been complete, tested and deployed for weeks with **nothing linking to it**,
+  and the one fixture written for the flagship refusal could not fire at all —
+  `/quote` submitted below the scenario short-circuit, so a page showing the
+  simulation banner talked to production. **P-31.**
 
 ## 6. Reuse manifest (port, don't greenfield)
 

@@ -523,7 +523,31 @@ def strip_styling(source: str) -> str:
     """
     source = re.sub(r'className="[^"]*"', "", source)
     source = re.sub(r"className=\{[^}]*\}", "", source, flags=re.DOTALL)
-    return strip_image_metadata(source)
+    return strip_milliseconds(strip_image_metadata(source))
+
+
+def strip_milliseconds(source: str) -> str:
+    """Remove the seconds-to-milliseconds conversion, which is a unit.
+
+    Fourth in the family, and the collision is the same shape as the OpenGraph
+    one. `docs/REQUIREMENTS_MATRIX.md` carries a `±1000 ticks` row, which reaches
+    `assumptions.json` and therefore the forbidden set; `lib/stream.ts` declares
+    `const SECOND_MS = 1000` and `AgentJournal.tsx` does `new Date(ts * 1000)`
+    because a unix timestamp is in seconds and `Date` wants milliseconds. Two
+    unrelated meanings, one value.
+
+    Structural rather than numeric, for the reason `strip_image_metadata` gives:
+    adding `1000` to `UNDISTINCTIVE` would blind this guard to a real 1,000 —
+    a tick width, an agent count, a block span — on every page, permanently, to
+    settle one collision with a constant that is not a quantity at all.
+
+    Deliberately narrow. It matches the conversion *idiom*: a `SECOND_MS`-style
+    declaration, and `* 1000` / `/ 1000` in an expression. A component that
+    renders `1000` as text still fails, which is the case worth catching.
+    """
+    source = re.sub(r"\b\w*(?:SECOND|SECS?)_MS\w*\s*=\s*1000\b", "", source)
+    source = re.sub(r"[*/]\s*1000\b", "", source)
+    return source
 
 
 def strip_image_metadata(source: str) -> str:
