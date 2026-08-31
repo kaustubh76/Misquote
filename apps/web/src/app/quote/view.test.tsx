@@ -398,3 +398,92 @@ describe("a hire shows what the marketplace already has on the pool", () => {
     expect(screen.queryByText(/Already published for this pool/)).not.toBeInTheDocument();
   });
 });
+
+
+describe("under a scenario, the page reaches nothing", () => {
+  /**
+   * The end-to-end version of the defect.
+   *
+   * `lib/api.test.ts` proves `postLive` short-circuits. This proves the *page*
+   * uses it — which is the half that was wrong: `enqueue` called `apiBase()` and
+   * a raw `fetch` below the scenario layer, so `scenarios/quote-thin-tape.json`
+   * could never match and a page displaying the simulation banner talked to
+   * production.
+   *
+   * The assertion that matters is the negative one, and it is only worth
+   * anything because the click happens first. The browser gate asserted "zero
+   * API requests" on this route for weeks while nothing was ever submitted.
+   */
+  const fixture = {
+    name: "thin",
+    label: "A quote the tape cannot support",
+    why: "The engine refuses before it starts.",
+    responses: {
+      // `eligible()`, so the fixture cannot drift from the shape the page
+      // reads — `read_at_block` is rendered with `toLocaleString` and a body
+      // without it takes the component down rather than failing an assertion.
+      "/quote/eligibility/{address}": {
+        status: 200,
+        body: eligible(holding("0xpool", "WBNB/USDT 0.05%")),
+      },
+      // `api/quote.py`'s own words, verbatim. The earlier body here was
+      // invented prose — "the tape supports 6 windows and 18 observations" —
+      // and no code path emits it; `preflight.assess` reports the widest
+      // sub-window against the 24h floor. A test that asserts a refusal the
+      // service does not word will pass forever and prove nothing about it.
+      //
+      // The *combination* is constructed on purpose: eligibility and the
+      // submit both call `assess`, so a pre-flight that says quotable is
+      // followed by a submit that agrees, and this pair cannot arise in
+      // production. It is pinned apart here because the POST path is what
+      // needs driving, and a holding has to be quotable to draw the button
+      // that drives it.
+      "POST /quote": {
+        status: 409,
+        body: {
+          detail: {
+            error: "the tape cannot support a quote for this pool",
+            remedy: "make indexer POOL=0xpool",
+            note:
+              "the widest sub-window is 4.6h and the engine's floor is 24h — " +
+              "shorter than the policy's own horizon, so a replay would measure " +
+              "startup rather than strategy",
+          },
+        },
+      },
+    },
+  };
+
+  it("submits, refuses, and never touches the API", async () => {
+    window.history.replaceState({}, "", "/quote?scenario=thin");
+    const reached: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/scenarios/")) return json(fixture);
+        reached.push(url);
+        throw new Error(`a scenario must not reach ${url}`);
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<QuoteView />);
+    await check(user);
+
+    const run = await screen.findByRole("button", { name: /Replay this pool/ }, { timeout: 5000 });
+    await user.click(run);
+
+    // The engine's own sentence, rendered — not a generic failure.
+    await waitFor(() =>
+      expect(
+        screen.getByText(/the tape cannot support a quote for this pool/),
+      ).toBeInTheDocument(),
+    );
+    // And the load-bearing half, which now means something because a POST was
+    // actually attempted above.
+    expect(reached).toHaveLength(0);
+
+    window.history.replaceState({}, "", "/quote");
+  });
+});

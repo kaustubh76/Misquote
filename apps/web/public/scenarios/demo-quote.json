@@ -1,0 +1,143 @@
+{
+  "route": "/quote/",
+  "label": "A quote the tape can support",
+  "why": "The flagship flow, end to end, with no wallet and no worker. Recorded from a real job against the real 30-day tape: 24 replays over 3,035,494 events, run once and written down. Recording it is what found P-32 \u2014 before the fix this same job answered 0.00% to 0.00% and the engine called it sufficient.",
+  "responses": {
+    "/quote/eligibility/{address}": {
+      "status": 200,
+      "body": {
+        "owner": "0x0000000000000000000000000000000000000001",
+        "chain_id": 56,
+        "read_at_block": 118446908,
+        "held": 1,
+        "in_unverified_pools": 0,
+        "holdings": [
+          {
+            "pool": "0x36696169c63e42cd08ce11f5deebbcebae652050",
+            "label": "PancakeSwap v3 WBNB/USDT 0.05%",
+            "positions": 2,
+            "open_positions": 0,
+            "quotable": true,
+            "why_not": [],
+            "plan": {
+              "windows": 20,
+              "widest_window_hours": 120.0,
+              "min_window_hours": 24.0,
+              "min_windows": 20
+            }
+          }
+        ],
+        "note": "A position in a pool this repository has not verified cannot be replayed at all \u2014 its fee tier and protocol cut decide what its swaps mean. A position in a verified pool with too little tape cannot be replayed yet. Those are different absences and are reported separately."
+      }
+    },
+    "POST /quote": {
+      "status": 202,
+      "body": {
+        "job_id": "e4f6b262f0ff418284f881e2985ab27e",
+        "status": "queued",
+        "poll": "/quote/job/e4f6b262f0ff418284f881e2985ab27e",
+        "stream": "/quote/job/e4f6b262f0ff418284f881e2985ab27e/stream",
+        "preflight": {
+          "windows": 20,
+          "widest_window_hours": 362.9,
+          "min_window_hours": 24.0,
+          "min_windows": 20
+        },
+        "published": [
+          {
+            "agent": "Grid",
+            "quote": "21.91% to 31.06% (median 26.40%, annualised)",
+            "source": "chain",
+            "windows": 20,
+            "perturbations": 3,
+            "observations": 60,
+            "net_positive": 60,
+            "hours_per_window": 362.85416666666663,
+            "adverse_selection_upper_bound": 0.02019569,
+            "build": {
+              "command": "python scripts/showcase.py",
+              "generated_at": "2026-08-26T10:32:52+00:00",
+              "git_dirty": true,
+              "git_sha": "a1a8af3",
+              "source": "chain"
+            }
+          },
+          {
+            "agent": "Sentinel",
+            "quote": "-24.16% to -23.83% (median -24.02%, annualised)",
+            "source": "chain",
+            "windows": 20,
+            "perturbations": 3,
+            "observations": 60,
+            "net_positive": 0,
+            "hours_per_window": 362.85416666666663,
+            "adverse_selection_upper_bound": 0.00046458,
+            "build": {
+              "command": "python scripts/showcase.py",
+              "generated_at": "2026-08-26T10:32:52+00:00",
+              "git_dirty": true,
+              "git_sha": "a1a8af3",
+              "source": "chain"
+            }
+          },
+          {
+            "agent": "Warden",
+            "quote": "-52.18% to -49.92% (median -51.26%, annualised)",
+            "source": "chain",
+            "windows": 20,
+            "perturbations": 3,
+            "observations": 60,
+            "net_positive": 0,
+            "hours_per_window": 362.85416666666663,
+            "adverse_selection_upper_bound": 0.00264606,
+            "build": {
+              "command": "python scripts/showcase.py",
+              "generated_at": "2026-08-26T10:32:52+00:00",
+              "git_dirty": true,
+              "git_sha": "a1a8af3",
+              "source": "chain"
+            }
+          }
+        ],
+        "cost": {
+          "replays": 24,
+          "events": 3035494,
+          "estimated_seconds": 1651
+        },
+        "note": "Queued, not computed \u2014 about 28 minutes of replay once a worker claims it, plus loading the tape. That is this pool's own event count against the engine's measured throughput, not a fixed figure, and a slower host takes longer. 3 completed run(s) for this pool are in `published` above, at the engine's full window count."
+      }
+    },
+    "/quote/job/{id}": {
+      "status": 200,
+      "body": {
+        "job_id": "e4f6b262f0ff418284f881e2985ab27e",
+        "kind": "quote",
+        "status": "done",
+        "progress": {
+          "done": 24,
+          "total": 24,
+          "phase": "replaying"
+        },
+        "result": {
+          "annualised": true,
+          "basis": "annualised",
+          "distinct_returns": 10,
+          "hours_per_window": 362.8493055555556,
+          "interactive_budget": true,
+          "net_positive": 24,
+          "note": "",
+          "p25": 19.489896340216713,
+          "p50": 25.896574949600854,
+          "p75": 33.128186066595944,
+          "perturbations": 3,
+          "pool": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+          "samples": 24,
+          "windows": 8,
+          "windows_requested": 8
+        },
+        "refusal": null,
+        "note": "the replay finished and produced a range"
+      }
+    }
+  }
+}

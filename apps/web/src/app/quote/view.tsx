@@ -10,7 +10,7 @@ import { Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { AnsweredBy } from "@/components/AnsweredBy";
-import { apiBase, loadLive, RefusalError, type Source } from "@/lib/api";
+import { loadLive, postLive, RefusalError, type Source } from "@/lib/api";
 import { count, hours, isNum, pct } from "@/lib/format";
 import {
   isFinished,
@@ -51,6 +51,19 @@ interface PublishedRun {
   perturbations?: number;
   observations?: number;
   net_positive?: number;
+}
+
+/**
+ * The 202 from `POST /quote`.
+ *
+ * Typed because it stopped being an untyped `await res.json()` off a raw fetch:
+ * `published` was on the wire and dropped at this boundary once already, which
+ * made a marketplace with agents on this pool look like one with none.
+ */
+interface QuoteSubmission {
+  job_id?: string;
+  note?: string;
+  published?: unknown;
 }
 
 /** A job as `/quote/job/{id}` reports it. */
@@ -371,7 +384,18 @@ function Result({
 type RunState =
   | { phase: "idle" }
   | { phase: "queueing" }
-  | { phase: "watching"; job: JobView }
+  | {
+      phase: "watching";
+      job: JobView;
+      /**
+       * The 202 came from a scenario, so there is no stream behind it.
+       *
+       * Carried on the state rather than re-derived, because the thing that
+       * knows is the answer `postLive` already returned, and asking the URL
+       * again would be a second source of truth for one fact.
+       */
+      simulated?: boolean;
+    }
   | { phase: "refused"; reason: string; remedy: string }
   | { phase: "failed"; message: string };
 
@@ -480,6 +504,36 @@ function QuoteRun({
   useEffect(() => {
     if (state.phase !== "watching") return;
 
+    // A scenario has no stream behind it, and must not mime one.
+    //
+    // `scenario.matches()` deliberately refuses to let `/quote/job/{id}` answer
+    // for `/quote/job/{id}/stream` — the segment counts differ — so there is no
+    // recorded SSE and there should not be. A progress bar counting to a number
+    // nobody computed is the kind of thing this site exists to argue against, so
+    // the recorded terminal job is read once and shown as what it is.
+    if (state.simulated) {
+      let live = true;
+      const jobId = state.job.jobId;
+      void (async () => {
+        const got = await loadLive<JobView & { job_id?: string }>(`/quote/job/${jobId}`);
+        if (!live) return;
+        if (!got.ok) {
+          return setState({ phase: "failed", message: got.error.message });
+        }
+        setState((prev) =>
+          prev.phase === "watching"
+            ? {
+                ...prev,
+                job: { ...prev.job, ...got.value, jobId, published: prev.job.published },
+              }
+            : prev,
+        );
+      })();
+      return () => {
+        live = false;
+      };
+    }
+
     const stop = subscribe(
       state.job.jobId,
       {
@@ -499,10 +553,16 @@ function QuoteRun({
             : prev,
         ),
       onFinished: async () => {
-        const base = await apiBase();
-        if (!base) return;
-        const res = await fetch(`${base}/quote/job/${state.job.jobId}`, { cache: "no-store" });
-        const body = (await res.json()) as JobView & { job_id: string };
+        // `loadLive`, so no path on this page reaches the network below the
+        // scenario short-circuit. This branch is live-only today — a simulated
+        // run never subscribes — but "unreachable under a scenario" is a
+        // property of the caller, and the last raw `fetch` here is how the
+        // previous one came to be missed.
+        const got = await loadLive<JobView & { job_id: string }>(
+          `/quote/job/${state.job.jobId}`,
+        );
+        if (!got.ok) return;
+        const body = got.value;
         setState({
           phase: "watching",
           job: {
@@ -533,48 +593,51 @@ function QuoteRun({
 
   async function enqueue() {
     setState({ phase: "queueing" });
-    const base = await apiBase();
-    if (!base) {
-      return setState({
-        phase: "failed",
-        message: "No live API is configured. Start one with `make api` and `make api-config`.",
-      });
+
+    // `postLive`, not a raw `fetch`, and that is the whole of a defect rather
+    // than a refactor. This called `apiBase()` and then `fetch` directly, which
+    // sits **below** the scenario short-circuit in `lib/api.ts` — so
+    // `scenarios/quote-thin-tape.json`, whose only key is `"POST /quote"`, could
+    // never match anything. A page under `?scenario=quote-thin-tape` showed the
+    // simulation banner and then talked to the live API.
+    //
+    // The path is spelled `"POST /quote"` because that is the fixture's key and
+    // what `matches()` compares against; `postLive` strips the verb before
+    // building the URL.
+    const got = await postLive<QuoteSubmission>("POST /quote", { pool });
+
+    if (!got.ok) {
+      if (got.error instanceof RefusalError) {
+        return setState({
+          phase: "refused",
+          reason: [got.error.message, got.error.note].filter(Boolean).join(" — "),
+          remedy: got.error.remedy ?? "",
+        });
+      }
+      return setState({ phase: "failed", message: got.error.message });
     }
 
-    const res = await fetch(`${base}/quote`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ pool }),
+    const body = got.value;
+    if (!body?.job_id) {
+      return setState({ phase: "failed", message: "The API queued nothing." });
+    }
+
+    setState({
+      phase: "watching",
+      simulated: got.source === "simulated",
+      job: {
+        jobId: body.job_id,
+        status: "queued",
+        done: 0,
+        total: 0,
+        phase: "",
+        note: body.note ?? "",
+        // Kept across the whole watch, not only the queued frame: the
+        // published runs are what the fresh one has to be read against, and
+        // they stay true after it finishes.
+        published: Array.isArray(body.published) ? body.published : undefined,
+      },
     });
-    const body = await res.json().catch(() => null);
-
-    if (res.status === 202 && body?.job_id) {
-      return setState({
-        phase: "watching",
-        job: {
-          jobId: body.job_id,
-          status: "queued",
-          done: 0,
-          total: 0,
-          phase: "",
-          note: body.note,
-          // Kept across the whole watch, not only the queued frame: the
-          // published runs are what the fresh one has to be read against, and
-          // they stay true after it finishes.
-          published: Array.isArray(body.published) ? body.published : undefined,
-        },
-      });
-    }
-
-    const detail = body?.detail;
-    if (detail?.error) {
-      return setState({
-        phase: "refused",
-        reason: [detail.error, detail.note].filter(Boolean).join(" — "),
-        remedy: detail.remedy ?? "",
-      });
-    }
-    setState({ phase: "failed", message: `The API returned ${res.status}.` });
   }
 
   const running = state.phase === "queueing" || state.phase === "watching";

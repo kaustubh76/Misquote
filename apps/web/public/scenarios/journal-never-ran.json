@@ -1,4 +1,5 @@
 {
+  "route": "/agent/warden/",
   "label": "An agent that has written no journal",
   "why": "Two of the four agents have never been run live, so `/journal/{agent}` refuses for them. The refusal names the remedy and the agents that do have journals \u2014 and until recently the page threw all of it away and rendered nothing.",
   "responses": {

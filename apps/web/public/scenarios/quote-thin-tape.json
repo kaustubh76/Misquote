@@ -1,15 +1,35 @@
 {
+  "route": "/quote/",
   "label": "A quote the tape cannot support",
-  "why": "The engine refuses before it starts when the history behind a position is too thin to quote from. It is the most important thing this site does and the hardest to reach on demand: it needs a wallet whose positions are real and whose tape is short.",
+  "why": "The engine refuses before it starts when the history behind a position is too thin to quote from. It is the most important thing this site does and the hardest to reach on demand: it needs a wallet whose positions are real and whose tape is short. The refusal arrives at the pre-flight, not at submit — a holding the tape cannot carry never gets a Replay button, so what this scenario shows is the arithmetic that withheld it.",
   "responses": {
-    "POST /quote": {
-      "status": 409,
+    "/quote/eligibility/{address}": {
+      "status": 200,
       "body": {
-        "detail": {
-          "error": "the tape supports 6 windows and 18 observations; the floor is 20 windows and 30 observations",
-          "remedy": "index more history for this pool \u2014 `make indexer POOL=<address>` \u2014 and ask again",
-          "note": "A range quoted from 18 observations is not a narrower range, it is a wider one drawn narrow. Assumption A5 and the floors on /methods."
-        }
+        "owner": "0x0000000000000000000000000000000000000001",
+        "chain_id": 56,
+        "read_at_block": 118446908,
+        "held": 1,
+        "in_unverified_pools": 0,
+        "holdings": [
+          {
+            "pool": "0x5e12d6edb2b7d5330e474ea2d2694a3b3e35d492",
+            "label": "PancakeSwap v3 TSLAx/USDT 0.25%",
+            "positions": 1,
+            "open_positions": 1,
+            "quotable": false,
+            "why_not": [
+              "the widest sub-window is 4.6h and the engine's floor is 24h — shorter than the policy's own horizon, so a replay would measure startup rather than strategy"
+            ],
+            "plan": {
+              "windows": 20,
+              "widest_window_hours": 4.6,
+              "min_window_hours": 24.0,
+              "min_windows": 20
+            }
+          }
+        ],
+        "note": "A position in a pool this repository has not verified cannot be replayed at all — its fee tier and protocol cut decide what its swaps mean. A position in a verified pool with too little tape cannot be replayed yet. Those are different absences and are reported separately."
       }
     }
   }

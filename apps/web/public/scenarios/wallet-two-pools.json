@@ -1,4 +1,5 @@
 {
+  "route": "/quote/",
   "label": "A wallet with one quotable position and one that is not",
   "why": "The pre-flight `/quote` runs before it queues anything. A wallet holding only verified positions never shows `why_not`, so the half of this screen that explains a refusal is unreachable without a wallet nobody has.",
   "responses": {

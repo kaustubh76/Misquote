@@ -44,6 +44,9 @@ const SETTLE = 350;
 
 const ROUTES = [
   ["overview", "/"],
+  // The table of contents for the simulation layer. It must render with the API
+  // asleep, because that is exactly when somebody goes looking for it.
+  ["demo", "/demo/"],
   ["quote", "/quote/"],
   ["activate", "/activate/"],
   ["category", "/category/"],
@@ -419,6 +422,10 @@ const NO_JS = [
   // explanation of why a quote is a job rather than a request must not. The
   // needle is that sentence, because a prerender that dropped it would leave a
   // reader with a form and no account of what pressing it costs.
+  // The four rules are the page's argument, not decoration: a prerender that
+  // dropped them would leave a list of links to simulated states with nothing
+  // saying what a simulation here is allowed to be.
+  ["/demo/", 1200, "never on by default and never sticky"],
   ["/quote/", 1200, "not a button that returns a number"],
   // The absence *is* the content here, so the needle is the sentence that
   // states it. A prerender that dropped the refusal and left the plan would
@@ -695,13 +702,62 @@ await trayCtx.close();
 // Both directions. A scenario route must carry the banner and issue nothing to
 // the API; an ordinary route must carry no trace of the word.
 
+// `[route, scenario, needle, act]`.
+//
+// `act` is the half that was missing, and its absence is why this pass had a
+// hole exactly where the feature mattered most. `quote-thin-tape` was listed
+// with `needle: null` and no interaction — so the check loaded a page, asserted
+// zero API contact, and passed **because nothing was ever submitted**. Under it,
+// the fixture was dead: `/quote`'s enqueue was a raw `fetch` below the scenario
+// short-circuit, so the refusal it records could not render and a "simulated"
+// page was talking to production.
+//
+// A check that cannot fail is not a check. Where a scenario only means something
+// after a click, the click is part of the assertion.
 const SCENARIOS = [
-  ["/agent/warden/", "journal-never-ran", "written no journal"],
-  ["/quote/", "quote-thin-tape", null],
+  ["/agent/warden/", "journal-never-ran", "written no journal", null],
+  ["/quote/", "wallet-two-pools", "Replay this pool", typeAddress],
+  // The happy path, and the reason the whole demo exists: a P25-P75 range
+  // reached with no wallet, no API and no worker. The needle is the disclosure
+  // rather than the number — a range that rendered without saying it ran on the
+  // reduced interactive budget would be comparable-looking with a published
+  // card, which A15 says it is not.
+  [
+    "/quote/",
+    "demo-quote",
+    "not comparable with one",
+    async (page) => {
+      await typeAddress(page);
+      const run = page.locator("button", { hasText: "Replay this pool" }).first();
+      await run.click({ timeout: 10_000 }).catch(() => {});
+      await page.waitForTimeout(SETTLE * 4);
+    },
+  ],
+  // The refusal, and it arrives at the pre-flight rather than at submit.
+  //
+  // This entry used to click "Replay this pool" and assert prose beginning "the
+  // tape supports 6 windows". Both were wrong, and the pair of them is why the
+  // needle was `null` for so long. `view.tsx` renders a run only for a holding
+  // with `quotable: true`, so a thin-tape pool never has a button to click; and
+  // no code path emits that sentence — `preflight.assess` reports the widest
+  // sub-window against the 24h floor. The fixture asserted a refusal the engine
+  // does not word and reached it by a control that is not drawn.
+  //
+  // So: type the address, assert the arithmetic. No click, because a visitor
+  // has nothing to click either.
+  ["/quote/", "quote-thin-tape", "the widest sub-window is 4.6h", typeAddress],
 ];
 
+/** Put an address in the quote field and submit it, as a visitor would. */
+async function typeAddress(page) {
+  const field = page.locator('input[placeholder*="0x"]').first();
+  await field.fill("0x0000000000000000000000000000000000000001", { timeout: 10_000 });
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(SETTLE);
+}
+
 const simCtx = await browser.newContext({ colorScheme: "dark", viewport: WIDE });
-for (const [route, scenario, needle] of SCENARIOS) {
+for (const [route, scenario, needle, act] of SCENARIOS) {
   const page = await simCtx.newPage();
   const reached = [];
   page.on("request", (request) => {
@@ -738,6 +794,11 @@ for (const [route, scenario, needle] of SCENARIOS) {
     )
     .catch(() => {});
   await page.waitForTimeout(SETTLE);
+
+  // Do the thing the scenario is about, before reading the page. Every
+  // assertion below — including the load-bearing "reached the API 0 times" —
+  // is worth something only after the interaction it is about has happened.
+  if (act) await act(page);
 
   const state = await page.evaluate(() => ({
     stamp: document.documentElement.dataset.scenario ?? null,

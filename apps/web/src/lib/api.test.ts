@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiBase, loadLive, RefusalError } from "@/lib/api";
+import { apiBase, loadLive, postLive, RefusalError } from "@/lib/api";
 
 // `loadLive` is imported per test via `await import`, not at the top: `apiBase`
 // memoises the config for the page's lifetime and each case configures a
@@ -197,6 +197,56 @@ describe("a scenario answers before the network is consulted", () => {
     const got = await loadLive<unknown>("/quote/eligibility/0xabc");
 
     expect(got.ok && got.source).toBe("simulated");
+  });
+
+  it("short-circuits a POST too, which is the path the flagship flow takes", async () => {
+    // The assertion whose absence was the defect.
+    //
+    // `scenarioResponse` was reachable only from `loadLive`, and `/quote`'s
+    // submission was a raw `fetch` below `apiBase()`. So the one fixture written
+    // for the most important refusal on the site — `quote-thin-tape`, keyed
+    // `"POST /quote"` — could never match, and a page showing the simulation
+    // banner issued a real request to production.
+    //
+    // Nothing caught it: the browser gate loaded that URL with `needle: null`
+    // and asserted zero API contact, which held *because nothing was ever
+    // submitted*. A check reporting its own inability to run as a pass — P-30.
+    vi.stubGlobal("__MISQUOTE_API__", "https://api.example.test");
+    at("?scenario=quote-thin-tape");
+    const calls = serveScenarioOnly();
+
+    const got = await postLive<unknown>("POST /quote", { pool: "0xabc" });
+
+    expect(got.ok).toBe(false);
+    expect(!got.ok && got.error).toBeInstanceOf(RefusalError);
+    expect(!got.ok && got.error.message).toContain("the tape supports 6 windows");
+    // The load-bearing half, and this time it is not vacuous: a POST *was*
+    // attempted, and it still reached nothing.
+    expect(calls.filter((u) => u.includes("api.example.test"))).toHaveLength(0);
+  });
+
+  it("cannot label a posted scenario answer anything but simulated", async () => {
+    vi.stubGlobal("__MISQUOTE_API__", "https://api.example.test");
+    at("?scenario=wallet-two-pools");
+    serveScenarioOnly();
+
+    // `wallet-two-pools` does not declare `POST /quote`, so this falls through
+    // to the ordinary route — the invisibility rule, checked on the new path.
+    const declared = await postLive<{ held: number }>("/quote/eligibility/0xabc", {});
+    expect(declared.ok && declared.source).toBe("simulated");
+  });
+
+  it("does not fall back for a submission, because a stale 202 is a job nobody queued", async () => {
+    // `loadLive` may answer from an artifact; a POST may not. Replaying a
+    // recorded job id would hand the caller a poller that never resolves.
+    at("");
+    vi.stubGlobal("__MISQUOTE_API__", "");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+
+    const got = await postLive<unknown>("POST /quote", { pool: "0xabc" });
+
+    expect(got.ok).toBe(false);
+    expect(!got.ok && got.error.message).toContain("no precomputed fallback");
   });
 
   it("returns a scenario refusal as terminal, never replacing it with a fallback", async () => {

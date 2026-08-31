@@ -104,6 +104,79 @@ function refusalFrom(url: string, status: number, body: unknown): RefusalError |
 }
 
 /**
+ * Send something, with the same scenario short-circuit `loadLive` has.
+ *
+ * ## Why this exists, which is a defect rather than a feature request
+ *
+ * `scenarioResponse` was reachable from exactly one place — `loadLive` — and the
+ * flagship flow does not read, it posts. `app/quote/view.tsx`'s `enqueue` called
+ * `apiBase()` and then a raw `fetch`, **below** the short-circuit, so
+ * `scenarios/quote-thin-tape.json` could never match: its only key is
+ * `"POST /quote"`, and the only code that ever passed that string to `loadLive`
+ * was a unit test.
+ *
+ * The consequence was worse than a dead fixture. Under
+ * `?scenario=quote-thin-tape` the page showed the simulation banner and then
+ * issued a **real** request to the live API — a page saying "simulated" while
+ * talking to production, which is the one thing `scenario.ts`'s four rules exist
+ * to prevent.
+ *
+ * ## Deliberately not a `fallback`
+ *
+ * `loadLive` can fall back to a recorded artifact because a read has a
+ * last-known-good. A submission does not: replaying a stale `202` would hand back
+ * a job id that was never queued and a poller that will never resolve. So a
+ * failure here is terminal, and the caller renders it.
+ */
+export async function postLive<T>(path: string, body: unknown): Promise<Live<T>> {
+  // Same ordering as `loadLive`, and for the same reason: above `apiBase()`, so
+  // under a scenario no request is issued at all.
+  const recorded = await scenarioResponse(path);
+  if (recorded) {
+    const refusal = refusalFrom(path, recorded.status, recorded.body);
+    if (refusal) return { ok: false, error: refusal };
+    return { ok: true, value: recorded.body as T, source: "simulated" };
+  }
+
+  const base = await apiBase();
+  if (!base) {
+    return {
+      ok: false,
+      error: new ArtifactError(
+        "No live API is configured, and a submission has no precomputed fallback.",
+        path,
+        "network",
+      ),
+    };
+  }
+
+  const url = `${base}${path.replace(/^POST /, "")}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await res.json().catch(() => null);
+
+    if (res.ok || res.status === 202) {
+      return { ok: true, value: payload as T, source: "live" };
+    }
+    const refusal = refusalFrom(url, res.status, payload);
+    if (refusal) return { ok: false, error: refusal };
+    return {
+      ok: false,
+      error: new ArtifactError(`${url} answered ${res.status}.`, url, "network"),
+    };
+  } catch {
+    return {
+      ok: false,
+      error: new ArtifactError(`${url} could not be reached.`, url, "network"),
+    };
+  }
+}
+
+/**
  * Ask the API, and fall back to the artifact — but not for every failure.
  *
  * **The rule: fall back on `network` and on 5xx. Never on `refused`.**
