@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 137,
+      "gap": 138,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 320454,
-      "ours_at_block": 119102941,
+      "ours": 323371,
+      "ours_at_block": 119188344,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 320317,
-      "total_pages": 16016,
+      "total": 323233,
+      "total_pages": 16162,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-31T06:24:25+00:00",
+    "generated_at": "2026-08-31T17:05:08+00:00",
     "git_dirty": true,
-    "git_sha": "c71dad9",
+    "git_sha": "6346e0b",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -1101,7 +1101,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 115.3,
+    "age_hours": 126.0,
     "agents": [
       {
         "agent": "warden",

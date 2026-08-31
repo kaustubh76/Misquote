@@ -45,6 +45,24 @@ NONCE_RACE_MARKERS = ("nonce too low", "already known", "replacement transaction
 
 DEFAULT_KILL_FILE = "ops/KILL"
 
+#: The most this will pay for gas, in wei per unit, unless told otherwise.
+#:
+#: There was no ceiling at all until a run with a 0.005757 BNB wallet went
+#: looking for one. `build` takes `w3.eth.gas_price` verbatim and multiplies the
+#: estimate by 1.25, so the only thing standing between a price spike and an
+#: empty wallet was the balance — which is a limit that reports itself by the
+#: transaction failing, after the earlier ones have already been paid for.
+#:
+#: 1 gwei is twenty times BSC's typical 0.05 and still leaves the whole planned
+#: run inside that budget. It is deliberately a refusal rather than a clamp:
+#: quietly bidding less than the node asks produces a transaction that sits
+#: unmined, which is a worse failure than being told the price moved.
+DEFAULT_MAX_GAS_PRICE_WEI = 1_000_000_000
+
+
+class GasPriceTooHigh(RuntimeError):
+    """The node's gas price is above the ceiling. Nothing was signed."""
+
 
 class KillSwitchEngaged(RuntimeError):
     """The kill file exists. Nothing is broadcast while it does."""
@@ -88,7 +106,15 @@ class BscSigner:
     unintentionally.
     """
 
-    __slots__ = ("w3", "chain_id", "account", "kill_file", "_dry_run", "_receipt_timeout")
+    __slots__ = (
+        "w3",
+        "chain_id",
+        "account",
+        "kill_file",
+        "_dry_run",
+        "_receipt_timeout",
+        "_max_gas_price_wei",
+    )
 
     def __init__(
         self,
@@ -97,6 +123,7 @@ class BscSigner:
         *,
         kill_file: str | Path = DEFAULT_KILL_FILE,
         receipt_timeout: float = 180.0,
+        max_gas_price_wei: int | None = None,
     ) -> None:
         chain_id = int(w3.eth.chain_id)
         if chain_id not in SUPPORTED_CHAINS:
@@ -117,6 +144,17 @@ class BscSigner:
         self.kill_file = Path(kill_file)
         self._receipt_timeout = receipt_timeout
         self._dry_run = os.environ.get("MISQUOTE_DRY_RUN", "1") != "0"
+
+        # `0` disables the ceiling, and that is a real choice rather than an
+        # accident of parsing: somebody paying a genuine spike deliberately
+        # needs a way to say so, and it should look different from leaving the
+        # variable unset.
+        if max_gas_price_wei is None:
+            configured = os.environ.get("MISQUOTE_MAX_GAS_PRICE_WEI")
+            max_gas_price_wei = (
+                DEFAULT_MAX_GAS_PRICE_WEI if configured is None else int(configured)
+            )
+        self._max_gas_price_wei = max_gas_price_wei if max_gas_price_wei else None
 
         # Only when this signer can actually broadcast.
         #
@@ -208,6 +246,26 @@ class BscSigner:
                 f"transaction declares chain {declared} but the node is {self.chain_id}"
             )
 
+    def assert_gas_price(self, price_wei: int) -> None:
+        """Refuse a price above the ceiling, before anything is estimated.
+
+        In `build` rather than `send`, and that placement is the point: the gas
+        estimate immediately below costs an RPC round trip and the caller may
+        have several transactions queued behind this one. Failing here stops the
+        run at the first sign of an expensive block instead of part-way through
+        a sequence, which for a small wallet is the difference between "nothing
+        happened" and "half the agents are registered".
+        """
+        if self._max_gas_price_wei is None:
+            return
+        if price_wei > self._max_gas_price_wei:
+            raise GasPriceTooHigh(
+                f"the node quotes {price_wei / 1e9:.3f} gwei and the ceiling is "
+                f"{self._max_gas_price_wei / 1e9:.3f} gwei. Nothing was signed. "
+                f"Raise MISQUOTE_MAX_GAS_PRICE_WEI if this price is one you meant "
+                f"to pay, or wait — on BSC this is usually a passing spike."
+            )
+
     # --- building and sending ---------------------------------------------
 
     def build(self, function_call, *, gas: int | None = None, value: int = 0) -> dict[str, Any]:
@@ -219,6 +277,7 @@ class BscSigner:
             "value": value,
         }
         transaction["gasPrice"] = rpc_retry(lambda: self.w3.eth.gas_price)
+        self.assert_gas_price(int(transaction["gasPrice"]))
 
         if gas is not None:
             transaction["gas"] = gas

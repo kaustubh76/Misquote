@@ -196,49 +196,6 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         evidence="packages/misquote/agents/warden/__main__.py — BROADCAST_CHAIN is 97",
     ),
     NotBuilt(
-        name="TermiX listing",
-        category="Registry",
-        what=(
-            "Our four agents appearing on TermiX's own platform. The "
-            "authenticated API itself is built and the session works; the "
-            "listing is what does not follow from it."
-        ),
-        why=(
-            "**The blocker was wrong in both halves, and this is the fourth time "
-            "that has happened here.** It read: *blocked on a wallet-signed nonce "
-            "exchanged for a session JWT, which is the same signing path the 24h "
-            "burn-in needs and which does not exist yet.*\n\n"
-            "Signing was a **wrapper** gap — `signer.account` is a public "
-            "`LocalAccount` and has been able to sign messages all along; there "
-            "was no `sign_message` and `encode_defunct` appeared nowhere. And it "
-            "is not the burn-in's path at all: `check_burn_in` reads journal "
-            "timestamps and never touches a signer. Written up as **P-29**, after "
-            "P-24, P-27 and P-28 — a blocker recorded one level too high stops the "
-            "work that would clear it.\n\n"
-            "The endpoints were never private either. A GET on any unmatched "
-            "`/api/v1/*` path returns 401, so GET probes prove nothing — but POST "
-            "separates them, and `/auth/nonce` and `/auth/wallet` both answer "
-            "`400 walletAddress: Required`. It is SIWE: the server returns the "
-            "exact message to sign, and `registry/authenticate.py` signs that "
-            "string verbatim rather than reconstructing it.\n\n"
-            "**`make termix-login` completes the exchange**, and the "
-            "authenticated read the entry asked for works: `/api/v1/agents` "
-            "returns 401 unauthenticated and answers with a token. The record is "
-            "in `vetting/identity/termix-auth.json` and carries **no "
-            "credential** — a test asserts the file holds no token, no refresh "
-            "token, no signature and no nonce.\n\n"
-            "**What is left is the listing, and no token fixes it.** That "
-            "authenticated read answers `0 items` — asked as ourselves, from the "
-            "endpoint their own dashboard reads. Their backend is chain 56 only "
-            "(`aacp.API_BASE` has no 97 key, because there is no testnet "
-            "deployment) and our four agents are on chapel. So they are invisible "
-            "to it by construction, which is the same reason `/registry` already "
-            "published — now confirmed from the authenticated side instead of "
-            "inferred from the public one."
-        ),
-        evidence="packages/misquote/registry/ — no list_agents.py",
-    ),
-    NotBuilt(
         name="ERC-8183 escrow",
         category="Registry",
         what=(

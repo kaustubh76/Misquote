@@ -1,0 +1,180 @@
+{
+  "agents": [
+    {
+      "agent": "warden",
+      "agent_id": 323262,
+      "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323262",
+      "gas_used": 730652,
+      "name": "Warden",
+      "register_block": 119185853,
+      "register_tx": "0xb34ee4b8254f92817a84b7dfd6a51ac73e0325c76c857646f93971b2b531c723",
+      "register_url": "https://bscscan.com/tx/0xb34ee4b8254f92817a84b7dfd6a51ac73e0325c76c857646f93971b2b531c723",
+      "token_uri_bytes": 825,
+      "transfer_skipped": null,
+      "transfer_tx": "0xe2bd3bc69bc2252edca26a05ce82aa125c33523b4d95cce058184cf189eba699",
+      "transfer_url": "https://bscscan.com/tx/0xe2bd3bc69bc2252edca26a05ce82aa125c33523b4d95cce058184cf189eba699"
+    },
+    {
+      "agent": "grid",
+      "agent_id": 323332,
+      "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323332",
+      "gas_used": 730508,
+      "name": "Grid",
+      "register_block": 119187695,
+      "register_tx": "0xc349b70dd0b69f1fb4d7a2639cdab79b5d3b85dd1d4416870699f95676a34d41",
+      "register_url": "https://bscscan.com/tx/0xc349b70dd0b69f1fb4d7a2639cdab79b5d3b85dd1d4416870699f95676a34d41",
+      "token_uri_bytes": 813,
+      "transfer_skipped": "the signer is already the operator",
+      "transfer_tx": null,
+      "transfer_url": null
+    },
+    {
+      "agent": "sentinel",
+      "agent_id": 323333,
+      "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323333",
+      "gas_used": 713600,
+      "name": "Sentinel",
+      "register_block": 119187704,
+      "register_tx": "0xf13eb64bfb997483088538eca39b3462ffe7d8107ba74f5d0c9f6a1fbda291f0",
+      "register_url": "https://bscscan.com/tx/0xf13eb64bfb997483088538eca39b3462ffe7d8107ba74f5d0c9f6a1fbda291f0",
+      "token_uri_bytes": 829,
+      "transfer_skipped": "the signer is already the operator",
+      "transfer_tx": null,
+      "transfer_url": null
+    },
+    {
+      "agent": "router",
+      "agent_id": 323334,
+      "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323334",
+      "gas_used": 713504,
+      "name": "Router",
+      "register_block": 119187712,
+      "register_tx": "0xf96be9efe12b0b37dcf490d0044b0b73f916eb3ea929aa574a47902a8b40d220",
+      "register_url": "https://bscscan.com/tx/0xf96be9efe12b0b37dcf490d0044b0b73f916eb3ea929aa574a47902a8b40d220",
+      "token_uri_bytes": 821,
+      "transfer_skipped": "the signer is already the operator",
+      "transfer_tx": null,
+      "transfer_url": null
+    }
+  ],
+  "block": 119187905,
+  "chain_id": 56,
+  "checks": [
+    {
+      "detail": "EIP-1967 slot holds 0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
+      "name": "registry implementation unchanged",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "ownerOf returns 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "name": "warden #323262 is owned by the operator",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "the card is on chain and decoded",
+      "name": "warden #323262 resolves",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "erc8004.assess() says substantive",
+      "name": "warden #323262 passes our own listing bar",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "tokenURI is byte-identical to the rebuilt card",
+      "name": "warden #323262 holds the card we built",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "ownerOf returns 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "name": "grid #323332 is owned by the operator",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "the card is on chain and decoded",
+      "name": "grid #323332 resolves",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "erc8004.assess() says substantive",
+      "name": "grid #323332 passes our own listing bar",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "tokenURI is byte-identical to the rebuilt card",
+      "name": "grid #323332 holds the card we built",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "ownerOf returns 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "name": "sentinel #323333 is owned by the operator",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "the card is on chain and decoded",
+      "name": "sentinel #323333 resolves",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "erc8004.assess() says substantive",
+      "name": "sentinel #323333 passes our own listing bar",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "tokenURI is byte-identical to the rebuilt card",
+      "name": "sentinel #323333 holds the card we built",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "ownerOf returns 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "name": "router #323334 is owned by the operator",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "the card is on chain and decoded",
+      "name": "router #323334 resolves",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "erc8004.assess() says substantive",
+      "name": "router #323334 passes our own listing bar",
+      "provenance": "P-26",
+      "status": "PASS"
+    },
+    {
+      "detail": "tokenURI is byte-identical to the rebuilt card",
+      "name": "router #323334 holds the card we built",
+      "provenance": "P-26",
+      "status": "PASS"
+    }
+  ],
+  "explorer": "https://bscscan.com",
+  "implementation": "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
+  "owner": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+  "reason": "",
+  "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+  "signer": "0x14e0073801D8Cc45648E1e2c30F093C3de24dDc4",
+  "summary": {
+    "checked": 17,
+    "failed": 0,
+    "registered": 4,
+    "unknown": 0
+  },
+  "surveyed": true,
+  "verdict": "PASS"
+}

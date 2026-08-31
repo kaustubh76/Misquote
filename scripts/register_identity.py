@@ -167,8 +167,21 @@ def tx_hex(value: str) -> str:
     return value if value.startswith("0x") else "0x" + value
 
 
+#: Which environment variable names a better endpoint, per chain.
+#:
+#: The hardcoded lists below are public endpoints, and on a *broadcast* path
+#: that is a real cost rather than a style point: both mainnet runs so far
+#: landed their transactions and then died in `wait_for_receipt`, because
+#: publicnode took longer than 180s to serve a receipt for a transaction that
+#: had already mined. The script reported a timeout, the chain reported
+#: success, and the record was written by neither.
+RPC_ENV = {56: "BSC_RPC_URL", 97: "BSC_TESTNET_RPC_URL"}
+
+
 def connect(chain_id: int) -> Web3:
-    for url in RPCS[chain_id]:
+    configured = os.environ.get(RPC_ENV.get(chain_id, ""))
+    candidates = (configured, *RPCS[chain_id]) if configured else RPCS[chain_id]
+    for url in candidates:
         try:
             w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30}))
             w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
@@ -225,11 +238,22 @@ def repair_links(agent: dict[str, Any], chain_id: int) -> dict[str, Any]:
     explorer = EXPLORERS.get(chain_id, "")
     fixed = dict(agent)
     register_tx = tx_hex(fixed.get("register_tx", ""))
-    transfer_tx = tx_hex(fixed.get("transfer_tx", ""))
     fixed["register_tx"] = register_tx
-    fixed["transfer_tx"] = transfer_tx
     fixed["register_url"] = f"{explorer}/tx/{register_tx}"
-    fixed["transfer_url"] = f"{explorer}/tx/{transfer_tx}"
+
+    # A missing transfer is a state now, not a malformed record: when the
+    # operator signs for itself the mint already lands in the right place and
+    # `register_all` skips the second transaction. Normalising that to `""`
+    # here would produce a link to `/tx/` — a URL that looks like evidence and
+    # resolves to nothing.
+    raw_transfer = fixed.get("transfer_tx")
+    if raw_transfer:
+        transfer_tx = tx_hex(raw_transfer)
+        fixed["transfer_tx"] = transfer_tx
+        fixed["transfer_url"] = f"{explorer}/tx/{transfer_tx}"
+    else:
+        fixed["transfer_tx"] = None
+        fixed["transfer_url"] = None
     return fixed
 
 
@@ -264,12 +288,34 @@ def register_all(
     does not exist.
     """
     explorer = EXPLORERS.get(writer.chain_id, "")
+
+    # A self-transfer is not a transfer, and paying for one is not a rounding
+    # error at this scale.
+    #
+    # `register` mints to whoever sent it and the second transaction moves the
+    # token to the declared operator, which is right whenever a delegate signs.
+    # When the operator signs for itself — the arrangement a single funded
+    # wallet produces — `safeTransferFrom(op, op, id)` succeeds, changes
+    # nothing, and costs ~60k gas each time. Four agents is ~240k gas bought to
+    # arrive where the mint already was.
+    #
+    # Recorded as `null` rather than omitted: a reader comparing this file to
+    # the chapel one should be able to see that the transfer did not happen and
+    # why, instead of finding a field that quietly changed shape.
+    signs_as_owner = writer.signer.address.lower() == owner.lower()
+    if signs_as_owner:
+        print(f"  [skip] transfers: the signer is the operator ({owner})")
+
     for card in cards:
         agent_id, registered = writer.register(card.token_uri)
         print(f"  [sent] {card.agent:9s} id {agent_id}  register {registered.tx_hash}")
-        transferred = writer.transfer(agent_id, owner)
-        print(f"  [sent] {card.agent:9s} id {agent_id}  transfer {transferred.tx_hash}")
-        register_tx, transfer_tx = tx_hex(registered.tx_hash), tx_hex(transferred.tx_hash)
+        if signs_as_owner:
+            transferred = None
+        else:
+            transferred = writer.transfer(agent_id, owner)
+            print(f"  [sent] {card.agent:9s} id {agent_id}  transfer {transferred.tx_hash}")
+        register_tx = tx_hex(registered.tx_hash)
+        transfer_tx = tx_hex(transferred.tx_hash) if transferred else None
         report.agents.append(
             {
                 "agent": card.agent,
@@ -278,10 +324,14 @@ def register_all(
                 "token_uri_bytes": card.uri_bytes,
                 "register_tx": register_tx,
                 "transfer_tx": transfer_tx,
+                "transfer_skipped": "the signer is already the operator"
+                if signs_as_owner
+                else None,
                 "register_block": registered.block,
-                "gas_used": registered.gas_used + transferred.gas_used,
+                "gas_used": registered.gas_used
+                + (transferred.gas_used if transferred else 0),
                 "register_url": f"{explorer}/tx/{register_tx}",
-                "transfer_url": f"{explorer}/tx/{transfer_tx}",
+                "transfer_url": f"{explorer}/tx/{transfer_tx}" if transfer_tx else None,
                 "agent_url": f"{explorer}/token/{writer.address}?a={agent_id}",
             }
         )
@@ -410,6 +460,16 @@ def fund_operator(w3: Web3, chain_id: int, amount_wei: int, report: Report) -> s
             f"{amount_wei / 1e18:.6f} plus fees"
         )
 
+    # Built by hand, so the ceiling has to be asked for by hand.
+    #
+    # `BscSigner.build` refuses a gas price above `MISQUOTE_MAX_GAS_PRICE_WEI`,
+    # and this is the one broadcast path in the repository that does not go
+    # through it — a plain value transfer is not a contract call. Skipping the
+    # check here would leave exactly one transaction able to pay any price,
+    # and it is the transaction that moves the whole balance.
+    gas_price = w3.eth.gas_price
+    signer.assert_gas_price(int(gas_price))
+
     transaction = {
         "from": signer.address,
         "to": Web3.to_checksum_address(operator),
@@ -417,7 +477,7 @@ def fund_operator(w3: Web3, chain_id: int, amount_wei: int, report: Report) -> s
         "chainId": signer.chain_id,
         "nonce": w3.eth.get_transaction_count(signer.address, "pending"),
         "gas": 21_000,
-        "gasPrice": w3.eth.gas_price,
+        "gasPrice": gas_price,
     }
     sent = signer.send(transaction)
     tx = tx_hex(sent.tx_hash)
@@ -502,6 +562,11 @@ def main() -> int:
         help="rewrite recorded agents' cards to the complete shape. Operator signs.",
     )
     ap.add_argument(
+        "--adopt",
+        action="store_true",
+        help="transfer any recorded identity the signer still holds to the operator",
+    )
+    ap.add_argument(
         "--verify-only",
         action="store_true",
         help="re-read what is already recorded and rewrite the checks",
@@ -523,6 +588,83 @@ def main() -> int:
     print(f"\nERC-8004 identities, chain {args.chain}")
     w3 = connect(args.chain)
 
+    # Before the branch dispatch, and on its own.
+    #
+    # This ran *inside* the `--upgrade-cards` branch, so `--fund-operator` passed
+    # without it was accepted, silently ignored, and the script fell through to
+    # `register_all`. A command whose only argument was "move 0.0057 BNB" minted
+    # an identity on mainnet instead. A flag that spends money must either do
+    # what it says or refuse; doing something else and more expensive is the
+    # worst of the three.
+    #
+    # It also returns here rather than continuing, because funding is a
+    # prerequisite somebody performs *before* deciding what to run next — and
+    # the wallet it funds is usually not the wallet that would sign whatever
+    # came after.
+    if args.fund_operator:
+        if not args.broadcast:
+            print("\n  planning only — pass --broadcast to send the funding transfer\n")
+            return 0
+        fund_operator(w3, args.chain, int(float(args.fund_operator) * 10**18), report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        record = load_record(args.chain)
+        carry_forward(record, report)
+        report.agents = [repair_links(a, args.chain) for a in (record.get("agents") or [])]
+        out.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+        print(f"recorded -> {out.relative_to(REPO)}")
+        return 0
+
+    # Hand back an identity this signer minted but the operator should own.
+    #
+    # `register_all` transfers as it goes, so this exists for the case where it
+    # could not: a run that minted and then died before the second transaction.
+    # That is not hypothetical — the mainnet Warden (323262) was minted by the
+    # delegate when `--fund-operator` was silently ignored, and the receipt poll
+    # timed out before the transfer. Repairing it by hand would mean a
+    # `safeTransferFrom` that happened in somebody's terminal and is remembered
+    # by nobody, which is the shape of provenance this file argues against.
+    #
+    # Only tokens the signer actually holds, and only to the declared operator.
+    if args.adopt:
+        record = load_record(args.chain)
+        agents = [a for a in (record.get("agents") or []) if a.get("agent_id")]
+        if not agents:
+            raise SystemExit(f"nothing recorded on chain {args.chain} to adopt")
+
+        signer = BscSigner(w3, kill_file=REPO / "ops" / "KILL")
+        writer = IdentityWriter(signer)
+        print(f"  signer   {signer.address}")
+        print(f"  owner    {owner}\n")
+
+        orphans = [
+            a
+            for a in agents
+            if writer.owner_of(int(a["agent_id"])).lower() == signer.address.lower()
+        ]
+        if not orphans:
+            print("  every recorded identity is already where it belongs")
+            return 0
+        for a in orphans:
+            print(f"  [orphan] {a['agent']:9s} id {a['agent_id']} held by the signer")
+        if not args.broadcast:
+            print("\n  planning only — pass --broadcast to send")
+            return 0
+
+        for a in orphans:
+            sent = writer.transfer(int(a["agent_id"]), owner)
+            a["transfer_tx"] = tx_hex(sent.tx_hash)
+            a["transfer_url"] = f"{EXPLORERS.get(args.chain, '')}/tx/{tx_hex(sent.tx_hash)}"
+            print(f"  [sent] {a['agent']:9s} transfer {sent.tx_hash}")
+
+        carry_forward(record, report)
+        report.agents = [repair_links(a, args.chain) for a in agents]
+        print()
+        verify(w3, args.chain, report.agents, owner, report)
+        print(f"\nverdict  {report.verdict}")
+        out.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+        print(f"recorded -> {out.relative_to(REPO)}")
+        return 0 if report.verdict == PASS else 1
+
     if args.upgrade_cards:
         record = load_record(args.chain)
         report.agents = [repair_links(a, args.chain) for a in (record.get("agents") or [])]
@@ -538,9 +680,6 @@ def main() -> int:
                 "way to correct a card after it has been handed over — which is "
                 "the argument for completing it before the transfer instead."
             )
-
-        if args.fund_operator and args.broadcast:
-            fund_operator(w3, args.chain, int(float(args.fund_operator) * 10**18), report)
 
         signer = BscSigner(w3, key, kill_file=REPO / "ops" / "KILL")
         balance = w3.eth.get_balance(signer.address)
@@ -577,18 +716,41 @@ def main() -> int:
 
         signer = BscSigner(w3, kill_file=REPO / "ops" / "KILL")
         report.signer = signer.address
+        # Whether the declaration *matches*, not whether one exists.
+        #
+        # This printed "(declared)" for any signer as long as
+        # MISQUOTE_SIGNER_ADDRESS was set to something — including, on the run
+        # that minted 323262, a wallet the declaration check goes on to refuse.
+        # A label that says "recognised" beside an address nobody recognised is
+        # worse than no label on the one screen shown before spending.
         declared = declared_signer()
+        matches = bool(declared) and declared.lower() == signer.address.lower()
         print(
             f"  signer   {signer.address}"
-            + (" (declared)" if declared else "")
+            + (" (declared)" if matches else " (NOT the declared signer)")
             + (f"  balance {w3.eth.get_balance(signer.address) / 1e18:.6f}")
         )
         writer = IdentityWriter(signer)
         print(f"  registry {writer.address}\n")
 
+        # Computed before the plan/broadcast split, so a dry run reports the
+        # work that would actually happen. It said "4 agents" while the resume
+        # guard would have registered one — an estimate for a run nobody was
+        # going to make, on the screen somebody reads to decide whether they can
+        # afford it.
+        record = load_record(args.chain)
+        already = {a["agent"]: a for a in (record.get("agents") or []) if a.get("register_tx")}
+        if already:
+            carry_forward(record, report)
+            report.agents = [repair_links(a, args.chain) for a in already.values()]
+            print(f"  resume   {len(already)} already registered: {', '.join(sorted(already))}")
+        remaining = tuple(c for c in cards if c.agent not in already)
+
         if not args.broadcast:
             print("  planning only — pass --broadcast to send\n")
-            if plan(writer, cards, owner) < 0:
+            if not remaining:
+                print("  nothing left to register")
+            elif plan(writer, remaining, owner) < 0:
                 return 1
             print("\nNothing was sent. Re-run with MISQUOTE_DRY_RUN=0 --broadcast.")
             return 0
@@ -600,7 +762,23 @@ def main() -> int:
                 "command; never in .env."
             )
 
-        register_all(writer, cards, owner, report)
+        # Resume rather than restart, because the failure that produced this
+        # file was a *timeout*, not a revert.
+        #
+        # `register_all` walked all four cards unconditionally. When a receipt
+        # poll timed out after the transaction had already succeeded, the run
+        # died before writing anything — and the obvious next move, re-running
+        # the same command, would have minted a second Warden on mainnet and
+        # paid 730,652 gas to make the registry ambiguous about which id is
+        # ours. Nothing would have reported it: two identical cards under two
+        # ids is a valid state.
+        #
+        # Keyed on the agent slug from the record on disk, so the skip survives
+        # a crash at any point in the loop.
+        if not remaining:
+            print("  nothing left to register")
+        else:
+            register_all(writer, remaining, owner, report)
         print()
         verify(w3, args.chain, report.agents, owner, report)
 

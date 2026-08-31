@@ -3472,9 +3472,7 @@
           "type": "p"
         }
       ],
-      "cited_by": [
-        "index.json"
-      ],
+      "cited_by": [],
       "id": "P-29",
       "kind": "correction",
       "line": 654,

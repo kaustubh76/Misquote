@@ -21,8 +21,10 @@ from web3 import Web3
 from misquote.chain.addresses import MAINNET, TARGET_POOL
 from misquote.chain.nfpm import build_abi_selectors
 from misquote.chain.signer import (
+    DEFAULT_MAX_GAS_PRICE_WEI,
     SUPPORTED_CHAINS,
     BscSigner,
+    GasPriceTooHigh,
     KillSwitchEngaged,
     TransactionReverted,
 )
@@ -347,3 +349,78 @@ def test_the_factory_resolves_the_pool_we_have_been_using() -> None:
     ).call()
 
     assert resolved.lower() == TARGET_POOL.address.lower()
+
+
+# --- the gas-price ceiling -------------------------------------------------
+#
+# There was no ceiling until a mainnet run with 0.005757 BNB in the wallet went
+# looking for one. `build` took `w3.eth.gas_price` verbatim, so the only thing
+# between a price spike and an empty wallet was the balance — a limit that
+# announces itself by a transaction failing, after the earlier ones in the
+# sequence have already been paid for.
+
+
+class _Call:
+    """The smallest thing `build` will accept: an estimate and a build."""
+
+    def __init__(self) -> None:
+        self.estimated = False
+
+    def estimate_gas(self, _tx):
+        self.estimated = True
+        return 21_000
+
+    def build_transaction(self, tx):
+        return dict(tx)
+
+
+def test_a_gas_price_above_the_ceiling_is_refused_before_anything_is_estimated() -> None:
+    """And *before* the estimate, which is the placement that matters.
+
+    `estimate_gas` is an RPC round trip and the caller usually has more
+    transactions queued behind this one. Refusing here stops a run at the first
+    expensive block rather than part-way through a sequence — for a small
+    wallet that is the difference between "nothing happened" and "half the
+    agents are registered".
+    """
+    w3 = FakeW3()
+    w3.eth.gas_price = DEFAULT_MAX_GAS_PRICE_WEI + 1
+    signer = BscSigner(w3, BURNER_KEY)
+    call = _Call()
+
+    with pytest.raises(GasPriceTooHigh) as excinfo:
+        signer.build(call)
+
+    assert call.estimated is False, "the estimate ran despite the price refusal"
+    # Both numbers, because "too high" without them is not actionable.
+    assert "1.000 gwei" in str(excinfo.value)
+
+
+def test_a_price_at_the_ceiling_is_allowed() -> None:
+    """Boundary, not a spot check: `>` and `>=` differ by exactly this case."""
+    w3 = FakeW3()
+    w3.eth.gas_price = DEFAULT_MAX_GAS_PRICE_WEI
+    built = BscSigner(w3, BURNER_KEY).build(_Call())
+    assert built["gasPrice"] == DEFAULT_MAX_GAS_PRICE_WEI
+
+
+def test_the_ceiling_can_be_raised_for_a_price_somebody_means_to_pay() -> None:
+    w3 = FakeW3()
+    w3.eth.gas_price = 5_000_000_000
+    signer = BscSigner(w3, BURNER_KEY, max_gas_price_wei=10_000_000_000)
+    assert signer.build(_Call())["gasPrice"] == 5_000_000_000
+
+
+def test_zero_disables_the_ceiling_and_is_a_choice_rather_than_a_parse_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unset means the default; `0` means somebody decided. Different states.
+
+    Collapsing them would make "I want no ceiling" indistinguishable from "I
+    forgot to set one", on the single variable standing between a spike and the
+    balance.
+    """
+    monkeypatch.setenv("MISQUOTE_MAX_GAS_PRICE_WEI", "0")
+    w3 = FakeW3()
+    w3.eth.gas_price = 500_000_000_000
+    assert BscSigner(w3, BURNER_KEY).build(_Call())["gasPrice"] == 500_000_000_000

@@ -1,0 +1,34 @@
+{
+  "after": {
+    "obtained_at": 1788195811,
+    "reading": "answered: 3 item(s)",
+    "state": "four identities on mainnet (56), all owned by the operator"
+  },
+  "answer": "yes, for an identity minted to the wallet that authenticates",
+  "before": {
+    "obtained_at": 1788155195,
+    "reading": "answered: 0 item(s)",
+    "state": "four identities on chapel (97); none on mainnet"
+  },
+  "cost_bnb": "0.000147926",
+  "endpoint": "/api/v1/agents",
+  "finding": "TermiX attributes an agent to the wallet that **minted** it, not to the wallet that owns it now. Warden (323262) was minted by the delegate when a silently-ignored --fund-operator fell through to registering, then transferred to the operator; it does not appear. Grid, Sentinel and Router were minted straight to the operator and do. Indexing lag does not explain it: 323262 is the *oldest* of the four, so under a lag hypothesis it would have appeared first and the three later ids would be missing. The opposite is true.",
+  "listed_by_termix": {
+    "grid": 323332,
+    "router": 323334,
+    "sentinel": 323333
+  },
+  "not_listed": {
+    "warden": 323262
+  },
+  "question": "Is registering on ERC-8004 mainnet sufficient to appear on TermiX?",
+  "read_at": 1788195834,
+  "registered": {
+    "grid": 323332,
+    "router": 323334,
+    "sentinel": 323333,
+    "warden": 323262
+  },
+  "supersedes": "docs/FOR_JUDGES.md carried this as an inference from an indexing-lag gap \u2014 'their explorer would have found us on mainnet, with no platform flow at all' \u2014 never demonstrated. It is a reading now, and it is narrower than the inference: sufficient for a minted identity, not for a transferred one.",
+  "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
+}
