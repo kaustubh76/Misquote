@@ -30,7 +30,7 @@ import os
 from typing import Any
 
 from misquote.chain.addresses import PoolRef, pool_by_address
-from misquote.core.types import Event, PoolMeta
+from misquote.core.types import DEFAULT_CAPITAL_QUOTE, Event, PoolMeta
 from misquote.indexer import store
 from misquote.ops import jobs
 from misquote.ops.parallel import fork_map
@@ -87,7 +87,13 @@ def load_events(db_path: Any, address: str) -> list[Event]:
 def run(conn: Any, job_id: str, params: dict[str, Any]) -> None:
     """Replay one pool and file the outcome under the state it earned."""
     ref = pool_by_address(str(params["pool"]))
-    capital = float(params.get("capital_quote") or 0.0)
+    # `DEFAULT_CAPITAL_QUOTE`, not `0.0`. This coerced an absent field to zero,
+    # and `ranges.quote` then divided every replay by it and reported 0.0 — so a
+    # hire that named only a pool, which is what the site's own button sends,
+    # answered `0.00% to 0.00%` and called it sufficient. The engine refuses that
+    # now; this is the other half, because a job with no stated size should quote
+    # the same unit the published cards do rather than fail. See P-32.
+    capital = float(params.get("capital_quote") or DEFAULT_CAPITAL_QUOTE)
     windows = int(params.get("windows") or INTERACTIVE_WINDOWS)
     tape_db = params.get("db_path") or str(jobs.REPO / "data" / "misquote.db")
 

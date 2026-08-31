@@ -489,3 +489,57 @@ def test_a_policy_and_a_factory_together_are_refused() -> None:
             policy=lambda *_: None,
             policy_factory=lambda _s: lambda *_: None,
         )
+
+
+def test_a_quote_on_no_capital_is_refused_rather_than_reported_as_zero() -> None:
+    """The defect that reached production, pinned.
+
+    `fraction = net_quote / capital_quote if capital_quote > 0 else 0.0` turned a
+    missing input into a measurement: every replay returned exactly 0.0,
+    `distinct_returns` came back **1**, and the range published as
+    `0.00% to 0.00%` with `sufficient=True`.
+
+    It was not hypothetical. `api/quote.py` forwarded an unset `capital_quote`,
+    `quote_job.py` coerced `None` to `0.0`, and the site's own "Replay this pool"
+    button sends only a pool — so the flagship flow answered every hire with a
+    zero range. A real job against the real 30-day tape is how it was found:
+    24 replays, 3,035,494 events, and a P25-P75 of nothing.
+
+    Zero is the one capital where the old guard was silent instead of loud, and a
+    guard that returns a plausible value rather than refusing is the shape this
+    repository keeps finding (P-30, P-31, and now this).
+    """
+    outcome = quote_from_results(
+        [result(50.0), result(-20.0), result(10.0)] * 10,
+        windows=20,
+        perturbation_count=3,
+        capital_quote=0.0,
+    )
+
+    assert not outcome.sufficient
+    assert outcome.samples == 0
+    assert "needs capital to be a return on" in outcome.note
+    # The tell it used to publish instead.
+    assert (outcome.p25, outcome.p50, outcome.p75) == (0.0, 0.0, 0.0)
+    assert outcome.returns == ()
+
+
+def test_a_negative_capital_is_refused_for_the_same_reason() -> None:
+    """`> 0` was the condition, so `-1` took the same silent branch."""
+    outcome = quote_from_results(
+        [result(50.0)] * 30, windows=20, perturbation_count=3, capital_quote=-1.0
+    )
+    assert not outcome.sufficient
+    assert "needs capital to be a return on" in outcome.note
+
+
+def test_real_capital_still_divides_plainly() -> None:
+    """The guard must not have changed the arithmetic it was guarding.
+
+    A replay netting 50 on capital of 1,000 over the helper's default hours is
+    5% before annualisation; the point here is only that a positive capital is
+    untouched by the refusal above.
+    """
+    outcome = spread([50.0, 50.0, 50.0] * 10)
+    assert outcome.sufficient
+    assert outcome.p50 != 0.0

@@ -294,6 +294,46 @@ def quote_from_results(
             returns=(),
         )
 
+    # A quote on no capital is not a quote of zero.
+    #
+    # `fraction = net_quote / capital_quote if capital_quote > 0 else 0.0` sat
+    # below this and turned a missing input into a **measurement**: every replay
+    # returned exactly 0.0, `distinct_returns` came back 1, and the range
+    # published as `0.00% to 0.00%` with `sufficient=True`.
+    #
+    # It reached production. `api/quote.py` forwards `payload.get("capital_quote")`
+    # unset, `quote_job.py` coerced `None` to `0.0`, and the site's own "Replay
+    # this pool" button sends only a pool — so the flagship flow answered every
+    # hire with a zero range that looked like an answer. That is the failure this
+    # repository is named after, committed by the engine, on the number the whole
+    # product is about.
+    #
+    # Refused rather than defaulted, and here rather than at the caller: a
+    # default would make the engine quietly quote a size nobody asked for, and
+    # the callers that *should* default are the ones that know what capital
+    # means to them. See P-32.
+    if capital_quote <= 0:
+        return Quote(
+            p25=0.0,
+            p50=0.0,
+            p75=0.0,
+            samples=0,
+            windows=windows,
+            perturbations=perturbation_count,
+            perturbation_fraction=perturbation_fraction,
+            in_range_p50=0.0,
+            rebalances_p50=0.0,
+            hours_per_window=0.0,
+            sufficient=False,
+            note=(
+                f"refused: a quote needs capital to be a return on, and this asked "
+                f"for {capital_quote}. Every replay would divide by it and report "
+                f"0.0, which is an absence wearing the shape of a measurement."
+            ),
+            net_positive=0,
+            returns=(),
+        )
+
     usable = [r for r in results if r.samples > 0 and r.hours >= MIN_WINDOW_HOURS]
     if len(usable) < MIN_SAMPLES:
         short = [r for r in results if 0 < r.hours < MIN_WINDOW_HOURS]
@@ -328,7 +368,8 @@ def quote_from_results(
         # A *return*, not an amount: net token1 over the capital that earned it.
         # Reporting the raw amount makes the quote depend on position size,
         # which is not a property of the strategy.
-        fraction = r.net_quote / capital_quote if capital_quote > 0 else 0.0
+        # `capital_quote > 0` is guaranteed above; the division is plain.
+        fraction = r.net_quote / capital_quote
         scale = (365 * 24 / r.hours) if do_annualise else 1.0
         returns.append(100.0 * fraction * scale)
 
