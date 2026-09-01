@@ -113,9 +113,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "done, on mainnet, with real money; releasing is not."
         ),
         why=(
-            "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet. "
-            "`submit` and `settle` refuse: the policy never reaches a decision, and "
-            "a fork only settled by moving the clock."
+            "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet, and "
+            "`/registry` now sends all seven calls from a browser wallet. `submit` and "
+            "`settle` still refuse: the policy reaches no decision. `claimRefund` "
+            "recovers the budget, proven on a fork at the live block."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),

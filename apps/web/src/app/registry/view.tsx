@@ -16,6 +16,7 @@ import type { NameCollisions, ScanLeaderboard } from "@/components/ScanAgents";
 import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals";
 import { TallyStrip } from "@/components/TallyStrip";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
+import { EscrowConsole } from "@/components/EscrowConsole";
 import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
@@ -262,8 +263,44 @@ export interface RegistryArtifact {
       job_id?: number;
       escrowed?: boolean;
       settled?: boolean;
+      budget?: number;
       transactions?: { call: string; ok?: boolean; reverted?: string; explorer?: string }[];
     };
+    /**
+     * Getting it back, which is a different claim from escrowing it.
+     *
+     * `mainnet_proof` ends with the money in the kernel and both release calls
+     * refusing. `claimRefund` is the way out, and it opens at `expiredAt` — a
+     * `block.timestamp` comparison, so on mainnet it cannot be hurried and on a
+     * fork it is the one thing that can. This record says which of the two it
+     * was, and a fork hash is deliberately not a link: it was never on a chain
+     * anyone can look it up on.
+     */
+    refund_proof?: {
+      ran: boolean;
+      reason?: string;
+      network?: string;
+      job_id?: number;
+      refunded?: boolean;
+      recovered?: number;
+      expires_at_utc?: string;
+      status_before?: number;
+      status_after?: number;
+      transactions?: { call: string; ok?: boolean; when?: string; tx?: string }[];
+    };
+    /** Every address a browser needs to send this itself, by chain id. */
+    deployments?: Record<
+      string,
+      {
+        chain_id: number;
+        name: string;
+        explorer: string;
+        kernel: string;
+        router: string;
+        policy: string;
+        erc20: string;
+      }
+    >;
   };
   identity: {
     surveyed: boolean;
@@ -987,11 +1024,35 @@ export function RegistryView({
                         {(d.hire_flow.mainnet_proof.transactions ?? []).length} steps
                       </span>
                     </div>
-                    <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                    <p className="mt-3 max-w-[70ch] text-sm text-dim">
                       Real money, escrowed. Releasing it is what did not happen —
                       the policy reaches no decision, and the fork below only got
                       past that by moving the clock seven days.
                     </p>
+                    {/* These hashes were in the artifact from the first mainnet
+                        run and rendered as a count. A count is a claim about
+                        transactions; a link is the transaction. */}
+                    <ul className="mt-3 mb-0 grid list-none gap-1 p-0">
+                      {(d.hire_flow.mainnet_proof.transactions ?? []).map((sent, index) => (
+                        <li key={`${sent.call}-${index}`} className="flex flex-wrap items-baseline gap-2 text-xs">
+                          <span className="font-mono text-ink">{sent.call}</span>
+                          {sent.explorer ? (
+                            <a
+                              className="min-w-0 truncate font-mono text-dim underline"
+                              href={sent.explorer}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {sent.explorer.split("/tx/")[1]}
+                            </a>
+                          ) : (
+                            <span className="font-mono text-fail">
+                              reverted {sent.reverted}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -1019,6 +1080,48 @@ export function RegistryView({
                       {d.hire_flow.fork_proof.escrowed_on_mainnet === false &&
                         d.hire_flow.fork_proof.why_not_on_mainnet}
                     </p>
+
+                    {/* The fourth record, and the only one about money coming
+                        back. It sits under the fork block because it is one:
+                        `expiredAt` is a `block.timestamp` comparison, so the
+                        clock is the one thing a fork can move and a chain
+                        cannot. No hash here is a link — it was never mined
+                        anywhere a reader could check it. */}
+                    {d.hire_flow.refund_proof?.ran && (
+                      <div className="mt-4 border-t border-line pt-4">
+                        <div className="flex flex-wrap items-center gap-3 text-sm">
+                          <Badge
+                            tone={
+                              d.hire_flow.refund_proof.network === "fork" ? "warn" : "neutral"
+                            }
+                          >
+                            {d.hire_flow.refund_proof.network === "fork"
+                              ? "refund, rehearsed on a fork"
+                              : "refund, on BSC mainnet"}
+                          </Badge>
+                          <Pill tone={d.hire_flow.refund_proof.refunded ? "pass" : "fail"}>
+                            refunded: {String(d.hire_flow.refund_proof.refunded ?? false)}
+                          </Pill>
+                          <span className="font-mono text-xs text-faint">
+                            job {d.hire_flow.refund_proof.job_id} · status{" "}
+                            {d.hire_flow.refund_proof.status_before} &rarr;{" "}
+                            {d.hire_flow.refund_proof.status_after} · opens{" "}
+                            {d.hire_flow.refund_proof.expires_at_utc}
+                          </span>
+                        </div>
+                        <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                          The claim was attempted before the expiry as well as
+                          after it, and refused
+                          {(d.hire_flow.refund_proof.transactions ?? []).some(
+                            (t) => t.when === "before expiry" && !t.ok,
+                          )
+                            ? " — a recovery path only ever watched succeeding has not been told apart from a contract that would pay out at any time."
+                            : "."}{" "}
+                          {typeof d.hire_flow.refund_proof.recovered === "number" &&
+                            `${d.hire_flow.refund_proof.recovered / 1e18} of the payment token came back.`}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
@@ -1143,6 +1246,16 @@ export function RegistryView({
                 floor="The lookup refuses rather than returning a plausible address."
               />
             )}
+
+            {/* Everything above this line is a recording. This is the same
+                calls with nothing recorded — the reader's wallet signs and the
+                chain answers, including when the answer is a revert. */}
+            <EscrowConsole
+              deployments={d.hire_flow.deployments}
+              defaultJob={d.hire_flow.mainnet_proof?.job_id}
+              defaultBudget={d.hire_flow.mainnet_proof?.budget}
+              errors={d.hire_flow.errors}
+            />
           </Section>
 
           {/* --------------------------------------------------- the registry -- */}

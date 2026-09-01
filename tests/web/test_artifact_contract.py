@@ -1200,7 +1200,9 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.mainnet_proof.addresses.kernel": "",
     "hire_flow.mainnet_proof.addresses.policy": "",
     "hire_flow.mainnet_proof.addresses.router": "",
-    "hire_flow.mainnet_proof.budget": "",
+    # Seeds the console's budget field, so the page opens on a figure this
+    # repository has actually spent rather than a round number in a component.
+    "hire_flow.mainnet_proof.budget": "components/EscrowConsole.tsx",
     "hire_flow.mainnet_proof.chain_id": "",
     "hire_flow.mainnet_proof.client": "",
     "hire_flow.mainnet_proof.escrowed": "registry/view.tsx",
@@ -1217,6 +1219,50 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.mainnet_proof.settled": "registry/view.tsx",
     "hire_flow.mainnet_proof.success_criterion": "",
     "hire_flow.mainnet_proof.transactions": "registry/view.tsx",
+    # The refund. A fourth record and the only one about money coming back,
+    # rendered under the fork block because it is one until the mainnet clock
+    # passes `expiredAt`. Its hash is carried and deliberately not linked — a
+    # fork transaction is not on any explorer, and rendering it as a link would
+    # be the misquote in miniature.
+    "hire_flow.refund_proof.ran": "registry/view.tsx",
+    "hire_flow.refund_proof.network": "registry/view.tsx",
+    "hire_flow.refund_proof.job_id": "registry/view.tsx",
+    "hire_flow.refund_proof.refunded": "registry/view.tsx",
+    "hire_flow.refund_proof.recovered": "registry/view.tsx",
+    "hire_flow.refund_proof.expires_at_utc": "registry/view.tsx",
+    "hire_flow.refund_proof.status_before": "registry/view.tsx",
+    "hire_flow.refund_proof.status_after": "registry/view.tsx",
+    "hire_flow.refund_proof.transactions": "registry/view.tsx",
+    # Its own bookkeeping, carried for the same reason the other three records
+    # carry theirs: a reader who opens the JSON can check the arithmetic.
+    "hire_flow.refund_proof.balance_after": "",
+    "hire_flow.refund_proof.balance_before": "",
+    "hire_flow.refund_proof.budget": "",
+    "hire_flow.refund_proof.client": "",
+    "hire_flow.refund_proof.expires_at": "",
+    "hire_flow.refund_proof.gas_spent_wei": "",
+    "hire_flow.refund_proof.record": "",
+    # The addresses a browser needs to send any of this itself. Emitted rather
+    # than typed into TypeScript because `erc8183.py` is where a deployment is
+    # admitted after being read, and a second copy is a second thing to be
+    # wrong — the wrong one being the address a reader sends money to.
+    "hire_flow.deployments.56.kernel": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.router": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.policy": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.erc20": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.explorer": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.name": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.kernel": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.router": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.policy": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.erc20": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.explorer": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.name": "components/EscrowConsole.tsx",
+    # The console keys deployments by the wallet's chain id, so the id inside
+    # the entry is never read. Carried because a record that does not say which
+    # chain it describes is a trap for whoever reads the JSON directly.
+    "hire_flow.deployments.56.chain_id": "",
+    "hire_flow.deployments.97.chain_id": "",
     # Carried in the artifact and deliberately not rendered.
     #
     # These are the run's own bookkeeping: which addresses it used, what it

@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 141,
+      "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 325728,
-      "ours_at_block": 119325065,
+      "ours": 326127,
+      "ours_at_block": 119338726,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 325587,
-      "total_pages": 16280,
+      "total": 325990,
+      "total_pages": 16300,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,13 +47,33 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-01T10:11:03+00:00",
+    "generated_at": "2026-09-01T11:53:31+00:00",
     "git_dirty": true,
-    "git_sha": "282bc2e",
+    "git_sha": "5f08a6a",
     "source": "recorded survey"
   },
   "hire_flow": {
     "client_transaction_count": 5,
+    "deployments": {
+      "56": {
+        "chain_id": 56,
+        "erc20": "0xcE24439F2D9C6a2289F741120FE202248B666666",
+        "explorer": "https://bscscan.com",
+        "kernel": "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
+        "name": "BNB Smart Chain",
+        "policy": "0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5",
+        "router": "0x51895229E12F9876011789B04f8698af06cCD6DA"
+      },
+      "97": {
+        "chain_id": 97,
+        "erc20": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+        "explorer": "https://testnet.bscscan.com",
+        "kernel": "0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE",
+        "name": "BNB Smart Chain Testnet",
+        "policy": "0x4F4678D4439feC812Ac7674Bb3Efb4C8f5Fb78A6",
+        "router": "0xD7d36D66d2F1B608A0F943f722D27e3744f66F25"
+      }
+    },
     "errors": {
       "0x15e5dd74": "submit() on a funded mainnet job, from the address that is both its client and its provider. Name unresolved \u2014 it is in no signature database, unlike the four the fork proof resolved. After the job expires the same call answers WrongStatus() instead, so this is a live-status refusal rather than an expiry one, and that is a reading rather than a decode",
       "0x17be5b7b": "NotDecided() \u2014 settle() before the OptimisticPolicy has a decision to enforce. Observed on mainnet job 56681 both before and after its dispute window, so waiting alone does not produce one",
@@ -368,6 +388,38 @@
         "why": "after expiredAt, with no settlement: the client reclaims the escrowed budget. The answer to 'what if nobody ever completes the job'"
       }
     ],
+    "refund_proof": {
+      "balance_after": 205790336763253403,
+      "balance_before": 105790336763253403,
+      "budget": 100000000000000000,
+      "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "expires_at": 1788300296,
+      "expires_at_utc": "2026-09-01 22:04 UTC",
+      "gas_spent_wei": 75631000000000,
+      "job_id": 56681,
+      "network": "fork",
+      "ran": true,
+      "record": "vetting/identity/refund-fork-56.json",
+      "recovered": 100000000000000000,
+      "refunded": true,
+      "status_after": 5,
+      "status_before": 1,
+      "transactions": [
+        {
+          "call": "claimRefund",
+          "error": "ContractCustomError: ('0x8e78f0cb', '0x8e78f0cb')",
+          "ok": false,
+          "when": "before expiry"
+        },
+        {
+          "call": "claimRefund",
+          "gas_used": 75631,
+          "ok": true,
+          "tx": "4db07cd9ad388eee587735d033fa4c67c24c955a9d0659238dcf58d7d3a715a4",
+          "when": "after expiry"
+        }
+      ]
+    },
     "states": [
       "Open",
       "Funded",
@@ -1305,7 +1357,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 5.7,
+    "age_hours": 7.4,
     "agents": [
       {
         "agent": "warden",

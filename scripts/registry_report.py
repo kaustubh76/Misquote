@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from misquote.chain import addresses as chain_addresses
 from misquote.registry import erc8004, erc8183, hire
 from misquote.registry.erc8004 import IDENTITY_REGISTRY
 from misquote.tearsheet import provenance
@@ -217,6 +218,35 @@ def hire_flow() -> dict[str, Any]:
         "proof": _hire_proof(),
         "fork_proof": _hire_fork_proof(),
         "mainnet_proof": _hire_mainnet_proof(),
+        "refund_proof": _refund_proof(),
+        # The four addresses a browser needs to send any of this itself.
+        #
+        # They are emitted rather than typed into the web app because
+        # `erc8183.py` is where a deployment is admitted after being read, and a
+        # second copy in TypeScript is a second thing to be wrong. The console
+        # picks the entry for the wallet's chain and refuses when there is none,
+        # the same rule `sessionKeys.DEPLOYMENTS` follows.
+        "deployments": _deployments(),
+    }
+
+
+#: Cosmetic, and the only part of a deployment entry that is not read from
+#: somewhere. The addresses come from `erc8183.py` and the explorer from
+#: `chain/addresses.py`; a chain's display name is not a fact about a chain.
+CHAIN_NAMES = {56: "BNB Smart Chain", 97: "BNB Smart Chain Testnet"}
+
+
+def _deployments() -> dict[str, Any]:
+    """Every chain with a verified ERC-8183 deployment, as the UI needs it."""
+    return {
+        str(chain): {
+            "chain_id": chain,
+            "name": CHAIN_NAMES.get(chain, f"chain {chain}"),
+            "explorer": chain_addresses.DEPLOYMENTS[chain].explorer,
+            **erc8183.contracts_for(chain),
+        }
+        for chain in sorted(erc8183.JOB_ESCROW)
+        if chain in chain_addresses.DEPLOYMENTS
     }
 
 
@@ -249,6 +279,38 @@ HIRE_FORK_PATH = REPO / "vetting" / "identity" / "hire-fork-56.json"
 #: difference between the two: the fork skipped the wait and the chain will not.
 #: Three records, three claims, never merged.
 HIRE_MAINNET_PATH = REPO / "vetting" / "identity" / "hire-mainnet-56.json"
+
+
+#: The refund. A fourth record, and the only one about getting money back.
+#:
+#: `mainnet_proof` ends with the budget escrowed and both release calls
+#: refusing. That is not the end of the story — `claimRefund` opens at
+#: `expiredAt` — but the difference between "recoverable" and "recovered" is
+#: exactly the kind of claim this repository does not make on prose alone.
+#: `make claim-refund-fork` rehearses it against the real job at the current
+#: block, and `MISQUOTE_DRY_RUN=0 make claim-refund` does it for real once the
+#: clock allows. Whichever exists is published; the fork one says `network:
+#: "fork"` in every consumer's reach, and its transaction hash is deliberately
+#: not linkable — it was never on a chain anyone can look it up on.
+REFUND_MAINNET_PATH = REPO / "vetting" / "identity" / "refund-56.json"
+REFUND_FORK_PATH = REPO / "vetting" / "identity" / "refund-fork-56.json"
+
+
+def _refund_proof() -> dict[str, Any]:
+    """The recovery, mainnet if it has happened and the rehearsal if not."""
+    for path in (REFUND_MAINNET_PATH, REFUND_FORK_PATH):
+        if not path.is_file():
+            continue
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            return {"ran": False, "reason": f"{path.name} could not be read: {error}"}
+        record["record"] = str(path.relative_to(REPO))
+        return record
+    return {
+        "ran": False,
+        "reason": "no refund has been claimed — `make claim-refund-fork` rehearses it",
+    }
 
 
 def _hire_mainnet_proof() -> dict[str, Any]:

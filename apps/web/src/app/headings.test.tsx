@@ -1,6 +1,24 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render as rtlRender,
+  screen,
+  waitFor,
+  type RenderOptions,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readArtifact, serveArtifacts } from "@/test/harness";
+import { WithWallet, readArtifact, serveArtifacts } from "@/test/harness";
+
+/**
+ * Every page here renders inside `WalletProvider` in the real app — `layout.tsx`
+ * wraps the whole body so the nav's connect button survives a route change.
+ * `/registry` now has an on-chain console in it, so a page rendered without
+ * that provider is not a smaller test, it is a different tree that throws.
+ * Wrapping here keeps the call sites below unchanged and matches the layout.
+ */
+function render(ui: React.ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: WithWallet, ...options });
+}
+
 
 import AdvantagePage from "./advantage/page";
 import CategoryIndexPage from "./category/page";
