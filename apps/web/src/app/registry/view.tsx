@@ -226,6 +226,27 @@ export interface RegistryArtifact {
       not_escrowed_because?: string;
       transactions?: { call: string; tx_hash?: string; explorer?: string; reverted?: string; meaning?: string }[];
     };
+    /**
+     * The same flow on a fork, which is a different claim and never merged.
+     *
+     * `proof` is chapel, mined, and stops at `fund`. This one runs to
+     * settlement against the mainnet deployment's own bytecode at a forked
+     * block, because a fork can impersonate the payment token's owner and a
+     * live wallet has to buy from PancakeSwap first. `network` is rendered
+     * beside `escrowed` for that reason: the two records disagree, and the only
+     * thing that makes the disagreement legible is saying which is which.
+     */
+    fork_proof?: {
+      ran: boolean;
+      reason?: string;
+      network?: string;
+      job_id?: number;
+      escrowed?: boolean;
+      settled?: boolean;
+      escrowed_on_mainnet?: boolean;
+      why_not_on_mainnet?: string;
+      transactions?: { call: string; ok?: boolean }[];
+    };
   };
   identity: {
     surveyed: boolean;
@@ -921,6 +942,38 @@ export function RegistryView({
                     <strong className="text-ink">Why no escrow.</strong>{" "}
                     <Prose text={d.hire_flow.proof.not_escrowed_because} />
                   </p>
+                )}
+
+                {/* The half the chapel run cannot reach, and the label that
+                    keeps it from being read as the chapel run. A fork is not a
+                    chain, and a page that let `escrowed: true` sit next to
+                    `escrowed: false` without saying which network each is would
+                    be the misquote this site is named after. */}
+                {d.hire_flow.fork_proof?.ran && (
+                  <div className="mt-5 border-t border-line pt-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <Badge tone="warn">
+                        on a {d.hire_flow.fork_proof.network ?? "fork"}, not a chain
+                      </Badge>
+                      <Pill tone={d.hire_flow.fork_proof.escrowed ? "pass" : "fail"}>
+                        escrowed: {String(d.hire_flow.fork_proof.escrowed ?? false)}
+                      </Pill>
+                      <Pill tone={d.hire_flow.fork_proof.settled ? "pass" : "fail"}>
+                        settled: {String(d.hire_flow.fork_proof.settled ?? false)}
+                      </Pill>
+                      <span className="font-mono text-xs text-faint">
+                        job {d.hire_flow.fork_proof.job_id} ·{" "}
+                        {(d.hire_flow.fork_proof.transactions ?? []).filter((t) => t.ok).length} of{" "}
+                        {(d.hire_flow.fork_proof.transactions ?? []).length} steps
+                      </span>
+                    </div>
+                    <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                      The same seven calls, run to settlement against the mainnet
+                      kernel&rsquo;s own bytecode.{" "}
+                      {d.hire_flow.fork_proof.escrowed_on_mainnet === false &&
+                        d.hire_flow.fork_proof.why_not_on_mainnet}
+                    </p>
+                  </div>
                 )}
               </Card>
 

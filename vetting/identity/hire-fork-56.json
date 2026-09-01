@@ -1,0 +1,108 @@
+{
+  "addresses": {
+    "erc20": "0xcE24439F2D9C6a2289F741120FE202248B666666",
+    "kernel": "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
+    "policy": "0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5",
+    "router": "0x51895229E12F9876011789B04f8698af06cCD6DA"
+  },
+  "budget": 1000000000000000000000,
+  "chain_id": 56,
+  "client": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "dispute_window_s": 604800,
+  "escrowed": true,
+  "escrowed_on_mainnet": false,
+  "evaluator": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "forked_at_block": 119306292,
+  "forked_from": "BSC mainnet",
+  "gas_spent_wei": 906794000000000,
+  "job_id": 56681,
+  "job_words": [
+    "0x0000000000000000000000000000000000000000000000000000000000000020",
+    "0x000000000000000000000000000000000000000000000000000000000000dd69",
+    "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "0x00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8",
+    "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+    "0x0000000000000000000000000000000000000000000000000000000000000160",
+    "0x00000000000000000000000000000000000000000000003635c9adc5dea00000",
+    "0x000000000000000000000000000000000000000000000000000000006abe10ac",
+    "0x0000000000000000000000000000000000000000000000000000000000000003",
+    "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+    "0x000000000000000000000000000000000000000000000000000000006a9683bc",
+    "0xed085fb3552293440e34830fd3c72c8c3b2955b331f78222bfdba9cc3354fea6",
+    "0x0000000000000000000000000000000000000000000000000000000000000038",
+    "0x4d697371756f746520666f726b2070726f6f663a20646f657320746865206573",
+    "0x63726f772061636365707420612066756e646564206a6f620000000000000000"
+  ],
+  "minted_to_client": 10000000000000000000000,
+  "network": "fork",
+  "provider": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "ran": true,
+  "settled": true,
+  "success_criterion": "fund() moves the budget out of the client and settle() moves it to the provider, against the mainnet deployment's own bytecode at a forked block.",
+  "token_owner": "0x59F94AdE4F881f21ea608AD4448bf70B78e37187",
+  "transactions": [
+    {
+      "actor": "token owner",
+      "call": "mint",
+      "ok": true,
+      "seconds": 1.49
+    },
+    {
+      "actor": "client",
+      "call": "approve",
+      "gas_used": 60257,
+      "ok": true,
+      "seconds": 2.69,
+      "tx": "fff083dfeec3a47c848e1d93301da3b79e8a0e4d38be9b9545a2a62a7444bd17"
+    },
+    {
+      "actor": "client",
+      "call": "createJob",
+      "gas_used": 261803,
+      "ok": true,
+      "seconds": 7.56,
+      "tx": "d1cb411e17f9aec19e6d1d91a2fdc5a24e100e4a84321eaec0220c88621e8124"
+    },
+    {
+      "actor": "client",
+      "call": "setBudget",
+      "gas_used": 96174,
+      "ok": true,
+      "seconds": 2.5,
+      "tx": "7d6dfb27fe1e8ba9f05032935e0b05150b01bfa24bab1be9cb3f09cde34a59d9"
+    },
+    {
+      "actor": "client",
+      "call": "registerJob",
+      "gas_used": 100342,
+      "ok": true,
+      "seconds": 3.79,
+      "tx": "b9ec8dd78dbddffb132c76a16c25fba52045c93104b0cc6138f241604cd4707f"
+    },
+    {
+      "actor": "client",
+      "call": "fund",
+      "gas_used": 102541,
+      "ok": true,
+      "seconds": 2.75,
+      "tx": "80998696187ac8b84222b18322c841d682326da57879d4afdbd9ec631862d56c"
+    },
+    {
+      "actor": "provider",
+      "call": "submit",
+      "gas_used": 150946,
+      "ok": true,
+      "seconds": 2.67,
+      "tx": "d99455e100153b6fdeffc4ff6e7ea8b3aadcd7e19e22284a4209e634eef25298"
+    },
+    {
+      "actor": "client",
+      "call": "settle",
+      "gas_used": 134731,
+      "ok": true,
+      "seconds": 3.19,
+      "tx": "c15e49fff4dc0204eebb195e0205da50e66981ca4b05313014f08caaf58527af"
+    }
+  ],
+  "why_not_on_mainnet": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
+}

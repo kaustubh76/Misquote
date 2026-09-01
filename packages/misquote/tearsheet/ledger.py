@@ -110,12 +110,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         category="Registry",
         what=(
             "A Hire button that **escrows** a job. Creating, budgeting and reading "
-            "one back is done and on chain; moving money into it is not."
+            "one back is done on chain; funding and settling are proven on a fork."
         ),
         why=(
-            "Creating a job, setting its budget and reading it back all mined on "
-            "chapel. Funding one cannot: the payment token is owner-minted with no "
-            "faucet, so no wallet here can hold any."
+            "The flow runs to settlement on a mainnet fork: fund moves the budget "
+            "out, settle pays the provider. Doing it for real is a decision "
+            "about money, not a missing capability — the payment token trades on "
+            "PancakeSwap at about a dollar."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),

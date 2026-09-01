@@ -32,7 +32,10 @@ time against the live kernel — see `hire.CREATE_JOB_ERRORS`:
 `fund()` pulls the budget through the deployment's payment token, and that token
 is **owner-minted**: `mint(address,uint256)` reverts `Ownable: caller is not the
 owner`, there is no faucet among its 59 selectors, and the signer's balance is 0.
-So the escrow half of this flow cannot be exercised from here at any price.
+It is not unobtainable, though — it trades on PancakeSwap, and
+`scripts/prove_escrow_fund.py` drives the funded flow to settlement on a fork.
+So the escrow half of this flow has not been exercised from here — which is a
+fact about a balance, not about a price: the token trades on PancakeSwap.
 
 What that means is stated on the record rather than glossed: this creates,
 registers and budgets a real job on a real deployment, and **does not escrow
@@ -221,13 +224,14 @@ def main() -> int:
         record["escrowed"] = True
     else:
         record["not_escrowed_because"] = (
-            "The deployment's payment token is owner-minted: mint(address,uint256) "
-            "reverts `Ownable: caller is not the owner`, there is no faucet among "
-            "its 59 selectors, and this signer's balance is 0. So the escrow half "
-            "cannot be exercised from here at any price, and fund() also refuses a "
-            "zero budget outright (ZeroBudget(), 0xff97b861). createJob and "
-            "setBudget are real transactions on a real deployment; fund is not "
-            "among them, and this field is why rather than an omission."
+            "This signer holds none of the payment token, and nothing has been "
+            "spent to change that: it is owner-minted with no faucet, but it "
+            "**trades on PancakeSwap** against USDT at about 0.9996 — so the escrow "
+            "is a purchase away rather than out of reach. `fund()` also refuses a "
+            "zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and "
+            "`setBudget` are real transactions on a real deployment; `fund` is not "
+            "among them, and this field is why rather than an omission. The funded "
+            "flow runs to settlement on a mainnet fork — see the fork proof below."
         )
 
     job = hire.read_job(w3, args.chain, job_id)

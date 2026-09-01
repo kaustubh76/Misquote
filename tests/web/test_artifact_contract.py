@@ -1161,6 +1161,38 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.proof.reverted": "registry/view.tsx",
     "hire_flow.proof.not_escrowed_because": "registry/view.tsx",
     "hire_flow.proof.transactions": "registry/view.tsx",
+    # The fork run, which is a different claim and says so in every consumer's
+    # reach. `escrowed` on the chapel record is false and on this one is true,
+    # and the only thing keeping those apart is that `network` is rendered
+    # beside them — so it is contracted to a view rather than left as data.
+    "hire_flow.fork_proof.ran": "registry/view.tsx",
+    "hire_flow.fork_proof.network": "registry/view.tsx",
+    "hire_flow.fork_proof.escrowed": "registry/view.tsx",
+    "hire_flow.fork_proof.settled": "registry/view.tsx",
+    "hire_flow.fork_proof.job_id": "registry/view.tsx",
+    "hire_flow.fork_proof.escrowed_on_mainnet": "registry/view.tsx",
+    "hire_flow.fork_proof.why_not_on_mainnet": "registry/view.tsx",
+    "hire_flow.fork_proof.transactions": "registry/view.tsx",
+    # The fork's own bookkeeping, carried and not rendered for the same reason
+    # the chapel run's is.
+    "hire_flow.fork_proof.forked_from": "",
+    "hire_flow.fork_proof.forked_at_block": "",
+    "hire_flow.fork_proof.chain_id": "",
+    "hire_flow.fork_proof.client": "",
+    "hire_flow.fork_proof.provider": "",
+    "hire_flow.fork_proof.evaluator": "",
+    "hire_flow.fork_proof.token_owner": "",
+    "hire_flow.fork_proof.minted_to_client": "",
+    "hire_flow.fork_proof.budget": "",
+    "hire_flow.fork_proof.dispute_window_s": "",
+    "hire_flow.fork_proof.gas_spent_wei": "",
+    "hire_flow.fork_proof.job_words": "",
+    "hire_flow.fork_proof.record": "",
+    "hire_flow.fork_proof.success_criterion": "",
+    "hire_flow.fork_proof.addresses.kernel": "",
+    "hire_flow.fork_proof.addresses.router": "",
+    "hire_flow.fork_proof.addresses.policy": "",
+    "hire_flow.fork_proof.addresses.erc20": "",
     # Carried in the artifact and deliberately not rendered.
     #
     # These are the run's own bookkeeping: which addresses it used, what it

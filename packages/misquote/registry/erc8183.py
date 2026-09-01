@@ -505,7 +505,8 @@ def render() -> str:
             "  A job has been read back, and one created: see registry/hire.py and",
             "  vetting/identity/hire-97.json. What has *not* happened is an escrow —",
             "  fund() moves the deployment's payment token and that token is",
-            "  owner-minted, so this repository cannot hold one at any price.",
+            "  owner-minted — but it trades on PancakeSwap against USDT and "
+            "  WBNB, so the escrow is a purchase away rather than out of reach.",
         ]
     else:
         lines += [

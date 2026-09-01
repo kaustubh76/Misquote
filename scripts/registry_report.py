@@ -215,6 +215,7 @@ def hire_flow() -> dict[str, Any]:
         # `aacp.ESCROW_SELECTORS_RESOLVED` set.
         "errors": {**hire.CREATE_JOB_ERRORS, **hire.FLOW_ERRORS},
         "proof": _hire_proof(),
+        "fork_proof": _hire_fork_proof(),
     }
 
 
@@ -225,6 +226,34 @@ def hire_flow() -> dict[str, Any]:
 #: is a claim about three transaction hashes, and a reader should be able to tell
 #: which they are looking at.
 HIRE_PROOF_PATH = REPO / "vetting" / "identity" / "hire-97.json"
+
+
+#: The fork run, which is a different claim from the chapel one and lives in a
+#: different file for that reason.
+#:
+#: `hire-97.json` is chapel, mined, and does not escrow — the payment token is
+#: owner-minted and the signer holds none. `hire-fork-56.json` is the mainnet
+#: deployment's own bytecode at a forked block, where the owner can be
+#: impersonated and the flow runs to settlement. Publishing the second as though
+#: it were the first is the misquote this project is named after, so the two are
+#: never merged and the fork record carries `network: "fork"` in every consumer's
+#: reach.
+HIRE_FORK_PATH = REPO / "vetting" / "identity" / "hire-fork-56.json"
+
+
+def _hire_fork_proof() -> dict[str, Any]:
+    """The recorded fork run, or an honest absence."""
+    if not HIRE_FORK_PATH.is_file():
+        return {
+            "ran": False,
+            "reason": "no fork proof has been run — `make prove-escrow` writes this",
+        }
+    try:
+        record = json.loads(HIRE_FORK_PATH.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return {"ran": False, "reason": f"{HIRE_FORK_PATH.name} could not be read: {error}"}
+    record["record"] = str(HIRE_FORK_PATH.relative_to(REPO))
+    return record
 
 
 def _hire_proof() -> dict[str, Any]:
@@ -809,8 +838,9 @@ def _counts_cross_check(census: dict[str, Any], counts: dict[str, Any]) -> dict[
         "rows": rows,
         "note": (
             "One index, asked twice: we counted every row, then let 8004scan "
-            "count. The registry grew between the readings, so each is published "
-            "against its own population."
+            "count. Neither is privileged and the gap is not resolved — the "
+            "registry grew between the readings, so each is published against "
+            "its own population."
         ),
     }
 

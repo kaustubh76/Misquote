@@ -38,7 +38,7 @@
     "createJob",
     "setBudget"
   ],
-  "not_escrowed_because": "The deployment's payment token is owner-minted: mint(address,uint256) reverts `Ownable: caller is not the owner`, there is no faucet among its 59 selectors, and this signer's balance is 0. So the escrow half cannot be exercised from here at any price, and fund() also refuses a zero budget outright (ZeroBudget(), 0xff97b861). createJob and setBudget are real transactions on a real deployment; fund is not among them, and this field is why rather than an omission.",
+  "not_escrowed_because": "This signer holds none of the payment token, and nothing has been spent to change that: it is owner-minted with no faucet, but it **trades on PancakeSwap** against USDT at about 0.9996 \u2014 so the escrow is a purchase away rather than out of reach. `fund()` also refuses a zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and `setBudget` are real transactions on a real deployment; `fund` is not among them, and this field is why rather than an omission. The funded flow runs to settlement on a mainnet fork \u2014 see the fork proof below.",
   "reverted": [
     "registerJob",
     "fund"

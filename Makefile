@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
+.PHONY: prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -276,6 +276,17 @@ session-keys:  ## grant a session key, read it back, revoke it, read that back. 
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+prove-escrow:  ## drive the ERC-8183 flow to settlement on a mainnet fork. Spends nothing.
+	# The blocker `make hire` cannot clear: the payment token is owner-minted
+	# and the owner holds none to sell, so no wallet can fund a job on a live
+	# chain. A fork impersonates that owner, which is the same move
+	# `scripts/vetting_proof.py` makes for the badge mint.
+	#
+	# Needs anvil. Writes `vetting/identity/hire-fork-56.json`; `make registry`
+	# publishes it as `hire_flow.fork_proof`, beside — never merged into — the
+	# chapel record that did not escrow.
+	$(UV) run python scripts/prove_escrow_fund.py
 
 hire:  ## create an ERC-8183 job on the verified kernel and read it back. WRITES.
 	# The D1 checklist's "hire call invoked from an external script successfully

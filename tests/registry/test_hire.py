@@ -81,21 +81,36 @@ def test_job_zero_is_never_reported_as_existing() -> None:
 def test_the_create_job_errors_are_recorded_with_their_unresolved_ones() -> None:
     """Counted, not guessed — `aacp.py`'s rule, applied to error selectors.
 
-    Three of the seven were resolved to a name by preimage search and agree with
-    what varying one argument at a time produced. The other four are recorded by
-    selector with their observed behaviour, because a name that has not been
-    confirmed is a guess that will be quoted.
+    Most of these now carry a name, and the two that changed are why this test
+    is worth keeping. `0x32d53d69` was recorded as *"fund() from a wallet
+    holding none of the payment token"*, inferred from a run whose balance
+    happened to be zero; it is `PolicyNotSet()`. `0xc94463e3` was recorded as
+    *"consistent with the hook having registered the job already"*; it is
+    `PolicyNotWhitelisted()`, which is the opposite claim.
+
+    Both readings were plausible, both were quoted, and both were wrong. What
+    replaced them is a resolved preimage plus a fork that drives the flow to
+    settlement — a name and a check, rather than a name.
     """
     every = {**hire.CREATE_JOB_ERRORS, **hire.FLOW_ERRORS}
-    assert len(every) == 8
     for selector, meaning in every.items():
         assert selector.startswith("0x") and len(selector) == 10, selector
         assert meaning.strip(), selector
 
     named = [m for m in every.values() if "()" in m and "unresolved" not in m]
-    assert len(named) == 3, "HookRequired, ExpiryTooLong and ZeroBudget"
     unresolved = [m for m in every.values() if "unresolved" in m]
-    assert len(unresolved) == 5, "and the rest say so rather than inventing a name"
+    assert len(named) + len(unresolved) == len(every), (
+        "every selector is either named or explicitly unresolved; there is no "
+        "third state in which one is described without saying which"
+    )
+    assert len(named) >= 7, "the resolved ones stay resolved"
+
+    # The specific corrections, pinned so a regression cannot quietly restore a
+    # reading the fork proof disproved.
+    assert "PolicyNotSet()" in hire.FLOW_ERRORS["0x32d53d69"]
+    assert "holding none of the payment token" not in hire.FLOW_ERRORS["0x32d53d69"]
+    assert "PolicyNotWhitelisted()" in hire.FLOW_ERRORS["0xc94463e3"]
+    assert hire.EVALUATOR_MUST_BE_THE_ROUTER is True
 
 
 def test_the_hook_defaults_to_the_router_and_never_to_zero() -> None:

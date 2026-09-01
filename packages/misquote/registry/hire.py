@@ -80,20 +80,52 @@ CREATE_JOB_ERRORS: dict[str, str] = {
 }
 
 #: Errors from the rest of the sequence, same two methods.
+#: **Two of these were read wrong, and a fork is what found out.**
+#:
+#: `0x32d53d69` was recorded as *"fund() from a wallet holding none of the
+#: payment token"*, inferred from a run where the balance happened to be zero.
+#: It is `PolicyNotSet()`. A fork with 10,000 tokens in the client's hand and an
+#: allowance above the budget reverts with exactly the same four bytes, which is
+#: the observation the old reading could not have survived — and could not have
+#: been made without a balance nobody could obtain.
+#:
+#: `0xc94463e3` was recorded as *"consistent with the hook having registered the
+#: job already"*. It is `PolicyNotWhitelisted()` — the opposite: nothing had
+#: registered anything, and the policy offered was not on the router's list.
+#:
+#: The names come from the public signature database, not from this repository's
+#: own 21,060-candidate search, and they are recorded as *resolved* rather than
+#: *inferred* for that reason. `scripts/prove_escrow_fund.py` then drove the
+#: whole flow to settlement on a fork, which is what turns a name into a check.
 FLOW_ERRORS: dict[str, str] = {
     "0xff97b861": "ZeroBudget() — fund() refuses a budget of zero, so a job with "
     "no budget cannot be escrowed even as a gesture",
-    "0x32d53d69": "fund() on a job with a real budget, from a wallet holding "
-    "none of the payment token. Name unresolved across 360 candidates. The "
-    "allowance was set and the balance was zero, so the reading is consistent "
-    "with the kernel's pull failing — and it is a reading, not a decode",
-    "0xc94463e3": "registerJob reverts on a job created with the router as its "
-    "hook, for every policy argument tried including the OptimisticPolicy the "
-    "deployment publishes. Name unresolved. The behaviour is consistent with the "
-    "hook having registered the job already, which would make step 3 of "
-    "erc8183.steps() a no-op on this deployment — but that is an inference from "
-    "a revert, and nothing here has read a registration back out to confirm it",
+    "0x32d53d69": "PolicyNotSet() — fund() on a job whose policy was never "
+    "registered. Nothing to do with the balance: the fork proof holds ten times "
+    "the budget and reverts identically until registerJob succeeds",
+    "0xc94463e3": "PolicyNotWhitelisted() — registerJob offered a policy the "
+    "router does not accept. Observed on chapel; mainnet fails earlier, at "
+    "RouterNotEvaluator()",
+    "0xec43ea50": "RouterNotEvaluator() — registerJob on a job whose evaluator "
+    "is not the EvaluatorRouter. The address that settles and the address named "
+    "as evaluator are the same one; see EVALUATOR_MUST_BE_THE_ROUTER",
+    "0x8e78f0cb": "WrongStatus() — submit() before fund() succeeded. The status "
+    "machine is real and the order in steps() is not decorative",
 }
+
+#: **The evaluator must be the EvaluatorRouter itself.**
+#:
+#: `create_job` refuses a zero evaluator because only the evaluator may settle,
+#: and that was right as far as it went. What no reading had established is
+#: which non-zero address the deployment accepts: name a third wallet and
+#: `registerJob` reverts `RouterNotEvaluator()`, so the job can never be
+#: registered, so `fund` reverts `PolicyNotSet()` — two unnamed errors, one
+#: cause, and neither of them about money.
+#:
+#: A client built from the EIP names a human evaluator here. That client cannot
+#: escrow anything on this deployment, and the failure surfaces two transactions
+#: later than the mistake.
+EVALUATOR_MUST_BE_THE_ROUTER = True
 
 #: **The hook is mandatory, and only one address is accepted.**
 #:
@@ -352,6 +384,41 @@ class JobWriter:
         self.sent.append(result)
         return result
 
+    def submit(self, job_id: int, deliverable: bytes, opt_params: bytes = b""):
+        """`submit`. Funded -> Submitted, sent by the **provider**.
+
+        Three arguments, not the EIP's two — the signature is
+        `submit(uint256,bytes32,bytes)` and a client encoding the standard's
+        shape hits a selector that does not exist. That is the finding
+        `erc8183_abi.py` recovered from bytecode, and this is the call site that
+        depends on it.
+
+        `deliverable` is a 32-byte commitment to whatever was produced. Nothing
+        on chain interprets it, so this does not pretend to: it is passed
+        through and recorded, never decoded.
+        """
+        if len(deliverable) != 32:
+            raise ValueError(
+                f"deliverable is {len(deliverable)} bytes; the ABI takes a "
+                f"bytes32 and web3 will not pad it for you"
+            )
+        call = self.kernel.functions.submit(int(job_id), deliverable, opt_params)
+        result = self.signer.send(self.signer.build(call))
+        self.sent.append(result)
+        return result
+
+    def settle(self, job_id: int, opt_params: bytes = b""):
+        """`settle` — on the **router**, sent by the evaluator.
+
+        The last of the three contracts. `createJob` refuses a zero evaluator
+        because only the evaluator reaches here, and a job nobody can settle is
+        money that only `claimRefund` can retrieve.
+        """
+        call = self.router.functions.settle(int(job_id), opt_params)
+        result = self.signer.send(self.signer.build(call))
+        self.sent.append(result)
+        return result
+
     def claim_refund(self, job_id: int):
         """The recourse, after `expiredAt`, when nobody settled."""
         call = self.kernel.functions.claimRefund(int(job_id))
@@ -397,6 +464,7 @@ __all__ = [
     "CREATE_JOB_ERRORS",
     "FLOW_ERRORS",
     "REQUIRED_HOOK_IS_THE_ROUTER",
+    "EVALUATOR_MUST_BE_THE_ROUTER",
     "Job",
     "JobWriter",
     "drift",
