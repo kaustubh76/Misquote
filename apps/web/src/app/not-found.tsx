@@ -63,9 +63,8 @@ export default function NotFound() {
     <>
       <h1 className="text-3xl leading-[1.15] font-semibold text-balance">No such page</h1>
       <p className="mt-3 max-w-[62ch] text-dim">
-        This site is a static export: it contains exactly the pages listed below and
-        nothing else, so a URL that is not one of them was never generated. No data is
-        missing — the route simply does not exist.
+        A static export contains exactly the pages below and nothing else. No data is
+        missing — this route was never generated.
       </p>
 
       <ul className="mt-8 grid list-none gap-3 p-0 sm:grid-cols-2">
@@ -83,9 +82,8 @@ export default function NotFound() {
       </ul>
 
       <p className="mt-8 text-sm text-faint">
-        Agent pages live at <code className="font-mono text-xs">/agent/&lt;name&gt;</code> —
-        one per agent named in{" "}
-        <code className="font-mono text-xs">artifacts/index.json</code>.
+        Agent pages live at <code className="font-mono text-xs">/agent/&lt;name&gt;</code>,
+        one per agent on the overview.
       </p>
     </>
   );

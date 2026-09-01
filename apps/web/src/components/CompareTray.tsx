@@ -256,7 +256,7 @@ export function CompareTray() {
                       // makes the comparison impossible is narrower and permanent:
                       // it holds no range of its own, so the columns here measure a
                       // position it does not take.
-                      reason="One of these holds a range and the other chooses which venue to put capital in. An allocation agent has no range of its own, so there is no in-range fraction to report and the rows below would be blank — and a blank under a row labelled 'in range' reads as a measurement that came out empty rather than one that does not exist."
+                      reason="An allocation agent holds no range of its own, so there is no in-range fraction to report and every row here would be blank."
                       floor="Compare two liquidity agents, or read the allocation card on its own."
                     />
                   </div>

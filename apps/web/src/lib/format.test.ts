@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY, amount, fixed, fraction, money, pct, signOf, signed } from "./format";
+import { EMPTY, amount, fixed, fraction, money, pct, shortAddress, signOf, signed } from "./format";
 
 describe("missing values never acquire a judgement", () => {
   // The bug: `net > 0 ? "pos" : "neg"`. `undefined > 0` is false, so the else
@@ -142,5 +142,26 @@ describe("a small amount is not rounded to nothing", () => {
     // it is shown at the cap.
     expect(amount(1e-12).length).toBeLessThanOrEqual("0.00000000".length);
     expect(amount(0)).toBe("0.00");
+  });
+});
+
+describe("shortAddress shortens both widths a chain hands you", () => {
+  const address = "0x3669" + "a".repeat(35) + "0";
+  const txHash = "0xd800" + "b".repeat(59) + "3";
+
+  it("shortens an address", () => {
+    expect(shortAddress(address)).toBe("0x3669…aaa0");
+  });
+
+  it("shortens a transaction hash too", () => {
+    // Only the 40-hex width was matched, so a 66-char hash came back whole.
+    // `/registry` prints two per registration and scrolled 118px at 390px.
+    expect(shortAddress(txHash)).toBe("0xd800…bbb3");
+    expect(shortAddress(txHash).length).toBeLessThan(txHash.length);
+  });
+
+  it("returns anything else untouched, rather than mangling it", () => {
+    expect(shortAddress("PancakeSwap v3 WBNB/USDT")).toBe("PancakeSwap v3 WBNB/USDT");
+    expect(shortAddress("0xabc")).toBe("0xabc");
   });
 });

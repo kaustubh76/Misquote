@@ -24,7 +24,7 @@
   "at_pool_scale": {
     "best_apr_seen": 1.099435,
     "capital_quote": 1705.0,
-    "derived_from": "the largest notional that stayed under A1's ceiling on every sample of this tape, for the deepest range on offer \u2014 a fraction of the pool's own liquidity over the quoted width, which does not depend on what this agent brings",
+    "derived_from": "the largest notional that stayed under A1's ceiling on every sample of this tape, for the deepest range on offer — a fraction of the pool's own liquidity over the quoted width, which does not depend on what this agent brings",
     "entries": 1,
     "exits": 0,
     "invested_fraction": 0.996,
@@ -32,7 +32,7 @@
     "pool_held_samples": 250,
     "quote": {
       "annualised": false,
-      "basis": "net return on supplied capital (realized yield \u2212 switch costs), over 125h \u2014 too short to annualise honestly",
+      "basis": "net return on supplied capital (realized yield − switch costs), over 125h — too short to annualise honestly",
       "hours_per_window": 125.0,
       "note": "",
       "p25": 0.10637765676632457,
@@ -59,7 +59,7 @@
       }
     ]
   },
-  "badge": "COUNTERFACTUAL \u2014 this position was not held",
+  "badge": "COUNTERFACTUAL — this position was not held",
   "build": {
     "command": "python scripts/router_showcase.py",
     "generated_at": "2026-08-29T07:53:51+00:00",
@@ -70,14 +70,14 @@
   "capital_quote": 10000.0,
   "category": "Yield",
   "caveats": [
-    "COUNTERFACTUAL \u2014 this position was not held",
-    "Rates are realized \u2014 derived by differencing Venus's borrowIndex accumulator, never from supplyRatePerBlock(), whose conversion to an annual figure needs a blocks-per-year constant that is not readable from chain and whose plausible values span 6.67x (A12, P-22).",
+    "COUNTERFACTUAL — this position was not held",
+    "Rates are realized — differenced from Venus's borrowIndex, never from supplyRatePerBlock(), whose annualisation needs a constant that is not readable from chain (A12, P-22).",
     "The switching boundary is the myopic break-even, widened by a published margin. It is not a solved free boundary (A13).",
     "Switch cost uses the full pool fee, not the LP's share of it: a router paying to swap pays PancakeSwap's protocol cut too (P-1).",
-    "A pool venue is quoted NET of its convexity cost \u2014 realized fees minus the LVR the same window actually booked. The gross fee APR is the number every other venue quotes, and ranking it against a lending market's net supply rate would let it win on a subtraction it had not made (A10, A21).",
-    "These are not the same risk. A supplied dollar earns a dollar rate and its principal stays a dollar. An LP range earns a rate measured in the pool's own quote token, and its principal is two assets whose value moves with the price \u2014 so a higher figure is not simply better, and the two numbers are not interchangeable however carefully each is derived.",
-    "There is no width-free fee APR: two LPs in one pool at one moment earn differently because they chose differently. Each range here is quoted at the width `make pools` measured as the leader over this tape, and `pools.json` records that the lead is not separated at this sample size (A21, A23).",
-    "A window holding fewer than 30 swaps has no verdict rather than a small number, and A1's ceiling is a fraction of the pool's own depth over the quoted range \u2014 so a range can pay well and still be refused for being too shallow to take the position.",
+    "A pool venue is quoted NET of its convexity cost, so it is never ranked on a subtraction it did not make (A10, A21).",
+    "Not the same risk: a supplied dollar stays a dollar, an LP range holds two assets that move with the price.",
+    "There is no width-free fee APR. Each range is quoted at the width measured as the leader, and that lead is not separated at this sample size (A21, A23).",
+    "A window under 30 swaps has no verdict, and A1 caps a position at a fraction of the pool's depth — so a range can pay well and still be refused as too shallow.",
     "2 market(s) have no NewReserveFactor row on the tape; 0.1 was used and the card says so per venue."
   ],
   "cost_model": {
@@ -87,7 +87,7 @@
     "slippage_bps": 1.0
   },
   "counterfactual": true,
-  "finding": "Router supplied and then moved 1 time(s). Over 250h the best realized dollar rate was 2.98%, and the largest gap between the two venues reached 1.074pp against a round-trip hurdle of 1.059pp \u2014 so the edge cleared, and only just. It held the better-paying venue on 68% of samples, earning 6.15 against 1.0304 of cost. A boundary that is crossed narrowly is the interesting case: the same agent declined to move on a 0.3pp edge earlier in this tape.",
+  "finding": "Router moved 1 time(s) over 250h. Best realized rate 2.98%; the widest venue gap reached 1.074pp against a 1.059pp hurdle — the edge cleared, and only just. It held the better venue on 68% of samples.",
   "kind": "allocation",
   "params": {
     "cooldown_s": 21600,
@@ -98,7 +98,7 @@
     "persistence_samples": 3,
     "switch_cost_margin": 1.0
   },
-  "pool_finding": "Router measured 2 PancakeSwap range(s) as venues and entered none of them, and the reason is size rather than yield. A1 caps a replayed position at 1% of the venue it sits in, and against a notional of 10,000 the ceilings are: PancakeSwap v3 WBNB/USDT 0.05% at +/-80 ticks tops out at 1,752; PancakeSwap v3 WBNB/USDT 0.25% at +/-400 ticks tops out at 92. The fee APR was measured and is on the card; what the ranges could not do is absorb this much capital without moving the price the replay is priced against. At a smaller notional the same policy over the same tape reaches a different answer, which is why the ceiling is published beside each range rather than the refusal alone.",
+  "pool_finding": "Router measured 2 PancakeSwap range(s) and entered none — size, not yield. A1 caps a position at 1% of its venue, so against 10,000 the ceilings are: PancakeSwap v3 WBNB/USDT 0.05% at +/-80 ticks tops out at 1,752; PancakeSwap v3 WBNB/USDT 0.25% at +/-400 ticks tops out at 92.",
   "provenance": {
     "every_number_derived": true,
     "hours_covered": 168.0,
@@ -107,7 +107,7 @@
   },
   "quote": {
     "annualised": false,
-    "basis": "net return on supplied capital (realized yield \u2212 switch costs), over 125h \u2014 too short to annualise honestly",
+    "basis": "net return on supplied capital (realized yield − switch costs), over 125h — too short to annualise honestly",
     "best_venue_p50": 0.0,
     "hours_per_window": 125.0,
     "hurdle_apr": 0.010587,

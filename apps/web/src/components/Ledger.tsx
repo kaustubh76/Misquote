@@ -58,10 +58,6 @@ export function NotBuiltCard({ entry }: { entry: NotBuiltEntry }) {
             <Prose text={entry.why} />
           </dd>
         </div>
-        <div>
-          <dt className="text-xs tracking-wide text-faint uppercase">Check it</dt>
-          <dd className="m-0 font-mono text-xs break-words text-faint">{entry.evidence}</dd>
-        </div>
       </dl>
     </article>
   );

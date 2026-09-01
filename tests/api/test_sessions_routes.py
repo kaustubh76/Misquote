@@ -64,24 +64,23 @@ def test_asking_whether_activation_is_possible_succeeds(client: TestClient) -> N
 
     assert body["available"] is True
     assert body["module"], "a verified module must be published, not just claimed"
-    assert body["searched"], "an answer must still say where it looked"
     assert body["evidence"], "and what it read"
 
 
-def test_the_search_list_names_the_source_that_was_missed() -> None:
-    """The defect was the search list, not the search.
+def test_the_capability_publishes_no_file_paths(client: TestClient) -> None:
+    """A capability answer is read by a person, not by a build.
 
-    `SEARCHED` named three files under `vetting/addresses/` — all of them this
-    repository's own output — and the module concluded from their contents that
-    no session-key module had been verified anywhere. A search of your own
-    output directory reported as a search of the world can only ever tell you
-    what you already knew, and the addresses were in a package this repository
-    had already read a different table out of.
+    This used to publish a `searched` list of seven file paths and package entry
+    points, which `/activate` rendered verbatim as a mono list. The reading it
+    stood for is still published — `evidence` carries what was read and what was
+    not — without naming a file at anyone.
     """
-    joined = " ".join(keys.SEARCHED)
-    assert "altananetwork/sdk" in joined, (
-        "the SDK is where the addresses were the whole time; a search list that "
-        "omits it repeats P-24"
+    body = client.get("/sessions/capability").json()
+
+    assert "searched" not in body
+    joined = " ".join(body["evidence"])
+    assert ".json" not in joined and ".js" not in joined, (
+        f"a file path reached the capability payload: {joined}"
     )
 
 

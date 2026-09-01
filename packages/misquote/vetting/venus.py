@@ -212,7 +212,7 @@ def _survey_market(reader: Reader, report: VenusReport, market, listed: set[str]
         got = str(reader.call(market.address, "underlying()"))
         ok = got.lower() == market.underlying.lower()
         return ok, (
-            f"underlying() returns {got}, which chain/addresses.py verified independently"
+            f"underlying() returns {got}, which the address table verified independently"
             if ok
             else f"underlying() returns {got}, config says {market.underlying}"
         )
@@ -248,7 +248,7 @@ def _survey_market(reader: Reader, report: VenusReport, market, listed: set[str]
     _add("has code", "A1", has_code)
     _add("names the comptroller", "V-14", names_the_comptroller)
     _add("is listed by the comptroller", "V-14", is_listed)
-    _add("underlying agrees with addresses.py", "V-15", underlying_agrees)
+    _add("underlying agrees with the address table", "V-15", underlying_agrees)
     _add("symbol agrees", "V-14", symbol_agrees)
     _add("vToken decimals agree", "V-16", vtoken_decimals_agree)
     _add("has accrued interest", "V-17", accrues)

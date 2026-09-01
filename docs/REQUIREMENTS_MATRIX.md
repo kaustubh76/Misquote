@@ -1,10 +1,10 @@
 # Requirements Matrix
 
-Every complaint, conflict, and open question, with its status. `Readme.md` rule 1 says the spec wins
+Every complaint, conflict, and open question, with its status. The README rule 1 says the spec wins
 when code and spec conflict, and that conflicts get flagged rather than silently resolved. This file
 is where they get flagged.
 
-**No equation, parameter, or test in `WARDEN_SPEC_v1.0_FROZEN.md` is changed by anything below.**
+**No equation, parameter, or test in the frozen spec is changed by anything below.**
 Every entry is a conflict in the reuse manifest or in a premise, not in the math.
 
 Status key: **OPEN** · **RESOLVED** · **ACCEPTED** (resolution agreed, implementation pending)
@@ -30,7 +30,7 @@ dividing by `L_pool + L_h` counts our own liquidity twice and understates our sh
   accountant: `True` for a real position (use `L_h/L_pool`), `False` for a hypothetical one (use the
   spec form). Default is the spec form, which is the conservative direction — it understates our fees.
 
-Lands in: `packages/misquote/lvr/accountant.py` (Step 9).
+Lands in: the LVR accountant (Step 9).
 
 ### D-2 · "My own historical BSC positions" do not exist — ACCEPTED
 
@@ -87,12 +87,12 @@ directly. The hand-computed fixture test in Step 7 exists specifically to catch 
 ### D-4 · Mission Control has no signing and no nonce management — ACCEPTED
 
 Spec §9 lists Mission Control as the source for "BSC RPC layer, wallet/signing, nonce mgmt, tx
-retry". Verified: `src/ictbot/api/onchain.py` is **read-only and keyless** by design. Signing is
-delegated to a `twak` CLI subprocess (`exec/twak_client.py`) and to the `bnbagent==0.3.5` SDK.
+retry". Verified: its on-chain module is **read-only and keyless** by design. Signing is
+delegated to a `twak` CLI subprocess and to the `bnbagent==0.3.5` SDK.
 Searching the repo for `get_transaction_count`, `sign_transaction`, `send_raw_transaction`, and
 `build_transaction` returns nothing.
 
-**Resolution.** The signer to port is PolyLambda's `execution/testnet_chain.py::AmoySigner` — chain-id
+**Resolution.** The signer to port is PolyLambda's `AmoySigner` — chain-id
 guard evaluated before signing, a `_NONCE_RACE` classifier with a refetch-once outer loop, `_rpc_retry`
 that never retries a revert, the web3 v6/v7 `raw_transaction` compatibility shim, and a receipt poller
 that retries through rate limits. From Mission Control, port only the **read** path
@@ -112,13 +112,13 @@ Step 17, not the single-pool tape's.
 
 ### D-6 · Vault Analyzer is not code — ACCEPTED
 
-Spec §9 and `Readme.md` §6 list Vault Analyzer as the source for "metric/report generation patterns"
+Spec §9 and the README §6 list Vault Analyzer as the source for "metric/report generation patterns"
 feeding `packages/tearsheet`. It is a methodology document
-(`/Users/apple/Downloads/vault-analyzer-guide.md`: 5 hard gates, 10 scored parameters P1–P10, verdict
+(its guide: 5 hard gates, 10 scored parameters P1–P10, verdict
 bands) plus a rendered artifact. There is no source code.
 
-**Resolution.** `packages/tearsheet` ports Mission Control's `scripts/live_trades_matrix.py` (JSONL →
-markdown with zero hand-entered numbers) and `scripts/session_report.py` (including
+**Resolution.** `packages/tearsheet` ports Mission Control's trade matrix script (JSONL →
+markdown with zero hand-entered numbers) and its session report (including
 `_verdict(n, m, t, min_n=30)`, which refuses to call a result below a sample-size floor — that
 function is the honest-numbers guarantee and survives the port unchanged). Vault Analyzer's
 methodology goes to `vetting/`, where gates-before-scores is the right shape.
@@ -159,7 +159,7 @@ The endpoints do not object to the *range*. They object to the *rate*.
 > and the rate was never the whole story. The deviation below still stands: two clocks are the right
 > design, and the cost it names is real. It is the causal claim that was over-read.
 
-**Deviation.** `chain/live_source.py` keeps two clocks: the **decision clock** ticks at Δs and drives
+**Deviation.** The live source keeps two clocks: the **decision clock** ticks at Δs and drives
 the policy, and the **poll clock** governs how often we may ask the chain anything (60s by default).
 Between polls, `events_since` returns nothing and `head()` returns the last head actually observed —
 not an interpolation. A source that filled the gap would make the agent look responsive while feeding
@@ -227,14 +227,14 @@ than in the reuse manifest.
 
 **Resolution.** `KappaFit` carries `kappa_per_tick` (as §5.2 measures it, published in the appendix)
 and `kappa_per_logprice` (what the policy consumes), with one named conversion between them.
-`tests/core/test_units.py` asserts the round trip, the plausibility band, and that the unconverted
+The unit tests assert the round trip, the plausibility band, and that the unconverted
 value is still absurd — so the bug cannot return quietly.
 
 ### V-2 · `κ_default` was an invented number — **fitted and published as G-4, 17 Aug 2026**
 
 §5.2 says "fall back to `κ_default` and label it"; the §8 parameter table has no κ row at all. The
 implementation used 50.0, an unpublished number that was the dominant driver of range width whenever
-the fallback path was taken — a direct breach of `Readme.md` rule 6.
+the fallback path was taken — a direct breach of the README rule 6.
 
 **Resolution.** Renamed `PROVISIONAL_KAPPA_PER_LOGPRICE` with its basis stated in the source. Step 8
 fits κ on 30 days of the target pool's real history and publishes the measured value as **G-4** with
@@ -341,7 +341,7 @@ invisible to it; Grid ignores health entirely. Sentinel's *primary* signal is th
 never withdrew. An agent that consults a signal among many cannot tell a quiet signal from a broken
 one; an agent that consults it first finds out immediately.
 
-**Resolution.** `estimators/imbalance.py` computes `z = Σs / √(Σs²)` over the trailing M swaps, where
+**Resolution.** The imbalance estimator computes `z = Σs / √(Σs²)` over the trailing M swaps, where
 `s` is signed quote volume taken straight from `amount1` — the event's own sign convention, so there
 is no direction to reconstruct and nothing to get backwards. Under the null that each swap's
 direction is a fair coin with its magnitude as observed, `E[Σs] = 0` and `Var[Σs] = Σs²`, so this is
@@ -355,8 +355,8 @@ have now shipped, both found by accident; this one is structural.
 
 ### V-12 · The policy and the engine applied *different* toxicity rules
 
-`policy.py` tested `imb_t > z_pull`; `engine.py`'s streak logic tested `|imb_t| > z_pull`. On one-way
-*selling* the policy would call the pool clean while the engine reset the `clear_streak` that governs
+The policy tested `imb_t > z_pull`; the engine's streak logic tested `|imb_t| > z_pull`. On one-way
+*selling* The policy would call the pool clean while the engine reset the `clear_streak` that governs
 re-entry — an agent held out of the market by a condition its own policy said was not happening.
 
 Neither was wrong about the value. There were two rules. Invisible while V-11 kept the value at zero.
@@ -395,7 +395,7 @@ that depends on direction, and it makes every such rule look like it passes.
 
 ### V-14 · A Venus market must be one the Comptroller owns, not one that answers — **21 Aug 2026**
 
-Cited by `vetting/venus.py`'s `names the comptroller`, `is listed by the comptroller` and
+Cited by the Venus reader's `names the comptroller`, `is listed by the comptroller` and
 `symbol agrees` checks.
 
 A contract that answers `symbol()` and `comptroller()` is not thereby a market of that Comptroller —
@@ -410,13 +410,13 @@ by a plausible impostor; all three together require actually being the deploymen
 
 ### V-15 · The underlying is the one this repository verified from the other direction — **21 Aug 2026**
 
-Cited by `underlying agrees with addresses.py`.
+Cited by `underlying agrees with the address table`.
 
 `vUSDT.underlying()` returns `0x55d398326f99059fF775485246999027B3197955`, byte-identical to
-`USDT_MAINNET` in `chain/addresses.py` — an address verified months earlier, from the PancakeSwap
+`USDT_MAINNET` in the address table — an address verified months earlier, from the PancakeSwap
 side, as token0 of the flagship pool. Two chains of reasoning that started in different places
 landing on the same twenty bytes is a different quality of evidence from one chain repeated, and it
-is the same argument `registry/aacp.py` records for the ERC-8004 identity registry.
+is the same argument the AACP reader records for the ERC-8004 identity registry.
 
 ### V-16 · A vToken's decimals are not its underlying's — **21 Aug 2026**
 
@@ -502,13 +502,13 @@ returning the identical number.
 **The chain, four links, each individually reasonable:**
 
 1. `/quote`'s "Replay this pool" sends `{pool}` and nothing else.
-2. `api/quote.py` forwards `payload.get("capital_quote")` — `None`.
-3. `ops/quote_job.py` did `float(params.get("capital_quote") or 0.0)`. `None` became **0.0**.
-4. `replay/ranges.py` did `fraction = r.net_quote / capital_quote if capital_quote > 0 else 0.0`.
+2. The quote route forwards `payload.get("capital_quote")` — `None`.
+3. The job runner did `float(params.get("capital_quote") or 0.0)`. `None` became **0.0**.
+4. The range replay did `fraction = r.net_quote / capital_quote if capital_quote > 0 else 0.0`.
 
 Every return is therefore exactly `0.0`, the percentiles of a constant are that constant, and
 `sufficient=True` publishes it. **The flagship flow — the Personal Quote Engine, the thing
-`Readme.md` §1 calls the kill-shot — answered every hire with a zero range that looked like an
+the README §1 calls the kill-shot — answered every hire with a zero range that looked like an
 answer.** On the deployed site, to anyone who pressed the button.
 
 **Why it survived.** Every guard that should have caught it was pointed elsewhere. `A1` refuses a
@@ -528,13 +528,13 @@ is a number.
 **Fixed in two places, and the split is the point.**
 
 - **The engine refuses.** `capital_quote <= 0` now returns `sufficient=False` with its reason, in the
-  same shape as the A1 branch directly above it. A default *inside* the engine would make it quietly
+  same shape as the A1 branch directly above it. A default *inside* The engine would make it quietly
   quote a size nobody asked for, which is the same defect wearing better clothes.
 - **The job defaults**, to `DEFAULT_CAPITAL_QUOTE` — the unit the published cards already use. That is
   the caller that knows what capital means to it, and a hire naming only a pool should get the
   marketplace's own unit rather than an error.
 
-`tests/replay/test_ranges.py` pins all three cases: zero refused, negative refused (`> 0` meant `-1`
+The range tests pin all three cases: zero refused, negative refused (`> 0` meant `-1`
 took the same silent branch), and a positive capital still dividing plainly.
 
 *The lesson worth keeping:* a division guard is a refusal wearing a conditional. `x / y if y > 0 else
@@ -544,7 +544,7 @@ it is the one that gets published.
 
 ### P-31 · A simulation layer that was complete, deployed, and could not fire — **31 Aug 2026**
 
-`lib/scenario.ts` is 161 lines of carefully-argued simulation: a scenario short-circuits above
+The scenario module is 161 lines of carefully-argued simulation: a scenario short-circuits above
 `apiBase()` so no request is issued, it can only ever be labelled `simulated`, its refusals are
 terminal, and it is never default and never sticky. Three fixtures were committed. All three are
 **served in production** — fetched off `misquote.vercel.app`, all 200.
@@ -552,7 +552,7 @@ terminal, and it is never default and never sticky. Three fixtures were committe
 **Nothing linked to any of it.** The only affordance in the entire UI was the button that *leaves* a
 simulation. To reach the feature you had to know `?scenario=` existed and then guess one of three
 names printed on no page, in no README, and in no judge document. Commit `c651036` touched
-`layout.tsx` for the banner mount and nothing else in the UI; the follow-up added browser assertions
+the root layout for the banner mount and nothing else in the UI; the follow-up added browser assertions
 and still no way in.
 
 That is the fifth instance of this repository's recurring defect — built and wired to no reader,
@@ -562,14 +562,14 @@ underneath it were worse.
 **1. The flagship fixture was dead code.** `quote-thin-tape` records the refusal the feature exists
 to expose — *"the most important thing this site does"*, per its own `why`. `scenarioResponse` was
 reachable from exactly one place, `loadLive`, and `/quote` does not read, it **posts**:
-`app/quote/view.tsx` called `apiBase()` and then a raw `fetch`, **below** the short-circuit. Its only
+The quote view called `apiBase()` and then a raw `fetch`, **below** the short-circuit. Its only
 key, `"POST /quote"`, reached `loadLive` in one unit test and nowhere else.
 
 The consequence is worse than an unused file. Under `?scenario=quote-thin-tape` the page rendered the
 simulation banner and then issued a **real request to the live API** — a page saying *simulated*
 while talking to production, which is precisely what the four rules exist to prevent.
 
-**2. The guard passed vacuously.** `check-pages.mjs` listed that route as
+**2. The guard passed vacuously.** The browser check listed that route as
 `["/quote/", "quote-thin-tape", null]` — needle `null`, so the refusal text was never asserted. What
 it did assert, beneath a comment reading `// The load-bearing one.`, was that **zero** requests
 reached the API. That held trivially, *because nothing was ever submitted*.
@@ -599,7 +599,7 @@ both is "what would break if this were deleted?"
 ### P-30 · Two ways for a proof to fail silently, and both report the finding as false — **31 Aug 2026**
 
 Building the `mintable-range` proof-of-concept produced two failures worth more than the proof. The
-mint reverted twice, and **neither time did anything crash**. `scripts/vetting_proof.py` published
+mint reverted twice, and **neither time did anything crash**. The proof runner published
 `held: false` with a straight face, `/vetting` rendered it, and the reading was indistinguishable
 from *the pool will not accept a position at these bounds* — a badge check failing, on a pool the
 badge had passed.
@@ -694,14 +694,14 @@ one as though it did is the same mistake as reading `jobs(uint256)` reverting as
 named something else" (P-18) — a negative result with one explanation assumed and others unchecked.
 
 **It is SIWE, and the message is theirs.** `/auth/nonce` returns EIP-4361 — a nonce, a domain, a
-chainId, a ten-minute `expiresAt`, and the exact `message` string. `registry/authenticate.py` signs
+chainId, a ten-minute `expiresAt`, and the exact `message` string. The authenticator signs
 **that string verbatim**. Reconstructing a SIWE message from its parts is the standard way to produce
 a signature that recovers to the correct address and still fails verification: one character of
 whitespace, one field ordering, one timestamp rounded differently.
 
 **The exchange completes.** `make termix-login` gets a nonce, signs it as the operator, and receives
 an access token and a refresh token. `/api/v1/agents` — `401` unauthenticated — answers. The record
-in `vetting/identity/termix-auth.json` carries **no credential**, and a test asserts the file holds
+in the recorded authentication carries **no credential**, and a test asserts it holds
 no token, no refresh token, no signature and no nonce; `Session.evidence()` has no field that could
 hold one, so recording more would take a visible code change rather than an attribute access.
 
@@ -724,8 +724,8 @@ The `ERC-8183 hire flow` ledger entry gave its blocker as:
 > escrowing a job means signing five client transactions and moving real USDT, and **nothing here
 > can sign**
 
-That was false when it was written. `chain/signer.py` signs, and `registry/identity.py` broadcast
-**six chapel transactions** whose hashes were already in `vetting/identity/97.json` and rendered on
+That was false when it was written. The signer signs, and the identity module broadcast
+**six chapel transactions** whose hashes were already recorded and rendered on
 `/registry`. What was actually missing was an **ABI** — there was no calldata builder for
 `createJob`, `setBudget` or `fund` anywhere in `packages/`.
 
@@ -733,9 +733,9 @@ The difference is not pedantry. *"We cannot sign"* names a capability nobody has
 to wait. *"We have no ABI"* names a file nobody wrote, and the response is to read a dispatch table.
 The entry pointed at a gate that was already open.
 
-**Recovering the interface immediately paid for the method.** `registry/erc8183_abi.py` resolves every
+**Recovering the interface immediately paid for the method.** The recovered ABI table resolves every
 signature against the PUSH4 selectors in the deployed implementation rather than copying Altana's
-published ABI — the technique `aacp.py` used for P-18, run forwards. `submit` did not resolve under
+published ABI — the technique the AACP reader used for P-18, run forwards. `submit` did not resolve under
 the EIP's shape. It took **21,060 candidate signatures** over 36 names to find:
 
     EIP / erc8183.steps()   submit(jobId, deliverable)          two arguments
@@ -745,9 +745,9 @@ A client built from the standard encodes two words, hits a selector that does no
 with **no reason string** — on transaction six of seven, after the money is escrowed.
 
 **Then it ran.** `make hire` against chapel: `approve`, `createJob` and `setBudget` mined; job **746**
-reads back with our client, provider, evaluator and a 1e18 budget (`vetting/identity/hire-97.json`).
+reads back with our client, provider, evaluator and a 1e18 budget, recorded.
 
-**Four permissioning surprises, which is what `Readme.md` §8's D1 box asked about.** None is in any
+**Four permissioning surprises, which is what the README §8's D1 box asked about.** None is in any
 ABI — `createJob` reverts with bare four-byte selectors — so each was isolated by varying one argument
 at a time, then matched to a name by preimage search where possible. Where both methods answered they
 agreed, and that agreement is the evidence:
@@ -793,10 +793,10 @@ today and completely different next actions.
 
 ### P-27 · The session-key refusal was a search of our own output directory, reported as a search of the world — **29 Aug 2026**
 
-`sessions/keys.py` kept `SESSION_KEY_MODULE` empty and said why, in a docstring headed *"Why
+The session-key module kept `SESSION_KEY_MODULE` empty and said why, in a docstring headed *"Why
 there is no address here"*:
 
-> `vetting/addresses/` holds `56.json`, `venus-56.json`, `erc8183-56.json` and `erc8183-97.json`
+> our own recorded address files hold
 > — nothing session-key shaped — because nobody has run the three-way check against an Altana
 > session-key module
 
@@ -805,8 +805,8 @@ repository's own output**, and the module concluded from their contents that no 
 module had been verified anywhere. A search list containing only your own artifacts can only
 ever tell you what you already knew.
 
-`@altananetwork/sdk@0.8.0` publishes the addresses in `dist/config.js` — chains 1, 56, 97 and
-8453 — and the ABI in `dist/internal/keystore.js`. **That is the same package, at the same
+The Altana SDK publishes the addresses — chains 1, 56, 97 and
+8453 — and the ABI alongside them. **That is the same package, at the same
 version, that `JOB_ESCROW` was verified from.** This repository had already read
 `ERC8183_ADDRESSES` out of it and never opened the file beside it.
 
@@ -815,8 +815,8 @@ version, that `JOB_ESCROW` was verified from.** This repository had already read
 sentences.* The lesson was written down and did not generalise, because it was recorded as a
 fact about ERC-8183 rather than as a habit about search.
 
-**Every check passed, both chains.** `scripts/verify_session_keys.py`, the same three ways
-`verify_erc8183.py` looks:
+**Every check passed, both chains.** The session-key verifier, the same three ways
+the ERC-8183 verifier looks:
 
 | | chain 56 | chain 97 |
 |---|---|---|
@@ -854,7 +854,7 @@ activation page. `registration_fee()` is read per grant and the docstring says w
 
 **Proven, not described.** `make session-keys` granted a key on chapel, read it back live,
 revoked it, and read it back dead — three mined transactions in
-`vetting/identity/session-keys-97.json`, `isValidKey` true then false. That is `Readme.md` §5's
+recorded on chapel, `isValidKey` true then false. That is the README §5's
 definition of done for activation, and it is the first evidence on this site that a grant is
 bounded *and* reversible rather than merely enumerated.
 
@@ -946,11 +946,11 @@ simply wore the argument.
 
 PancakeSwap runs USDT/USDC at the **0.01% tier** — `0x92b7807bF19b7Dddf89b706143896d05228f3121`,
 verified three ways on 22 Aug 2026: 22,962 bytes of bytecode, `fee()` = 100, `tickSpacing()` = 1,
-and a `factory()` equal to the one `addresses.py` verified independently. **One basis point, not
+and a `factory()` equal to the one the address table verified independently. **One basis point, not
 five**, and roughly ten times the depth of the 0.05% pool.
 
 `gas_quote = 0.30` was worse. `core/types.DEFAULT_GAS_QUOTE = 3.0e-5` exists, and
-`chain/live_source.py:278` derives it live as `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`. Neither
+the live source derives it live as `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18`. Neither
 was used. 250,000 gas units at BSC's measured 0.05 gwei, with BNB read from the indexed WBNB/USDT
 pool at $607.31, is **$0.0076** — about **forty times** less than the literal.
 
@@ -968,7 +968,7 @@ The "after" column is deliberately unquantified beyond the hurdle. An earlier ve
 carried eight exact figures and **six of them were stale within a day** — the rate tape grew from
 seven days to sixteen, the venues changed leadership, and the annualisation gate added in the same
 round flipped the published quote between a period figure and an annual one. The live numbers are in
-`docs/FOR_JUDGES.md`'s derived block, regenerated by `make judges` from the card. A matrix entry is
+the derived block in the judges' brief, regenerated by `make judges` from the card. A matrix entry is
 a record of *what was wrong and why*; it is not a second place to keep the current figures.
 
 The card said Router never supplied, and gave a 16-day break-even as the reason. Both were
@@ -983,7 +983,7 @@ advertised 3.90pp advantage was a charge the baseline would never have paid**.
 **Resolution.** `SwitchCost` has **no defaults** — constructing one without inputs raises, naming
 this finding. `SwitchCost.from_venue()` takes the fee from the verified pool's own `fee_pips`, gas
 from a unit count times a gas price, and a native-token price to bridge BNB into dollars; every
-result carries a `basis` string and a `derived` flag, and the card publishes both. `chain/costs.py`
+result carries a `basis` string and a `derived` flag, and the card publishes both. The cost model
 is the IO half that fetches them — gas price through the indexer's endpoint rotation, BNB/USD from
 the swap tape's last observation of the pool this project already verifies and indexes.
 
@@ -995,20 +995,20 @@ measured, and every field of it needs a reading behind it or a label saying ther
 *Related:* the same round found the driver sizing markets from `rows[-1]` — the **last** accrual on
 the tape — so a window replayed on day one was sized by a market measured on day seven. A
 look-ahead leak, in the project whose central claim is that look-ahead is structurally impossible.
-`tests/replay/test_allocation.py` now fails against that implementation.
+The allocation tests now fails against that implementation.
 
 ### P-24 · There was a verified ERC-8183 deployment the whole time, and nobody had looked — **21 Aug 2026**
 
-`registry/erc8183.py` kept `JOB_ESCROW` empty on the stated grounds that *"the EIP is Draft and
+The ERC-8183 reader kept `JOB_ESCROW` empty on the stated grounds that *"the EIP is Draft and
 lists no reference deployment addresses at all"*. Every word of that is true, and it was the wrong
-question. The EIP publishes none; **the ecosystem does**. `@altananetwork/sdk@0.8.0` ships an
+question. The EIP publishes none; **the ecosystem does**. The Altana SDK ships an
 `ERC8183_ADDRESSES` table with a kernel, an EvaluatorRouter, an OptimisticPolicy, a registry and a
 payment token for BSC mainnet *and* testnet, and this repository had never read it.
 
 One field in that table was independently checkable and checked out immediately: the `registry`
 entry is byte-identical to `erc8004.IDENTITY_REGISTRY` on **both** chains — an address arrived at
 here from the PancakeSwap side, months earlier. That is a reason to look, not a reason to believe,
-so `scripts/verify_erc8183.py` looked, the same three ways `verify_venus.py` does.
+so the ERC-8183 verifier looked, the same three ways the Venus verifier does.
 
 **Every check passed, on both chains.**
 
@@ -1020,7 +1020,7 @@ so `scripts/verify_erc8183.py` looked, the same three ways `verify_venus.py` doe
 | `jobCounter()` | **56,632** | 581 |
 | `disputeWindow()` | 604,800s (7 days) | 86,400s (1 day) |
 | kernel's `paymentToken()` vs the table | agrees | agrees |
-| table's `registry` vs `erc8004.py` | byte-identical | byte-identical |
+| table's `registry` vs the ERC-8004 reader | byte-identical | byte-identical |
 
 **56,632 jobs** is the number that separates this from the previous candidate. P-18's finding stands
 without amendment — `TermixEscrow` is a real, USDT-settling escrow that implements none of ERC-8183
@@ -1052,7 +1052,7 @@ this file had been publishing the first while only the second was supported.
 
 ### P-23 · The toxicity threshold was calibrated against a null that real flow violates, and it is why the agent loses — **21 Aug 2026**
 
-`docs/AGENT_ADVANTAGE.md` reports the Warden **losing** to a passive baseline on both tasks where
+The advantage report reports the Warden **losing** to a passive baseline on both tasks where
 the two differ: −64.29pp on Earn, −38.17pp on Protect. The proximate cause is visible in the card —
 the agent is in range **6.1%** of samples and makes 249 mints against 249 pulls. It opens a position
 and closes it again almost every step, and the costs of doing that are the loss.
@@ -1061,7 +1061,7 @@ The question worth asking is *why the pull fires that often*, and the answer is 
 mismatch rather than a coding defect.
 
 Spec §3.4's second arm is `|imb_t| > z_pull`, with `z_pull = 2.5` over `M = 50` swaps.
-`estimators/imbalance.py` computes `z = Σs / sqrt(Σs²)`, which is standardised **under a
+The imbalance estimator computes `z = Σs / sqrt(Σs²)`, which is standardised **under a
 permutation null**: each swap's direction an independent fair coin, magnitudes held as observed.
 Under that null `|z| > 2.5` is a rare event, and 2.5 reads as a sensible threshold.
 
@@ -1097,8 +1097,8 @@ not a parameter that produced an unflattering result, it is a constant applied t
 does not describe — the V-1 class. The threshold is now a quantile of the measured distribution, and
 the quantile is blind to outcomes. The original resolution follows.
 
-**Original resolution: flag it, do not tune it.** `Readme.md` rule 1 freezes the spec — *"if code and spec
-conflict, the spec wins; flag it"* — and `docs/FOR_JUDGES.md` states the stronger rule that moving a
+**Original resolution: flag it, do not tune it.** The README rule 1 freezes the spec — *"if code and spec
+conflict, the spec wins; flag it"* — and the judges' brief states the stronger rule that moving a
 parameter because it produced an unflattering result is the fitting this project exists to refuse.
 So `z_pull` stays at 2.5, the agent keeps losing in the published report, and **this is the
 explanation rather than an excuse**: the loss is real, and its cause is a threshold whose null does
@@ -1136,7 +1136,7 @@ So the number is a choice, and the choice moves the answer by more than six-fold
 **Resolution.** Do not read a rate; difference an accumulator. `borrowIndex` is monotone and every
 other input — `cashPrior`, `interestAccumulated`, `totalBorrows` — is inside the `AccrueInterest` log
 itself, so a realized rate can be recomputed from the tape with no constant at all and no chain state
-re-read. Implemented in `packages/misquote/estimators/apr.py`, published as **A12**.
+re-read. Implemented in the APR estimator, published as **A12**.
 
 **And the two methods agree, which is what makes either one trustworthy.** Realized supply APR across
 four window widths on vUSDT: 2.1583% / 2.1599% / 2.1594% / 2.1590% — stable to 0.002pp across a
@@ -1148,7 +1148,7 @@ Two decoding traps were met on the same reads and are recorded with it:
 
 - **`vBNB.underlying()` returns zero bytes, not `address(0)`.** The market holds native BNB and the
   getter does not exist on it. A tolerant decoder maps it to the zero address and carries on.
-  `scripts/verify_venus.py::_decode` raises instead.
+  the Venus verifier's `_decode` raises instead.
 - **Several `uint256` getters return 96 bytes, not 32.** `getCash()`, `supplyRatePerBlock()` and
   `exchangeRateStored()` each returned three words where the ABI declares one, while `borrowIndex()`,
   `totalBorrows()` and `reserveFactorMantissa()` returned one. The value is word 0 in every case,
@@ -1178,7 +1178,7 @@ registrations.
 
 **Two defects kept the number unread.**
 
-*The survey was gated on `BSC_RPC_URL`.* `registry_report.py` returned `surveyed: false` with the
+*The survey was gated on `BSC_RPC_URL`.* The registry report returned `surveyed: false` with the
 reason *"no BSC_RPC_URL configured — no registry read was attempted"* whenever the key was unset,
 which was always. The refusal was correct in shape and wrong in precondition: the survey reads
 `tokenURI` and `ownerOf`, which are `eth_call`, and every free BSC endpoint serves those. It is
@@ -1220,7 +1220,7 @@ it, so third-party agents are now listed on `/registry` — and the listing is d
 like our own agent cards. Ours carry a P25–P75 range replayed from thirty days of chain history. A
 third party's cannot: we do not have its policy, so there is nothing to replay. Every listing says
 so on its face — *"No quote — we cannot replay a policy we do not have"* — and
-`tests/web/test_third_party_listings.py` asserts against the artifact that no field on a listing is
+a test asserts against the artifact that no field on a listing is
 performance-shaped, using a whitelist so a field nobody thought of is refused by default.
 
 That refusal is the point of the surface. The gap it leaves is where every other marketplace puts a
@@ -1355,7 +1355,7 @@ depth by `venue_depth`, the screen by the same `ImbalanceEstimator` Sentinel wit
 
 ### P-18 · The one ERC-8183 escrow we had verified does not implement ERC-8183 — **19 Aug 2026**
 
-`registry/erc8183.py` shipped with `JOB_ESCROW` deliberately empty: the EIP is Draft, publishes no
+The ERC-8183 reader shipped with `JOB_ESCROW` deliberately empty: the EIP is Draft, publishes no
 reference deployments, and BNB's own SDK is testnet-only. It gained exactly one entry — TermiX's
 `TermixEscrow` on BSC mainnet — on evidence that was real and, it turns out, entirely circumstantial:
 
@@ -1398,11 +1398,11 @@ mapping states — *no entry without evidence* — is now applied to itself: it 
 job escrows, and a real, well-behaved, fully-verified escrow that implements a different interface is
 not one. The readings are kept under `FORMER_CANDIDATE_EVIDENCE`, because a rejected candidate is a
 result and deleting it would erase the correction along with the claim. What the contract *is* now
-lives in `registry/aacp.py:ESCROW_INTERFACE`, recorded as signature→selector pairs so the naming can
+lives in the AACP reader's `ESCROW_INTERFACE`, recorded as signature→selector pairs so the naming can
 be re-derived rather than trusted.
 
 **Verified by tests that run against the live contract**, not by the paragraph above:
-`tests/registry/test_termix_escrow_fork.py` asserts the three EIP accessors revert, that
+A fork test asserts the three EIP accessors revert, that
 `orders(bytes32)` answers, that the budget agrees with the explorer on every published order, and
 that the USDT escrow returns an empty struct for a USDC order — the trap being that an unknown order
 id returns thirteen zero words rather than reverting, so a caller pointed at the wrong settlement
@@ -1547,7 +1547,7 @@ range only 6.1% of the time on real flow.
 
 **Why the threshold was wrong, and it is the κ-units mistake in a new place.** The rule was
 `5 × median absolute return`, ported unchanged from PolyLambda, where it clips **logit returns of
-probabilities** in prediction markets. `estimators/sigma.py` says so in its own header: *"the EWMA
+probabilities** in prediction markets. The sigma estimator says so in its own header: *"the EWMA
 recursion, the winsorising, and the shrinkage toward a prior are unchanged, because they were doing
 the right thing already."* Nobody measured whether they were. On a busy AMM pool most one-minute bars
 barely move while a few move a lot, so the **median absolute return is 128× below the RMS** and
@@ -1624,7 +1624,7 @@ internal note — it is in the sheet a judge is invited to audit:
 | gas at the historical block's price | hardcoded `gas_quote = 0.5` | **16,667×** |
 | slippage vs the pool's actual liquidity | flat 5 bps of the whole position | — |
 
-**The gas figure is the sharpest.** `chain/live_source.py` computes exactly this quantity from the
+**The gas figure is the sharpest.** The live source computes exactly this quantity from the
 chain — `REBALANCE_GAS_UNITS * eth_gasPrice / 1e18` — and at BSC's prevailing 0.05 gwei that is
 600,000 × 5e7 / 1e18 = **3.0e-5 BNB, about two cents**. The constant claimed in its own comment to be
 a "trailing median gas × price". Nothing had measured it.
@@ -1648,7 +1648,7 @@ catches an error is pointing the other way.
 *L1 went red.* The gas constant lived in `CostModel` **and** in `chain.source.TapeChainSource`, so
 correcting one changed what the two drivers charged for the same move. That is the **fourth** time
 the answer has been *one constant, both readers* — and the first time the tripwire caught it inside a
-single test run rather than weeks later. It now lives in `core/types.py` as `DEFAULT_GAS_QUOTE`.
+single test run rather than weeks later. It now lives in the core types as `DEFAULT_GAS_QUOTE`.
 
 *A cost test went red, and it was right.* The first fix used A4's imbalance base for **every** move.
 But a flat position has `value0 == value1 == 0`, so A4's formula reads zero there and **every opening
@@ -1695,7 +1695,7 @@ a position nothing has ever acted on.
 *Nothing bounded the return at all.* §3.4 caps rebalances and is silent on how often a position may
 leave and come back, so the re-entry path checked only `clear_streak >= m_clear` and `not toxic`.
 
-**And the live loop had already noticed.** `agents/warden/loop.py:221` caps `actions_executed` at
+**And the live loop had already noticed.** The Warden loop caps `actions_executed` at
 8/day; the replay engine had no cap whatever. So the replay was pricing **5,169 actions where the
 live agent would have performed 240** — the two drivers were not running the same agent in any
 economic sense, and the published quote described behaviour the live agent would refuse. **L1 cannot
@@ -1952,8 +1952,8 @@ interesting story. A wrong number that confirms a thesis gets less scrutiny than
 contradicts one, which is the general lesson and the uncomfortable one.
 
 **What caught it.** Not a test — two numbers in the same repository disagreeing. The new pool badge
-printed `feeProtocol 100` for a pool `chain/addresses.py` records as `3400`, and the discrepancy was
-visible only because both were on screen at once. So `vetting/badge.py` now performs that comparison
+printed `feeProtocol 100` for a pool the address table records as `3400`, and the discrepancy was
+visible only because both were on screen at once. So the badge reader now performs that comparison
 itself: **"recorded values match chain"** fails when a constant in this repo no longer matches what
 the chain returns. A constant nobody re-reads is a constant that rots.
 
@@ -1976,11 +1976,11 @@ request:
 Roughly a thousandfold apart, and the equity figure rests entirely on a single trade. **So there is
 no equity tape, and there will not be one.** A 30-day history of ~384 swaps cannot support a
 P25–P75 quote: `verdict(min_n=30)` would refuse it, correctly, and cutting it into the ≥20
-sub-windows `replay/ranges.py` requires leaves ~19 swaps each.
+sub-windows the range replay requires leaves ~19 swaps each.
 
 **What survives, and what does not.** The pool remains a *generality* proof — different fee tier,
 different tick spacing, different protocol fee, priced by the same code with no changes, which is
-what `tests/chain/test_equity_pool.py` asserts and all it asserts. What does not survive is any
+what the equity-pool test asserts and all it asserts. What does not survive is any
 suggestion that the equities category can be covered by *quoting* this venue. The advantage report's
 third task stays on constructed pools until a second **liquid** pool is indexed, and it says so
 rather than presenting a synthetic comparison as a real one. This was the stop condition written
@@ -2076,7 +2076,7 @@ so cite Avellaneda–Stoikov 2008 Eqs. 29/30 directly; and arXiv:2106.12033 has 
 
 ## G — gaps in the frozen spec (values proposed and published)
 
-The spec leaves these unspecified. Each proposed value is published in `ASSUMPTIONS.md` and rendered
+The spec leaves these unspecified. Each proposed value is published in the assumption sheet and rendered
 in the UI, so a reader can disagree with the number without having to reverse-engineer it.
 
 | ID | Symbol | Where | Value | Rationale |
@@ -2094,7 +2094,7 @@ in the UI, so a reader can disagree with the number without having to reverse-en
 |---|---|
 | Prize split verified in BNB Discord | **PARTLY RESOLVED.** Main track **$30,000 USDT**, TermiX partner track **$10,000 USDT**, Altana 50,000 XP, PancakeSwap 1,000 CAKE — all from BNB Chain's own announcement. The **$6K/$3K/$1K** placement split on the architecture board is still **unverified** and should not be repeated. |
 | ERC-8004 registry population counted on BscScan (decision rule: <~15 real agents → demote third-party auto-cards to a plain "registry view") | **RESOLVED — 266,191 agents; rule inverted.** Answered in the E table above and left reading OPEN here for weeks, which is its own small lesson: a checklist kept in a second place goes stale in the second place. |
-| ERC-8183 hire call invoked from an external script | **STILL OPEN, and narrowed.** The escrow is now verified on chain (`registry/aacp.py`, matrix E) and `JOB_ESCROW[56]` carries it with evidence. But nobody has read a job back out of it — `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert — so this is a verified escrow, not a verified ERC-8183 escrow, and the item stays open until a job round-trips on a fork. |
+| ERC-8183 hire call invoked from an external script | **STILL OPEN, and narrowed.** The escrow is now verified on chain (the AACP reader, matrix E) and `JOB_ESCROW[56]` carries it with evidence. But nobody has read a job back out of it — `nextJobId()`, `jobCount()` and `jobs(uint256)` all revert — so this is a verified escrow, not a verified ERC-8183 escrow, and the item stays open until a job round-trips on a fork. |
 | Agent Studio CLI hello-world deployed | **OPEN** |
 | Mission Control micropayment discrepancy (49 vs 75) | **RESOLVED — use 75 (242 logged)** |
 
@@ -2113,11 +2113,11 @@ From BNB Chain's own announcement, the actual requirement:
 
 Three things follow, and none of them were true when this was found:
 
-1. **"With and without an agent" was computed and thrown away.** `core/policy.py:passive_policy` and
-   `replay/driver.py:passive_result` had existed since Step 7 and were used *only* by `tests/`.
-   `Tearsheet` had no comparison field; `scripts/showcase.py` never ran the baseline. The answer to
-   the judged question was a unit-test fixture. Now `scripts/advantage.py` and
-   `tearsheet/advantage.py`, with a test that re-runs the engine and demands **exact** equality so
+1. **"With and without an agent" was computed and thrown away.** The policy's `passive_policy` and
+   the replay driver's `passive_result` had existed since Step 7 and were used *only* by `tests/`.
+   `Tearsheet` had no comparison field; the showcase emitter never ran the baseline. The answer to
+   the judged question was a unit-test fixture. Now the advantage emitter and
+   the advantage tearsheet, with a test that re-runs the engine and demands **exact** equality so
    no figure can be a literal.
 2. **Three agents on one task is not three tasks.** Warden, Grid and Sentinel are three approaches
    to one job. The report's three tasks have three genuinely different baselines — mint-and-forget,
@@ -2131,15 +2131,15 @@ PancakeSwap — see **P-8** for the venue and the protocol-fee finding it produc
 
 ### The 49-vs-75 resolution
 
-Source of truth is `Stellar MIssion Control/data/x402/receipts.json`: **242 records, 75 `settled`,
+Source of truth is Mission Control's receipt log: **242 records, 75 `settled`,
 167 `failed`**, spanning 2026-06-12 → 2026-06-27 across `/x402/v1/dex/search` (240) and
 `/x402/v3/cryptocurrency/quotes/latest` (2). The 167 non-settled are paid-endpoint HTTP errors,
 logged and never pruned.
 
 Both numbers were correct when written — the discrepancy is a snapshot artifact, not a data error.
 Settled count by cutoff: **42** through 06-20, **61** through 06-21, **75** through 06-22 (final).
-That repo's `README.md:35` and `SUBMISSION.md:57` say 49 because they were frozen at hackathon
+That repo's that repo's README and its submission note say 49 because they were frozen at hackathon
 submission time; its `pitch/` documents all say "75 settled (242 logged)" and are correct.
 
-**Misquote uses 75 settled of 242 logged.** Per `Readme.md` rule 6, no card renders this number until
+**Misquote uses 75 settled of 242 logged.** Per the README rule 6, no card renders this number until
 it appears here, which it now does.

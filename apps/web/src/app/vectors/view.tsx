@@ -131,10 +131,9 @@ export function VectorsView({ initial }: {
               <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
                 {/* The refusal is the claim: it is why the files existing is
                     itself the pass, and it appears nowhere else. */}
-                <code className="font-mono text-xs">scripts/gen_vectors.py</code> asks
-                upstream v3-core and v3-periphery {count(d.corpus.cases)} questions and
-                records the answers — writing <strong className="text-ink">nothing</strong>{" "}
-                if one disagreed.
+                The recorder asks upstream v3-core and v3-periphery{" "}
+                {count(d.corpus.cases)} questions and records the answers — writing{" "}
+                <strong className="text-ink">nothing</strong> if one disagreed.
               </p>
 
               <DataTable
@@ -177,8 +176,7 @@ export function VectorsView({ initial }: {
                 <p className="mt-0 mb-4 max-w-[68ch] text-sm text-dim">
                   {/* The pin table is the demonstration; the paragraph
                       explaining why pinning matters was rationale. */}
-                  The commits that answered, pinned in{" "}
-                  <code className="font-mono text-xs">ops/forge_deps.txt</code>.
+                  The commits that answered, pinned.
                 </p>
                 <DataTable
                   caption="Pinned reference implementations"

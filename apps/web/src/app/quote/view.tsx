@@ -213,13 +213,9 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-0 max-w-[62ch] text-dim">
-          A quote is a replay of each agent&rsquo;s policy across overlapping
-          sub-windows of real history, at several parameter settings. Over a
-          month of tape that is hours of arithmetic, not milliseconds, and the
-          engine refuses to run two at once in the same process. So the honest
-          shape is a pre-flight now and a job afterwards —{" "}
-          <Link href="/methods">how a quote is made</Link> sets out the windows
-          and the floors it has to clear.
+          Replaying a month of tape is hours of arithmetic, not milliseconds — so
+          a quote is a pre-flight now and a job afterwards.{" "}
+          <Link href="/methods">How a quote is made →</Link>
         </p>
       </Section>
 

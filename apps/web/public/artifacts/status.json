@@ -35,7 +35,7 @@
     {
       "name": "dry run",
       "status": "PASS",
-      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
+      "detail": "MISQUOTE_DRY_RUN=(unset — defaults to dry)",
       "remedy": "",
       "blocking": false
     },
@@ -91,8 +91,8 @@
     {
       "name": "artifacts match the engine",
       "status": "UNVERIFIED",
-      "detail": "build.json is 8 engine commit(s) behind a1a8af3; warden.json is 8 engine commit(s) behind a1a8af3; grid.json is 8 engine commit(s) behind a1a8af3; sentinel.json is 8 engine commit(s) behind a1a8af3; advantage.json is 12 engine commit(s) behind 237c678; advantage_short.json is 12 engine commit(s) behind eb040ed",
-      "remedy": "regenerate them (`make showcase`, `make advantage`) \u2014 or accept that the published numbers describe an engine that has since changed",
+      "detail": "6 replay artifact(s) were generated before an engine change",
+      "remedy": "regenerate them (`make showcase`, `make advantage`) — or accept that the published numbers describe an engine that has since changed",
       "blocking": true,
       "data": {
         "behind": [
@@ -212,14 +212,14 @@
     {
       "name": "signer",
       "status": "UNVERIFIED",
-      "detail": "not checked \u2014 this run is not --mainnet",
+      "detail": "not checked — this run is not --mainnet",
       "remedy": "re-run with --mainnet to check the signing key",
       "blocking": true
     },
     {
       "name": "position cap",
       "status": "UNVERIFIED",
-      "detail": "not checked \u2014 this run is not --mainnet",
+      "detail": "not checked — this run is not --mainnet",
       "remedy": "re-run with --mainnet to check the position cap",
       "blocking": true
     }

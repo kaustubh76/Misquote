@@ -62,7 +62,6 @@ RENDERED_AS_MARKDOWN: dict[str, str] = {
     "assumptions.json:sections.target_pool[].head[]": "components/Blocks.tsx",
     "assumptions.json:sections.target_pool[].rows[][]": "components/Blocks.tsx",
     "index.json:not_built[].what": "components/Ledger.tsx",
-    "index.json:not_built[].why": "components/Ledger.tsx",
     # Keyed by chain id rather than collapsed: `*` is reserved for the four
     # agent categories, and a wildcard here would hide a third chain appearing.
     "addresses.json:session_keys.56.not_verified[]": "app/activate/view.tsx",
@@ -78,8 +77,6 @@ RENDERED_AS_MARKDOWN: dict[str, str] = {
     "vetting.json:pools[].proof.coverage.not_provable.recorded-matches-chain": "app/vetting/view.tsx",
     "registry.json:hire_flow.escrow.evidence[]": "app/registry/view.tsx",
     "registry.json:hire_flow.proof.not_escrowed_because": "app/registry/view.tsx",
-    "registry.json:third_party.categories.*.note": "components/ScanAgents.tsx",
-    "router.json:caveats[]": "components/RouterDetail.tsx",
     "status.json:checks[].remedy": "app/status/view.tsx",
     "venue.json:divergences[].what": "app/venue/view.tsx",
 }

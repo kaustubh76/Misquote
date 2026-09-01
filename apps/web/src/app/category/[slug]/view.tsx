@@ -232,12 +232,11 @@ export function CategoryView({
               The objection survives in one place and is stated there: none of
               these agents gets a quote, because we do not have its policy. */}
           <p className="m-0 max-w-[62ch] text-sm text-dim">
-            Agents on BNB Chain whose own descriptions place them here, from{" "}
-            <Link href="/registry">a third-party index</Link>. ERC-8004 declares
-            no category, so this is our reading of their free text and is
-            labelled as such: every row says which word it matched on. None of
-            them carries a quote &mdash; we do not have their policies, and a
-            replayed range is the only kind of number this site will print.
+            Agents from{" "}
+            <Link href="/registry">a third-party index</Link> whose own descriptions
+            place them here &mdash; our reading of their free text, so every row says
+            which word it matched on. None carries a quote: we do not have their
+            policies.
           </p>
           <div className="mt-4">
             <ScanCategoryAgents

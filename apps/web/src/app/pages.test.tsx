@@ -1788,8 +1788,11 @@ describe("Vetting distinguishes not-yet-read from not-generated", () => {
     serveArtifacts({ missing: ["addresses.json"] });
     render(<VettingPage />);
 
+    // Matched on the refusal, not on a filename: the page stopped printing
+    // file paths at readers, and what has to survive is that it still says the
+    // record could not be read rather than falling silent.
     expect(
-      await screen.findByText(/addresses\.json could not be read/)
+      await screen.findByText(/address record could not be read/)
     ).toBeInTheDocument();
     expect(
       screen.getByText(/an address nobody checked and an address checked clean/)

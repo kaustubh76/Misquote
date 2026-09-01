@@ -246,22 +246,18 @@ AGENT_FIELDS: dict[str, str] = {
     # they were stamped by proxy through `build.json`, so the gate could not go
     # green and its own stated remedy — regenerate them — could not clear it.
     #
-    # Three of the five now render, and the reason is a contradiction the gate
-    # could see and the pages could not. `/advantage` scores the same replay
-    # this card publishes and is written by a different make target, so the two
-    # were generated nine engine commits apart: one page said Warden beats DIY
-    # by 17.21pp, the other that it loses by 64.29pp. The commit that separated
-    # them was in both artifacts and on neither page. `EngineStamp` renders it,
-    # and `tests/web/test_artifact_agreement.py` fails on the state itself.
-    #
-    # `command` and `source` stay unrendered: the first is the same string on
-    # every card, and the second is answered where a reader asks it, by
+    # None of them renders. The contradiction they were surfaced for — this card
+    # and `/advantage` scoring the same replay from runs nine engine commits
+    # apart, one saying Warden beats DIY by 17.21pp and the other that it loses
+    # by 64.29pp — is still caught by `tests/web/test_artifact_agreement.py`,
+    # which fails on the state itself rather than printing a sha at a reader.
+    # Which tape a number came from is still answered where a reader asks it, by
     # `TapeSource` beside the number.
     "build.command": "",
     "build.source": "",
-    "build.generated_at": "AgentDetail.tsx",
-    "build.git_sha": "AgentDetail.tsx",
-    "build.git_dirty": "AgentDetail.tsx",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
 }
 
 
@@ -402,9 +398,9 @@ ROUTER_FIELDS: dict[str, str] = {
     # See the longer note in `AGENT_FIELDS`.
     "build.command": "",
     "build.source": "",
-    "build.generated_at": "RouterDetail.tsx",
-    "build.git_sha": "RouterDetail.tsx",
-    "build.git_dirty": "RouterDetail.tsx",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
 }
 
 

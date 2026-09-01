@@ -529,11 +529,8 @@ def aacp_overlap() -> dict[str, Any]:
                 ),
             },
             "not_erc8183": (
-                "TermixEscrow implements none of the seven calls erc8183.steps() "
-                "models, across 5,894 candidate signatures. Jobs are keyed by a "
-                "bytes32 order id, not the EIP's uint256 jobId, which is why "
-                "jobs(uint256), nextJobId() and jobCount() all revert. Verified "
-                "against the live contract in tests/registry/test_termix_escrow_fork.py."
+                "TermixEscrow implements none of the seven ERC-8183 calls. Jobs "
+                "are keyed by a bytes32 order id, not the EIP's uint256 jobId."
             ),
             "order_decode": (
                 "orders(bytes32) returns 13 words. One is decoded: the budget, "
@@ -609,12 +606,9 @@ def _reconciliation(ours: int, theirs: int, their_contract: str | None) -> dict[
         "same_contract": (their_contract or "").lower()
         == IDENTITY_REGISTRY.get(BSC_MAINNET, "").lower(),
         "note": (
-            "Two counts of the same registry by different methods. They are "
-            "published together and the gap is not resolved: nothing here can "
-            "say which is right, and picking the larger would be the misquote "
-            "this project is named after. What is checked is that both are "
-            "counting the same contract — if they were not, the comparison "
-            "would be meaningless rather than merely unresolved."
+            "Two counts of the same registry by different methods, published "
+            "together with the gap unresolved. Both are checked to be counting "
+            "the same contract."
         ),
     }
 
@@ -673,10 +667,8 @@ def _feedback_cross_check(census: dict[str, Any], reach: dict[str, Any]) -> dict
         "difference": summed - counted,
         "agree": summed == counted,
         "note": (
-            "Two of 8004scan's own tables answering the same question. Published "
-            "whether or not they agree — a third-party index disagreeing with "
-            "itself is a fact about the source, and resolving it here would mean "
-            "choosing a number we have no way to check."
+            "Two of 8004scan's own tables answering the same question, published "
+            "whether or not they agree."
         ),
     }
 
@@ -816,11 +808,9 @@ def _counts_cross_check(census: dict[str, Any], counts: dict[str, Any]) -> dict[
         "hours_apart": _hours_between(census.get("read_at"), counts.get("read_at")),
         "rows": rows,
         "note": (
-            "One index, asked twice. The walk counted every row itself; the ask let "
-            "8004scan count. Neither is privileged and the gap is not resolved — but "
-            "the denominators differ too, because the registry grew between the "
-            "readings, so each count is published against the population it was "
-            "actually taken from rather than against a shared one that never existed."
+            "One index, asked twice: we counted every row, then let 8004scan "
+            "count. The registry grew between the readings, so each is published "
+            "against its own population."
         ),
     }
 
@@ -901,10 +891,8 @@ def _reach_three_ways(
         "agree": len(set(values)) == 1,
         "note": (
             "One index, three routes to one quantity, and no reason for them to "
-            "differ. Published as a spread rather than a number because nothing here "
-            "can say which route is right — and a marketplace that replaced star "
-            "ratings with evidence owes the reader the disagreement rather than "
-            "whichever of the three flatters the page."
+            "differ. Published as a spread because nothing here can say which "
+            "route is right."
         ),
     }
 
@@ -972,10 +960,8 @@ def _ours_cross_check(indexed: dict[str, Any], recorded: dict[str, Any]) -> dict
             ),
             (
                 "supported_protocols",
-                "Not an indexing error — the index is correctly reporting a field our "
-                "card never filled. Our cards declare a service endpoint and no "
-                "protocol list, so an index that ranks on protocol support sees "
-                "nothing to rank.",
+                "Not an indexing error — our cards declare a service endpoint and "
+                "no protocol list, so there is nothing here to rank.",
             ),
         ):
             value = their.get(field)
@@ -1228,9 +1214,8 @@ def publishable_scan(reading: dict[str, Any], token_ids: set[str] | None = None)
             "by_agent_published": len(kept),
             "by_agent_note": (
                 f"{len(full)} agents carry feedback and {len(kept)} are published here — "
-                "the ones this site surfaces. The whole index is recorded in "
-                "data/scan8004.json, which is not downloaded by anything: at ~290KB it "
-                "is larger than every other artifact this page fetches."
+                "the ones this site surfaces. The full index is recorded but not "
+                "served: it is larger than every other artifact this page fetches."
             ),
         },
     }

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Band } from "@/components/Band";
-import { EngineStamp } from "@/components/EngineStamp";
 import { TapeSource } from "@/components/TapeSource";
 import { AgentJournal } from "@/components/AgentJournal";
 import { Card } from "@/components/Card";
@@ -357,17 +356,6 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
               ]}
             />
 
-            {/* The engine behind this delta. Router's card is written by `make
-                router-card` and the advantage report by `make advantage`, so
-                these two publish the same comparison from separate runs — and
-                the day one is regenerated without the other, this line and the
-                one on /advantage stop matching. */}
-            <EngineStamp
-              className="mt-4"
-              sha={data.build?.git_sha}
-              generatedAt={data.build?.generated_at}
-              dirty={data.build?.git_dirty}
-            />
           </Card>
         </Section>
       )}
@@ -484,15 +472,9 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
 
           {hasPool && (
             <p className="mt-4 text-sm leading-relaxed text-muted">
-              A range is quoted <strong>net of its convexity cost</strong> —
-              realized fees minus the adverse selection the same window booked —
-              because the gross fee figure is the one every other venue quotes,
-              and ranking it against a lending market&rsquo;s net supply rate
-              would let it win on a subtraction it had not made. Even so the two
-              are not the same risk. A supplied dollar earns a dollar rate and
-              stays a dollar; a range earns a rate measured in the pool&rsquo;s
-              own quote token and holds two assets whose value moves with the
-              price. A higher number here is not simply a better one.
+              A range is quoted <strong>net of its convexity cost</strong>. A
+              supplied dollar stays a dollar and a range does not, so a higher
+              number here is not simply a better one.
             </p>
           )}
         </Card>
@@ -571,11 +553,8 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
                 constraint was size and not yield, which is a different claim
                 and the one A25 makes. */}
             <p className="mt-4 mb-0 max-w-[72ch] text-sm text-muted">
-              This is not a better result, it is a smaller one. The rate is what
-              a range of this width paid over this tape either way; what changes
-              with the notional is whether A1 allows the position at all. A
-              reader with more capital than the ceiling should read the refusal
-              above, not this.
+              Not a better result — a smaller one. The rate is unchanged; only
+              whether A1 allows the position at all.
             </p>
           </Card>
         </Section>

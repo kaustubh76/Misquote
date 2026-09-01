@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 138,
+      "gap": 139,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 323371,
-      "ours_at_block": 119188344,
+      "ours": 324912,
+      "ours_at_block": 119291261,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 323233,
-      "total_pages": 16162,
+      "total": 324773,
+      "total_pages": 16239,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -40,16 +40,16 @@
       ],
       "withheld_reason": "reputation is deliberately not displayed: after Sybil-flagged feedback is removed, 77.9% of rated BSC agents have none left (29,444 reviews from 76 unique reviewers). A score computed from that would look precise and mean nothing."
     },
-    "not_erc8183": "TermixEscrow implements none of the seven calls erc8183.steps() models, across 5,894 candidate signatures. Jobs are keyed by a bytes32 order id, not the EIP's uint256 jobId, which is why jobs(uint256), nextJobId() and jobCount() all revert. Verified against the live contract in tests/registry/test_termix_escrow_fork.py.",
+    "not_erc8183": "TermixEscrow implements none of the seven ERC-8183 calls. Jobs are keyed by a bytes32 order id, not the EIP's uint256 jobId.",
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
     "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
     "shares_our_identity_registry": true
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-08-31T17:05:08+00:00",
+    "generated_at": "2026-09-01T05:57:11+00:00",
     "git_dirty": true,
-    "git_sha": "6346e0b",
+    "git_sha": "1720a35",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -70,11 +70,10 @@
       "evidence": [
         "Bytecode present at all five addresses: kernel 130 bytes (proxy), EvaluatorRouter 130, OptimisticPolicy 4,413, registry 130, payment token 2,007. Read 21 Aug 2026 at block 117,226,038.",
         "The interface answers: `jobCounter()` returns **56,632**, `paymentToken()` returns 0xce24439f...666666, and the policy's `disputeWindow()` returns 604,800 (seven days).",
-        "The answers agree. The kernel's own `paymentToken()` equals the published table's entry, and the table's `registry` field is byte-identical to `erc8004.IDENTITY_REGISTRY[56]` \u2014 an address this repository verified independently, from the PancakeSwap side, long before it read this table.",
-        "56,632 jobs is the number that distinguishes this from the previous candidate. `TermixEscrow` was a real escrow that implemented none of ERC-8183 (P-18). This one answers the EIP's own accessors and has been used at scale.",
-        "Recorded in vetting/addresses/erc8183-56.json.",
-        "NOT VERIFIED: nobody here has created, funded, submitted or settled a job on this deployment. Every reading above is an `eth_call` or an `eth_getCode`; the write path has never been exercised because nothing in this repository can sign. A contract that answers `jobCounter()` and a contract that will accept *our* job are different claims, and only the first is supported \u2014 which is the same distinction P-18 was about, pointed at ourselves this time.",
-        "SECURITY: the kernel, the EvaluatorRouter and the registry are 130-byte proxies, so the code that would hold escrowed funds is upgradeable by its owner. What was verified is what those addresses delegate to today. Nothing here checks who may change that, and a reader routing real money should."
+        "The answers agree: the kernel's own `paymentToken()` matches the published table, and the table's registry is byte-identical to the address we verified independently months earlier.",
+        "56,632 jobs is what distinguishes this from the previous candidate, which implemented none of ERC-8183. This one answers the EIP's own accessors and has been used at scale.",
+        "NOT VERIFIED: the write path. Every reading above is a call, never a send. A contract that answers `jobCounter()` and one that will accept *our* job are different claims, and only the first is supported.",
+        "SECURITY: three of the five are 130-byte proxies, so the code holding escrowed funds is upgradeable by its owner. We verified what they delegate to today, not who may change it."
       ]
     },
     "proof": {
@@ -213,7 +212,7 @@
         "contract": "kernel",
         "is_erc8183": true,
         "sender": "provider",
-        "why": "Funded -> Submitted. The deployment's signature is submit(uint256,bytes32,bytes) \u2014 three arguments, not the EIP's two: a client encoding the standard's shape hits a selector that does not exist and reverts with no reason string. It took 21,060 candidate signatures to find (registry/erc8183_abi.py)"
+        "why": "Funded -> Submitted. The deployment takes three arguments, not the EIP's two, so a client encoding the standard's shape reverts with no reason string"
       },
       {
         "call": "settle",
@@ -1101,7 +1100,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 126.0,
+    "age_hours": 1.5,
     "agents": [
       {
         "agent": "warden",
@@ -1280,7 +1279,7 @@
     },
     "implementation": "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
     "owner": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
-    "read_at": "2026-08-26T11:05:20+00:00",
+    "read_at": "2026-09-01T04:29:26+00:00",
     "reason": "",
     "record": "vetting/identity/97.json",
     "registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
@@ -1300,7 +1299,7 @@
       "available": true,
       "high": 547,
       "low": 438,
-      "note": "One index, three routes to one quantity, and no reason for them to differ. Published as a spread rather than a number because nothing here can say which route is right \u2014 and a marketplace that replaced star ratings with evidence owes the reader the disagreement rather than whichever of the three flatters the page.",
+      "note": "One index, three routes to one quantity, and no reason for them to differ. Published as a spread because nothing here can say which route is right.",
       "readings": [
         {
           "agents": 510,
@@ -1489,7 +1488,7 @@
           "collateral ratio",
           "de-risk"
         ],
-        "note": "Agents 8004scan holds for this category, on BSC mainnet, ranked by the evidence 8004scan itself has for them. Every number on a row is theirs and is labelled so \u2014 none of these policies was replayed here, so none of them carries a quote. `dropped_not_matching` counts rows the search returned that do not contain the word they were returned for; the search matches stems, and without that check `liquidation` fills this list with agents that merely said `liquidity`. `crowded_out_by_owner_cap` counts rows a single minter would otherwise have filled the category with \u2014 ranked on evidence alone, one address owned all eight Rebalancing slots.",
+        "note": "Agents 8004scan holds for this category, ranked on their own evidence. Every number on a row is theirs; none of these policies was replayed here, so none carries a quote.",
         "read_at": "2026-08-27T13:45:13+00:00",
         "searched": {
           "collateral ratio": {
@@ -1671,7 +1670,7 @@
           "market making",
           "spread"
         ],
-        "note": "Agents 8004scan holds for this category, on BSC mainnet, ranked by the evidence 8004scan itself has for them. Every number on a row is theirs and is labelled so \u2014 none of these policies was replayed here, so none of them carries a quote. `dropped_not_matching` counts rows the search returned that do not contain the word they were returned for; the search matches stems, and without that check `liquidation` fills this list with agents that merely said `liquidity`. `crowded_out_by_owner_cap` counts rows a single minter would otherwise have filled the category with \u2014 ranked on evidence alone, one address owned all eight Rebalancing slots.",
+        "note": "Agents 8004scan holds for this category, ranked on their own evidence. Every number on a row is theirs; none of these policies was replayed here, so none carries a quote.",
         "read_at": "2026-08-27T13:45:10+00:00",
         "searched": {
           "grid": {
@@ -1837,7 +1836,7 @@
           "liquidity range",
           "reposition"
         ],
-        "note": "Agents 8004scan holds for this category, on BSC mainnet, ranked by the evidence 8004scan itself has for them. Every number on a row is theirs and is labelled so \u2014 none of these policies was replayed here, so none of them carries a quote. `dropped_not_matching` counts rows the search returned that do not contain the word they were returned for; the search matches stems, and without that check `liquidation` fills this list with agents that merely said `liquidity`. `crowded_out_by_owner_cap` counts rows a single minter would otherwise have filled the category with \u2014 ranked on evidence alone, one address owned all eight Rebalancing slots.",
+        "note": "Agents 8004scan holds for this category, ranked on their own evidence. Every number on a row is theirs; none of these policies was replayed here, so none carries a quote.",
         "read_at": "2026-08-27T13:45:04+00:00",
         "searched": {
           "liquidity range": {
@@ -2025,7 +2024,7 @@
           "lending",
           "venus"
         ],
-        "note": "Agents 8004scan holds for this category, on BSC mainnet, ranked by the evidence 8004scan itself has for them. Every number on a row is theirs and is labelled so \u2014 none of these policies was replayed here, so none of them carries a quote. `dropped_not_matching` counts rows the search returned that do not contain the word they were returned for; the search matches stems, and without that check `liquidation` fills this list with agents that merely said `liquidity`. `crowded_out_by_owner_cap` counts rows a single minter would otherwise have filled the category with \u2014 ranked on evidence alone, one address owned all eight Rebalancing slots.",
+        "note": "Agents 8004scan holds for this category, ranked on their own evidence. Every number on a row is theirs; none of these policies was replayed here, so none carries a quote.",
         "read_at": "2026-08-27T13:45:17+00:00",
         "searched": {
           "apr": {
@@ -2062,7 +2061,7 @@
       "failure_reasons": {},
       "feedbacks_claimed": 11681,
       "minted_during_the_walk": 83,
-      "note": "Every agent the index holds for this chain, counted \u2014 not sampled. The shares carry no confidence interval because nothing was inferred: `counted` is the denominator. What it cannot say is whether 8004scan's index is itself complete, which is why our own on-chain count is published beside it and the two are reconciled rather than merged.",
+      "note": "Every agent the index holds for this chain, counted \u2014 not sampled, so no confidence interval. Whether the index itself is complete is a different question, answered by our own count beside it.",
       "ordering": "ascending, so the pages already walked do not shift while the chain keeps minting \u2014 measured at 72 new BSC agents during a 68-minute walk",
       "pages_failed": 0,
       "population_at_end": 278515,
@@ -2125,7 +2124,7 @@
           "within_tolerance": true
         }
       },
-      "note": "Shares 8004scan reported, not shares we derived. Each one is published only after the filter behind it was shown to have applied \u2014 the rows returned satisfy it, the total differs from the unfiltered population, and where a complement exists the two add back to that population. A filter this API accepts and ignores answers with the whole chain under the label you asked for, so the proof is the reason these are readable at all rather than merely cheap.",
+      "note": "Shares 8004scan reported, not shares we derived \u2014 each published only after its filter was shown to have actually applied.",
       "read_at": "2026-08-27T13:44:27+00:00",
       "refused": [],
       "requests": 4,
@@ -2134,7 +2133,7 @@
     "counts_cross_check": {
       "available": true,
       "hours_apart": null,
-      "note": "One index, asked twice. The walk counted every row itself; the ask let 8004scan count. Neither is privileged and the gap is not resolved \u2014 but the denominators differ too, because the registry grew between the readings, so each count is published against the population it was actually taken from rather than against a shared one that never existed.",
+      "note": "One index, asked twice: we counted every row, then let 8004scan count. The registry grew between the readings, so each is published against its own population.",
       "rows": [
         {
           "agree": false,
@@ -2206,7 +2205,7 @@
           "within_tolerance": true
         }
       },
-      "note": "Shares 8004scan reported, not shares we derived. Each one is published only after the filter behind it was shown to have applied \u2014 the rows returned satisfy it, the total differs from the unfiltered population, and where a complement exists the two add back to that population. A filter this API accepts and ignores answers with the whole chain under the label you asked for, so the proof is the reason these are readable at all rather than merely cheap.",
+      "note": "Shares 8004scan reported, not shares we derived \u2014 each published only after its filter was shown to have actually applied.",
       "read_at": "2026-08-27T13:45:26+00:00",
       "refused": [],
       "requests": 4,
@@ -2217,7 +2216,7 @@
       "available": true,
       "counted_in_feedback_table": 11719,
       "difference": -38,
-      "note": "Two of 8004scan's own tables answering the same question. Published whether or not they agree \u2014 a third-party index disagreeing with itself is a fact about the source, and resolving it here would mean choosing a number we have no way to check.",
+      "note": "Two of 8004scan's own tables answering the same question, published whether or not they agree.",
       "summed_over_agents": 11681
     },
     "feedback_graph": {
@@ -2249,7 +2248,7 @@
         }
       },
       "by_agent_held": 547,
-      "by_agent_note": "547 agents carry feedback and 1 are published here \u2014 the ones this site surfaces. The whole index is recorded in data/scan8004.json, which is not downloaded by anything: at ~290KB it is larger than every other artifact this page fetches.",
+      "by_agent_note": "547 agents carry feedback and 1 are published here \u2014 the ones this site surfaces. The full index is recorded but not served: it is larger than every other artifact this page fetches.",
       "by_agent_published": 1,
       "chain_id": 56,
       "complete": true,
@@ -2268,7 +2267,7 @@
       "methods": {
         "GEBO (gebo-bsc.vercel.app)": 7
       },
-      "note": "Who does the rating, counted from the feedback table itself. Every row names the transaction that wrote it, so unlike a star rating the count is checkable on chain. These shares carry no confidence interval because nothing was inferred \u2014 the table was walked, not sampled.",
+      "note": "Who does the rating, counted from the feedback table itself \u2014 walked, not sampled, so no confidence interval.",
       "pages_failed": 0,
       "parse_status": {
         "error": 9,
@@ -2315,7 +2314,7 @@
       "example_block_number": 118368614,
       "example_transaction_hash": "0xdd938692c2c3f6eb1f6813171e177e1d9af20882ad0324871ba3d1cc954eb450",
       "feedbacks": 11719,
-      "note": "Counted from the feedback table rather than summed off the agents. Every row names the transaction that wrote it, so the count is checkable on chain \u2014 which is what separates it from a star rating.",
+      "note": "Counted from the feedback table itself. Every row names the transaction that wrote it, so the count is checkable on chain.",
       "tier": "keyed"
     },
     "leaderboard": {
@@ -2718,7 +2717,7 @@
         }
       },
       "chain_id": 56,
-      "note": "8004scan's numbers, and 8004scan's ordering. None of these policies was replayed here and none of these rows carries a quote \u2014 the ranking is shown because the sort was proven to have applied, not because we believe what it ranks on.",
+      "note": "8004scan's numbers and 8004scan's ordering. No policy here was replayed, so no row carries a quote \u2014 the ranking is shown only because the sort was proven to apply.",
       "read_at": "2026-08-27T13:45:22+00:00",
       "tier": "keyed"
     },
@@ -2848,7 +2847,7 @@
           "search_returned": 2
         }
       },
-      "note": "A name is not an identity. These are agents on BSC mainnet carrying the same names as ours, owned by addresses that are not ours \u2014 which is what a registry storing 285,000 free-text names produces, and why every row this site shows is keyed by token id and owner rather than by name.",
+      "note": "A name is not an identity: these carry our names and are owned by addresses that are not ours. Every row here is keyed by token id.",
       "read_at": "2026-08-27T13:45:30+00:00",
       "tier": "keyed"
     },
@@ -3011,7 +3010,7 @@
         },
         {
           "field": "supported_protocols",
-          "note": "Not an indexing error \u2014 the index is correctly reporting a field our card never filled. Our cards declare a service endpoint and no protocol list, so an index that ranks on protocol support sees nothing to rank.",
+          "note": "Not an indexing error \u2014 our cards declare a service endpoint and no protocol list, so there is nothing here to rank.",
           "theirs": [],
           "token_id": 1927
         },
@@ -3029,7 +3028,7 @@
         },
         {
           "field": "supported_protocols",
-          "note": "Not an indexing error \u2014 the index is correctly reporting a field our card never filled. Our cards declare a service endpoint and no protocol list, so an index that ranks on protocol support sees nothing to rank.",
+          "note": "Not an indexing error \u2014 our cards declare a service endpoint and no protocol list, so there is nothing here to rank.",
           "theirs": [],
           "token_id": 1928
         },
@@ -3047,7 +3046,7 @@
         },
         {
           "field": "supported_protocols",
-          "note": "Not an indexing error \u2014 the index is correctly reporting a field our card never filled. Our cards declare a service endpoint and no protocol list, so an index that ranks on protocol support sees nothing to rank.",
+          "note": "Not an indexing error \u2014 our cards declare a service endpoint and no protocol list, so there is nothing here to rank.",
           "theirs": [],
           "token_id": 1929
         },
@@ -3065,7 +3064,7 @@
         },
         {
           "field": "supported_protocols",
-          "note": "Not an indexing error \u2014 the index is correctly reporting a field our card never filled. Our cards declare a service endpoint and no protocol list, so an index that ranks on protocol support sees nothing to rank.",
+          "note": "Not an indexing error \u2014 our cards declare a service endpoint and no protocol list, so there is nothing here to rank.",
           "theirs": [],
           "token_id": 1930
         }
@@ -3091,7 +3090,7 @@
     "reconciliation": {
       "difference": -5312,
       "difference_pct": 1.86,
-      "note": "Two counts of the same registry by different methods. They are published together and the gap is not resolved: nothing here can say which is right, and picking the larger would be the misquote this project is named after. What is checked is that both are counting the same contract \u2014 if they were not, the comparison would be meaningless rather than merely unresolved.",
+      "note": "Two counts of the same registry by different methods, published together with the gap unresolved. Both are checked to be counting the same contract.",
       "ours": 280287,
       "ours_method": "binary search on ownerOf \u2014 totalSupply() reverts on this proxy",
       "same_contract": true,

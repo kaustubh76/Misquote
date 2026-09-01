@@ -20,7 +20,6 @@ interface Capability {
   available: boolean;
   module: string | null;
   reason: string;
-  searched: string[];
   evidence?: string[];
   grant_plan: Step[];
   revoke_plan: Step[];
@@ -118,10 +117,9 @@ export function ActivateView({
         Hire an agent. Bounded, reversible, yours to revoke.
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
-        A session key your wallet grants and your wallet can take back. The
-        contract enforces the expiry and the revoke; it does not enforce the
-        allowlist or the spend cap, and the button below says so before you sign
-        rather than after.
+        A session key your wallet grants and can take back. The contract enforces
+        the expiry and the revoke — not the allowlist or the spend cap, and the
+        button says so before you sign.
       </p>
 
       {/* This page used to render a large refusal here, headed "There is no Hire
@@ -186,12 +184,16 @@ export function ActivateView({
             />
             <StepList steps={cap?.revoke_plan ?? FALLBACK_REVOKE} />
             <p className="mt-3 mb-0 text-xs text-faint">
-              Sent by you, needing no cooperation from the agent. It goes to the
-              keyStore; the grant goes to the keyStoreController — two different
-              contracts.
+              Sent by you, needing no cooperation from the agent.
             </p>
           </Card>
         </div>
+
+        {/* The one claim the removed path dump made that a reader can act on. */}
+        <p className="mt-5 mb-0 max-w-[62ch] text-sm text-dim">
+          Every address here passed the same three-way check{" "}
+          <Link href="/registry">the hire flow</Link> uses — never a vendor&rsquo;s word for it.
+        </p>
       </Section>
 
       {proof?.transactions?.length ? (
@@ -201,11 +203,8 @@ export function ActivateView({
           headingClassName="text-lg font-semibold"
         >
           <p className="mt-2 mb-5 max-w-[62ch] text-dim">
-            Everything else on this site is a <em>reading</em> of chain state,
-            which has to be trusted to have been taken honestly. These are
-            transaction hashes — a third-party-hosted record of an action, which
-            you can check without this page&rsquo;s cooperation. Grant, read back
-            live, revoke, read back dead.
+            Every other page is a <em>reading</em> you have to trust. These are
+            transaction hashes you can check without this page&rsquo;s cooperation.
           </p>
 
           <ol className="m-0 list-none space-y-3 p-0">
@@ -240,38 +239,12 @@ export function ActivateView({
           </div>
 
           <p className="mt-4 mb-0 max-w-[62ch] text-sm text-dim">
-            The third pill is the one that keeps this page honest. The key really
-            was bounded and really was withdrawn; what the chain never enforced
-            was the allowlist or the spend cap, so they are reported as absent
-            rather than folded into a green tick with the two that worked.
+            The third pill is the honest one: the key was bounded and withdrawn,
+            but the caps were never enforced, so they are reported absent rather
+            than folded into a green tick.
           </p>
         </Section>
       ) : null}
-
-      <Section
-        title="What was searched"
-        className="mt-10"
-        headingClassName="text-lg font-semibold"
-      >
-        {/* This opened by justifying the refusal — "the whole reason the
-            refusal lasted as long as it did" — which is orphaned framing now
-            that the page hires. The list below is the part that was ever
-            checkable, and it stands without the apology in front of it. */}
-        <p className="mt-2 mb-3 max-w-[62ch] text-dim">
-          Where the code looked for a session-key module before it found one.
-        </p>
-        <ul className="m-0 list-none space-y-1 p-0 font-mono text-sm text-dim">
-          {(cap?.searched ?? FALLBACK_SEARCHED).map((where) => (
-            <li key={where}>{where}</li>
-          ))}
-        </ul>
-        <p className="mt-4 mb-0 max-w-[62ch] text-sm text-dim">
-          An address earns a place in the code by passing the same three-way
-          check <Link href="/registry">the hire flow</Link> uses — it is a
-          contract, it answers the calls we make, and it was observed on a live
-          network — never by appearing in a vendor&rsquo;s SDK.
-        </p>
-      </Section>
 
       {survey?.not_verified?.length ? (
         <Section
@@ -284,10 +257,7 @@ export function ActivateView({
             {typeof survey.block === "number"
               ? `, read at block ${survey.block.toLocaleString()}`
               : ""}
-            . This is the other half of the record, and the half worth more: a
-            passing check says what was read, never what the reading covers. The
-            escrow that cleared four real checks and implemented none of ERC-8183
-            is why this section exists.
+            . A passing check says what was read, never what the reading covers.
           </p>
           <ul className="m-0 list-none space-y-3 p-0 text-sm text-dim">
             {survey.not_verified.map((line) => (
@@ -402,13 +372,6 @@ const FALLBACK_REVOKE: Step[] = [
     what:
       "revoke the session key, on the keyStore — a different contract from the grant; the agent's next transaction reverts",
   },
-];
-
-const FALLBACK_SEARCHED = [
-  "@altananetwork/sdk@0.8.0 dist/config.js",
-  "@altananetwork/sdk@0.8.0 dist/internal/keystore.js",
-  "vetting/addresses/session-keys-56.json",
-  "vetting/addresses/session-keys-97.json",
 ];
 
 const FALLBACK_READABLE = [

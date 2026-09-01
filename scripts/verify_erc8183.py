@@ -230,7 +230,7 @@ def survey(w3: Web3, chain_id: int) -> Report:
     # 3. The answers agree with each other, and with what we already verified.
     ours = IDENTITY_REGISTRY.get(chain_id, "")
     report.add(
-        "registry agrees with erc8004.py",
+        "registry agrees with the ERC-8004 reader",
         PASS if table["registry"].lower() == ours.lower() else FAIL,
         f"SDK says {table['registry']}, we verified {ours}",
     )

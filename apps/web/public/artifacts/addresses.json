@@ -1,11 +1,11 @@
 {
-  "age_hours": 299.4,
+  "age_hours": 370.5,
   "block": 116328079,
   "build": {
     "command": "python scripts/addresses_report.py --chain 56",
-    "generated_at": "2026-08-29T06:52:15+00:00",
+    "generated_at": "2026-09-01T05:56:53+00:00",
     "git_dirty": true,
-    "git_sha": "c71dad9",
+    "git_sha": "1720a35",
     "source": "chain reads recorded on disk"
   },
   "chain_id": 56,
@@ -79,7 +79,7 @@
   ],
   "erc8183": {
     "56": {
-      "age_hours": 0.6,
+      "age_hours": 0.0,
       "block": 118717822,
       "chain_id": 56,
       "checks": [
@@ -139,7 +139,7 @@
         },
         {
           "detail": "SDK says 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432, we verified 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-          "name": "registry agrees with erc8004.py",
+          "name": "registry agrees with the ERC-8004 reader",
           "provenance": "P-24",
           "status": "PASS"
         },
@@ -156,7 +156,7 @@
           "status": "PASS"
         }
       ],
-      "read_at": "2026-08-29T06:15:41+00:00",
+      "read_at": "2026-09-01T05:56:52+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-56.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
@@ -201,7 +201,7 @@
       "verdict": "PASS"
     },
     "97": {
-      "age_hours": 0.6,
+      "age_hours": 0.0,
       "block": 127861451,
       "chain_id": 97,
       "checks": [
@@ -261,7 +261,7 @@
         },
         {
           "detail": "SDK says 0x8004A818BFB912233c491871b3d84c89A494BD9e, we verified 0x8004A818BFB912233c491871b3d84c89A494BD9e",
-          "name": "registry agrees with erc8004.py",
+          "name": "registry agrees with the ERC-8004 reader",
           "provenance": "P-24",
           "status": "PASS"
         },
@@ -278,7 +278,7 @@
           "status": "PASS"
         }
       ],
-      "read_at": "2026-08-29T06:15:17+00:00",
+      "read_at": "2026-09-01T05:56:52+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-97.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
@@ -295,7 +295,7 @@
   "reason": "",
   "record": "vetting/addresses/56.json",
   "session_key_proof": {
-    "age_hours": 0.2,
+    "age_hours": 1.5,
     "caps_enforced": false,
     "caps_note": "The keystore enforces the expiry. The allowlist and spend cap are not enforced here: they belong to the validator module's metadata and to the per-wallet Altana account, and this grant carries validator=0x0 and empty metadata \u2014 the same shape every other grant observed on this deployment uses.",
     "chain_id": 97,
@@ -317,7 +317,7 @@
     "key_store": "0x6b8361C29d05D498b1a12B54A37310f94171E94A",
     "key_store_controller": "0xb530D1971f5453F3359518343F05D0AedFfF7e12",
     "owner": "0xbF4ef75a443E00415Ee2E368caC089e0834930E6",
-    "read_at": "2026-08-29T06:37:52+00:00",
+    "read_at": "2026-09-01T04:29:26+00:00",
     "record": "vetting/identity/session-keys-97.json",
     "registration_fee_wei": 725716783448241,
     "root_key_id": "0x83b60aeb63d5fce7919cd8c24e1969cd86bb518a531732f123696142ba2c02f6",
@@ -407,11 +407,11 @@
         }
       ],
       "not_verified": [
-        "NOT VERIFIED: the caps. This checks the keystore \u2014 where a key is registered, read and revoked. The allowlist and the spend cap live in `registerKey`'s `validator` and `metadata` arguments and on the per-wallet Altana account, and nothing here has read either. An expiry that is enforced and an allowlist that is not would be worse than no grant at all.",
-        "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an `eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a contract that will accept *our* `registerKey` are different claims, and only the first is supported \u2014 which is P-18 pointed at ourselves.",
-        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. Whether the controller accepts a direct EOA `registerKey` is unread here."
+        "NOT VERIFIED: the caps. This checks the keystore, where a key is registered, read and revoked. The allowlist and spend cap live elsewhere and nothing here has read them.",
+        "NOT VERIFIED: the write path. Every reading here is a call, never a send \u2014 a contract that answers and one that will accept *our* grant are different claims.",
+        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler, not plain EOA sends. Whether a direct send is accepted is unread here."
       ],
-      "read_at": "2026-08-29T06:20:16+00:00",
+      "read_at": "2026-09-01T05:29:20+00:00",
       "reason": "",
       "record": "vetting/addresses/session-keys-56.json",
       "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
@@ -484,11 +484,11 @@
         }
       ],
       "not_verified": [
-        "NOT VERIFIED: the caps. This checks the keystore \u2014 where a key is registered, read and revoked. The allowlist and the spend cap live in `registerKey`'s `validator` and `metadata` arguments and on the per-wallet Altana account, and nothing here has read either. An expiry that is enforced and an allowlist that is not would be worse than no grant at all.",
-        "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an `eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a contract that will accept *our* `registerKey` are different claims, and only the first is supported \u2014 which is P-18 pointed at ourselves.",
-        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. Whether the controller accepts a direct EOA `registerKey` is unread here."
+        "NOT VERIFIED: the caps. This checks the keystore, where a key is registered, read and revoked. The allowlist and spend cap live elsewhere and nothing here has read them.",
+        "NOT VERIFIED: the write path. Every reading here is a call, never a send \u2014 a contract that answers and one that will accept *our* grant are different claims.",
+        "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler, not plain EOA sends. Whether a direct send is accepted is unread here."
       ],
-      "read_at": "2026-08-29T06:20:22+00:00",
+      "read_at": "2026-09-01T05:29:20+00:00",
       "reason": "",
       "record": "vetting/addresses/session-keys-97.json",
       "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
@@ -508,7 +508,7 @@
   },
   "surveyed": true,
   "venus": {
-    "age_hours": 191.9,
+    "age_hours": 0.0,
     "block": 117187851,
     "chain_id": 56,
     "checks": [
@@ -543,8 +543,8 @@
         "status": "PASS"
       },
       {
-        "detail": "underlying() returns 0x55d398326f99059ff775485246999027b3197955, which chain/addresses.py verified independently",
-        "name": "vUSDT underlying agrees with addresses.py",
+        "detail": "underlying() returns 0x55d398326f99059ff775485246999027b3197955, which the address table verified independently",
+        "name": "vUSDT underlying agrees with the address table",
         "provenance": "V-15",
         "status": "PASS"
       },
@@ -591,8 +591,8 @@
         "status": "PASS"
       },
       {
-        "detail": "underlying() returns 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d, which chain/addresses.py verified independently",
-        "name": "vUSDC underlying agrees with addresses.py",
+        "detail": "underlying() returns 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d, which the address table verified independently",
+        "name": "vUSDC underlying agrees with the address table",
         "provenance": "V-15",
         "status": "PASS"
       },
@@ -622,7 +622,7 @@
       }
     ],
     "markets_passing": 2,
-    "read_at": "2026-08-21T06:56:05+00:00",
+    "read_at": "2026-09-01T05:56:52+00:00",
     "reason": "",
     "record": "vetting/addresses/venus-56.json",
     "summary": {

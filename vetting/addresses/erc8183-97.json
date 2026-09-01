@@ -58,7 +58,7 @@
     },
     {
       "detail": "SDK says 0x8004A818BFB912233c491871b3d84c89A494BD9e, we verified 0x8004A818BFB912233c491871b3d84c89A494BD9e",
-      "name": "registry agrees with erc8004.py",
+      "name": "registry agrees with the ERC-8004 reader",
       "provenance": "P-24",
       "status": "PASS"
     },

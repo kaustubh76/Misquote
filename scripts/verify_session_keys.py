@@ -158,18 +158,9 @@ class Report:
 #: interesting output, and the half that says what they do not cover is the half
 #: a reader needs most.
 NOT_VERIFIED = (
-    "NOT VERIFIED: the caps. This checks the keystore — where a key is "
-    "registered, read and revoked. The allowlist and the spend cap live in "
-    "`registerKey`'s `validator` and `metadata` arguments and on the per-wallet "
-    "Altana account, and nothing here has read either. An expiry that is "
-    "enforced and an allowlist that is not would be worse than no grant at all.",
-    "NOT VERIFIED: the write path. Every reading here is an `eth_call` or an "
-    "`eth_getCode`. A contract that answers `getRegistrationFeeInWei()` and a "
-    "contract that will accept *our* `registerKey` are different claims, and "
-    "only the first is supported — which is P-18 pointed at ourselves.",
-    "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps "
-    "via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA sends. "
-    "Whether the controller accepts a direct EOA `registerKey` is unread here.",
+    "NOT VERIFIED: the caps. This checks the keystore, where a key is registered, read and revoked. The allowlist and spend cap live elsewhere and nothing here has read them.",
+    "NOT VERIFIED: the write path. Every reading here is a call, never a send — a contract that answers and one that will accept *our* grant are different claims.",
+    "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler, not plain EOA sends. Whether a direct send is accepted is unread here.",
 )
 
 

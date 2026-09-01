@@ -351,13 +351,9 @@ export function OverviewView({
             {notCompared.length > 0 && (
               <p className="mt-3 mb-0 text-xs text-faint">
                 {notCompared.join(", ")}{" "}
-                {notCompared.length === 1 ? "is" : "are"} not on this table.{" "}
-                {notCompared.length === 1 ? "It holds" : "They hold"} no range
-                of its own — it chooses which venue to put capital in, so there
-                is no in-range fraction to report and a zero in that column
-                would read as a claim rather than an absence. It does price
-                adverse selection: every PancakeSwap range it considers is
-                quoted net of the convexity cost measured over the same window.
+                {notCompared.length === 1 ? "is" : "are"} not on this table:{" "}
+                {notCompared.length === 1 ? "it holds" : "they hold"} no range of
+                its own, so the columns here measure a position it never takes.
               </p>
             )}
           </div>

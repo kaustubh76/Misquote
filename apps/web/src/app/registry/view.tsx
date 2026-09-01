@@ -129,12 +129,9 @@ function ThirdPartyListings({
       />
       <p className="mt-2 text-sm text-dim">
         Sampled across{" "}
-        {population ? population.toLocaleString() : "the"} registered agents, not across the
-        oldest few hundred. These are listings, not tearsheets: each one repeats what its
-        registration claims and what our own reading of it found, and carries{" "}
-        <strong>no performance figure</strong>. Our four agents are quoted because their
-        policies can be replayed on real history. These cannot be, so they are not quoted —
-        and that is the difference the rest of this site exists to make visible.
+        {population ? population.toLocaleString() : "the"} registered agents. Listings, not
+        tearsheets: each repeats what its registration claims and carries{" "}
+        <strong>no performance figure</strong>. Only a policy we hold can be replayed.
       </p>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {agents.map((agent) => (
@@ -863,11 +860,8 @@ export function RegistryView({
               headingClassName="mb-2 text-lg font-semibold"
               intro={
                 <>
-                  The ledger said this was blocked because nothing here could
-                  sign. That was wrong &mdash; the four agents above were
-                  registered by this same signer. What was missing was an{" "}
-                  <strong>ABI</strong>, recovered from the deployed kernel&rsquo;s
-                  bytecode rather than copied from a table. Job{" "}
+                  The missing piece was an <strong>ABI</strong>, recovered from the
+                  deployed kernel&rsquo;s bytecode rather than copied. Job{" "}
                   <span className="font-mono">{d.hire_flow.proof.job_id}</span> on
                   chapel is the result.
                 </>
@@ -936,11 +930,9 @@ export function RegistryView({
                     What reverts, and what it means
                   </p>
                   <p className="mt-0 mb-4 max-w-[70ch] text-sm text-dim">
-                    None of these is in any ABI &mdash; the kernel fails with bare
-                    four-byte selectors and no reason string. Each was isolated by
-                    varying one argument at a time; three were then matched to a
-                    name, and where both methods answered they agreed. The rest are
-                    counted, not guessed.
+                    None of these is in any ABI &mdash; the kernel reverts with a
+                    bare selector and no reason. The unnamed ones are counted, not
+                    guessed.
                   </p>
                   <ul className="m-0 list-none space-y-2 p-0 text-sm">
                     {Object.entries(d.hire_flow.errors).map(([selector, meaning]) => (
@@ -1049,7 +1041,7 @@ export function RegistryView({
               <Refusal
                 title="No verified deployment"
                 reason={d.hire_flow.escrow.reason ?? "The address has not been verified."}
-                floor="registry/erc8183.py::escrow_address raises rather than returning a plausible address"
+                floor="The lookup refuses rather than returning a plausible address."
               />
             )}
           </Section>
@@ -1300,15 +1292,10 @@ export function RegistryView({
             headingClassName="mb-2 text-lg font-semibold"
             intro={
               <>
-                Every count above this line was taken by this repository, on
-                chain. These were taken by <code className="font-mono text-xs">8004scan.io</code>,
-                which indexes the same contracts and answers questions{" "}
-                <code className="font-mono text-xs">ownerOf</code> cannot &mdash;
-                chiefly who, if anyone, has ever rated any of these agents. The
-                two readings are published side by side and the gaps are stated
-                rather than resolved: nothing here can say which is right, and
-                picking the flattering one is the thing this site is named
-                against.
+                Every count above was taken on chain by this repository; these come
+                from <code className="font-mono text-xs">8004scan.io</code>. Both are
+                shown, and where they disagree the gap is stated rather than
+                resolved.
               </>
             }
           >
@@ -1328,7 +1315,7 @@ export function RegistryView({
               <Refusal
                 title="No AACP contract table was read"
                 reason={d.aacp.reason ?? "the report recorded no reason"}
-                floor="registry/aacp.py raises NoDeployment rather than defaulting — TermiX documents chains 56 and 8453 only."
+                floor="The lookup refuses rather than defaulting — TermiX documents chains 56 and 8453 only."
               />
             ) : (
               <Card>

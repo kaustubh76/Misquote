@@ -125,20 +125,13 @@ export function CategoryIndexView({ initial }: { initial?: IndexArtifact }) {
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-0 max-w-[62ch] text-dim">
-          This site indexes the ERC-8004 registry and lists what it finds on{" "}
-          <Link href="/registry">the registry page</Link>. None of those agents
-          declares a category — not on its card, not in the survey, nowhere in
-          the standard. Sorting them into these means reading strangers&rsquo;
-          free-text descriptions and deciding on their behalf what they are for,
-          and the result is <strong className="text-ink">our</strong>{" "}
-          classification of their words.
+          ERC-8004 declares no category, so sorting{" "}
+          <Link href="/registry">the agents we index</Link> into these is{" "}
+          <strong className="text-ink">our</strong> reading of their words.
         </p>
         <p className="mt-3 mb-0 max-w-[62ch] text-dim">
-          So it is shown as ours. Each category page lists the agents an index
-          holds for it and prints, on every row, the term that row had to
-          contain to appear — the judgement is on the page rather than behind
-          it. None of them carries a quote, because we do not have their
-          policies.
+          Shown as ours: every row names the term it matched on, and none carries
+          a quote, because we do not have their policies.
         </p>
       </Section>
 

@@ -814,26 +814,16 @@ def main() -> int:
     pool_caveats: list[str] = []
     if pool_venues:
         pool_caveats = [
-            "A pool venue is quoted NET of its convexity cost — realized fees minus "
-            "the LVR the same window actually booked. The gross fee APR is the "
-            "number every other venue quotes, and ranking it against a lending "
-            "market's net supply rate would let it win on a subtraction it had "
-            "not made (A10, A21).",
-            "These are not the same risk. A supplied dollar earns a dollar rate and "
-            "its principal stays a dollar. An LP range earns a rate measured in the "
-            "pool's own quote token, and its principal is two assets whose value "
-            "moves with the price — so a higher figure is not simply better, and "
-            "the two numbers are not interchangeable however carefully each is "
-            "derived.",
-            "There is no width-free fee APR: two LPs in one pool at one moment earn "
-            "differently because they chose differently. Each range here is quoted "
-            "at the width `make pools` measured as the leader over this tape, and "
-            "`pools.json` records that the lead is not separated at this sample "
-            "size (A21, A23).",
-            f"A window holding fewer than {MIN_SWAPS} swaps has no verdict rather "
-            f"than a small number, and A1's ceiling is a fraction of the pool's own "
-            f"depth over the quoted range — so a range can pay well and still be "
-            f"refused for being too shallow to take the position.",
+            "A pool venue is quoted NET of its convexity cost, so it is never "
+            "ranked on a subtraction it did not make (A10, A21).",
+            "Not the same risk: a supplied dollar stays a dollar, an LP range "
+            "holds two assets that move with the price.",
+            "There is no width-free fee APR. Each range is quoted at the width "
+            "measured as the leader, and that lead is not separated at this "
+            "sample size (A21, A23).",
+            f"A window under {MIN_SWAPS} swaps has no verdict, and A1 caps a "
+            f"position at a fraction of the pool's depth — so a range can pay "
+            f"well and still be refused as too shallow.",
         ]
 
     payload = {
@@ -894,10 +884,9 @@ def main() -> int:
         "caveats": [
             COUNTERFACTUAL_BADGE,
             # The finding, on the card rather than only in the docstring.
-            "Rates are realized — derived by differencing Venus's borrowIndex "
-            "accumulator, never from supplyRatePerBlock(), whose conversion to an "
-            "annual figure needs a blocks-per-year constant that is not readable "
-            "from chain and whose plausible values span 6.67x (A12, P-22).",
+            "Rates are realized — differenced from Venus's borrowIndex, never "
+            "from supplyRatePerBlock(), whose annualisation needs a constant "
+            "that is not readable from chain (A12, P-22).",
             "The switching boundary is the myopic break-even, widened by a "
             "published margin. It is not a solved free boundary (A13).",
             "Switch cost uses the full pool fee, not the LP's share of it: a "
@@ -917,10 +906,8 @@ def main() -> int:
     # an artifact failing this repository's own contract. `--no-pools` is the
     # other way in: a card built without ranges still has to say that it was.
     payload["pool_finding"] = (
-        "No PancakeSwap range was offered as a venue in this run. Either no badged "
-        "pool has a measured width — `make pools` publishes the ladder — or the run "
-        "was built with `--no-pools`, which is a speed switch for local iteration "
-        "rather than a claim that lending was the only option considered."
+        "No PancakeSwap range was offered as a venue in this run — either no "
+        "badged pool has a measured width, or the run skipped them for speed."
     )
     if pool_venues:
         declined = [
@@ -935,15 +922,10 @@ def main() -> int:
                 for row in declined
             )
             payload["pool_finding"] = (
-                f"Router measured {len(declined)} PancakeSwap range(s) as venues and entered "
-                f"none of them, and the reason is size rather than yield. A1 caps a replayed "
-                f"position at {base_params.eps_market_share:.0%} of the venue it sits in, and "
-                f"against a notional of {args.capital:,.0f} the ceilings are: {detail}. The fee "
-                f"APR was measured and is on the card; what the ranges could not do is absorb "
-                f"this much capital without moving the price the replay is priced against. At a "
-                f"smaller notional the same policy over the same tape reaches a different "
-                f"answer, which is why the ceiling is published beside each range rather than "
-                f"the refusal alone."
+                f"Router measured {len(declined)} PancakeSwap range(s) and entered none — "
+                f"size, not yield. A1 caps a position at "
+                f"{base_params.eps_market_share:.0%} of its venue, so against "
+                f"{args.capital:,.0f} the ceilings are: {detail}."
             )
         else:
             entered = [row for row in payload["venues"] if row.get("held_samples")]
@@ -991,15 +973,12 @@ def main() -> int:
 
     else:
         payload["finding"] = (
-            f"Router supplied and then moved {full.switches} time(s). Over {span_h:.0f}h the "
-            f"best realized dollar rate was {100 * full.best_apr_seen:.2f}%, and the largest "
-            f"gap between the two venues reached {100 * full.max_edge_apr:.3f}pp against a "
-            f"round-trip hurdle of {100 * full.hurdle_apr_p50:.3f}pp — so the edge cleared, "
-            f"and only just. It held the better-paying venue on "
-            f"{100 * full.best_venue_fraction:.0f}% of samples, earning "
-            f"{full.gross_yield_quote:,.2f} against {full.total_costs:,.4f} of cost. "
-            f"A boundary that is crossed narrowly is the interesting case: the same agent "
-            f"declined to move on a 0.3pp edge earlier in this tape."
+            f"Router moved {full.switches} time(s) over {span_h:.0f}h. Best realized "
+            f"rate {100 * full.best_apr_seen:.2f}%; the widest venue gap reached "
+            f"{100 * full.max_edge_apr:.3f}pp against a "
+            f"{100 * full.hurdle_apr_p50:.3f}pp hurdle — the edge cleared, and only "
+            f"just. It held the better venue on "
+            f"{100 * full.best_venue_fraction:.0f}% of samples."
         )
 
     if coverage_gaps:

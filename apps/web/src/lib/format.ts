@@ -182,9 +182,16 @@ export const SIGN_CLASS: Record<Sign, string> = {
   none: "text-faint",
 };
 
-/** Shorten a 0x address for display without hiding that it is an address. */
+/**
+ * Shorten a 0x address or transaction hash without hiding what it is.
+ *
+ * Both widths, because only accepting the 40-hex address width silently passed
+ * 64-hex transaction hashes straight through. `/registry` prints two per
+ * registration and a 66-character unbreakable mono string pushed that page
+ * 118px sideways on a 390px screen.
+ */
 export function shortAddress(addr: string, lead = 6, tail = 4): string {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return addr;
+  if (!/^0x[0-9a-fA-F]{40}$|^0x[0-9a-fA-F]{64}$/.test(addr)) return addr;
   return `${addr.slice(0, lead)}…${addr.slice(-tail)}`;
 }
 

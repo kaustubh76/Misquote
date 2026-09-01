@@ -636,13 +636,8 @@ def counts(chain_id: int = BSC_CHAIN_ID) -> dict[str, Any]:
         "filters": filters,
         "refused": sorted(n for n, c in filters.items() if not c.get("applied")),
         "note": (
-            "Shares 8004scan reported, not shares we derived. Each one is published "
-            "only after the filter behind it was shown to have applied — the rows "
-            "returned satisfy it, the total differs from the unfiltered population, "
-            "and where a complement exists the two add back to that population. A "
-            "filter this API accepts and ignores answers with the whole chain under "
-            "the label you asked for, so the proof is the reason these are readable "
-            "at all rather than merely cheap."
+            "Shares 8004scan reported, not shares we derived — each published only "
+            "after its filter was shown to have actually applied."
         ),
     }
 
@@ -961,11 +956,9 @@ async def _census(chain_id: int, page_size: int) -> dict[str, Any]:
             "keeps minting — measured at 72 new BSC agents during a 68-minute walk"
         ),
         "note": (
-            "Every agent the index holds for this chain, counted — not sampled. "
-            "The shares carry no confidence interval because nothing was inferred: "
-            "`counted` is the denominator. What it cannot say is whether 8004scan's "
-            "index is itself complete, which is why our own on-chain count is "
-            "published beside it and the two are reconciled rather than merged."
+            "Every agent the index holds for this chain, counted — not sampled, so "
+            "no confidence interval. Whether the index itself is complete is a "
+            "different question, answered by our own count beside it."
         ),
     }
 
@@ -1031,9 +1024,8 @@ def feedback_reach(chain_id: int = BSC_CHAIN_ID) -> dict[str, Any]:
         "example_transaction_hash": row.get("transaction_hash"),
         "example_block_number": row.get("block_number"),
         "note": (
-            "Counted from the feedback table rather than summed off the agents. "
-            "Every row names the transaction that wrote it, so the count is "
-            "checkable on chain — which is what separates it from a star rating."
+            "Counted from the feedback table itself. Every row names the "
+            "transaction that wrote it, so the count is checkable on chain."
         ),
     }
 
@@ -1151,10 +1143,9 @@ def leaderboard(chain_id: int = BSC_CHAIN_ID, n: int = LEADERBOARD_N) -> dict[st
         "read_at": _read_at(),
         "by": by,
         "note": (
-            "8004scan's numbers, and 8004scan's ordering. None of these policies was "
-            "replayed here and none of these rows carries a quote — the ranking is "
-            "shown because the sort was proven to have applied, not because we "
-            "believe what it ranks on."
+            "8004scan's numbers and 8004scan's ordering. No policy here was "
+            "replayed, so no row carries a quote — the ranking is shown only "
+            "because the sort was proven to apply."
         ),
     }
 
@@ -1274,10 +1265,8 @@ def name_collisions(
         "read_at": _read_at(),
         "names": out,
         "note": (
-            "A name is not an identity. These are agents on BSC mainnet carrying the "
-            "same names as ours, owned by addresses that are not ours — which is what "
-            "a registry storing 285,000 free-text names produces, and why every row "
-            "this site shows is keyed by token id and owner rather than by name."
+            "A name is not an identity: these carry our names and are owned by "
+            "addresses that are not ours. Every row here is keyed by token id."
         ),
     }
 
@@ -1528,15 +1517,9 @@ def category_agents(
         "agents": shown,
         "attributed_to": attributed_to,
         "note": (
-            "Agents 8004scan holds for this category, on BSC mainnet, ranked by the "
-            "evidence 8004scan itself has for them. Every number on a row is theirs "
-            "and is labelled so — none of these policies was replayed here, so none "
-            "of them carries a quote. `dropped_not_matching` counts rows the search "
-            "returned that do not contain the word they were returned for; the search "
-            "matches stems, and without that check `liquidation` fills this list with "
-            "agents that merely said `liquidity`. `crowded_out_by_owner_cap` counts "
-            "rows a single minter would otherwise have filled the category with — "
-            "ranked on evidence alone, one address owned all eight Rebalancing slots."
+            "Agents 8004scan holds for this category, ranked on their own evidence. "
+            "Every number on a row is theirs; none of these policies was replayed "
+            "here, so none carries a quote."
         ),
     }
 
@@ -1864,10 +1847,8 @@ async def _feedback_walk(chain_id: int) -> dict[str, Any]:
         **graph.as_dict(),
         "by_agent": graph.agents(),
         "note": (
-            "Who does the rating, counted from the feedback table itself. Every row "
-            "names the transaction that wrote it, so unlike a star rating the count "
-            "is checkable on chain. These shares carry no confidence interval "
-            "because nothing was inferred — the table was walked, not sampled."
+            "Who does the rating, counted from the feedback table itself — walked, "
+            "not sampled, so no confidence interval."
         ),
     }
 

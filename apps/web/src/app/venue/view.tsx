@@ -19,8 +19,6 @@ interface Divergence {
   uniswap: string;
   pancake: string;
   costs: string;
-  where: string;
-  caught_by: string;
   provenance: string;
 }
 
@@ -321,11 +319,11 @@ export function VenueView({
                       summarised because the amount is the point. */}
                   <p className="mt-3 mb-0 max-w-[72ch] text-sm">{row.costs}</p>
 
-                  <p className="mt-3 mb-0 border-t border-line pt-2 font-mono text-xs break-words text-faint">
-                    {row.where} · caught by {row.caught_by} ·{" "}
-                    {/* The provenance carries P- and V- ids, and `WithCitations`
-                        linkifies them out of the artifact string — so the same
-                        text stays byte-identical in the JSON and in the page. */}
+                  {/* `where` and `caught_by` are both file paths — the test and
+                      the module that caught the divergence. The provenance
+                      carries the P- and V- ids a reader can actually follow, and
+                      `WithCitations` linkifies them out of the artifact string. */}
+                  <p className="mt-3 mb-0 border-t border-line pt-2 text-xs text-faint">
                     <WithCitations text={row.provenance} />
                   </p>
                 </Card>
@@ -625,11 +623,8 @@ export function VenueView({
                           would be the tidier lie. */}
                       {usable.some((band) => band.p25 < -1) && (
                         <p className="mt-3 mb-0 max-w-[72ch] text-xs text-faint">
-                          A P25 below −100% is an annualised rate, not a
-                          realized loss: the convexity cost is an upper bound on
-                          adverse selection, and a single bad day scaled to a
-                          year lands in the hundreds. The worst quarter of
-                          windows on this pool is where its depth is thinnest.
+                          A P25 below −100% is an annualised rate, not a realized
+                          loss — one bad day scaled to a year lands in the hundreds.
                         </p>
                       )}
                     </>
@@ -719,10 +714,8 @@ export function VenueView({
                 published ladders rather than above them. */}
             <Card className="mt-4">
               <p className="mt-0 mb-3 max-w-[72ch] text-sm text-dim">
-                The ladders above are every pool this repository measured. If
-                you hold a position in one, ask about it directly — the answer
-                distinguishes a pool nobody verified from one that was verified
-                and could not be ranked.
+                Hold a position in a pool that is not listed? Ask directly — the
+                answer tells you whether it was unverified or simply unrankable.
               </p>
               <PoolLookup />
             </Card>

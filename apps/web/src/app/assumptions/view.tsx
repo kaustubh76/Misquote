@@ -215,9 +215,8 @@ export function AssumptionsView({
     <Loadable loading={state === null} what="the assumption sheet" className="max-w-3xl">
       <h1 className="text-3xl leading-[1.15] font-semibold text-balance">The assumption sheet</h1>
       <p className="mt-3 max-w-[68ch] text-dim">
-        Read this the way you would read the footnotes of a fund factsheet — except these
-        footnotes are the point. Every number this site displays must trace to a chain
-        query or to an entry below. If it cannot, it does not render.
+        Footnotes, except these are the point: every number on this site traces to a
+        chain query or to an entry below, or it does not render.
       </p>
 
       {state === null && (
@@ -233,9 +232,7 @@ export function AssumptionsView({
             detail={state.error.message}
             remedy={
               <>
-                Run <code className="font-mono text-xs">make assumptions</code>. The source
-                documents are <code className="font-mono text-xs">docs/ASSUMPTIONS.md</code>{" "}
-                and <code className="font-mono text-xs">docs/REQUIREMENTS_MATRIX.md</code>.
+                Run <code className="font-mono text-xs">make assumptions</code>.
               </>
             }
           />
@@ -476,9 +473,6 @@ export function AssumptionsView({
             </Section>
           )}
 
-          <p className="mt-10 text-sm text-faint">
-            Generated from {d.sources.join(" and ")}.
-          </p>
         </>
       )}
     </Loadable>

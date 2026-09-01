@@ -123,11 +123,8 @@ export function TapeView({ vetted }: { vetted?: BadgeSurvey }) {
         What the index actually holds.
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
-        Every other page here reads an artifact — a file written when some run
-        finished. None of them can say whether the database behind those runs is
-        mid-backfill, whether the history it claims is contiguous, or whether the
-        range it reports was ever actually read. That is a live question, and this
-        is the live answer.
+        Every other page reads a file written when some run finished. Only this
+        one asks the database, live, what it actually holds.
       </p>
 
       <Section
@@ -141,19 +138,12 @@ export function TapeView({ vetted }: { vetted?: BadgeSurvey }) {
           is wrong is silent.
         </p>
         <p className="mt-3 max-w-[62ch] text-dim">
-          A quiet range of blocks and a range nobody fetched both contain zero
-          swaps, and no query over the events can tell them apart. So a tape holding
-          one day at each end of a month-long gap reports a month of history, holds
-          two days, and passes a readiness gate that checks the span. Every
-          interrupted backfill produces exactly that shape.
+          A quiet range and a range nobody fetched both hold zero swaps, so a tape
+          with a month-long gap reports a month and holds two days.
         </p>
         <p className="mt-3 max-w-[62ch] text-dim">
-          The indexer therefore records which block ranges it actually{" "}
-          <em>read</em>, separately from which ones produced events, and merges them
-          on insert so a gap is a real gap rather than a chunk boundary. The strips
-          below are that record. A hatched segment is a range nobody has fetched —
-          absence, drawn in the one texture this site uses for it, never in a colour
-          that would read as a fault.
+          So the indexer records what it <em>read</em>, not just what produced
+          events. Hatching below is a range nobody fetched — absence, not a fault.
         </p>
         <p className="mt-3 mb-0 max-w-[62ch] text-dim">
           A database written before that table existed reports{" "}

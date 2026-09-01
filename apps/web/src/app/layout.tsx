@@ -136,10 +136,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <noscript>
           <div className="mx-auto max-w-5xl px-5 pb-16 text-sm text-dim">
             The overview and the agent pages render here without JavaScript. Every
-            other page needs it to fetch its numbers, and shows its heading and
-            lede meanwhile. The artifacts are plain files either way:{" "}
-            <code className="font-mono">artifacts/</code> holds one per page, and{" "}
-            <code className="font-mono">index.json</code> lists the agents.
+            other page needs it to fetch its numbers, and shows its heading and lede
+            meanwhile.
           </div>
         </noscript>
         </WalletProvider>

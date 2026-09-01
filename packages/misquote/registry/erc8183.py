@@ -204,35 +204,24 @@ JOB_ESCROW_EVIDENCE: dict[int, tuple[str, ...]] = {
         "The interface answers: `jobCounter()` returns **56,632**, "
         "`paymentToken()` returns 0xce24439f...666666, and the policy's "
         "`disputeWindow()` returns 604,800 (seven days).",
-        "The answers agree. The kernel's own `paymentToken()` equals the "
-        "published table's entry, and the table's `registry` field is "
-        "byte-identical to `erc8004.IDENTITY_REGISTRY[56]` — an address this "
-        "repository verified independently, from the PancakeSwap side, long "
-        "before it read this table.",
-        "56,632 jobs is the number that distinguishes this from the previous "
-        "candidate. `TermixEscrow` was a real escrow that implemented none of "
-        "ERC-8183 (P-18). This one answers the EIP's own accessors and has been "
-        "used at scale.",
-        "Recorded in vetting/addresses/erc8183-56.json.",
-        "NOT VERIFIED: nobody here has created, funded, submitted or settled a "
-        "job on this deployment. Every reading above is an `eth_call` or an "
-        "`eth_getCode`; the write path has never been exercised because nothing "
-        "in this repository can sign. A contract that answers `jobCounter()` "
-        "and a contract that will accept *our* job are different claims, and "
-        "only the first is supported — which is the same distinction P-18 was "
-        "about, pointed at ourselves this time.",
-        "SECURITY: the kernel, the EvaluatorRouter and the registry are 130-byte "
-        "proxies, so the code that would hold escrowed funds is upgradeable by "
-        "its owner. What was verified is what those addresses delegate to "
-        "today. Nothing here checks who may change that, and a reader routing "
-        "real money should.",
+        "The answers agree: the kernel's own `paymentToken()` matches the "
+        "published table, and the table's registry is byte-identical to the "
+        "address we verified independently months earlier.",
+        "56,632 jobs is what distinguishes this from the previous candidate, "
+        "which implemented none of ERC-8183. This one answers the EIP's own "
+        "accessors and has been used at scale.",
+        "NOT VERIFIED: the write path. Every reading above is a call, never a "
+        "send. A contract that answers `jobCounter()` and one that will accept "
+        "*our* job are different claims, and only the first is supported.",
+        "SECURITY: three of the five are 130-byte proxies, so the code holding "
+        "escrowed funds is upgradeable by its owner. We verified what they "
+        "delegate to today, not who may change it.",
     ),
     97: (
         "Same five checks, same shapes, chapel testnet. `jobCounter()` returns "
         "581 and `disputeWindow()` returns 86,400 (one day, shorter than "
         "mainnet's seven).",
         "The table's `registry` equals `erc8004.IDENTITY_REGISTRY[97]`, again byte-identical.",
-        "Recorded in vetting/addresses/erc8183-97.json.",
         "NOT VERIFIED: the write path is unexercised here too — same reason, "
         "same absence of a signer. Chapel would be the honest place to exercise "
         "it, and that has not been done.",
@@ -372,11 +361,9 @@ def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
             "submit",
             "provider",
             "kernel",
-            "Funded -> Submitted. The deployment's signature is "
-            "submit(uint256,bytes32,bytes) — three arguments, not the EIP's "
-            "two: a client encoding the standard's shape hits a selector that "
-            "does not exist and reverts with no reason string. It took 21,060 "
-            "candidate signatures to find (registry/erc8183_abi.py)",
+            "Funded -> Submitted. The deployment takes three arguments, not "
+            "the EIP's two, so a client encoding the standard's shape reverts "
+            "with no reason string",
         ),
         Step(
             "settle",

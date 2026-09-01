@@ -1316,7 +1316,14 @@ def check_artifact_freshness() -> Check:
             f"{len(REPLAY_ARTIFACTS)} replay artifacts, none generated before an engine change",
         )
 
-    detail = "; ".join(stale + [f"{n} records no commit" for n in unstamped])
+    parts = []
+    if stale:
+        parts.append(
+            f"{len(stale)} replay artifact(s) were generated before an engine change"
+        )
+    if unstamped:
+        parts.append(f"{len(unstamped)} record no commit at all")
+    detail = "; ".join(parts)
     return Check(
         "artifacts match the engine",
         UNVERIFIED,

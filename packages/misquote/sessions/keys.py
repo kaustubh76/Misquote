@@ -128,7 +128,6 @@ SESSION_KEY_EVIDENCE: dict[int, tuple[str, ...]] = {
         "explicitly: a table that had accidentally repeated one of them would "
         "pass every other check here while sending the revoke to the wrong "
         "contract.",
-        "Recorded in vetting/addresses/session-keys-56.json.",
         "NOT VERIFIED: the caps. This is the keystore. The allowlist and the "
         "spend cap live in `registerKey`'s `validator` and `metadata` arguments "
         "and on the per-wallet Altana account, and nothing here has read either. "
@@ -140,9 +139,8 @@ SESSION_KEY_EVIDENCE: dict[int, tuple[str, ...]] = {
         "`registerKey` are different claims, and only the first is supported — "
         "which is P-18 pointed at ourselves.",
         "NOT VERIFIED: the relay. Altana's SDK grants through ERC-4337 userOps "
-        "via a bundler (`grantSession.js` -> `submitCalls`), not plain EOA "
-        "sends. Whether the controller accepts a direct EOA `registerKey` is "
-        "unread on this chain.",
+        "via a bundler, not plain EOA sends. Whether the controller accepts a "
+        "direct EOA `registerKey` is unread on this chain.",
     ),
     97: (
         "Same two checks, same shapes, chapel testnet: keyStore 8,756 bytes and "
@@ -151,31 +149,9 @@ SESSION_KEY_EVIDENCE: dict[int, tuple[str, ...]] = {
         "Read 29 Aug 2026 at block 127,862,076.",
         "`getRegistrationFeeInWei()` returns 725,716,783,448,241 wei, within a "
         "third of a percent of mainnet's — the fee is not a testnet discount.",
-        "Recorded in vetting/addresses/session-keys-97.json.",
         "NOT VERIFIED: the caps, here too. Same reason, same absence of a reading.",
     ),
 }
-
-#: Where a verifier looked. Named so a refusal can say what was searched rather
-#: than only that nothing was found — and the list is the whole defect this
-#: module was corrected for.
-#:
-#: It used to name three files under `vetting/addresses/`, all of them this
-#: repository's own output, and concluded from their contents that no session-key
-#: module had been verified anywhere. That is a search of a directory reported as
-#: a search of the world. The SDK was publishing the addresses the entire time,
-#: in the same package this repository had already read `ERC8183_ADDRESSES` out
-#: of. A search list that contains only your own artifacts can only ever tell you
-#: what you already knew.
-SEARCHED = (
-    "@altananetwork/sdk@0.8.0 dist/config.js",
-    "@altananetwork/sdk@0.8.0 dist/internal/keystore.js",
-    "vetting/addresses/session-keys-56.json",
-    "vetting/addresses/session-keys-97.json",
-    "vetting/addresses/56.json",
-    "vetting/addresses/erc8183-56.json",
-    "vetting/addresses/erc8183-97.json",
-)
 
 
 class NoVerifiedSessionModule(RuntimeError):
@@ -224,9 +200,8 @@ def module_for(chain_id: int) -> str:
     except KeyError:
         raise NoVerifiedSessionModule(
             f"no verified Altana session-key module for chain {chain_id}. "
-            f"Searched {', '.join(SEARCHED)}. Verify one the way "
-            f"scripts/verify_erc8183.py verified JOB_ESCROW, and record it in "
-            f"sessions/keys.py::SESSION_KEY_MODULE with its readings."
+            f"The vendor SDK and our own recorded readings were both checked; "
+            f"neither holds one for this chain."
         ) from None
 
 
@@ -323,7 +298,6 @@ def capability(chain_id: int = 56) -> dict[str, Any]:
         "available": available,
         "module": module or None,
         "reason": reason,
-        "searched": list(SEARCHED),
         "evidence": list(SESSION_KEY_EVIDENCE.get(chain_id, ())),
         # `asdict`, not `__dict__`: `Step` uses slots, so it has no instance
         # dict and the attribute access raises. Safe here where it was not in

@@ -44,9 +44,8 @@ export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
         See it work, without a wallet.
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
-        The interesting states of this site need a running API, a worker draining a
-        queue, and in one case a BSC position you are unlikely to hold. They are
-        recorded instead, and replayed here from files you can read.
+        The states that need a running API, a worker, or a BSC position you do not
+        hold — recorded, and replayed here from files you can read.
       </p>
 
       <div className="-mx-5 mt-8 px-5">
@@ -87,9 +86,8 @@ export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
           headingClassName="text-lg font-semibold"
           intro={
             <>
-              Four steps, in order. Each is a real page with the simulation banner
-              on it &mdash; not a mock, not a video. The last step is not simulated
-              at all, and that is the point of it.
+              Four real pages with the simulation banner on them &mdash; not a mock,
+              not a video. The last one is not simulated at all.
             </>
           }
         >
@@ -174,16 +172,16 @@ export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
         What is simulated, and what never is
       </Heading>
       <p className="max-w-[70ch] text-sm text-dim">
-        Every number on the agent cards, the advantage report, the vetting badges
-        and the registry survey is computed from chain state or a published
-        assumption, and none of it is simulated &mdash; those pages read the same
-        whether or not you came here. What is recorded above is the{" "}
+        Every number on the agent cards, the advantage report, the badges and the
+        registry survey is computed from chain state — none of it is simulated.
+        What is recorded above is the{" "}
         <em>live API&rsquo;s side of a conversation</em>: a quote job, a wallet
-        read, a journal that does not exist. And the agent cards carry a{" "}
-        <strong className="text-ink">COUNTERFACTUAL</strong> badge worth reading
-        rather than skipping &mdash; the pool history is real and the capital
-        figure is real, and the position was never held. That is Showcase Mode,
-        and it is the default everywhere on this site.
+        read, a journal that does not exist.
+      </p>
+      <p className="mt-3 max-w-[70ch] text-sm text-dim">
+        The <strong className="text-ink">COUNTERFACTUAL</strong> badge means the
+        history is real and the position was never held. That is Showcase Mode,
+        the default here.
       </p>
     </>
   );

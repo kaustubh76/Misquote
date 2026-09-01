@@ -88,7 +88,6 @@ export interface VettingArtifact {
   surveyed: boolean;
   reason?: string;
   chain_id: number;
-  badge_dir: string;
   pools: VettingPool[];
   /**
    * The emitter's own rollup of `vetting.json`.
@@ -367,7 +366,7 @@ export function VettingView({
           <Refusal
             title="No pool has been badged"
             reason={d.reason ?? "Nothing has been read yet."}
-            floor={`${d.badge_dir} is empty — vetting/read.py turns a read it could not make into UNKNOWN rather than a default`}
+            floor="No badge has been recorded. A read that could not be made becomes UNKNOWN, never a default."
           />
         </div>
       )}
@@ -488,7 +487,7 @@ export function VettingView({
                 <Refusal
                   title="Not badged"
                   reason={pool.reason ?? "No badge exists for this pool."}
-                  floor="listed in chain/addresses.py — run `make vet`"
+                  floor="Listed but never read — run `make vet`."
                 />
               ) : (
                 <Card>
@@ -588,9 +587,8 @@ export function VettingView({
         headingClassName="text-lg font-semibold"
       >
         <p className="mt-2 mb-4 max-w-[62ch] text-sm text-dim">
-          Recorded badges only — a badge is a set of chain readings taken at one
-          block, and one re-read live under a request timeout would be a weaker
-          badge at the same URL with nothing saying so.
+          Recorded badges only — a live re-read under a timeout would be a weaker
+          badge at the same URL, with nothing saying so.
         </p>
         <BadgeLookup />
       </Section>
@@ -634,11 +632,9 @@ export function VettingView({
                   Venus markets — the Yield category&rsquo;s gate
                 </Heading>
                 <p className="mt-0 mb-3 max-w-[68ch] text-sm text-dim">
-                  Router will not quote below two markets that pass all of
-                  these. The strong one is the same shape as above: a
-                  market&rsquo;s underlying matching a token this repository
-                  verified from the PancakeSwap side, months earlier and from
-                  the other direction.
+                  Router will not quote below two markets that pass all of these
+                  — the strongest being an underlying that matches a token
+                  verified months earlier from the PancakeSwap side.
                 </p>
                 <CheckList checks={narrow(addrs.value.venus.checks)} />
 
@@ -659,13 +655,9 @@ export function VettingView({
                       touch, and the strongest evidence for that is a case where
                       it actually refused something — which it has. */}
                 <p className="mt-4 mb-0 max-w-[68ch] text-sm text-dim">
-                  The badge is also what lets Router put capital into a{" "}
-                  <Link href="/venue">PancakeSwap range</Link> at all. The same
-                  rule decides which pools this site points a reader at and
-                  which ones the Yield agent may enter as a venue, and an absent
-                  badge is a refusal rather than a pass — a pool nobody has
-                  checked is one nobody should be steered into, in either
-                  direction.
+                  No badge, no capital: the same rule gates which{" "}
+                  <Link href="/venue">pools</Link> we show and which Yield may
+                  enter. Unchecked is a refusal, not a pass.
                 </p>
               </div>
             )}
@@ -707,7 +699,7 @@ export function VettingView({
             reason={
               addrs.ok
                 ? addrs.value.reason ?? "no reading was recorded"
-                : `addresses.json could not be read — ${addrs.error.message}`
+                : `The address record could not be read — ${addrs.error.message}`
             }
             floor="an address nobody checked and an address checked clean look identical once rendered"
           />
