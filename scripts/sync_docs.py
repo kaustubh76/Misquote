@@ -21,6 +21,7 @@ a failing test rather than something a reader has to notice.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -260,6 +261,65 @@ def explorer_block() -> list[str] | None:
     return rows
 
 
+def termix_listing_block() -> list[str] | None:
+    """The listing, as a before and an after, because one reading is not a result.
+
+    `FOR_JUDGES.md` argued that mainnet registration was *sufficient* to appear on
+    TermiX — "their explorer would have found us on mainnet, with no platform flow
+    at all" — from an indexing-lag gap. A supported inference, never demonstrated.
+
+    Four `register(string)` calls on chain 56 demonstrated it, and the answer came
+    back narrower than the claim. This block renders both halves from
+    `vetting/identity/termix-listing-56.json`, which records the authenticated read
+    before and after; a reading without its baseline says nothing about what
+    changed.
+    """
+    path = REPO / "vetting" / "identity" / "termix-listing-56.json"
+    if not path.exists():
+        return None
+    record = json.loads(path.read_text())
+
+    before, after = record.get("before") or {}, record.get("after") or {}
+    listed = record.get("listed_by_termix") or {}
+    missing = record.get("not_listed") or {}
+    lag = record.get("lag_ruled_out") or {}
+    if not before.get("reading") or not after.get("reading"):
+        return None
+
+    rows = [
+        "| | |",
+        "|---|---|",
+        f"| the question | {record.get('question', '')} |",
+        f"| before | `/api/v1/agents` {before['reading']} — {before.get('state', '')} |",
+        f"| after | `/api/v1/agents` {after['reading']} — {after.get('state', '')} |",
+        f"| asked as | `{record.get('wallet', '')}`, authenticated over SIWE |",
+        f"| what it cost | {record.get('cost_bnb', '?')} BNB of gas, no protocol fee |",
+    ]
+    if listed:
+        rows.append(
+            "| listed | "
+            + ", ".join(f"{name} `{agent_id}`" for name, agent_id in sorted(listed.items()))
+            + " |"
+        )
+    if missing:
+        rows.append(
+            "| not listed | "
+            + ", ".join(f"{name} `{agent_id}`" for name, agent_id in sorted(missing.items()))
+            + " — minted by a delegate, then transferred |"
+        )
+    if lag.get("explorer_total_now"):
+        rows.append(
+            f"| indexing lag ruled out | their index reached "
+            f"{lag['explorer_total_now']:,}, past our highest id "
+            f"{lag.get('our_highest_id', 0):,}, and the absence survived |"
+        )
+    rows.append(
+        "| what it means | sufficient for an identity **minted** to the wallet that "
+        "authenticates; not for one transferred to it |"
+    )
+    return rows
+
+
 def mechanism_block() -> list[str] | None:
     """How the agent spent its actions, from the task with the most of them.
 
@@ -413,6 +473,7 @@ BLOCKS = {
     "tape": tape_block,
     "registry": registry_block,
     "explorer": explorer_block,
+    "termix_listing": termix_listing_block,
     "mechanism": mechanism_block,
 }
 

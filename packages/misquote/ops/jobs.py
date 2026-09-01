@@ -260,6 +260,43 @@ def worker_last_seen(conn: sqlite3.Connection) -> int | None:
     return seen or None
 
 
+def observed_events_per_second(conn: sqlite3.Connection, *, sample: int = 5) -> float | None:
+    """What this host has actually replayed at, per process, or None.
+
+    `api/quote.py::replay_cost` quoted a wait from `EVENTS_PER_SECOND` — one
+    laptop's throughput, recorded with no note of how many processes it was
+    measured across. On a small instance that estimate was out by most of an
+    hour: 397 seconds promised against a job still running forty minutes later.
+
+    A machine that has finished a replay knows its own rate, so this returns
+    that instead of a constant describing somebody else's hardware. The median
+    of the last few, not the mean — one job that ran while the box was busy
+    should not move the number a caller is shown.
+
+    None until this host has finished one, which is the honest answer then.
+    """
+    rows = conn.execute(
+        "SELECT result_json FROM job WHERE kind = 'quote' AND status = 'done' "
+        "AND result_json IS NOT NULL ORDER BY finished_ts DESC LIMIT ?",
+        (sample,),
+    ).fetchall()
+
+    rates: list[float] = []
+    for row in rows:
+        try:
+            observed = (json.loads(row["result_json"]) or {}).get("observed") or {}
+        except (TypeError, ValueError):
+            continue
+        rate = observed.get("events_per_second_per_process")
+        if isinstance(rate, int | float) and rate > 0:
+            rates.append(float(rate))
+
+    if not rates:
+        return None
+    rates.sort()
+    return rates[len(rates) // 2]
+
+
 def get(conn: sqlite3.Connection, job_id: str) -> dict[str, Any] | None:
     row = conn.execute("SELECT * FROM job WHERE id = ?", (job_id,)).fetchone()
     return dict(row) if row else None

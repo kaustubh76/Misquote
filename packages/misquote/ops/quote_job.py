@@ -27,6 +27,7 @@ give honestly.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -146,8 +147,20 @@ def tape_db_path(params: dict[str, Any]) -> str:
 
 
 def load_events(db_path: Any, address: str) -> list[Event]:
-    """Every swap for one pool, in time order."""
-    conn = store.connect(db_path)
+    """Every swap for one pool, in time order. Read-only, and that is load-bearing.
+
+    `store.connect` opens read-write and puts the database into WAL mode, which
+    writes: a `-wal` and a `-shm` appear beside the file and four bytes of its
+    header change. That was tolerable while the replay read a gitignored local
+    tape. It stopped being tolerable when the worker started honouring `DB_PATH`
+    and pointed at `data/deploy/tape.db` — a **committed** 31MB artifact, which a
+    read then showed as modified in `git status`.
+
+    `tests/api/test_tape_slice.py::test_reading_the_tape_does_not_modify_it` is
+    the guard, and it caught exactly this the first time a replay ran against the
+    slice.
+    """
+    conn = store.connect_readonly(db_path)
     try:
         return list(store.read_swaps(conn, address))
     finally:
@@ -196,6 +209,7 @@ def run(conn: Any, job_id: str, params: dict[str, Any]) -> None:
     def on_progress(done: int, total: int) -> None:
         jobs.progress(conn, job_id, done, total, phase="replaying")
 
+    started = time.monotonic()
     result: Quote = quote(
         meta_for(ref),
         factory,
@@ -204,6 +218,28 @@ def run(conn: Any, job_id: str, params: dict[str, Any]) -> None:
         map_fn=fork_map(JOBS),
         on_progress=on_progress,
     )
+
+    elapsed = time.monotonic() - started
+
+    # What this host actually managed, so the next caller is quoted a wait this
+    # machine can keep.
+    #
+    # `replay_cost` estimated from `EVENTS_PER_SECOND`, one laptop's figure with
+    # no term for how many processes it was measured across. Scaling that by
+    # `JOBS` fixes the fan-out and still assumes this host's cores are as fast as
+    # that laptop's — on a free instance they are not, and the API promised 397
+    # seconds for a job tracking toward the better part of an hour.
+    #
+    # Recorded per process, because that is the part of the rate that belongs to
+    # the machine rather than to the configuration.
+    observed = {
+        "events": len(events) * result.samples,
+        "elapsed_s": round(elapsed, 1),
+        "jobs": JOBS,
+        "events_per_second_per_process": (
+            round(len(events) * result.samples / elapsed / JOBS) if elapsed > 0 else None
+        ),
+    }
 
     if not result.sufficient:
         # The engine's own sentence, copied and not rewritten.
@@ -244,5 +280,8 @@ def run(conn: Any, job_id: str, params: dict[str, Any]) -> None:
             # the window count. An interactive run is a *different* measurement
             # from the published card and must not be compared with it silently.
             "interactive_budget": windows < DEFAULT_WINDOWS,
+            # Not a figure about the pool — a figure about this host, kept so the
+            # next caller's estimate is one this machine can actually keep.
+            "observed": observed,
         },
     )

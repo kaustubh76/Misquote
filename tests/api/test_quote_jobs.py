@@ -223,7 +223,7 @@ def test_the_quoted_duration_counts_the_replays_a_job_actually_runs() -> None:
     """
     from misquote.api.quote import replay_cost
     from misquote.core.types import Params
-    from misquote.ops.quote_job import INTERACTIVE_WINDOWS
+    from misquote.ops.quote_job import INTERACTIVE_WINDOWS, JOBS
     from misquote.replay.ranges import EVENTS_PER_SECOND, perturbations
 
     check = {
@@ -240,7 +240,40 @@ def test_the_quoted_duration_counts_the_replays_a_job_actually_runs() -> None:
 
     # Half the tape per window, times the replays, at the engine's own rate.
     assert cost["events"] == int(expected_replays * 60_853 * 0.5)
-    assert cost["estimated_seconds"] == round(cost["events"] / EVENTS_PER_SECOND)
+
+    # Divided by the processes that will do it, which this had no term for.
+    # `EVENTS_PER_SECOND` is one machine's figure recorded with no note of the
+    # fan-out it was measured across, so the estimate silently assumed both the
+    # cores and how many of them. On an instance running one process instead of
+    # seven a caller was quoted 397 seconds for a job still going forty minutes
+    # later — and understating a wait is the direction that costs the person
+    # deciding whether to sit through it.
+    assert cost["processes"] == JOBS
+    assert cost["estimated_seconds"] == round(cost["events"] / (EVENTS_PER_SECOND * JOBS))
+    assert cost["measured_here"] is False, "no run has been observed in this test"
+
+
+def test_the_estimate_prefers_what_this_host_actually_achieved() -> None:
+    """A constant describes somebody's laptop; a finished replay describes here.
+
+    The fallback is only honest until the machine has evidence about itself. Once
+    a job records its own throughput, quoting the constant instead would be
+    choosing the less informed of two numbers in the field least able to defend
+    itself.
+    """
+    from misquote.api.quote import replay_cost
+    from misquote.ops.quote_job import JOBS
+
+    check = {
+        "plan": {"windows": 20, "widest_window_hours": 120.0},
+        "tape": {"swaps": 60_853, "hours": 240.0},
+    }
+    slow = replay_cost(check, rate_per_process=100.0)
+    fast = replay_cost(check, rate_per_process=10_000.0)
+
+    assert slow["measured_here"] is True
+    assert slow["estimated_seconds"] > fast["estimated_seconds"]
+    assert slow["estimated_seconds"] == round(slow["events"] / (100.0 * JOBS))
 
 
 def test_no_duration_is_quoted_when_the_tape_cannot_support_one() -> None:

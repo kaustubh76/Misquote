@@ -31,7 +31,7 @@ from misquote.chain.positions import PositionReader
 from misquote.core.types import Params
 from misquote.indexer.store import connect_readonly
 from misquote.ops import jobs
-from misquote.ops.quote_job import INTERACTIVE_WINDOWS
+from misquote.ops.quote_job import INTERACTIVE_WINDOWS, JOBS
 from misquote.replay.ranges import EVENTS_PER_SECOND, perturbations
 
 DEFAULT_CHAIN_ID = 56
@@ -175,11 +175,14 @@ def submit_quote(payload: dict[str, Any]) -> dict[str, Any]:
             note=" · ".join(check["why_not"]),
         )
 
-    cost = replay_cost(check)
     published = published_runs(ref.address)
 
     store = jobs.connect()
     try:
+        # Read before the estimate, so the estimate can use it. This host's own
+        # throughput when it has finished a replay to prove one; the constant
+        # only until then.
+        cost = replay_cost(check, rate_per_process=jobs.observed_events_per_second(store))
         job_id = jobs.submit(
             store,
             "quote",
@@ -320,7 +323,7 @@ def published_runs(address: str) -> list[dict[str, Any]]:
     return found
 
 
-def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
+def replay_cost(check: dict[str, Any], *, rate_per_process: float | None = None) -> dict[str, Any]:
     """How much arithmetic this hire is, and roughly how long that takes.
 
     ## The count is the job's, not the engine's
@@ -356,10 +359,28 @@ def replay_cost(check: dict[str, Any]) -> dict[str, Any]:
         return {"replays": replays, "events": None, "estimated_seconds": None}
 
     events = int(replays * float(swaps) * (widest / hours))
+
+    # Two terms this had neither of: how many processes do the work, and how
+    # fast *this* host's are.
+    #
+    # `EVENTS_PER_SECOND` is one laptop's figure with no record of the fan-out it
+    # was measured across, so dividing by it assumed both. The consequence was
+    # not academic — a caller was quoted 397 seconds for a job that was still
+    # running forty minutes later, on an instance running one process instead of
+    # seven. An estimate a reader is deciding whether to wait on is the field
+    # least able to defend itself, and understating it is the direction that
+    # costs them.
+    #
+    # `rate_per_process` is what this host has actually achieved, when it has
+    # finished a replay to say so. The constant is the fallback for the first
+    # one, and it is now explicitly per process.
+    rate = rate_per_process or EVENTS_PER_SECOND
     return {
         "replays": replays,
         "events": events,
-        "estimated_seconds": round(events / EVENTS_PER_SECOND),
+        "estimated_seconds": round(events / (rate * JOBS)),
+        "processes": JOBS,
+        "measured_here": rate_per_process is not None,
     }
 
 
