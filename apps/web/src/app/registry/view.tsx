@@ -247,6 +247,23 @@ export interface RegistryArtifact {
       why_not_on_mainnet?: string;
       transactions?: { call: string; ok?: boolean }[];
     };
+    /**
+     * The run that cost money, and the one that did not finish.
+     *
+     * `fund` moved 0.1 of the payment token into a real job on BSC mainnet.
+     * `submit` and `settle` then refused, and the fork above only got past that
+     * by moving the clock seven days — which is the whole reason these are
+     * three records and not one averaged claim.
+     */
+    mainnet_proof?: {
+      ran: boolean;
+      reason?: string;
+      network?: string;
+      job_id?: number;
+      escrowed?: boolean;
+      settled?: boolean;
+      transactions?: { call: string; ok?: boolean; reverted?: string; explorer?: string }[];
+    };
   };
   identity: {
     surveyed: boolean;
@@ -949,6 +966,35 @@ export function RegistryView({
                     chain, and a page that let `escrowed: true` sit next to
                     `escrowed: false` without saying which network each is would
                     be the misquote this site is named after. */}
+                {/* The mainnet run, above the fork one: it is the stronger
+                    claim and the weaker outcome, and a reader who stops after
+                    the first block should have read the one that cost money. */}
+                {d.hire_flow.mainnet_proof?.ran && (
+                  <div className="mt-5 border-t border-line pt-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <Badge tone="neutral">
+                        {d.hire_flow.mainnet_proof.network ?? "BSC mainnet"}
+                      </Badge>
+                      <Pill tone={d.hire_flow.mainnet_proof.escrowed ? "pass" : "fail"}>
+                        escrowed: {String(d.hire_flow.mainnet_proof.escrowed ?? false)}
+                      </Pill>
+                      <Pill tone={d.hire_flow.mainnet_proof.settled ? "pass" : "fail"}>
+                        settled: {String(d.hire_flow.mainnet_proof.settled ?? false)}
+                      </Pill>
+                      <span className="font-mono text-xs text-faint">
+                        job {d.hire_flow.mainnet_proof.job_id} ·{" "}
+                        {(d.hire_flow.mainnet_proof.transactions ?? []).filter((t) => t.ok).length} of{" "}
+                        {(d.hire_flow.mainnet_proof.transactions ?? []).length} steps
+                      </span>
+                    </div>
+                    <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                      Real money, escrowed. Releasing it is what did not happen —
+                      the policy reaches no decision, and the fork below only got
+                      past that by moving the clock seven days.
+                    </p>
+                  </div>
+                )}
+
                 {d.hire_flow.fork_proof?.ran && (
                   <div className="mt-5 border-t border-line pt-4">
                     <div className="flex flex-wrap items-center gap-3 text-sm">

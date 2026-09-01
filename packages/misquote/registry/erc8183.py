@@ -506,7 +506,7 @@ def render() -> str:
             "  vetting/identity/hire-97.json. What has *not* happened is an escrow —",
             "  fund() moves the deployment's payment token and that token is",
             "  owner-minted — but it trades on PancakeSwap against USDT and "
-            "  WBNB, so the escrow is a purchase away rather than out of reach.",
+            "WBNB, so the escrow is a purchase away rather than out of reach.",
         ]
     else:
         lines += [

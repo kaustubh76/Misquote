@@ -116,7 +116,21 @@ def _step(steps: list[dict[str, Any]], call: str, actor: str, fn) -> Any:
     return result
 
 
-def run(fork_url: str, block: int | None) -> dict[str, Any]:
+def run(
+    fork_url: str,
+    block: int | None,
+    *,
+    self_provider: bool = False,
+    budget: int = BUDGET,
+) -> dict[str, Any]:
+    """Drive the flow on a fork.
+
+    `self_provider` asks the question a mainnet run needs answered before it
+    spends anything: may one address be both client and provider? If it may,
+    `settle` returns the budget to the wallet that funded it and the net cost
+    of a real run is gas. If `createJob` refuses, the budget is genuinely
+    spent and that is a different decision — better made here, for free.
+    """
     addresses = contracts_for(CHAIN)
     steps: list[dict[str, Any]] = []
 
@@ -135,7 +149,9 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
 
         forked_at = int(w3.eth.block_number)
         client = Web3().eth.account.from_key(ANVIL_KEY).address
-        provider = Web3().eth.account.from_key(PROVIDER_KEY).address
+        provider = (
+            client if self_provider else Web3().eth.account.from_key(PROVIDER_KEY).address
+        )
         evaluator = Web3().eth.account.from_key(EVALUATOR_KEY).address
         for who in (client, provider, evaluator):
             w3.provider.make_request("anvil_setBalance", [who, hex(100 * 10**18)])
@@ -172,10 +188,12 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
                 return BscSigner(w3, key, kill_file=kill, max_gas_price_wei=0)
 
             writer = JobWriter(signer(ANVIL_KEY), CHAIN)
-            by_provider = JobWriter(signer(PROVIDER_KEY), CHAIN)
+            by_provider = JobWriter(
+                signer(ANVIL_KEY if self_provider else PROVIDER_KEY), CHAIN
+            )
             by_evaluator = JobWriter(signer(EVALUATOR_KEY), CHAIN)
 
-            _step(steps, "approve", "client", lambda: writer.approve(BUDGET))
+            _step(steps, "approve", "client", lambda: writer.approve(budget))
             created = _step(
                 steps,
                 "createJob",
@@ -201,7 +219,7 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
                 # setBudget before registerJob: `fund` reverts `ZeroBudget()`
                 # without a budget and `PolicyNotSet()` without a registration,
                 # so both precede it and neither substitutes for the other.
-                _step(steps, "setBudget", "client", lambda: writer.set_budget(job_id, BUDGET))
+                _step(steps, "setBudget", "client", lambda: writer.set_budget(job_id, budget))
                 _step(
                     steps,
                     "registerJob",
@@ -209,9 +227,9 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
                     lambda: writer.register_job(job_id, addresses["policy"]),
                 )
                 before = int(token.functions.balanceOf(client).call())
-                _step(steps, "fund", "client", lambda: writer.fund(job_id, BUDGET))
+                _step(steps, "fund", "client", lambda: writer.fund(job_id, budget))
                 after = int(token.functions.balanceOf(client).call())
-                escrowed = before - after == BUDGET
+                escrowed = before - after == budget
 
                 _step(
                     steps,
@@ -249,7 +267,7 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
                 "addresses": addresses,
                 "token_owner": owner,
                 "minted_to_client": minted,
-                "budget": BUDGET,
+                "budget": budget,
                 "client": client,
                 "provider": provider,
                 "evaluator": evaluator,
@@ -262,6 +280,7 @@ def run(fork_url: str, block: int | None) -> dict[str, Any]:
                 "gas_spent_wei": writer.gas_spent_wei
                 + by_provider.gas_spent_wei
                 + by_evaluator.gas_spent_wei,
+                "self_provider": bool(self_provider),
                 "escrowed_on_mainnet": False,
                 "why_not_on_mainnet": (
                     "Nobody has decided to spend the money. The token is not out "
@@ -287,6 +306,14 @@ def main() -> int:
     ap.add_argument("--rpc", default=os.environ.get("BSC_ARCHIVE_RPC_URL") or "https://bsc-dataseed.bnbchain.org")
     ap.add_argument("--block", type=int, default=None)
     ap.add_argument("--out", type=Path, default=RECORD)
+    ap.add_argument(
+        "--self-provider",
+        action="store_true",
+        help="one address as both client and provider — the mainnet rehearsal",
+    )
+    ap.add_argument(
+        "--budget", type=float, default=None, help="budget in whole tokens"
+    )
     args = ap.parse_args()
 
     import shutil
@@ -295,7 +322,12 @@ def main() -> int:
         print("anvil not installed — nothing recorded", file=sys.stderr)
         return 2
 
-    record = run(args.rpc, args.block)
+    record = run(
+        args.rpc,
+        args.block,
+        self_provider=args.self_provider,
+        budget=int(args.budget * 10**18) if args.budget else BUDGET,
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
 

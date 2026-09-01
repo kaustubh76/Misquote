@@ -1193,6 +1193,30 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.fork_proof.addresses.router": "",
     "hire_flow.fork_proof.addresses.policy": "",
     "hire_flow.fork_proof.addresses.erc20": "",
+    # The mainnet run — a third record, and the one that cost money. The four
+    # fields a reader needs to tell it from the fork are contracted to the view;
+    # the rest is the run's own bookkeeping, carried and not rendered.
+    "hire_flow.mainnet_proof.addresses.erc20": "",
+    "hire_flow.mainnet_proof.addresses.kernel": "",
+    "hire_flow.mainnet_proof.addresses.policy": "",
+    "hire_flow.mainnet_proof.addresses.router": "",
+    "hire_flow.mainnet_proof.budget": "",
+    "hire_flow.mainnet_proof.chain_id": "",
+    "hire_flow.mainnet_proof.client": "",
+    "hire_flow.mainnet_proof.escrowed": "registry/view.tsx",
+    "hire_flow.mainnet_proof.escrowed_on_mainnet": "",
+    "hire_flow.mainnet_proof.evaluator": "",
+    "hire_flow.mainnet_proof.gas_spent_wei": "",
+    "hire_flow.mainnet_proof.job_exists": "",
+    "hire_flow.mainnet_proof.job_id": "registry/view.tsx",
+    "hire_flow.mainnet_proof.job_words": "",
+    "hire_flow.mainnet_proof.network": "registry/view.tsx",
+    "hire_flow.mainnet_proof.provider": "",
+    "hire_flow.mainnet_proof.ran": "registry/view.tsx",
+    "hire_flow.mainnet_proof.record": "",
+    "hire_flow.mainnet_proof.settled": "registry/view.tsx",
+    "hire_flow.mainnet_proof.success_criterion": "",
+    "hire_flow.mainnet_proof.transactions": "registry/view.tsx",
     # Carried in the artifact and deliberately not rendered.
     #
     # These are the run's own bookkeeping: which addresses it used, what it

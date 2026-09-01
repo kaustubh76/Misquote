@@ -216,6 +216,7 @@ def hire_flow() -> dict[str, Any]:
         "errors": {**hire.CREATE_JOB_ERRORS, **hire.FLOW_ERRORS},
         "proof": _hire_proof(),
         "fork_proof": _hire_fork_proof(),
+        "mainnet_proof": _hire_mainnet_proof(),
     }
 
 
@@ -239,6 +240,30 @@ HIRE_PROOF_PATH = REPO / "vetting" / "identity" / "hire-97.json"
 #: never merged and the fork record carries `network: "fork"` in every consumer's
 #: reach.
 HIRE_FORK_PATH = REPO / "vetting" / "identity" / "hire-fork-56.json"
+
+#: The mainnet run. A third record, and the one that cost money.
+#:
+#: `proof` is chapel and stops at `fund` for want of a balance. `fork_proof`
+#: settles, on a fork, by moving the clock past a seven-day window. This one
+#: escrows on BSC mainnet and then cannot release, which is precisely the
+#: difference between the two: the fork skipped the wait and the chain will not.
+#: Three records, three claims, never merged.
+HIRE_MAINNET_PATH = REPO / "vetting" / "identity" / "hire-mainnet-56.json"
+
+
+def _hire_mainnet_proof() -> dict[str, Any]:
+    """The recorded mainnet run, or an honest absence."""
+    if not HIRE_MAINNET_PATH.is_file():
+        return {
+            "ran": False,
+            "reason": "no mainnet hire has been run — `make hire-mainnet` writes this",
+        }
+    try:
+        record = json.loads(HIRE_MAINNET_PATH.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return {"ran": False, "reason": f"{HIRE_MAINNET_PATH.name} could not be read: {error}"}
+    record["record"] = str(HIRE_MAINNET_PATH.relative_to(REPO))
+    return record
 
 
 def _hire_fork_proof() -> dict[str, Any]:

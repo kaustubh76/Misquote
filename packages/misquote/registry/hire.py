@@ -111,6 +111,15 @@ FLOW_ERRORS: dict[str, str] = {
     "as evaluator are the same one; see EVALUATOR_MUST_BE_THE_ROUTER",
     "0x8e78f0cb": "WrongStatus() — submit() before fund() succeeded. The status "
     "machine is real and the order in steps() is not decorative",
+    "0x17be5b7b": "NotDecided() — settle() before the OptimisticPolicy has a "
+    "decision to enforce. Observed on mainnet job 56681 both before and after "
+    "its dispute window, so waiting alone does not produce one",
+    "0x15e5dd74": "submit() on a funded mainnet job, from the address that is "
+    "both its client and its provider. Name unresolved — it is in no signature "
+    "database, unlike the four the fork proof resolved. After the job expires "
+    "the same call answers WrongStatus() instead, so this is a live-status "
+    "refusal rather than an expiry one, and that is a reading rather than a "
+    "decode",
 }
 
 #: **The evaluator must be the EvaluatorRouter itself.**

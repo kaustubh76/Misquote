@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 138,
+      "gap": 141,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 325350,
-      "ours_at_block": 119310012,
+      "ours": 325728,
+      "ours_at_block": 119325065,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 325212,
-      "total_pages": 16261,
+      "total": 325587,
+      "total_pages": 16280,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,14 +47,16 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-01T08:18:00+00:00",
+    "generated_at": "2026-09-01T10:11:03+00:00",
     "git_dirty": true,
-    "git_sha": "5636f94",
+    "git_sha": "282bc2e",
     "source": "recorded survey"
   },
   "hire_flow": {
     "client_transaction_count": 5,
     "errors": {
+      "0x15e5dd74": "submit() on a funded mainnet job, from the address that is both its client and its provider. Name unresolved \u2014 it is in no signature database, unlike the four the fork proof resolved. After the job expires the same call answers WrongStatus() instead, so this is a live-status refusal rather than an expiry one, and that is a reading rather than a decode",
+      "0x17be5b7b": "NotDecided() \u2014 settle() before the OptimisticPolicy has a decision to enforce. Observed on mainnet job 56681 both before and after its dispute window, so waiting alone does not produce one",
       "0x1a5d3d5f": "hook is not an accepted hook contract (name unresolved)",
       "0x32d53d69": "PolicyNotSet() \u2014 fund() on a job whose policy was never registered. Nothing to do with the balance: the fork proof holds ten times the budget and reverts identically until registerJob succeeds",
       "0x55c45de1": "HookRequired() \u2014 hook is the zero address",
@@ -186,6 +188,98 @@
         }
       ],
       "why_not_on_mainnet": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
+    },
+    "mainnet_proof": {
+      "addresses": {
+        "erc20": "0xcE24439F2D9C6a2289F741120FE202248B666666",
+        "kernel": "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
+        "policy": "0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5",
+        "router": "0x51895229E12F9876011789B04f8698af06cCD6DA"
+      },
+      "budget": 100000000000000000,
+      "chain_id": 56,
+      "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "escrowed": true,
+      "escrowed_on_mainnet": true,
+      "evaluator": "0x51895229E12F9876011789B04f8698af06cCD6DA",
+      "gas_spent_wei": 28040000000000,
+      "job_exists": true,
+      "job_id": 56681,
+      "job_words": [
+        "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "0x000000000000000000000000000000000000000000000000000000000000dd69",
+        "0x0000000000000000000000000c501ee1924bfb91a028db4bcd68f4861b0ff6ee",
+        "0x0000000000000000000000000c501ee1924bfb91a028db4bcd68f4861b0ff6ee",
+        "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+        "0x0000000000000000000000000000000000000000000000000000000000000160",
+        "0x000000000000000000000000000000000000000000000000016345785d8a0000",
+        "0x000000000000000000000000000000000000000000000000000000006a974c08",
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000035",
+        "0x4d697371756f74653a20646f657320686972696e6720616e206167656e742062",
+        "0x65617420646f696e6720697420796f757273656c660000000000000000000000"
+      ],
+      "network": "BSC mainnet",
+      "provider": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "ran": true,
+      "record": "vetting/identity/hire-mainnet-56.json",
+      "settled": false,
+      "success_criterion": "fund() moved the budget out of the client and settle() returned it, on BSC mainnet, against the deployment holding 56,680 jobs.",
+      "transactions": [
+        {
+          "actor": "client",
+          "call": "approve",
+          "note": "already set",
+          "ok": true
+        },
+        {
+          "actor": "client",
+          "call": "createJob",
+          "explorer": "https://bscscan.com/tx/52b10c09ae776c5cb37859a8cdc6ec623c23f2fcdf8f5756b74c2ebd3f63c582",
+          "gas_used": 261767,
+          "ok": true,
+          "tx_hash": "52b10c09ae776c5cb37859a8cdc6ec623c23f2fcdf8f5756b74c2ebd3f63c582"
+        },
+        {
+          "actor": "client",
+          "call": "setBudget",
+          "explorer": "https://bscscan.com/tx/04de1c2ee501bc2c58bbc65be9d125768bcba1a3e7e5cfe92765af8f62add735",
+          "gas_used": 96162,
+          "ok": true,
+          "tx_hash": "04de1c2ee501bc2c58bbc65be9d125768bcba1a3e7e5cfe92765af8f62add735"
+        },
+        {
+          "actor": "client",
+          "call": "registerJob",
+          "explorer": "https://bscscan.com/tx/762e1f4abf0c111f3f245907c71375c93acf5f669f813eebbb604d015cd93e6b",
+          "gas_used": 100342,
+          "ok": true,
+          "tx_hash": "762e1f4abf0c111f3f245907c71375c93acf5f669f813eebbb604d015cd93e6b"
+        },
+        {
+          "actor": "client",
+          "call": "fund",
+          "explorer": "https://bscscan.com/tx/bc225eb7ed5faeac8e4284b106dce24097838587bddd3b0850366e112f1ea692",
+          "gas_used": 102529,
+          "ok": true,
+          "tx_hash": "bc225eb7ed5faeac8e4284b106dce24097838587bddd3b0850366e112f1ea692"
+        },
+        {
+          "actor": "provider",
+          "call": "submit",
+          "ok": false,
+          "reverted": "0x15e5dd74"
+        },
+        {
+          "actor": "evaluator",
+          "call": "settle",
+          "ok": false,
+          "reverted": "0x17be5b7b"
+        }
+      ]
     },
     "proof": {
       "addresses": {
@@ -1211,7 +1305,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 3.8,
+    "age_hours": 5.7,
     "agents": [
       {
         "agent": "warden",

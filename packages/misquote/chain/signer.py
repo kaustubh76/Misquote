@@ -113,6 +113,7 @@ class BscSigner:
         "kill_file",
         "_dry_run",
         "_receipt_timeout",
+        "_peers",
         "_max_gas_price_wei",
     )
 
@@ -122,8 +123,9 @@ class BscSigner:
         private_key: str | None = None,
         *,
         kill_file: str | Path = DEFAULT_KILL_FILE,
-        receipt_timeout: float = 180.0,
+        receipt_timeout: float | None = None,
         max_gas_price_wei: int | None = None,
+        peer_rpcs: tuple[str, ...] = (),
     ) -> None:
         chain_id = int(w3.eth.chain_id)
         if chain_id not in SUPPORTED_CHAINS:
@@ -142,7 +144,30 @@ class BscSigner:
         self.chain_id = chain_id
         self.account = Account.from_key(key)
         self.kill_file = Path(kill_file)
+        # Configurable because 180s is not enough against a load-balanced
+        # endpoint, and the failure mode is the expensive one. Two mainnet runs
+        # have now died here *after their transactions mined* — the second was
+        # `approve` on the ERC-8183 escrow, which had already set its allowance
+        # by the time this gave up. A caller that treats the timeout as failure
+        # and resends is the thing the error text warns against, so the knob to
+        # wait longer belongs beside it.
+        if receipt_timeout is None:
+            configured = os.environ.get("MISQUOTE_RECEIPT_TIMEOUT_S")
+            receipt_timeout = 180.0 if configured is None else float(configured)
         self._receipt_timeout = receipt_timeout
+        # Endpoints to ask for a receipt *besides* the one that took the send.
+        #
+        # `bsc-dataseed.bnbchain.org` is load-balanced: the node that accepts a
+        # transaction and the node asked for its receipt seconds later need not
+        # be the same one, and the second can be blocks behind. Three mainnet
+        # runs have now stalled here on transactions that were already mined —
+        # most recently `approve` on the ERC-8183 escrow, which had set its
+        # allowance before this gave up on it.
+        #
+        # A mined transaction is one *any* endpoint will admit to, so this asks
+        # more than one. Empty by default: a single trusted node stays a single
+        # trusted node unless a caller says otherwise.
+        self._peers = tuple(peer_rpcs)
         self._dry_run = os.environ.get("MISQUOTE_DRY_RUN", "1") != "0"
 
         # `0` disables the ceiling, and that is a real choice rather than an
@@ -342,15 +367,26 @@ class BscSigner:
         flight — the worst possible outcome, because the agent then does not
         know whether it holds a position.
         """
+        sources = [self.w3]
+        for url in self._peers:
+            try:
+                sources.append(Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 20})))
+            except Exception:  # noqa: BLE001 — an endpoint that will not build is not fatal
+                continue
+
         deadline = time.monotonic() + self._receipt_timeout
         while time.monotonic() < deadline:
-            try:
-                receipt = self.w3.eth.get_transaction_receipt(tx_hash)
-                if receipt is not None:
-                    return receipt
-            except Exception as error:  # noqa: BLE001
-                if not is_transient(error) and "not found" not in str(error).lower():
-                    raise
+            for source in sources:
+                try:
+                    receipt = source.eth.get_transaction_receipt(tx_hash)
+                    if receipt is not None:
+                        return receipt
+                except Exception as error:  # noqa: BLE001
+                    # Only the node that took the send gets to raise a real
+                    # error; a peer that has not caught up is the ordinary case
+                    # this exists for.
+                    if source is self.w3 and not is_transient(error) and "not found" not in str(error).lower():
+                        raise
             time.sleep(2)
 
         raise TimeoutError(

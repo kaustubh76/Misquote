@@ -109,14 +109,13 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         name="ERC-8183 escrow",
         category="Registry",
         what=(
-            "A Hire button that **escrows** a job. Creating, budgeting and reading "
-            "one back is done on chain; funding and settling are proven on a fork."
+            "A Hire button that **escrows** a job and releases it. Escrowing is "
+            "done, on mainnet, with real money; releasing is not."
         ),
         why=(
-            "The flow runs to settlement on a mainnet fork: fund moves the budget "
-            "out, settle pays the provider. Doing it for real is a decision "
-            "about money, not a missing capability — the payment token trades on "
-            "PancakeSwap at about a dollar."
+            "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet. "
+            "`submit` and `settle` refuse: the policy never reaches a decision, and "
+            "a fork only settled by moving the clock."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),

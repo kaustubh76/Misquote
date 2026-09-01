@@ -177,7 +177,13 @@ def main() -> int:
     # 2. createJob — the provider is an argument; there is no setProvider.
     job_id, receipt = writer.create_job(
         provider=signer.address,
-        evaluator=signer.address,
+        # **The router, not this signer.** `registerJob` reverts
+        # `RouterNotEvaluator()` for any other evaluator, so the job can never be
+        # registered, so `fund` reverts `PolicyNotSet()` — two unnamed errors,
+        # one cause, and neither of them about money. A client written from the
+        # EIP names a human evaluator here and fails two transactions later.
+        # See `hire.EVALUATOR_MUST_BE_THE_ROUTER`.
+        evaluator=addresses["router"],
         expired_at=expired_at,
         description=success_criterion(IN_RANGE_FLOOR),
         # None means the router, which is the only accepted hook here.
@@ -212,12 +218,15 @@ def main() -> int:
                 print(f"                   {known}")
             return False
 
-    # 3. registerJob — on the router, not the kernel. A client sending all seven
-    #    to one address reverts here for a different reason than this one does.
-    attempt("registerJob", lambda: writer.register_job(job_id))
-
-    # 4. setBudget
+    # 3. setBudget, before registerJob. `fund` needs both and neither
+    #    substitutes for the other: without a budget it reverts `ZeroBudget()`,
+    #    without a registration `PolicyNotSet()`.
     attempt("setBudget", lambda: writer.set_budget(job_id, args.budget))
+
+    # 4. registerJob — on the router, not the kernel, and naming the policy the
+    #    deployment publishes. A client sending all seven to one address reverts
+    #    here for a different reason than this one does.
+    attempt("registerJob", lambda: writer.register_job(job_id, addresses["policy"]))
 
     # 5. fund — attempted whatever the budget, because the revert is the finding.
     if attempt("fund", lambda: writer.fund(job_id, args.budget)):
@@ -233,6 +242,22 @@ def main() -> int:
             "among them, and this field is why rather than an omission. The funded "
             "flow runs to settlement on a mainnet fork — see the fork proof below."
         )
+
+    # 6-7. submit and settle. The flow does not end at `fund` — a job that is
+    #      funded and never settled is money parked in an escrow, which is the
+    #      opposite of the claim being made. Attempted only once the budget is
+    #      actually escrowed, because `submit` on an unfunded job reverts
+    #      `WrongStatus()` and recording that as a finding would be recording
+    #      our own ordering mistake.
+    if record.get("escrowed"):
+        paid_before = writer.balance()
+        attempt(
+            "submit",
+            lambda: writer.submit(job_id, Web3.keccak(text=f"misquote-job-{job_id}")),
+        )
+        if attempt("settle", lambda: writer.settle(job_id)):
+            record["settled"] = True
+            record["returned_to_client"] = writer.balance() - paid_before
 
     job = hire.read_job(w3, args.chain, job_id)
     record["job_words"] = list(job.words)
