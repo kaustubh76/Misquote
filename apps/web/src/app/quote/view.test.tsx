@@ -207,6 +207,52 @@ describe("a queued job draws no denominator it has not been given", () => {
     expect(bar).toHaveAttribute("aria-valuemax", "60");
     expect(bar).toHaveAttribute("aria-valuetext", "12 of 60 replays");
   });
+
+  it("keeps showing progress while the tape loads, which is the longest wait", async () => {
+    /**
+     * The gap this closes, measured on the deployed instance.
+     *
+     * A claimed job spends its first minutes in `running` with `total: 0` while
+     * the tape loads — nine of them, against a whole job of about seventy-five.
+     * The determinate branch needs a denominator it does not have; the
+     * indeterminate one was gated on `status === "queued"`. So for the longest
+     * single wait in the product, and the one immediately after the only button
+     * that commissions work, **neither branch rendered**: a pill reading
+     * "running" and blank space under it.
+     *
+     * The condition is the absence of a denominator, not the name of the state.
+     */
+    let status: Record<string, unknown> = {
+      status: "running",
+      progress: { done: 0, total: 0, phase: "loading the tape" },
+      events: 1,
+    };
+    serveApi({
+      "/quote/eligibility/": () => json(eligible(holding("0xpoolA", "Pool A"))),
+      "/quote/job/": () => json(status),
+      "/quote": () => json({ job_id: "job-1", note: "queued" }, 202),
+    });
+    const user = userEvent.setup();
+    const { container } = render(<QuoteView stream={STREAM} />, { wrapper: WithWallet });
+    await check(user);
+    await user.click(await screen.findByRole("button", { name: "Replay this pool" }));
+
+    // Something is moving, and it names what is being waited for rather than
+    // repeating the status word the pill already shows.
+    // The bar is the gap. The phase itself was already announced in the status
+    // line, which is why this looked like a rendering bug rather than a missing
+    // state: the words were there and nothing moved.
+    expect(container.querySelector(".shuttle")).not.toBeNull();
+    expect(
+      await screen.findByText(/the whole tape loads before the first window runs/),
+    ).toBeInTheDocument();
+    // Still no denominator, so still not a progressbar.
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
+    status = { status: "running", progress: { done: 3, total: 24, phase: "replaying" }, events: 2 };
+    expect(await screen.findByText("3 of 24 replays")).toBeInTheDocument();
+    expect(container.querySelector(".shuttle")).toBeNull();
+  });
 });
 
 describe("the tape belongs to whichever pool is still running", () => {

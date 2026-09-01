@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { TapeSource } from "@/components/TapeSource";
 import { Card, CardHeader } from "@/components/Card";
+import { Button } from "@/components/Button";
 import { CompareToggle } from "@/components/CompareToggle";
 import { Band } from "@/components/Band";
 import {
@@ -211,6 +212,9 @@ export function RouterCard({
       )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <Button href={`/activate/?agent=${ref_.slug}`} size="sm">
+          Hire {ref_.name}
+        </Button>
         <p className="m-0 text-xs text-faint">
           <Link href={`/agent/${ref_.slug}`} className="text-dim">
             How it chose, and what that rests on →

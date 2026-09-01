@@ -708,8 +708,20 @@ function RunProgress({ job }: { job: JobView }) {
           events so a jump from 12/60 to 13/60 reads as motion rather than as a
           twitch. Before that announcement there is no denominator, and a
           full-width bar at 0% would be asserting a total the server has not
-          sent — so the queued state gets a sliver that shuttles and measures
-          nothing, which is what "queued" means. */}
+          sent — so the state before a denominator gets a sliver that shuttles
+          and measures nothing.
+
+          **That sliver used to be gated on `status === "queued"` alone, and the
+          longest wait in the product is not queued.** A claimed job spends its
+          first minutes in `running` with `total: 0` while the tape loads —
+          measured at nine minutes on the deployed instance, against a whole job
+          of about seventy-five. Neither branch drew anything for those nine
+          minutes: a reader who had just pressed the one button that commissions
+          work got a pill reading "running" and blank space beneath it. The
+          condition is the absence of a denominator, not the name of the state,
+          so that is what it tests now — and the sentence underneath says which
+          of the two it is — without repeating the phase, which the status line
+          above already announces. */}
       {job.total > 0 ? (
         <>
           {/* A real `progressbar`, which this is the only genuinely determinate
@@ -740,13 +752,15 @@ function RunProgress({ job }: { job: JobView }) {
           </p>
         </>
       ) : (
-        job.status === "queued" && (
+        (job.status === "queued" || job.status === "running") && (
           <>
             <div className="hatched mt-3 h-1.5 w-full overflow-hidden rounded-full border border-glass-line">
               <div className="shuttle h-full w-[28%] rounded-full bg-brand" />
             </div>
             <p className="mt-1 mb-0 text-xs text-faint">
-              Queued. The worker has not said how many replays this is yet.
+              {job.status === "queued"
+                ? "Queued. The worker has not said how many replays this is yet."
+                : "No replay count yet — the whole tape loads before the first window runs."}
             </p>
           </>
         )

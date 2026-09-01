@@ -54,6 +54,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from misquote.agents.grid.policy import GridParams, decide_grid
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
 from misquote.chain.addresses import TARGET_POOL, TARGET_POOL_WIDE
 from misquote.core.liquidity import capital_for_liquidity_cap
@@ -198,6 +199,34 @@ META_WIDE = PoolMeta(
 )
 
 
+#: What hiring one agent for one task costs the customer, and where it comes from.
+#:
+#: The report had no price in it. `costs` on each arm is the *strategy's* gas and
+#: slippage while the task runs, which is a different quantity, and the track asks
+#: whether an agent wins "at a price … that beats the alternative" — unanswerable
+#: from a report that never names one.
+#:
+#: Read rather than invented: it is the Altana keystore's own registration fee for
+#: a session key, `getRegistrationFeeInWei()` on chain 56, plus the gas for the
+#: grant and the revoke measured from the recorded chapel round trip. Both are
+#: published in `vetting/addresses/session-keys-56.json` and
+#: `vetting/identity/session-keys-97.json`.
+#:
+#: Denominated in BNB because that is what the chain charges. It is deliberately
+#: *not* converted into the task's quote token: a BNB/USD rate would be a price
+#: this repository does not read, and the whole argument is that figures come from
+#: somewhere checkable.
+HIRE_FEE_BNB = 0.000724270
+HIRE_GAS_BNB = 0.000030737
+HIRE_COST_BNB = HIRE_FEE_BNB + HIRE_GAS_BNB
+HIRE_COST_NOTE = (
+    f"{HIRE_COST_BNB:.6f} BNB — the keystore's own registration fee "
+    f"({HIRE_FEE_BNB:.6f}, read from getRegistrationFeeInWei on chain 56) plus "
+    f"{HIRE_GAS_BNB:.6f} of gas for the grant and revoke, measured from the "
+    f"recorded round trip. One hire, one expiry."
+)
+
+
 def _run(
     events: list[Event],
     policy,
@@ -206,12 +235,22 @@ def _run(
     meta: PoolMeta = META,
     jobs: int | None = None,
     label: str = "",
+    policy_factory=None,
 ):
     """One replay and one quote, through the engine, for a given policy.
 
     `policy=None` means Warden. Both columns of every comparison go through this
     same function, which is what makes "the baseline is not a different program"
     a structural fact rather than a promise.
+
+    `policy_factory` is P-17's other half. A5 perturbs each agent in the quantity
+    that agent actually reads, and Grid reads neither gamma nor kappa — scaling
+    `Params` for it moves nothing it does, and the run publishes 20 windows as 60
+    samples. Grid's parameter is its rung width. `showcase.py:522` already runs it
+    this way; this is the same arrangement reaching the advantage report.
+
+    The single replay above still needs one concrete policy, so a factory caller
+    passes the unperturbed one as `policy` and the sweep as `policy_factory`.
     """
     driver = ReplayDriver(meta, costs=CostModel(), capital_quote=capital, policy=policy)
     result = driver.run(MemoryTape(events))
@@ -227,6 +266,11 @@ def _run(
     # replay above and a pool that dispatches eight at once are not read as slow
     # replays. The first version reported "~67 min left" while doing better.
     began = [0.0]
+    # Timed from entry, not from the first completed window. `began` below is
+    # for the ETA, which deliberately excludes the full replay above so a pool
+    # that dispatches eight at once is not read as slow. The *task's* time is
+    # the whole thing: a caller waiting on a hire waits for the tape load too.
+    entered = time.monotonic()
 
     def progress(done: int, total: int) -> None:
         if done == 1:
@@ -244,11 +288,13 @@ def _run(
         factory,
         capital_quote=capital,
         windows=DEFAULT_WINDOWS,
-        policy=policy,
+        # `quote()` refuses both at once — two sources for the same decision.
+        **({"policy_factory": policy_factory} if policy_factory else {"policy": policy}),
         map_fn=fork_map(jobs) if jobs else None,
         on_progress=progress,
     )
-    return result, quote
+    # The third element is the requirement that was measured and thrown away.
+    return result, quote, time.monotonic() - entered
 
 
 def task_earn(
@@ -258,12 +304,19 @@ def task_earn(
     venue: str,
     jobs: int | None = None,
     source: str = "synthetic",
+    baseline: tuple | None = None,
 ) -> Comparison:
-    """Can an agent earn more than a position you mint once and forget?"""
-    base_result, base_quote = _run(
+    """Can an agent earn more than a position you mint once and forget?
+
+    `baseline` lets the caller hand in a passive run it already has. Two tasks now
+    measure a different agent against this same control — Warden here, Grid in
+    `task_market_make` — and running `passive_policy` twice would be an hour and a
+    half of replay to produce numbers guaranteed to be identical.
+    """
+    base_result, base_quote, base_seconds = baseline or _run(
         events, passive_policy, capital=capital, jobs=jobs, label="earn/baseline"
     )
-    agent_result, agent_quote = _run(
+    agent_result, agent_quote, agent_seconds = _run(
         events, None, capital=capital, jobs=jobs, label="earn/warden"
     )  # None = Warden
     return compare(
@@ -279,6 +332,10 @@ def task_earn(
         agent_result=agent_result,
         source=source,
         capital_quote=capital,
+        baseline_seconds=base_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=HIRE_COST_BNB,
+        hire_cost_note=HIRE_COST_NOTE,
         # "Earn — fees on a liquidity position" names fees, so fees are the
         # quantity. Net return stays the headline because fees alone flatter any
         # agent that stays in range through anything; this is the task's own
@@ -287,6 +344,83 @@ def task_earn(
             name="fees earned",
             baseline=base_result.total_fees,
             agent=agent_result.total_fees,
+            lower_is_better=False,
+        ),
+    )
+
+
+def task_market_make(
+    events: list[Event],
+    *,
+    capital: float,
+    venue: str,
+    jobs: int | None = None,
+    source: str = "synthetic",
+    baseline: tuple | None = None,
+) -> Comparison:
+    """Can a ladder that requotes on inventory beat minting once and forgetting?
+
+    ## Why this task was missing, and why that mattered
+
+    The report had four tasks and `agent_ahead: 0`. Grid — the one agent whose own
+    card beats the baseline, at `delta_pp: 13.3527` with 60 of 60 windows
+    net-positive and 100% in range — appeared in none of them. A report that
+    exists to answer *does hiring beat doing it yourself* omitted the only
+    affirmative answer the engine had produced.
+
+    Nothing about that was a judgement call. `showcase.py` computes Grid's
+    comparison for the agent card and this file never asked for it.
+
+    ## The claim this task is allowed to make
+
+    Grid's bands **overlap** the baseline's. So the verdict line is "beats DIY at
+    the median, not separated at this sample size", and it stays that way:
+    `separated` is what `verdict()` reports at n=60, and softening it would cost
+    more than the criterion gains.
+    """
+    base_result, base_quote, base_seconds = baseline or _run(
+        events, passive_policy, capital=capital, jobs=jobs, label="market-make/baseline"
+    )
+
+    def grid_at(scale: float):
+        # The width, not gamma — see `_run`'s note on P-17.
+        width = max(1, round(GridParams().rung_width_ticks * scale))
+        params = GridParams(rung_width_ticks=width)
+        return lambda obs, _p, meta: decide_grid(obs, params, meta)
+
+    unperturbed = grid_at(1.0)
+    agent_result, agent_quote, agent_seconds = _run(
+        events,
+        unperturbed,
+        capital=capital,
+        jobs=jobs,
+        label="market-make/grid",
+        policy_factory=grid_at,
+    )
+    return compare(
+        task="Market-make — quote both sides of a range",
+        category="trading",
+        venue=venue,
+        metric="net return on capital (fees − realized convexity cost − costs), P25–P75",
+        without_agent="mint once at the same width, never touch it (passive_policy)",
+        with_agent="Grid — fixed rung ladder, requote when price leaves it",
+        baseline_quote=base_quote,
+        agent_quote=agent_quote,
+        baseline_result=base_result,
+        agent_result=agent_result,
+        source=source,
+        capital_quote=capital,
+        baseline_seconds=base_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=HIRE_COST_BNB,
+        hire_cost_note=HIRE_COST_NOTE,
+        # Time in range is the quantity a ladder is *for*: it earns only while it
+        # is quoting. Net return stays the headline for the same reason it does on
+        # Earn — staying in range flatters any agent that never moves.
+        primary=PrimaryMetric(
+            name="time in range",
+            baseline=base_result.in_range_fraction,
+            agent=agent_result.in_range_fraction,
             lower_is_better=False,
         ),
     )
@@ -305,14 +439,14 @@ def task_protect(
     An ablation: the same agent, the same band, the same reanchoring, with only
     the withdrawal decision switched off in the baseline.
     """
-    base_result, base_quote = _run(
+    base_result, base_quote, base_seconds = _run(
         events,
         sentinel_policy(NEVER_WITHDRAW),
         capital=capital,
         jobs=jobs,
         label="protect/baseline",
     )
-    agent_result, agent_quote = _run(
+    agent_result, agent_quote, agent_seconds = _run(
         events,
         sentinel_policy(SentinelParams()),
         capital=capital,
@@ -332,6 +466,10 @@ def task_protect(
         agent_result=agent_result,
         source=source,
         capital_quote=capital,
+        baseline_seconds=base_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=HIRE_COST_BNB,
+        hire_cost_note=HIRE_COST_NOTE,
         # "Avoid being picked off by one-way flow" is a claim about adverse
         # selection, and realized convexity cost is the measurement of it. The
         # agent wins this decisively and loses the net-return headline, because
@@ -549,7 +687,7 @@ def task_choose(
     if rules_agree:
         print("  choose: the screen agrees with the depth heuristic — nothing to report")
 
-    base_result, base_quote = _run(
+    base_result, base_quote, base_seconds = _run(
         deep[0], None, capital=capital, meta=deep[1], jobs=jobs, label="choose/deepest"
     )
     if rules_agree:
@@ -562,9 +700,9 @@ def task_choose(
         #
         # The delta is therefore exactly zero, and the report says the rules
         # agreed rather than presenting a nil result as a finding about agents.
-        agent_result, agent_quote = base_result, base_quote
+        agent_result, agent_quote, agent_seconds = base_result, base_quote, base_seconds
     else:
-        agent_result, agent_quote = _run(
+        agent_result, agent_quote, agent_seconds = _run(
             screened[0],
             None,
             capital=capital,
@@ -599,6 +737,10 @@ def task_choose(
         agent_result=agent_result,
         source=source,
         capital_quote=capital,
+        baseline_seconds=base_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=HIRE_COST_BNB,
+        hire_cost_note=HIRE_COST_NOTE,
         # Stated rather than left for a reader to infer from two identical
         # bands. When the rules agree there is one measurement, and the chart
         # should draw one.
@@ -960,6 +1102,18 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float, co
                     returns=c.agent_returns,
                 ),
                 "replay_days": round(c.days, 3),
+                # The three the track asks for and the report never carried.
+                # `replay_days` is how much *history* the task replayed; these are
+                # how long the work took and what the customer pays for it.
+                "seconds": {
+                    "without_agent": round(c.baseline_seconds, 1),
+                    "with_agent": round(c.agent_seconds, 1),
+                },
+                "hire_cost": {
+                    "amount": c.hire_cost_quote,
+                    "unit": "BNB",
+                    "note": c.hire_cost_note,
+                },
                 "delta_pp": round(c.delta, 6),
                 "ranges_overlap": c.ranges_overlap,
                 "same_run": c.same_run,
@@ -1100,10 +1254,17 @@ def task_route(*, db: str) -> Comparison | None:
     if not windows:
         return None
 
+    # Timed per arm, like the LP tasks. This one does not go through `_run` —
+    # a lending allocation is a different driver — so it measures its own.
+    _agent_started = time.monotonic()
     agent_runs = [replay(w, decide_router) for w in windows]
-    base_runs = [replay(w, park_policy) for w in windows]
     full_agent = replay(events, decide_router)
+    agent_seconds = time.monotonic() - _agent_started
+
+    _base_started = time.monotonic()
+    base_runs = [replay(w, park_policy) for w in windows]
     full_base = replay(events, park_policy)
+    base_seconds = time.monotonic() - _base_started
 
     agent_quote = allocation_quote_from_results(
         agent_runs, windows=len(windows), perturbation_count=1, capital_quote=capital
@@ -1130,6 +1291,10 @@ def task_route(*, db: str) -> Comparison | None:
         agent_result=full_agent,
         source="chain",
         capital_quote=capital,
+        baseline_seconds=base_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=HIRE_COST_BNB,
+        hire_cost_note=HIRE_COST_NOTE,
         # The task asks which venue to supply to, and the answer it produced was
         # "neither, at this horizon". The move count is what says so.
         primary=PrimaryMetric(
@@ -1157,11 +1322,26 @@ def build(
 ) -> list[Comparison]:
     """The tasks. Kept separate from I/O so a test can call it directly.
 
-    Three are liquidity positions on one swap tape. The fourth is a lending
+    Four are liquidity positions on one swap tape. The fifth is a lending
     allocation on a different tape with a different driver, included only when
     that tape exists.
+
+    `task_market_make` was added last and is the reason the report can answer its
+    own question: it is Grid, the one agent whose comparison comes out ahead, and
+    it had been computed for the agent card and never asked for here.
     """
-    earn = task_earn(events, capital=capital, venue=venue, jobs=jobs, source=source)
+    # One passive run, two tasks. `task_earn` measures Warden against it and
+    # `task_market_make` measures Grid; the control is the same position held the
+    # same way, so replaying it twice would burn ~1.5h to produce two identical
+    # columns. Shared deliberately — what must never be shared is the baseline and
+    # the agent *within* one task, which is the duplicate `task_choose` is.
+    control = _run(events, passive_policy, capital=capital, jobs=jobs, label="passive/control")
+    earn = task_earn(
+        events, capital=capital, venue=venue, jobs=jobs, source=source, baseline=control
+    )
+    market_make = task_market_make(
+        events, capital=capital, venue=venue, jobs=jobs, source=source, baseline=control
+    )
     protect = task_protect(events, capital=capital, venue=venue, jobs=jobs, source=source)
 
     # Task 3's second venue is built here rather than at the top of this
@@ -1198,7 +1378,7 @@ def build(
 
     choose = task_choose(venue_a, venue_b, capital=capital, jobs=jobs, source=choose_source)
 
-    tasks = [earn, protect, choose]
+    tasks = [earn, market_make, protect, choose]
 
     # The Yield category — and **only** when the rest of the report is reading
     # chain too.

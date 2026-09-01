@@ -3,6 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { TapeSource } from "@/components/TapeSource";
 import { Card, CardHeader } from "@/components/Card";
+import { Button } from "@/components/Button";
 import { CompareToggle } from "@/components/CompareToggle";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
@@ -217,13 +218,32 @@ export function AgentCard({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0">
+      {/* The two verbs a marketplace card is for, and it had neither.
+          
+          This card's only outbound affordances were the tearsheet link and the
+          compare chip. A reader who had decided — which is what the card exists
+          to help them do — had nowhere to act: `/quote` is reachable from the
+          top nav and from step 2 of the demo, and the hire link sits about four
+          screens down the detail page. So the marketplace asked people to read a
+          tearsheet and then find the checkout themselves.
+          
+          `?agent=` carries the choice through. `HireFlow` takes no agent today
+          and grants the same key whichever card you came from, which is honest
+          about the keystore and silent about the reader's intent; the parameter
+          is what lets the next page say which agent they picked. */}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Button href={`/activate/?agent=${ref_.slug}`} size="sm">
+          Hire {ref_.name}
+        </Button>
+        <Button href="/quote/" size="sm" tone="secondary">
+          Quote my position
+        </Button>
+        <span className="ml-auto flex items-center gap-3">
           <Link href={`/agent/${ref_.slug}`} className="text-sm">
-            Full tearsheet, gate histogram and provenance →
+            Full tearsheet →
           </Link>
-        </p>
-        <CompareToggle slug={ref_.slug} name={ref_.name} />
+          <CompareToggle slug={ref_.slug} name={ref_.name} />
+        </span>
       </div>
     </Card>
   );

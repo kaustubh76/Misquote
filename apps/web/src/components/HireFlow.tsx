@@ -69,7 +69,24 @@ function TxLink({ hash, explorer }: { hash: Hex; explorer: string }) {
   );
 }
 
+/**
+ * Which agent the reader picked, from `?agent=`.
+ *
+ * Read in an effect rather than at render, for the reason `lib/scenario.ts`
+ * gives about `?scenario=`: the export is static and prerendered, so reading
+ * `location` during render produces HTML that disagrees with the client.
+ */
+function useChosenAgent(): string | null {
+  const [slug, setSlug] = useState<string | null>(null);
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("agent");
+    setSlug(value && /^[a-z0-9-]{1,32}$/.test(value) ? value : null);
+  }, []);
+  return slug;
+}
+
 export function HireFlow() {
+  const agent = useChosenAgent();
   const { address, chainId, isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
   const deployment = deploymentFor(chainId);
@@ -148,7 +165,7 @@ export function HireFlow() {
   return (
     <Card>
       <CardHeader
-        title="Hire an agent"
+        title={agent ? `Hire ${agent.charAt(0).toUpperCase()}${agent.slice(1)}` : "Hire an agent"}
         eyebrow={`${deployment.name} · one transaction`}
         aside={isValid ? <Pill tone="pass">Key live</Pill> : <Pill tone="none">No key</Pill>}
       />
@@ -169,6 +186,18 @@ export function HireFlow() {
       {/* The refusal this page used to be, reduced to the one sentence that was
           load-bearing and placed where it changes a decision: beside the button,
           before the signature, rather than instead of the product. */}
+      {/* Naming the agent in the heading without saying this would be the
+          misquote: the reader picked Grid and the transaction does not know it.
+          `registerKey` takes a validator and metadata, and this grant carries
+          neither, so nothing on chain ties the key to an agent or a pool. The
+          choice is real and it lives in this page, not in the calldata. */}
+      {agent && (
+        <p className="mt-3 mb-0 text-xs text-faint">
+          You chose {agent}. The key below is not bound to it — the keystore
+          records an owner and an expiry, not an agent.
+        </p>
+      )}
+
       {!enforced && (
         <p className="mt-4 mb-0 border-l-2 border-warn-line bg-warn-bg py-2 pl-3 text-xs text-dim">
           <strong className="text-ink">The chain enforces the expiry and the

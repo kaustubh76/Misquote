@@ -242,6 +242,23 @@ class Comparison:
     # real finding: that two different choices came out the same.
     same_run: bool = False
 
+    #: Wall-clock seconds each arm took, and what hiring this agent costs.
+    #:
+    #: The track requires time, cost and output quality per task. Quality was
+    #: here from the start; the other two were not, and time was the odd absence
+    #: — `scripts/advantage.py::_run` has always measured it, printed an ETA to
+    #: stdout, and discarded the number when the closure returned.
+    #:
+    #: `baseline_costs` / `agent_costs` are a different quantity and stay where
+    #: they are: those are the *strategy's* gas and slippage while the task runs.
+    #: This is what the customer pays to hire, which nothing in the report could
+    #: answer — a reader could not tell whether the agent's edge survived its own
+    #: fee, because the fee appeared nowhere.
+    baseline_seconds: float = 0.0
+    agent_seconds: float = 0.0
+    hire_cost_quote: float = 0.0
+    hire_cost_note: str = ""
+
     # UTC calendar days the replay touched — **not** its elapsed span.
     #
     # The distinction is the difference between a rate that can be compared to
@@ -312,6 +329,10 @@ def compare(
     capital_quote: float = 0.0,
     primary: PrimaryMetric | None = None,
     same_run: bool = False,
+    baseline_seconds: float = 0.0,
+    agent_seconds: float = 0.0,
+    hire_cost_quote: float = 0.0,
+    hire_cost_note: str = "",
 ) -> Comparison:
     """Build a `Comparison` from two quotes produced by the same engine.
 
@@ -377,6 +398,10 @@ def compare(
         agent_returns=tuple(getattr(agent_quote, "returns", ()) or ()),
         days=_span_days(agent_result) or _span_days(baseline_result),
         same_run=same_run,
+        baseline_seconds=baseline_seconds,
+        agent_seconds=agent_seconds,
+        hire_cost_quote=hire_cost_quote,
+        hire_cost_note=hire_cost_note,
     )
 
 

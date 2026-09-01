@@ -5,9 +5,12 @@ yourself, and can you prove it? The proof is worth nothing if the report's
 figures could have been typed in, so the load-bearing test here re-runs the
 engine independently and demands exact equality.
 
-The second thing under test is subtler: that the three tasks have three genuinely
-different baselines. Three tasks sharing one baseline is one task relabelled, and
-it would satisfy the letter of "at least three tasks" while proving nothing.
+The second thing under test is subtler: that no two tasks are the same comparison
+wearing different prose. That check used to require distinct *baselines*, which
+would have forced a second, worse control into existence the moment two agents
+were measured against the same one — so it checks the (baseline, agent) pair now,
+and separately that a task reusing one replay for both arms cannot report a
+non-zero difference between a run and itself.
 """
 
 from __future__ import annotations
@@ -180,11 +183,43 @@ def test_task_twos_baseline_never_withdraws() -> None:
     assert live.pulls > 0, "Sentinel never withdrew, so task 2 compares two identical runs"
 
 
-def test_the_three_tasks_do_not_share_one_baseline(comparisons) -> None:
-    """Three tasks with the same DIY column is one task relabelled."""
+def test_no_two_tasks_are_the_same_comparison(comparisons) -> None:
+    """Two tasks with the same DIY *and* agent column is one task relabelled.
+
+    This asserted distinct baselines, which was the right idea and the wrong
+    invariant. A shared control is what a control is: `task_earn` measures Warden
+    against mint-and-forget and `task_market_make` measures Grid against the same
+    run, which is a comparison of two agents, not one task twice. Requiring the
+    baselines to differ would force a second, worse baseline into existence purely
+    to satisfy a test.
+
+    What actually makes a task a relabelling is the *pair* repeating, so that is
+    what is checked. Strictly stronger: the old form would have passed two tasks
+    with distinct baselines and the same agent.
+    """
     assert len(comparisons) >= 3
-    baselines = [c.without_agent for c in comparisons]
-    assert len(set(baselines)) == len(baselines), f"duplicated baseline: {baselines}"
+    pairs = [(c.without_agent, c.with_agent) for c in comparisons]
+    assert len(set(pairs)) == len(pairs), f"duplicated comparison: {pairs}"
+
+
+def test_no_task_compares_a_run_against_itself(comparisons) -> None:
+    """The duplicate the baseline check never caught.
+
+    `task_choose` sets `agent_result, agent_quote = base_result, base_quote` — one
+    replay printed in two columns — and it passed the distinct-baselines guard
+    cleanly, because its two columns have different *prose* labels. `same_run`
+    records it, so the assertion is available; nothing was asserting it.
+
+    Not a failure when it is declared: the task is disclosed and its delta is
+    exactly 0.0. What must not happen is a task carrying a non-zero delta while
+    both arms are the same run, which would be a difference computed from nothing.
+    """
+    for c in comparisons:
+        if getattr(c, "same_run", False):
+            assert c.delta == 0.0, (
+                f"{c.task!r} reuses one replay for both arms and still reports "
+                f"delta {c.delta} — a difference between a run and itself"
+            )
 
 
 def test_the_report_covers_both_weighted_categories(comparisons) -> None:
