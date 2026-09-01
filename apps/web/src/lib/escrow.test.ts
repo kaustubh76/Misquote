@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readArtifact } from "@/test/harness";
-import { countdown, decodeJob, encodeGetJob, secondsUntil, JOB_WORD } from "@/lib/escrow";
+import {
+  countdown,
+  decodeJob,
+  encodeGetJob,
+  secondsUntil,
+  selectorFrom,
+  JOB_WORD,
+} from "@/lib/escrow";
 import type { Hex } from "viem";
 
 /**
@@ -88,5 +95,63 @@ describe("countdown", () => {
     expect(countdown(3600 + 120)).toBe("1h 2m");
     expect(countdown(125)).toBe("2m 5s");
     expect(countdown(9)).toBe("9s");
+  });
+});
+
+describe("selectorFrom", () => {
+  const WRONG_STATUS = "0x8e78f0cb";
+  /** `submit(uint256,bytes32,bytes)` — the selector of the call, not of a revert. */
+  const SUBMIT = "0x9e63798d";
+
+  it("reads viem's ABI-encoded revert payload", () => {
+    // The first bug: the old pattern required a word boundary after eight hex
+    // digits, and this format continues with `0`.
+    const message = `The contract function "submit" reverted.\n\nError: reverted with data ${WRONG_STATUS}${"00".repeat(32)}`;
+    expect(selectorFrom(message)).toBe(WRONG_STATUS);
+  });
+
+  it("reads the signature line viem prints for an unknown custom error", () => {
+    expect(
+      selectorFrom(
+        'The contract function "settle" reverted with the following signature:\n0x17be5b7b\n\nUnable to decode signature',
+      ),
+    ).toBe("0x17be5b7b");
+  });
+
+  it("reads the form this repository's own records store", () => {
+    expect(
+      selectorFrom(`ContractCustomError: ('${WRONG_STATUS}', '${WRONG_STATUS}')`),
+    ).toBe(WRONG_STATUS);
+  });
+
+  it("takes the payload off the error object before reading any prose", () => {
+    const error = Object.assign(new Error("execution reverted"), {
+      cause: { data: `${WRONG_STATUS}${"00".repeat(32)}` },
+    });
+    expect(selectorFrom(error)).toBe(WRONG_STATUS);
+  });
+
+  it("does not offer the function's own selector as the reason it failed", () => {
+    // The second bug, and the worse one. A write that never reached the chain
+    // produced `0x9e63798d — unresolved in this repository`: the selector of
+    // `submit`, scraped out of the calldata, presented as the refusal. A
+    // missing answer is recoverable; a confident wrong one is not.
+    const message = `HTTP request failed.\n\nURL: https://bsc-dataseed.bnbchain.org\nRequest body: {"method":"eth_sendTransaction","params":[{"data":"${SUBMIT}${"00".repeat(64)}"}]}`;
+    expect(selectorFrom(message)).toBeUndefined();
+  });
+
+  it("says nothing when there is nothing to say", () => {
+    expect(selectorFrom(undefined)).toBeUndefined();
+    expect(selectorFrom(null)).toBeUndefined();
+    expect(selectorFrom("User rejected the request.")).toBeUndefined();
+    expect(selectorFrom({})).toBeUndefined();
+  });
+
+  it("lowercases, because the artifact keys it looks up are lowercase", () => {
+    expect(selectorFrom("reverted with data 0x8E78F0CB")).toBe(WRONG_STATUS);
+  });
+
+  it("accepts a message that is only a selector", () => {
+    expect(selectorFrom(`  ${WRONG_STATUS} `)).toBe(WRONG_STATUS);
   });
 });

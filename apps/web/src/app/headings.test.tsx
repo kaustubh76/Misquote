@@ -9,14 +9,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WithWallet, readArtifact, serveArtifacts } from "@/test/harness";
 
 /**
- * Every page here renders inside `WalletProvider` in the real app — `layout.tsx`
- * wraps the whole body so the nav's connect button survives a route change.
- * `/registry` now has an on-chain console in it, so a page rendered without
- * that provider is not a smaller test, it is a different tree that throws.
- * Wrapping here keeps the call sites below unchanged and matches the layout.
+ * `/registry` mounts an on-chain console, and wagmi's hooks throw outside a
+ * `WagmiProvider` rather than returning a disconnected state. In the app
+ * `layout.tsx` wraps the whole body, so a page rendered without one is a test
+ * artefact rather than a state a visitor can reach — hence the wrapper.
+ *
+ * Only that page pays for it. Wrapping every render cost more than it looks:
+ * the assumptions page renders thousands of nodes and went from 2.2s to 5.0s,
+ * which under file parallelism was three timeouts against a 15s limit. The
+ * provider is cheap per mount and not cheap per ten thousand of them.
  */
 function render(ui: React.ReactElement, options?: RenderOptions) {
-  return rtlRender(ui, { wrapper: WithWallet, ...options });
+  const needsWallet = ui.type === RegistryPage;
+  return rtlRender(ui, { wrapper: needsWallet ? WithWallet : undefined, ...options });
 }
 
 

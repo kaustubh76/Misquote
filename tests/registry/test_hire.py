@@ -8,6 +8,8 @@ assert against the shape of a refusal as much as against a value.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from misquote.registry import hire
@@ -94,7 +96,11 @@ def test_the_create_job_errors_are_recorded_with_their_unresolved_ones() -> None
     """
     every = {**hire.CREATE_JOB_ERRORS, **hire.FLOW_ERRORS}
     for selector, meaning in every.items():
-        assert selector.startswith("0x") and len(selector) == 10, selector
+        # Prefix-and-length accepted "0xGGGGGGGG". These are looked up by
+        # `lib/escrow.ts::selectorFrom`, which lowercases what it scrapes out of
+        # a revert message, so a mixed-case or non-hex key here is a meaning
+        # that silently never renders.
+        assert re.fullmatch(r"0x[0-9a-f]{8}", selector), selector
         assert meaning.strip(), selector
 
     named = [m for m in every.values() if "()" in m and "unresolved" not in m]

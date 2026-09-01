@@ -426,7 +426,14 @@ const NO_JS = [
   // dropped them would leave a list of links to simulated states with nothing
   // saying what a simulation here is allowed to be.
   ["/demo/", 1200, "never on by default and never sticky"],
-  ["/quote/", 1200, "not a button that returns a number"],
+  // Four of these moved on 2026-09-01, when the site's explanatory prose was
+  // cut hard on purpose. The claims survived the trim and the wording did not,
+  // so the needles were re-pointed at the sentence that now carries each one
+  // rather than the sentence that used to. The floors came down with the word
+  // count for the same reason — they still catch the failure they exist for,
+  // a route that renders its heading and nothing else, which is what happened
+  // when every page but "/" fetched from a page-relative path.
+  ["/quote/", 800, "not a button that returns a number"],
   // Was `"no Hire button"`, which this page has stopped being true about — it
   // grants a real session key now.
   //
@@ -436,7 +443,7 @@ const NO_JS = [
   // this key by one cap and not four. That admission survived the rewrite,
   // moved next to the signature where it changes a decision, and is the thing
   // a future edit would be tempted to soften. So it is what gets pinned.
-  ["/activate/", 1800, "does not enforce the allowlist"],
+  ["/activate/", 1800, "not the allowlist or the spend cap"],
   // Both needles come from the sentence each page exists to make, and neither
   // is a figure that a regenerated artifact could move. The first draft had
   // these the wrong way round — "declare no category" is the *detail* page's
@@ -448,7 +455,7 @@ const NO_JS = [
   // They list them now — so the argument stands and the conclusion changed.
   // What each needle holds is the half that did not change: that the
   // classification is ours and is labelled as such.
-  ["/category/", 1200, "our classification of their words"],
+  ["/category/", 1200, "reading of their words"],
   ["/category/rebalancing/", 1800, "our reading of their free text"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
@@ -467,7 +474,7 @@ const NO_JS = [
   // JavaScript off. A prerender that lost it would leave the argument about
   // coverage with nothing to apply it to, which is the failure worth catching;
   // the coverage strips themselves are correctly absent without JS.
-  ["/tape/", 2000, "TSLAx"],
+  ["/tape/", 1300, "TSLAx"],
   ["/status/", 3000, "kill switch"],
   ["/agent/warden/", 2000, "in range"],
   // Router has no in-range fraction; its page leads with the boundary.

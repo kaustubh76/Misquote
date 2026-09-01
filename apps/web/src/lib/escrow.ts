@@ -233,6 +233,73 @@ export const ERC20_ABI = [
  */
 export const EVALUATOR_IS_THE_ROUTER = true;
 
+/**
+ * The four-byte selector of a revert, when there is one to be sure of.
+ *
+ * ## Two ways to get this wrong, and both were live
+ *
+ * It began as `/0x[0-9a-f]{8}\b/i` over the error message. The `\b` was wrong
+ * in the one case that matters: viem attaches the **ABI-encoded payload**, so
+ * the character after the eight digits is `0` — a word character — and the
+ * meaning silently never rendered, on exactly the reverts the `submit` and
+ * `settle` buttons exist to show.
+ *
+ * Dropping the `\\b` and taking the first match was worse. A wallet error
+ * quotes the *calldata* too, and calldata begins with the function selector, so
+ * a failed `submit` that never reached the chain rendered
+ * `0x9e63798d — unresolved in this repository`. That is not a missing answer,
+ * it is a confident wrong one: the selector of the function we called, offered
+ * as the reason it failed. A test caught it by making the transport fail.
+ *
+ * So a selector is returned only when something says it is revert data:
+ * viem's structured `data`/`raw` on the error or one of its causes, or a
+ * message that names it as a revert. Otherwise **undefined**, and the console
+ * shows the failure without naming it — which is the honest answer when the
+ * call never got far enough to be refused by anything.
+ */
+const SELECTOR = /(0x[0-9a-f]{8})/i;
+
+const ANCHORED: readonly RegExp[] = [
+  // "…reverted with the following signature:\n0x8e78f0cb"
+  /signature:\s*"?(0x[0-9a-f]{8})/i,
+  // "…reverted with data 0x8e78f0cb0000…", and viem's "reverted." forms. The
+  // bounded gap is what keeps this from reaching the calldata further down.
+  /revert(?:ed)?[\s\S]{0,60}?(0x[0-9a-f]{8})/i,
+  // What this repository's own records store: ContractCustomError: ('0x…', …)
+  /ContractCustomError[\s\S]{0,40}?(0x[0-9a-f]{8})/i,
+];
+
+function fromMessage(message: string): string | undefined {
+  for (const pattern of ANCHORED) {
+    const found = message.match(pattern);
+    if (found?.[1]) return found[1].toLowerCase();
+  }
+  // A message that is nothing but a selector is unambiguous.
+  const bare = message.trim();
+  return SELECTOR.test(bare) && bare.length === 10 ? bare.toLowerCase() : undefined;
+}
+
+export function selectorFrom(error: unknown): string | undefined {
+  if (typeof error === "string") return fromMessage(error);
+
+  // viem nests the cause chain; the payload hangs off whichever link knew it.
+  const seen = new Set<unknown>();
+  let node: unknown = error;
+  while (node && typeof node === "object" && !seen.has(node)) {
+    seen.add(node);
+    const { data, raw } = node as { data?: unknown; raw?: unknown };
+    for (const value of [data, raw]) {
+      if (typeof value === "string" && /^0x[0-9a-f]{8}/i.test(value)) {
+        return value.slice(0, 10).toLowerCase();
+      }
+    }
+    node = (node as { cause?: unknown }).cause;
+  }
+
+  const message = (error as { message?: unknown } | null)?.message;
+  return typeof message === "string" ? fromMessage(message) : undefined;
+}
+
 /** Seconds remaining until `expiredAt`, floored at zero. */
 export function secondsUntil(expiredAt: bigint, now: number): number {
   return Math.max(0, Number(expiredAt) - Math.floor(now / 1000));

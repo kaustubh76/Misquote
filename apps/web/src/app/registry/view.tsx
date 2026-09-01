@@ -1006,6 +1006,12 @@ export function RegistryView({
                 {/* The mainnet run, above the fork one: it is the stronger
                     claim and the weaker outcome, and a reader who stops after
                     the first block should have read the one that cost money. */}
+                {!d.hire_flow.mainnet_proof?.ran && d.hire_flow.mainnet_proof?.reason && (
+                  <p className="mt-4 mb-0 border-t border-line pt-4 text-xs text-faint">
+                    No mainnet run: {d.hire_flow.mainnet_proof.reason}
+                  </p>
+                )}
+
                 {d.hire_flow.mainnet_proof?.ran && (
                   <div className="mt-5 border-t border-line pt-4">
                     <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -1038,7 +1044,12 @@ export function RegistryView({
                           <span className="font-mono text-ink">{sent.call}</span>
                           {sent.explorer ? (
                             <a
-                              className="min-w-0 truncate font-mono text-dim underline"
+                              // `truncate` cannot shrink a 64-character hash:
+                              // it has no break opportunity, so its min-content
+                              // width is the whole string and the row was 462px
+                              // wide inside a 390px viewport. Wrapping is what
+                              // every other hash on this page does.
+                              className="min-w-0 font-mono break-all text-dim underline"
                               href={sent.explorer}
                               target="_blank"
                               rel="noreferrer"
@@ -1054,6 +1065,12 @@ export function RegistryView({
                       ))}
                     </ul>
                   </div>
+                )}
+
+                {!d.hire_flow.fork_proof?.ran && d.hire_flow.fork_proof?.reason && (
+                  <p className="mt-4 mb-0 border-t border-line pt-4 text-xs text-faint">
+                    No fork proof: {d.hire_flow.fork_proof.reason}
+                  </p>
                 )}
 
                 {d.hire_flow.fork_proof?.ran && (
@@ -1080,48 +1097,56 @@ export function RegistryView({
                       {d.hire_flow.fork_proof.escrowed_on_mainnet === false &&
                         d.hire_flow.fork_proof.why_not_on_mainnet}
                     </p>
+                  </div>
+                )}
 
-                    {/* The fourth record, and the only one about money coming
-                        back. It sits under the fork block because it is one:
-                        `expiredAt` is a `block.timestamp` comparison, so the
-                        clock is the one thing a fork can move and a chain
-                        cannot. No hash here is a link — it was never mined
-                        anywhere a reader could check it. */}
-                    {d.hire_flow.refund_proof?.ran && (
-                      <div className="mt-4 border-t border-line pt-4">
-                        <div className="flex flex-wrap items-center gap-3 text-sm">
-                          <Badge
-                            tone={
-                              d.hire_flow.refund_proof.network === "fork" ? "warn" : "neutral"
-                            }
-                          >
-                            {d.hire_flow.refund_proof.network === "fork"
-                              ? "refund, rehearsed on a fork"
-                              : "refund, on BSC mainnet"}
-                          </Badge>
-                          <Pill tone={d.hire_flow.refund_proof.refunded ? "pass" : "fail"}>
-                            refunded: {String(d.hire_flow.refund_proof.refunded ?? false)}
-                          </Pill>
-                          <span className="font-mono text-xs text-faint">
-                            job {d.hire_flow.refund_proof.job_id} · status{" "}
-                            {d.hire_flow.refund_proof.status_before} &rarr;{" "}
-                            {d.hire_flow.refund_proof.status_after} · opens{" "}
-                            {d.hire_flow.refund_proof.expires_at_utc}
-                          </span>
-                        </div>
-                        <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
-                          The claim was attempted before the expiry as well as
-                          after it, and refused
-                          {(d.hire_flow.refund_proof.transactions ?? []).some(
-                            (t) => t.when === "before expiry" && !t.ok,
-                          )
-                            ? " — a recovery path only ever watched succeeding has not been told apart from a contract that would pay out at any time."
-                            : "."}{" "}
-                          {typeof d.hire_flow.refund_proof.recovered === "number" &&
-                            `${d.hire_flow.refund_proof.recovered / 1e18} of the payment token came back.`}
-                        </p>
-                      </div>
-                    )}
+                {/* The fourth record, and the only one about money coming
+                    back. It reads under the fork block because it is
+                    one until the mainnet clock passes `expiredAt` — a
+                    `block.timestamp` comparison, so the clock is the one thing
+                    a fork can move and a chain cannot. It is a sibling of that
+                    block and not a child of it: a refund that happened does not
+                    stop being true because no fork proof was run. No hash here is a link — it was never mined
+                    anywhere a reader could check it. */}
+                {!d.hire_flow.refund_proof?.ran && d.hire_flow.refund_proof?.reason && (
+                  <p className="mt-4 mb-0 border-t border-line pt-4 text-xs text-faint">
+                    No refund: {d.hire_flow.refund_proof.reason}
+                  </p>
+                )}
+
+                {d.hire_flow.refund_proof?.ran && (
+                  <div className="mt-4 border-t border-line pt-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <Badge
+                        tone={
+                          d.hire_flow.refund_proof.network === "fork" ? "warn" : "neutral"
+                        }
+                      >
+                        {d.hire_flow.refund_proof.network === "fork"
+                          ? "refund, rehearsed on a fork"
+                          : "refund, on BSC mainnet"}
+                      </Badge>
+                      <Pill tone={d.hire_flow.refund_proof.refunded ? "pass" : "fail"}>
+                        refunded: {String(d.hire_flow.refund_proof.refunded ?? false)}
+                      </Pill>
+                      <span className="font-mono text-xs text-faint">
+                        job {d.hire_flow.refund_proof.job_id} · status{" "}
+                        {d.hire_flow.refund_proof.status_before} &rarr;{" "}
+                        {d.hire_flow.refund_proof.status_after} · opens{" "}
+                        {d.hire_flow.refund_proof.expires_at_utc}
+                      </span>
+                    </div>
+                    <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                      The claim was attempted before the expiry as well as
+                      after it, and refused
+                      {(d.hire_flow.refund_proof.transactions ?? []).some(
+                        (t) => t.when === "before expiry" && !t.ok,
+                      )
+                        ? " — a recovery path only ever watched succeeding has not been told apart from a contract that would pay out at any time."
+                        : "."}{" "}
+                      {typeof d.hire_flow.refund_proof.recovered === "number" &&
+                        `${d.hire_flow.refund_proof.recovered / 1e18} of the payment token came back.`}
+                    </p>
                   </div>
                 )}
               </Card>
@@ -1170,7 +1195,24 @@ export function RegistryView({
                 </Card>
               ) : null}
             </Section>
-          ) : null}
+          ) : (
+            /* An absent record used to remove the section, which is the one
+               outcome a page about honest reporting must not have: a reader
+               cannot tell "not run" from "never existed". The emitter carries
+               `reason` for exactly this. */
+            <Section
+              id="hired"
+              title="And what happened when we sent it"
+              className="mt-10"
+              headingClassName="mb-2 text-lg font-semibold"
+            >
+              <Refusal
+                title="No hire has been sent from here"
+                reason={d.hire_flow.proof?.reason ?? "No run has been recorded."}
+                floor="The sequence above is priced either way; only the transaction hashes are missing."
+              />
+            </Section>
+          )}
 
           {/* ----------------------------------------------------- the escrow -- */}
           <Section id="escrow" title="The escrow contract">

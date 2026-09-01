@@ -296,67 +296,193 @@ REFUND_MAINNET_PATH = REPO / "vetting" / "identity" / "refund-56.json"
 REFUND_FORK_PATH = REPO / "vetting" / "identity" / "refund-fork-56.json"
 
 
-def _refund_proof() -> dict[str, Any]:
-    """The recovery, mainnet if it has happened and the rehearsal if not."""
-    for path in (REFUND_MAINNET_PATH, REFUND_FORK_PATH):
+def _published_record(
+    paths: tuple[Path, ...], skeleton: dict[str, Any], absent: str
+) -> dict[str, Any]:
+    """One record from disk, or an absence in the same shape as a presence.
+
+    ## The bug this exists to make impossible
+
+    Each of these four used to answer a missing file with
+    `{"ran": False, "reason": ...}` — two keys, where the contract in
+    `tests/web/test_artifact_contract.py` declares between seventeen and
+    twenty-four. It reads well and it cannot be published: on any machine
+    without the record files, `make registry` emitted a payload that failed
+    `test_the_registry_emitter_writes_exactly_the_contracted_fields` in both
+    directions at once, fifteen fields undelivered and `reason` undeclared.
+    Four fallbacks written to be honest, none of which could actually run.
+
+    So an absence now carries **every key a presence carries**, nulled. The
+    skeleton is also a floor under a present record: `hire-97.json` has no `ran`
+    of its own, and `_hire_proof` used to patch that in while its three siblings
+    trusted their writers to have done it. Merging over the skeleton makes that
+    asymmetry go away rather than documenting it.
+
+    The two-way equality in the contract test now polices the skeletons too — a
+    record that grows a field fails until the skeleton grows it as well, which
+    is the flaw checking itself instead of waiting to be found.
+    """
+    for path in paths:
         if not path.is_file():
             continue
         try:
             record = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError) as error:
-            return {"ran": False, "reason": f"{path.name} could not be read: {error}"}
-        record["record"] = str(path.relative_to(REPO))
-        return record
-    return {
-        "ran": False,
-        "reason": "no refund has been claimed — `make claim-refund-fork` rehearses it",
-    }
+            return {
+                **skeleton,
+                "reason": f"{path.name} could not be read: {error}",
+            }
+        return {
+            **skeleton,
+            **record,
+            "ran": True,
+            "reason": None,
+            "record": str(path.relative_to(REPO)),
+        }
+    return {**skeleton, "reason": absent}
+
+
+#: What a record looks like when there is not one. Derived from the records
+#: themselves rather than hand-listed, and held to that by the contract test.
+ABSENT_REFUND = {
+    "balance_after": None,
+    "balance_before": None,
+    "budget": None,
+    "client": None,
+    "expires_at": None,
+    "expires_at_utc": None,
+    "gas_spent_wei": None,
+    "job_id": None,
+    "network": None,
+    "ran": False,
+    "reason": None,
+    "record": None,
+    "recovered": None,
+    "refunded": None,
+    "status_after": None,
+    "status_before": None,
+    "transactions": []
+}
+
+ABSENT_MAINNET = {
+    "addresses": {
+        "erc20": None,
+        "kernel": None,
+        "policy": None,
+        "router": None
+    },
+    "budget": None,
+    "chain_id": None,
+    "client": None,
+    "escrowed": None,
+    "escrowed_on_mainnet": None,
+    "evaluator": None,
+    "gas_spent_wei": None,
+    "job_exists": None,
+    "job_id": None,
+    "job_words": [],
+    "network": None,
+    "provider": None,
+    "ran": False,
+    "reason": None,
+    "record": None,
+    "settled": None,
+    "success_criterion": None,
+    "transactions": []
+}
+
+ABSENT_FORK = {
+    "addresses": {
+        "erc20": None,
+        "kernel": None,
+        "policy": None,
+        "router": None
+    },
+    "budget": None,
+    "chain_id": None,
+    "client": None,
+    "dispute_window_s": None,
+    "escrowed": None,
+    "escrowed_on_mainnet": None,
+    "evaluator": None,
+    "forked_at_block": None,
+    "forked_from": None,
+    "gas_spent_wei": None,
+    "job_id": None,
+    "job_words": [],
+    "minted_to_client": None,
+    "network": None,
+    "provider": None,
+    "ran": False,
+    "reason": None,
+    "record": None,
+    "settled": None,
+    "success_criterion": None,
+    "token_owner": None,
+    "transactions": [],
+    "why_not_on_mainnet": None
+}
+
+ABSENT_PROOF = {
+    "addresses": {
+        "erc20": None,
+        "kernel": None,
+        "policy": None,
+        "router": None
+    },
+    "budget": None,
+    "chain_id": None,
+    "client": None,
+    "escrowed": None,
+    "gas_spent_wei": None,
+    "job_exists": None,
+    "job_id": None,
+    "job_words": [],
+    "mined": [],
+    "not_escrowed_because": None,
+    "ran": False,
+    "reason": None,
+    "record": None,
+    "reverted": [],
+    "success_criterion": None,
+    "transactions": []
+}
+
+
+def _refund_proof() -> dict[str, Any]:
+    """The recovery, mainnet if it has happened and the rehearsal if not."""
+    return _published_record(
+        (REFUND_MAINNET_PATH, REFUND_FORK_PATH),
+        ABSENT_REFUND,
+        "no refund has been claimed — `make claim-refund-fork` rehearses it",
+    )
 
 
 def _hire_mainnet_proof() -> dict[str, Any]:
     """The recorded mainnet run, or an honest absence."""
-    if not HIRE_MAINNET_PATH.is_file():
-        return {
-            "ran": False,
-            "reason": "no mainnet hire has been run — `make hire-mainnet` writes this",
-        }
-    try:
-        record = json.loads(HIRE_MAINNET_PATH.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        return {"ran": False, "reason": f"{HIRE_MAINNET_PATH.name} could not be read: {error}"}
-    record["record"] = str(HIRE_MAINNET_PATH.relative_to(REPO))
-    return record
+    return _published_record(
+        (HIRE_MAINNET_PATH,),
+        ABSENT_MAINNET,
+        "no mainnet hire has been run — `make hire-mainnet` writes this",
+    )
 
 
 def _hire_fork_proof() -> dict[str, Any]:
     """The recorded fork run, or an honest absence."""
-    if not HIRE_FORK_PATH.is_file():
-        return {
-            "ran": False,
-            "reason": "no fork proof has been run — `make prove-escrow` writes this",
-        }
-    try:
-        record = json.loads(HIRE_FORK_PATH.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        return {"ran": False, "reason": f"{HIRE_FORK_PATH.name} could not be read: {error}"}
-    record["record"] = str(HIRE_FORK_PATH.relative_to(REPO))
-    return record
+    return _published_record(
+        (HIRE_FORK_PATH,),
+        ABSENT_FORK,
+        "no fork proof has been run — `make prove-escrow` writes this",
+    )
 
 
 def _hire_proof() -> dict[str, Any]:
     """The recorded chapel run, or an honest absence."""
-    if not HIRE_PROOF_PATH.is_file():
-        return {
-            "ran": False,
-            "reason": "no hire has been run — `MISQUOTE_DRY_RUN=0 make hire` writes this",
-        }
-    try:
-        record = json.loads(HIRE_PROOF_PATH.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        return {"ran": False, "reason": f"{HIRE_PROOF_PATH.name} could not be read: {error}"}
-    record["ran"] = True
-    record["record"] = str(HIRE_PROOF_PATH.relative_to(REPO))
-    return record
+    return _published_record(
+        (HIRE_PROOF_PATH,),
+        ABSENT_PROOF,
+        "no hire has been run — `MISQUOTE_DRY_RUN=0 make hire` writes this",
+    )
 
 
 #: Where a survey lives between the chain read that produced it and the artifact

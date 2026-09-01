@@ -47,6 +47,7 @@ import {
   decodeJob,
   encodeGetJob,
   secondsUntil,
+  selectorFrom,
   type EscrowDeployment,
   type JobReading,
 } from "@/lib/escrow";
@@ -319,7 +320,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
     : [];
 
   const revert = write.error?.message ?? "";
-  const selector = revert.match(/0x[0-9a-f]{8}\b/i)?.[0]?.toLowerCase();
+  const selector = selectorFrom(write.error);
   const meaning = selector && errors ? errors[selector] : undefined;
 
   return (
@@ -357,7 +358,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
               value={provider}
               onChange={setProvider}
               placeholder={address}
-              width="w-[26rem]"
+              width="w-full max-w-[26rem]"
             />
             <Field
               label="Deliverable"
@@ -417,8 +418,8 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
                       ? "Mining…"
                       : step.name}
                 </Button>
-                <span className="min-w-0 text-xs text-dim">
-                  <span className="font-mono text-faint">{step.call}</span> — {step.hint}
+                <span className="min-w-0 text-xs break-words text-dim">
+                  <span className="font-mono break-all text-faint">{step.call}</span> — {step.hint}
                   {step.disabled && (
                     <span className="block text-faint">{step.disabled}</span>
                   )}

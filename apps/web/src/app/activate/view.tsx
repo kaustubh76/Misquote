@@ -77,7 +77,7 @@ export interface SessionProof {
  * honours and names the two it does not, at the moment of signing, which is
  * where a caveat can still change a decision. `HireFlow` carries it inline.
  *
- * `scripts/check-pages.mjs` now matches "does not enforce the allowlist" in the
+ * `scripts/check-pages.mjs` now matches "not the allowlist or the spend cap" in the
  * no-JS render of this route. The needle followed the honesty rather than the
  * button, because the honesty is what it was protecting.
  *

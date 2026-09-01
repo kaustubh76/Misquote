@@ -1224,6 +1224,14 @@ REGISTRY_FIELDS: dict[str, str] = {
     # passes `expiredAt`. Its hash is carried and deliberately not linked — a
     # fork transaction is not on any explorer, and rendering it as a link would
     # be the misquote in miniature.
+    # Why a record is not here, when it is not. An absence carries every key a
+    # presence carries — see `_published_record` — so this renders instead of
+    # the block vanishing, which is the difference between "not run" and
+    # "never existed".
+    "hire_flow.proof.reason": "registry/view.tsx",
+    "hire_flow.fork_proof.reason": "registry/view.tsx",
+    "hire_flow.mainnet_proof.reason": "registry/view.tsx",
+    "hire_flow.refund_proof.reason": "registry/view.tsx",
     "hire_flow.refund_proof.ran": "registry/view.tsx",
     "hire_flow.refund_proof.network": "registry/view.tsx",
     "hire_flow.refund_proof.job_id": "registry/view.tsx",
