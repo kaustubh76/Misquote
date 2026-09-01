@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
+.PHONY: hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -276,6 +276,25 @@ session-keys:  ## grant a session key, read it back, revoke it, read that back. 
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+hire-mainnet:  ## run the ERC-8183 flow on BSC MAINNET. SPENDS REAL MONEY.
+	# The escrow with real capital behind it. `make prove-escrow` is the free
+	# rehearsal and `make hire` is chapel; this is the one that costs.
+	#
+	# Needs the payment token — `scripts/buy_payment_token.py` buys it on
+	# PancakeSwap, which is what a wallet does instead of impersonating the
+	# token's owner as a fork can. Roughly a dollar a unit, and `fund` refuses
+	# only a budget of exactly zero, so a fraction is a real escrow.
+	#
+	# Resumable: an allowance that already covers the budget is not re-approved.
+	# It confirms receipts across several endpoints because `bsc-dataseed` is
+	# load-balanced and a mined transaction has looked like a timeout three times.
+	#
+	# Broadcasting is
+	#   MISQUOTE_DRY_RUN=0 make hire-mainnet
+	# and MISQUOTE_SIGNER_ADDRESS must name the wallet whose key is exported —
+	# `chain/operator.py` refuses the mismatch, which is the point of it.
+	$(UV) run python scripts/hire_mainnet.py
 
 prove-escrow:  ## drive the ERC-8183 flow to settlement on a mainnet fork. Spends nothing.
 	# The blocker `make hire` cannot clear: the payment token is owner-minted
