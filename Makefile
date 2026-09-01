@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
+.PHONY: claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -276,6 +276,25 @@ session-keys:  ## grant a session key, read it back, revoke it, read that back. 
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+claim-refund:  ## recover the budget from job 56681 once its expiry passes
+	# The way out of a funded job nobody settled. `submit` and `settle` both
+	# reverted, so 0.1 of the payment token sits in the kernel with one exit:
+	# claimRefund, after expiredAt (2026-09-01 22:04 UTC).
+	#
+	# That expiry is `block.timestamp` on mainnet, so it cannot be hurried and
+	# this target does nothing before it — it prints the time remaining and
+	# exits 3 without broadcasting. Safe to run early, and safe to loop on.
+	#
+	# Rehearse it for free against a fork at the current block, where the job
+	# is real and only the clock is a fiction:
+	#   make claim-refund-fork
+	#
+	# Broadcasting is MISQUOTE_DRY_RUN=0 make claim-refund.
+	$(UV) run python scripts/claim_refund.py
+
+claim-refund-fork:  ## rehearse the refund on a mainnet fork. Spends nothing.
+	$(UV) run python scripts/claim_refund.py --fork
 
 hire-mainnet:  ## run the ERC-8183 flow on BSC MAINNET. SPENDS REAL MONEY.
 	# The escrow with real capital behind it. `make prove-escrow` is the free
