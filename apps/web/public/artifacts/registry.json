@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 137,
+      "gap": 171,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 326503,
-      "ours_at_block": 119364513,
+      "ours": 328904,
+      "ours_at_block": 119485161,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 326366,
-      "total_pages": 16319,
+      "total": 328733,
+      "total_pages": 16437,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-01T15:06:57+00:00",
+    "generated_at": "2026-09-02T06:12:13+00:00",
     "git_dirty": true,
-    "git_sha": "258e140",
+    "git_sha": "4b13fc4",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -398,12 +398,12 @@
       "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
       "expires_at": 1788300296,
       "expires_at_utc": "2026-09-01 22:04 UTC",
-      "gas_spent_wei": 75631000000000,
+      "gas_spent_wei": 3781550000000,
       "job_id": 56681,
-      "network": "fork",
+      "network": "BSC mainnet",
       "ran": true,
       "reason": null,
-      "record": "vetting/identity/refund-fork-56.json",
+      "record": "vetting/identity/refund-56.json",
       "recovered": 100000000000000000,
       "refunded": true,
       "status_after": 5,
@@ -411,15 +411,9 @@
       "transactions": [
         {
           "call": "claimRefund",
-          "error": "ContractCustomError: ('0x8e78f0cb', '0x8e78f0cb')",
-          "ok": false,
-          "when": "before expiry"
-        },
-        {
-          "call": "claimRefund",
           "gas_used": 75631,
           "ok": true,
-          "tx": "4db07cd9ad388eee587735d033fa4c67c24c955a9d0659238dcf58d7d3a715a4",
+          "tx": "fb77c53ec7aeebc2f2aa3012141e34121e438ab7203ff1f5bc5f955f2caf7c35",
           "when": "after expiry"
         }
       ]
@@ -1361,7 +1355,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 10.6,
+    "age_hours": 25.7,
     "agents": [
       {
         "agent": "warden",

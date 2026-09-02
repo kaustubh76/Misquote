@@ -1136,14 +1136,35 @@ export function RegistryView({
                         {d.hire_flow.refund_proof.expires_at_utc}
                       </span>
                     </div>
+                    {d.hire_flow.refund_proof.network !== "fork" &&
+                      (d.hire_flow.refund_proof.transactions ?? [])
+                        .filter((sent) => sent.ok && sent.tx)
+                        .map((sent) => (
+                          <p key={sent.tx} className="mt-3 mb-0 text-xs">
+                            <a
+                              className="font-mono break-all text-dim underline"
+                              href={`https://bscscan.com/tx/${sent.tx}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {sent.tx}
+                            </a>
+                          </p>
+                        ))}
                     <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
-                      The claim was attempted before the expiry as well as
-                      after it, and refused
+                      {/* Read off the record rather than asserted. The
+                          rehearsal attempts the claim before the expiry as well
+                          as after it; the mainnet run only ever makes the one
+                          call, because the early one would burn real gas to be
+                          told something a fork already established. Saying
+                          "attempted before the expiry" over a record with a
+                          single transaction in it is the misquote in
+                          miniature. */}
                       {(d.hire_flow.refund_proof.transactions ?? []).some(
                         (t) => t.when === "before expiry" && !t.ok,
                       )
-                        ? " — a recovery path only ever watched succeeding has not been told apart from a contract that would pay out at any time."
-                        : "."}{" "}
+                        ? "The claim was attempted before the expiry as well as after it, and refused — a recovery path only ever watched succeeding has not been told apart from a contract that would pay out at any time."
+                        : "The claim was made once the expiry had passed. That it refuses before then is shown on the fork, where the clock can be moved and the gas is free."}{" "}
                       {typeof d.hire_flow.refund_proof.recovered === "number" &&
                         `${d.hire_flow.refund_proof.recovered / 1e18} of the payment token came back.`}
                     </p>

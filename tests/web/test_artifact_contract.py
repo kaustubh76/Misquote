@@ -1478,7 +1478,15 @@ def test_every_contracted_registry_field_is_read_by_the_named_view() -> None:
 #: finding — the check below is already restricted to leaves that appear exactly
 #: once across all four maps, so anything reaching this list is a collision with
 #: a shape the maps do not cover at all.
-LEAF_COLLISIONS = frozenset({"x402_supported"})
+#: Leaf names that mean more than one thing, so finding one proves nothing.
+#:
+#: `tx` is `ours.funding.tx` — carried, not rendered — and also the hash on each
+#: step inside `hire_flow.refund_proof.transactions`. That second one *is*
+#: rendered, and cannot be declared separately: `flatten` stops at a list, so
+#: the whole array is one leaf and its members have no paths of their own. The
+#: guard was right that a `.tx` is read in `registry/view.tsx`; it was reading
+#: the wrong one.
+LEAF_COLLISIONS = frozenset({"x402_supported", "tx"})
 
 
 def _blank_entries_that_look_rendered() -> list[str]:
