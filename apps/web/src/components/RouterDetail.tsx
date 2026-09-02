@@ -9,6 +9,8 @@ import { Prose } from "@/components/Blocks";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Section } from "@/components/Heading";
+import { Button } from "@/components/Button";
+import { CompareToggle } from "@/components/CompareToggle";
 import { SectionRail } from "@/components/SectionRail";
 import {
   count,
@@ -611,11 +613,25 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
           one agent reachable only through the marketplace path, so leaving it
           out would break the journey on exactly the category the Agent Studio
           CLI deployment is about. */}
-      <p className="mt-10 text-sm text-dim">
-        <Link href="/activate">
-          What hiring this agent would involve, and why there is no button →
-        </Link>
-      </p>
+      {/* The two things a reader who has finished this page wants, and it
+          offered one of them as prose.
+          
+          `?agent=` carries the choice to `/activate`, which otherwise cannot say
+          which agent was picked. `CompareToggle` is here because this is where a
+          judge comparing two agents actually is — it lived only on the cards, so
+          anyone who drilled into two detail pages had no way to add either to
+          the tray they were about to look for. */}
+      <div className="mt-10 flex flex-wrap items-center gap-3">
+        <Button href={`/activate/?agent=${data.agent}`} size="sm">
+          Hire {data.agent}
+        </Button>
+        <Button href="/quote/" size="sm" tone="secondary">
+          Quote my position
+        </Button>
+        <span className="ml-auto">
+          <CompareToggle slug={data.agent} name={data.agent} />
+        </span>
+      </div>
     </div>
   );
 }

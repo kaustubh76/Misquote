@@ -940,22 +940,64 @@ def render_markdown(comparisons: list[Comparison], *, source: str, capital: floa
         if not c.quotable:
             lines += [f"**No verdict.** {c.note}", ""]
             continue
+        # A row per measure the task actually has, and nothing for the ones it
+        # does not.
+        #
+        # These were formatted unconditionally, and `_of()` returns `None` — not
+        # `0.0` — for a measure the task's driver never produces: a lending
+        # allocation has costs and no in-range fraction, no fees, no LVR. That
+        # was P-19's fix on the payload side, and this renderer never learned
+        # it, so the first regeneration after that change died here with
+        # `unsupported format string passed to NoneType.__format__` **after**
+        # completing every replay, and before writing the artifact. Hours of
+        # work discarded at the last line.
+        #
+        # Omitted rather than printed as a zero, for the reason P-19 gives: a
+        # lending venue with "in range: 0.0%" reads as a position that was never
+        # in range, which is a measurement, rather than as a quantity that does
+        # not apply.
+        def row(label: str, base, agent, fmt: str) -> list[str]:
+            if base is None or agent is None:
+                return []
+            return [f"| {label} | {base:{fmt}} | {agent:{fmt}} |"]
+
         lines += [
             "| | DIY | Agent |",
             "|---|---|---|",
             f"| Net return P25–P75 | {c.baseline_p25:.2f} – {c.baseline_p75:.2f}% "
             f"| {c.agent_p25:.2f} – {c.agent_p75:.2f}% |",
             f"| Median | {c.baseline_p50:.2f}% | {c.agent_p50:.2f}% |",
-            f"| In range | {c.baseline_in_range:.1%} | {c.agent_in_range:.1%} |",
-            f"| Fees | {c.baseline_fees:.4f} | {c.agent_fees:.4f} |",
-            f"| Realized convexity cost (upper bound on LVR) | {c.baseline_lvr:.4f} "
-            f"| {c.agent_lvr:.4f} |",
-            f"| Costs charged | {c.baseline_costs:.2f} | {c.agent_costs:.2f} |",
-            f"| Moves — mint / recentre / pull | "
-            f"{c.baseline_mints} / {c.baseline_recentres} / {c.baseline_pulls} | "
-            f"{c.agent_mints} / {c.agent_recentres} / {c.agent_pulls} |",
-            f"| Distinct results of {c.windows * 3} reported samples | "
-            f"{c.baseline_distinct} | {c.agent_distinct} |",
+            f"| Time taken | {c.baseline_seconds:,.0f}s | {c.agent_seconds:,.0f}s |",
+            f"| Cost to hire | — | {c.hire_cost_quote:.6f} BNB |",
+            *row("In range", c.baseline_in_range, c.agent_in_range, ".1%"),
+            *row("Fees", c.baseline_fees, c.agent_fees, ".4f"),
+            *row(
+                "Realized convexity cost (upper bound on LVR)",
+                c.baseline_lvr,
+                c.agent_lvr,
+                ".4f",
+            ),
+            *row("Costs charged", c.baseline_costs, c.agent_costs, ".2f"),
+            # Same rule as the rows above: absent, not "None". These print
+            # through `str()` rather than a format spec, so they would not have
+            # crashed — they would have rendered the word, which is worse.
+            *(
+                [
+                    f"| Moves — mint / recentre / pull | "
+                    f"{c.baseline_mints} / {c.baseline_recentres} / {c.baseline_pulls} | "
+                    f"{c.agent_mints} / {c.agent_recentres} / {c.agent_pulls} |"
+                ]
+                if c.baseline_mints is not None and c.agent_mints is not None
+                else []
+            ),
+            *(
+                [
+                    f"| Distinct results of {c.windows * 3} reported samples | "
+                    f"{c.baseline_distinct} | {c.agent_distinct} |"
+                ]
+                if c.baseline_distinct is not None and c.agent_distinct is not None
+                else []
+            ),
             "",
             f"**{c.verdict_line()}**",
             "",
@@ -1592,8 +1634,18 @@ def main() -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_markdown(comparisons, source=source, capital=args.capital) + "\n")
-
+    # The artifact first, then the prose, and the order is a lesson rather than
+    # a preference.
+    #
+    # These were the other way round. A `None` that `render_markdown` could not
+    # format raised **after every replay had finished** and before either file
+    # was written, so a three-hour run produced nothing at all — the expensive,
+    # irreplaceable half of the work discarded by a formatting bug in the cheap,
+    # regenerable half.
+    #
+    # The artifact is what the site and the gates read; the markdown is a
+    # rendering of it. Writing the costly result first means a renderer that
+    # breaks costs a re-render, not a re-run.
     artifact = Path(args.artifact)
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text(
@@ -1602,6 +1654,8 @@ def main() -> int:
         )
         + "\n"
     )
+
+    out.write_text(render_markdown(comparisons, source=source, capital=args.capital) + "\n")
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")
     for c in comparisons:
