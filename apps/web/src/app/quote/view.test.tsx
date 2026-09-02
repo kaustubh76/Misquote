@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WithWallet } from "@/test/harness";
+import { RECORDED_CLIENT, WithWallet, withConnectedWallet } from "@/test/harness";
 import { QuoteView } from "./view";
 
 /**
@@ -532,5 +532,32 @@ describe("under a scenario, the page reaches nothing", () => {
     expect(reached).toHaveLength(0);
 
     window.history.replaceState({}, "", "/quote");
+  });
+});
+
+describe("the connected-wallet offer", () => {
+  it("offers to fill the address in, once the page has mounted", async () => {
+    // This route was the last place in the app rendering wagmi account state
+    // during render. The server emits that paragraph as one text node, so a
+    // wallet present on the first client render turns it into a three-child
+    // array and React error #418 — which `ConnectButton`'s docstring exists to
+    // forbid. The fix is a `mounted` gate, and the way a `mounted` gate goes
+    // wrong is by never opening, so the offer is asserted to still arrive.
+    serveApi({});
+    render(<QuoteView />, { wrapper: withConnectedWallet() });
+
+    const offer = await screen.findByRole("button", { name: "Use my connected wallet" });
+    await userEvent.click(offer);
+    expect(screen.getByLabelText("Wallet address")).toHaveValue(RECORDED_CLIENT);
+  });
+
+  it("makes no offer when no wallet is connected", async () => {
+    serveApi({});
+    render(<QuoteView />, { wrapper: WithWallet });
+
+    expect(await screen.findByLabelText("Wallet address")).toHaveValue("");
+    expect(
+      screen.queryByRole("button", { name: "Use my connected wallet" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -183,7 +183,10 @@ for (const [colorScheme, width] of VIEWPORTS) {
   //
   // It fired twice more since, on /category/rebalancing/ and on /quote/, and
   // the frames were byte-identical both times: `rD <- oq <- iw`, all three in
-  // chunk `0fef27c7`. That chunk is react-dom — it carries `react.dev/errors`
+  // chunk `0fef27c7`. Twice more again on 2026-09-02, on /quote/ and then on
+  // /category/, same three frames, same chunk, each on a run whose neighbours
+  // were clean and neither repeating on the next run — which is this note's own
+  // test for the flake rather than a bug, applied and passed. That chunk is react-dom — it carries `react.dev/errors`
   // and the Suspense runtime and nothing of this application. So the stack is
   // React's own hydration-recovery path and the frames cannot name a component,
   // which is the question they were added to answer. They are not worth

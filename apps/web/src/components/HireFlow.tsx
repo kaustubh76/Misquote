@@ -121,6 +121,24 @@ export function HireFlow() {
     },
   });
 
+  // Which of the two register calls this wallet needs.
+  //
+  // `sessions/keys.py::grant_plan` found that `registerKey` reverts on a wallet
+  // that has never held a key — `KeyStore: account not bootstrapped` — and
+  // `/activate` renders that as a step. The button did not honour it, so the
+  // first press by anyone with a clean wallet reverted. `getKeys` answering
+  // with an empty list is the condition, read rather than assumed.
+  const held = useReadContract({
+    abi: KEYSTORE_ABI,
+    address: deployment?.keyStore,
+    functionName: "getKeys",
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(deployment && address) },
+  });
+
+  const bootstrapped = Array.isArray(held.data) ? held.data.length > 0 : undefined;
+  const registerCall = bootstrapped ? "registerKey" : "initialRegisterKey";
+
   const grant = useWriteContract();
   const revoke = useWriteContract();
   const grantReceipt = useWaitForTransactionReceipt({ hash: grant.data });
@@ -217,7 +235,7 @@ export function HireFlow() {
             grant.writeContract({
               abi: CONTROLLER_ABI,
               address: deployment.keyStoreController,
-              functionName: "registerKey",
+              functionName: registerCall,
               args: [
                 session.keyId,
                 NO_VALIDATOR as Address,
@@ -255,6 +273,18 @@ export function HireFlow() {
               : "Revoke it"}
         </Button>
       </div>
+
+      {/* Which call, and why it is that one. A wallet that has never held a key
+          takes a different entry point, and a button that quietly picks one is
+          a button whose revert the presser cannot explain. */}
+      {bootstrapped !== undefined && (
+        <p className="mt-3 mb-0 text-xs text-faint">
+          <span className="font-mono">{registerCall}</span> —{" "}
+          {bootstrapped
+            ? "this wallet has held a key here before."
+            : "this wallet has never held a key here, and registerKey reverts on that."}
+        </p>
+      )}
 
       {(grant.data || revoke.data || grant.error || revoke.error) && (
         <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-t border-line pt-4 text-xs">

@@ -34,15 +34,21 @@ const mainnet = flow.mainnet_proof;
 const GET_JOB = "0xbf22c457";
 const BALANCE_OF = "0x70a08231";
 const ALLOWANCE = "0xdd62ed3e";
+const DECIMALS = "0x313ce567";
 
 const HOUR = 3600n;
 const now = () => BigInt(Math.floor(Date.now() / 1000));
 
 function consoleWith(
   expiredAt: bigint,
-  extra: { address?: `0x${string}`; sendError?: Error; balance?: bigint } = {},
+  extra: {
+    address?: `0x${string}`;
+    sendError?: Error;
+    balance?: bigint;
+    decimals?: bigint | null;
+  } = {},
 ) {
-  const { address, sendError, balance = 10n ** 18n } = extra;
+  const { address, sendError, balance = 10n ** 18n, decimals = 18n } = extra;
   return withConnectedWallet({
     address,
     sendError,
@@ -50,6 +56,8 @@ function consoleWith(
       [GET_JOB]: jobWordsWith(mainnet.job_words, { 7: expiredAt }),
       [BALANCE_OF]: asWord(balance),
       [ALLOWANCE]: asWord(0n),
+      // `null` stands for a token that will not answer `decimals()`.
+      ...(decimals === null ? {} : { [DECIMALS]: asWord(decimals) }),
     },
   });
 }
@@ -158,5 +166,28 @@ describe("when a call does not reach the chain", () => {
       expect(document.body.textContent).not.toContain("unresolved in this repository");
       expect(document.body.textContent).not.toContain("0x9e63798d");
     });
+  });
+});
+
+describe("the token's decimals", () => {
+  it("scales by what the token answers, not by eighteen", async () => {
+    // `chain/addresses.py` refuses to assume this and says why: BSC's USDT is
+    // 18 where Ethereum's is 6, and assuming wrong misprices by twelve orders
+    // of magnitude. A six-decimal token makes the same budget read differently,
+    // and that difference is the whole test.
+    render(<EscrowConsole {...props} />, {
+      wrapper: consoleWith(now() + HOUR, { decimals: 6n, balance: 5_000_000n }),
+    });
+
+    expect(await screen.findByText(/you hold 5\b/)).toBeInTheDocument();
+    expect(screen.queryByText(/decimals assumed/)).not.toBeInTheDocument();
+  });
+
+  it("says so when the token will not answer", async () => {
+    render(<EscrowConsole {...props} />, {
+      wrapper: consoleWith(now() + HOUR, { decimals: null, balance: 10n ** 18n }),
+    });
+
+    expect(await screen.findByText(/decimals assumed/)).toBeInTheDocument();
   });
 });

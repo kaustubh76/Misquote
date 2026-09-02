@@ -220,6 +220,18 @@ export const ERC20_ABI = [
     ],
     outputs: [{ type: "bool" }],
   },
+  // Read, not assumed. `chain/addresses.py` is blunt about why: BSC's USDT and
+  // USDC are 18 decimals where Ethereum's are 6, and "assuming 6 here would
+  // misprice every position by twelve orders of magnitude", so the Python side
+  // reads `decimals()` and records what came back. A browser that types 18 into
+  // a constant is making the assumption that file exists to refuse.
+  {
+    name: "decimals",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint8" }],
+  },
 ] as const;
 
 /**

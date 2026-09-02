@@ -52,8 +52,15 @@ import {
   type JobReading,
 } from "@/lib/escrow";
 
-/** The token is 18 decimals, read once on mainnet and recorded in the artifact. */
-const DECIMALS = 18;
+/**
+ * What to use until `decimals()` answers, and the only place it is guessed.
+ *
+ * `chain/addresses.py` refuses to assume this and says why — BSC's USDT is 18
+ * where Ethereum's is 6, and assuming wrong misprices by twelve orders of
+ * magnitude. So the console reads it and falls back only while the read is in
+ * flight or refused, and says "assumed" on screen when it is doing that.
+ */
+const ASSUMED_DECIMALS = 18;
 
 interface Props {
   /** `hire_flow.deployments` — keyed by chain id as a string, as JSON has it. */
@@ -119,13 +126,26 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
   const router = deployment?.router as Address;
   const policy = deployment?.policy as Address;
   const token = deployment?.erc20 as Address;
+
+  const decimals = useReadContract({
+    abi: ERC20_ABI,
+    address: token,
+    functionName: "decimals",
+    query: { enabled: Boolean(deployment) },
+  });
+
+  // `decimals()` is a uint8 and viem hands it back as a number.
+  const read = decimals.data;
+  const units = typeof read === "number" ? read : ASSUMED_DECIMALS;
+  const unitsAssumed = typeof read !== "number";
+
   const [jobId, setJobId] = useState(String(defaultJob ?? ""));
   const [provider, setProvider] = useState("");
   // Seeded from what the recorded mainnet run actually escrowed, so the
   // console opens on a figure this repository has spent rather than a round
   // number typed into a component.
   const [budget, setBudget] = useState(
-    defaultBudget ? formatUnits(BigInt(defaultBudget), DECIMALS) : "",
+    defaultBudget ? formatUnits(BigInt(defaultBudget), ASSUMED_DECIMALS) : "",
   );
   const [hours, setHours] = useState("12");
   const [deliverable, setDeliverable] = useState("deliverable");
@@ -135,7 +155,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
   const job = BigInt(/^\d+$/.test(jobId) ? jobId : "0");
   const amount = useMemo(() => {
     try {
-      return parseUnits(budget || "0", DECIMALS);
+      return parseUnits(budget || "0", units);
     } catch {
       return 0n;
     }
@@ -159,6 +179,15 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
     },
   });
 
+  // How many jobs this deployment has seen. Read so that `createJob` can hand
+  // the id back — see the effect below.
+  const counter = useReadContract({
+    abi: KERNEL_ABI,
+    address: kernel,
+    functionName: "jobCounter",
+    query: { enabled: Boolean(deployment) },
+  });
+
   const allowance = useReadContract({
     abi: ERC20_ABI,
     address: token,
@@ -174,6 +203,23 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
     args: address ? [address] : undefined,
     query: { enabled: Boolean(address && deployment), refetchInterval: 12_000 },
   });
+
+  // `createJob` returns the new id to a caller that can read the return value.
+  // A wallet cannot — `writeContract` resolves to a hash, not a result — so the
+  // console did the one thing worse than not knowing: it left the id field on
+  // whatever had been typed, and the next seven buttons acted on a different
+  // job. `jobCounter()` after the receipt is the same read `hire_mainnet.py`
+  // does, and the newest job is the one just created.
+  useEffect(() => {
+    if (lastCall !== "createJob" || !receipt.isSuccess) return;
+    void counter.refetch().then((fresh) => {
+      const made = fresh.data;
+      if (typeof made === "bigint" && made > 0n) setJobId(made.toString());
+    });
+    // `counter` is a fresh object each render; refetching on the receipt alone
+    // is the intent, and depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastCall, receipt.isSuccess]);
 
   const state = reading.data ?? null;
   const expiresIn = state ? secondsUntil(state.expiredAt, now) : null;
@@ -383,7 +429,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
                     the first place in the repository to pretend otherwise. */}
                 <span className="font-mono text-faint">status {state.status} (unnamed)</span>
                 <span className="font-mono text-faint">
-                  budget {formatUnits(state.budget, DECIMALS)}
+                  budget {formatUnits(state.budget, units)}
                 </span>
                 <span className="font-mono text-faint">
                   {expiresIn && expiresIn > 0
@@ -395,7 +441,8 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
             )}
             {balance.data !== undefined && (
               <span className="font-mono text-faint">
-                you hold {formatUnits(balance.data as bigint, DECIMALS)}
+                you hold {formatUnits(balance.data as bigint, units)}
+                {unitsAssumed && " (decimals assumed)"}
               </span>
             )}
           </div>

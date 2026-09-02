@@ -177,6 +177,19 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
   const { address: connected } = useAccount();
   const [state, setState] = useState<State>({ phase: "idle" });
 
+  // The offer waits for mount, and it is not decoration.
+  //
+  // The server renders that paragraph as a **single text node**. A wallet
+  // present on the first client render turns it into text + space + button, and
+  // React hydrating a three-child array against one text node is error #418 —
+  // the one `ConnectButton` carries a docstring about and gates for, and which
+  // this file was the last place in the app not to. It has been dormant only
+  // because `lib/wagmi.ts` sets `ssr: true`, deferring wagmi's store, and
+  // because the browser gate has no wallet to inject. A visitor with MetaMask
+  // is the one who would have met it.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   async function check(event: React.FormEvent) {
     event.preventDefault();
     const wanted = address.trim();
@@ -245,7 +258,7 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
         </div>
         <p className="mt-2 mb-0 text-xs text-faint">
           Read-only. This never asks for a key, a signature, or an approval.
-          {connected && !address && (
+          {mounted && connected && !address && (
             <>
               {" "}
               <button

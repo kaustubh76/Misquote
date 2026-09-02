@@ -142,6 +142,28 @@ export const CONTROLLER_ABI = [
     ],
     outputs: [],
   },
+  /**
+   * The same arguments, and the call a wallet that has never held a key needs.
+   *
+   * `sessions/keys.py::grant_plan` records that `registerKey` **reverts on a
+   * fresh wallet** — `KeyStore: account not bootstrapped` — and that this is
+   * the call for that case. Python has carried both since it was written; this
+   * file carried one, so the first button a visitor with a clean wallet pressed
+   * reverted on a condition the repository had already found and written down.
+   */
+  {
+    name: "initialRegisterKey",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "keyId", type: "bytes32" },
+      { name: "validator", type: "address" },
+      { name: "metadata", type: "bytes" },
+      { name: "publicKey", type: "bytes" },
+      { name: "expiry", type: "uint40" },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 /**

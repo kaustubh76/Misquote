@@ -31,10 +31,16 @@ interface Registry {
       budget: number;
       job_words: string[];
     };
+    refund_proof: {
+      expires_at: number;
+      status_before: number;
+    };
   };
 }
 
-const mainnet = readArtifact<Registry>("registry.json").hire_flow.mainnet_proof;
+const flow = readArtifact<Registry>("registry.json").hire_flow;
+const mainnet = flow.mainnet_proof;
+const refund = flow.refund_proof;
 const raw = `0x${mainnet.job_words.map((w) => w.slice(2)).join("")}` as Hex;
 
 describe("the job words mainnet actually returned", () => {
@@ -61,12 +67,25 @@ describe("the job words mainnet actually returned", () => {
     expect(decodeJob(`0x${"00".repeat(32)}` as Hex, 1n)).toBeNull();
   });
 
-  it("reads the expiry the refund is waiting on", () => {
+  it("reads the expiry the refund waited on, to the second", () => {
+    // Offsets 7 and 8 were the two this file named and nothing else did —
+    // `expiredAt` had only `> 0` on it and `status` was never asserted at all.
+    // The refund record is an independent read of the same job: `claim_refund.py`
+    // decoded it with Python's own offsets before deciding whether the window
+    // was open. If the two sides ever disagree about which word is which, both
+    // still return plausible integers and neither raises.
     const job = decodeJob(raw, BigInt(mainnet.job_id))!;
-    expect(job.expiredAt).toBeGreaterThan(0n);
-    // Twelve hours after creation, which is what the run asked for.
+    expect(Number(job.expiredAt)).toBe(refund.expires_at);
+    expect(job.status).toBe(refund.status_before);
+  });
+
+  it("counts down to that expiry rather than past it", () => {
+    const job = decodeJob(raw, BigInt(mainnet.job_id))!;
     expect(secondsUntil(job.expiredAt, Number(job.expiredAt) * 1000)).toBe(0);
     expect(secondsUntil(job.expiredAt, (Number(job.expiredAt) - 3600) * 1000)).toBe(3600);
+    // Past the expiry it floors rather than going negative, which is what makes
+    // the refund button enable instead of showing a negative countdown.
+    expect(secondsUntil(job.expiredAt, (Number(job.expiredAt) + 99) * 1000)).toBe(0);
   });
 });
 
