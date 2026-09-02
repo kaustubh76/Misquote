@@ -1,0 +1,86 @@
+{
+  "accepted_at_or_above_hours": 169,
+  "chain_id": 56,
+  "dispute_window_s": 604800,
+  "escrowed_on_mainnet": false,
+  "falsified": "The recorded meaning of 0x15e5dd74 said the refusal came from one address being both client and provider. The 720h trial is self-provider and submits and settles; the 12h trial is self-provider and reverts. The wallet was never the reason.",
+  "finding": "submit() is refused unless expiredAt is further away than the policy's dispute window. Everything else held constant across eight fork runs: 168h is refused and 169h is accepted, and the window is 604800s (168h). The mainnet run asked for 12 hours.",
+  "network": "fork",
+  "read_at": "2026-09-02T06:59:38+00:00",
+  "refused_at_or_below_hours": 168,
+  "subject": "why submit() reverted 0x15e5dd74 on mainnet job 56681",
+  "trials": [
+    {
+      "expiry_hours": 12,
+      "expiry_seconds": 43200,
+      "forked_at_block": 119490915,
+      "settle_ok": false,
+      "settled": false,
+      "submit_error": "ContractCustomError: ('0x15e5dd74', '0x15e5dd74')",
+      "submit_ok": false
+    },
+    {
+      "expiry_hours": 167,
+      "expiry_seconds": 601200,
+      "forked_at_block": 119491054,
+      "settle_ok": false,
+      "settled": false,
+      "submit_error": "ContractCustomError: ('0x15e5dd74', '0x15e5dd74')",
+      "submit_ok": false
+    },
+    {
+      "expiry_hours": 168,
+      "expiry_seconds": 604800,
+      "forked_at_block": 119491002,
+      "settle_ok": false,
+      "settled": false,
+      "submit_error": "ContractCustomError: ('0x15e5dd74', '0x15e5dd74')",
+      "submit_ok": false
+    },
+    {
+      "expiry_hours": 169,
+      "expiry_seconds": 608400,
+      "forked_at_block": 119491293,
+      "settle_ok": true,
+      "settled": true,
+      "submit_error": null,
+      "submit_ok": true
+    },
+    {
+      "expiry_hours": 172,
+      "expiry_seconds": 619200,
+      "forked_at_block": 119491355,
+      "settle_ok": true,
+      "settled": true,
+      "submit_error": null,
+      "submit_ok": true
+    },
+    {
+      "expiry_hours": 240,
+      "expiry_seconds": 864000,
+      "forked_at_block": 119491203,
+      "settle_ok": true,
+      "settled": true,
+      "submit_error": null,
+      "submit_ok": true
+    },
+    {
+      "expiry_hours": 336,
+      "expiry_seconds": 1209600,
+      "forked_at_block": 119491136,
+      "settle_ok": true,
+      "settled": true,
+      "submit_error": null,
+      "submit_ok": true
+    },
+    {
+      "expiry_hours": 720,
+      "expiry_seconds": 2592000,
+      "forked_at_block": 119490659,
+      "settle_ok": true,
+      "settled": true,
+      "submit_error": null,
+      "submit_ok": true
+    }
+  ]
+}

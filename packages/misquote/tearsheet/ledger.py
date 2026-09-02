@@ -55,9 +55,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "All four agents hold ERC-8004 identities on chapel, but the Studio "
-            "itself cannot be deployed against: the vendor's own site does not "
-            "resolve and their package's declared repository returns 404."
+            "The install page is dead and the declared repository 404s, but the CLI "
+            "installs from npm and its `bag` binary offers erc8004, erc8183 and x402 "
+            "commands. Nothing has been deployed through it: that step hands a wallet "
+            "key to the vendor's infrastructure, which is a custody decision."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),
@@ -114,9 +115,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         ),
         why=(
             "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet and "
-            "`claimRefund` moved it back, both mined. `/registry` sends all seven calls "
-            "from a browser wallet. Releasing to a provider is the part that does not "
-            "happen: `submit` and `settle` refuse, the policy reaching no decision."
+            "`claimRefund` moved it back, both mined. Release was never reachable there: "
+            "`submit` needs an expiry beyond the 7-day dispute window and the run asked "
+            "for 12 hours. Proven on a fork, not on the chain, and it would lock the "
+            "budget for a week."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),

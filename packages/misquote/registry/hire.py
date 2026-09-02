@@ -114,12 +114,12 @@ FLOW_ERRORS: dict[str, str] = {
     "0x17be5b7b": "NotDecided() — settle() before the OptimisticPolicy has a "
     "decision to enforce. Observed on mainnet job 56681 both before and after "
     "its dispute window, so waiting alone does not produce one",
-    "0x15e5dd74": "submit() on a funded mainnet job, from the address that is "
-    "both its client and its provider. Name unresolved — it is in no signature "
-    "database, unlike the four the fork proof resolved. After the job expires "
-    "the same call answers WrongStatus() instead, so this is a live-status "
-    "refusal rather than an expiry one, and that is a reading rather than a "
-    "decode",
+    "0x15e5dd74": "submit() on a job whose expiredAt is not further away than "
+    "the policy's dispute window. Name unresolved — it is in no signature "
+    "database — but the cause is measured: eight fork runs identical but for the "
+    "expiry put the boundary between 168h and 169h against a 604,800s window. "
+    "This entry used to blame one address being both client and provider, which "
+    "the 720h self-provider run falsifies by settling",
 }
 
 #: **The evaluator must be the EvaluatorRouter itself.**
@@ -134,6 +134,21 @@ FLOW_ERRORS: dict[str, str] = {
 #: A client built from the EIP names a human evaluator here. That client cannot
 #: escrow anything on this deployment, and the failure surfaces two transactions
 #: later than the mistake.
+#: **A job cannot be submitted to unless it outlives its own dispute window.**
+#:
+#: `submit` reverts `0x15e5dd74` whenever `expiredAt - now <= disputeWindow()`,
+#: and the deployment's window is 604,800s. Measured rather than reasoned: eight
+#: runs on a fork of mainnet, identical but for the expiry, refuse at 168h and
+#: accept at 169h — `vetting/identity/submit-expiry-fork-56.json` carries all
+#: eight. It makes sense after the fact, since a submission that cannot clear
+#: its dispute window before the job expires could never be settled.
+#:
+#: This is why the mainnet run stopped four calls in. `hire_mainnet.py` defaulted
+#: to twelve hours, so the release half was never reachable — and the reason
+#: recorded at the time, that the policy reaches no decision, was a symptom.
+#: `settle` had nothing to decide about because nothing had been submitted.
+SUBMIT_NEEDS_EXPIRY_BEYOND_DISPUTE_WINDOW = True
+
 EVALUATOR_MUST_BE_THE_ROUTER = True
 
 #: **The hook is mandatory, and only one address is accepted.**
@@ -474,6 +489,7 @@ __all__ = [
     "FLOW_ERRORS",
     "REQUIRED_HOOK_IS_THE_ROUTER",
     "EVALUATOR_MUST_BE_THE_ROUTER",
+    "SUBMIT_NEEDS_EXPIRY_BEYOND_DISPUTE_WINDOW",
     "Job",
     "JobWriter",
     "drift",

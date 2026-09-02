@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
+.PHONY: probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -276,6 +276,18 @@ session-keys:  ## grant a session key, read it back, revoke it, read that back. 
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+probe-studio:  ## read what the BNB Agent Studio CLI offers. Installs, deploys nothing.
+	# The ledger parked the Studio on "the vendor's site does not resolve".
+	# True, and not a reason the CLI cannot be installed — it is on npm, and
+	# nobody had looked. This writes a dated record with status codes in it so
+	# the blocker stops being a sentence quoted forward.
+	#
+	# It installs into a scratch directory, asks `bag` and its subcommands for
+	# `--help`, and stops. No key, no wallet, no `.env` — deploying through this
+	# vendor hands a wallet key to their infrastructure, which is a decision
+	# about custody rather than a step in a probe.
+	$(UV) run python scripts/probe_studio.py
 
 claim-refund:  ## recover the budget from job 56681 once its expiry passes
 	# The way out of a funded job nobody settled. `submit` and `settle` both

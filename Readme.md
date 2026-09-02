@@ -50,8 +50,9 @@ one click away. Built solo, in public. Audit me.
   - **Sentinel** (Health) — threshold de-risk live; Hawkes intensity as
     dashboard early-warning only; backtest = labeled appendix. Own infra.
   - **Router** (Yield) — whitelist APR router, optimal-switching boundary
-    (move only when delta > gas+slippage). **Deployed via BNB Agent Studio CLI**
-    (native-citizenship proof).
+    (move only when delta > gas+slippage). The Agent Studio CLI deployment that
+    would make it the native-citizenship proof is **not done** and is on the
+    ledger; the policy and the card are.
 - **Agent Studio native:** the marketplace indexes the ERC-8004 registry for
   third-party agents (see D1 decision rule, §8), and **all four of our agents are
   registered on chapel** — ids 1927-1930, owned by the operator, each card
@@ -280,8 +281,12 @@ caps · the tearsheet.
       no code closes that: the payment token is owner-minted and this signer
       holds none. See **P-28** and `registry/hire.py`.
 - [ ] Agent Studio CLI hello-world deployed. The router *path* is answered by
-      `agents/router/policy.py`; only the deployment is open, and it needs a
-      funded wallet.
+      `agents/router/policy.py`; only the deployment is open. The blocker is not
+      what was recorded here for weeks: `studio.bnbchain.org` is dead and the
+      package's declared repository 404s, but `@bnbagent/studio-cli` installs
+      from npm and `bag` offers `erc8004`, `erc8183` and `x402` subcommands —
+      probed and dated in `vetting/identity/studio-probe.json`. What is open is
+      the custody decision, since deploying hands a wallet key to the vendor.
 - [ ] Mission Control micropayment discrepancy (49 vs 75) resolved; correct
       number recorded in `docs/REQUIREMENTS_MATRIX.md` before any card renders.
 

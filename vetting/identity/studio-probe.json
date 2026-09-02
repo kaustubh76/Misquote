@@ -1,0 +1,98 @@
+{
+  "cli": {
+    "binaries": [
+      "bag"
+    ],
+    "dependencies": [
+      "@bnbagent/deploy-cli",
+      "@bnbagent/sdk",
+      "@bnbagent/studio-runtime",
+      "ai",
+      "archiver",
+      "commander",
+      "esbuild",
+      "execa",
+      "picocolors",
+      "proper-lockfile",
+      "smol-toml",
+      "tar",
+      "viem",
+      "yaml"
+    ],
+    "help": {
+      "bag": {
+        "exit": 0,
+        "help": "Usage: bag [options] [command]\n\nScaffold, run, deploy, and monetize a single seller agent on BNB Chain.\n\nOptions:\n  --version              output the version number\n  -h, --help             display help for command\n\nCommands:\n  init [options] <name>  Create a new bnbagent-studio seller agent project.\n  dev [options]          Run the Agent locally.\n  deploy [options]       Deploy the agent after explicitly selecting a provider\n                         (bnb|aws|azure); lifecycle subcommands inspect recorded\n                         deployments.\n  scan [options]         Detect project framework + manifest (read-only).\n  skills                 Install Claude Code skills into the host IDE.\n  recipe                 Print recipe code/files (agent / wallet / 8004).\n  agents                 Local agent project registry\n                         (~/.bnbagent-studio/projects.toml).\n  config                 Read / write studio.toml.\n  env                    Edit project .env.local idempotently.\n  budget                 Opt-in auto-topup policy for Pieverse LLM.\n  audit                  View on-chain action audit log.\n  wallet                 Wallet keystore helpers (create / list / inspect).\n  erc8004                ERC-8004 identity (register / show / resolve /\n                         update-endpoint / update-metadata / get-metadata /\n                         clear-pending).\n  erc8183                ERC-8183 commerce (list / buy / status / submit / fetch\n                         / settle).\n  x402                   x402 payment client helpers.\n  mpp                    Native MPP+B402 payment client helpers.\n  llm                    LLM provider helpers (test / inspect).\n  doctor [options]       Diagnose project + environment.\n  platform               Managed-platform account ops (login / logout / whoami /\n                         agents / credit / token), delegated to the pinned\n                         bnbagent deploy CLI.\n  bundle [options]       Bundle a seller workspace + pinned SDK/runtime tarballs\n                         for handoff.\n  help [command]         display help for command"
+      },
+      "bag deploy": {
+        "exit": 0,
+        "help": "Usage: bag deploy [options] [command]\n\nDeploy the agent after explicitly selecting a provider (bnb|aws|azure);\nlifecycle subcommands inspect recorded deployments.\n\nOptions:\n  --provider <provider>               Provider: bnb|aws|azure. Required for\n                                      non-interactive deploy; lifecycle commands\n                                      need it only when multiple records exist.\n  --backend <backend>                 Managed backend confirmation for\n                                      --provider bnb (aws or azure). It must\n                                      match [stack].runtime. (choices: \"aws\",\n                                      \"azure\")\n  --project-root <path>               Override project root.\n  --skip-prepare                      Skip non-storage local readiness checks.\n  --force-deploy-broken-storage       DANGEROUS: bypass fatal\n                                      deliverable-storage checks.\n  --force                             Bypass explicitly forceable readiness\n                                      checks.\n  --secrets-mode <mode>               Runtime secret delivery mode. (choices:\n                                      \"secretsmanager\", \"envvars\", default:\n                                      \"secretsmanager\")\n  --accept-risk                       Accept provider risk/terms disclosures.\n  --yes                               Confirm the selected deployment plan\n                                      non-interactively.\n  --allow-multiple                    Allow creating a deployment while another\n                                      provider remains active.\n  --skip-smoke                        Skip the delegated post-deploy smoke\n                                      check.\n  -h, --help                          display help for command\n\nCommands:\n  prepare [options]                   Run the deploy-readiness sweep on this\n                                      project.\n  agent [options] [agentcoreArgs...]  Deprecated compatibility alias for `bag\n                                      deploy`. Thin wrapper: gates on prepare,\n                                      syncs runtime secrets, builds the agent\n                                      (`pnpm build`), delegates to the platform\n                                      CLI.\n  verify [options]                    Probe a deployed endpoint + reconcile\n                                      ERC-8004 identity.\n  status [options]                    Report recorded deploy state + best-effort\n                                      liveness (read-only).\n  info [options]                      Show the buyer-access surface for a\n                                      platform or Azure self-deploy.\n  destroy [options]                   Print a teardown plan (default dry-run);\n                                      --execute tears down the agent (AgentCore\n                                      runtime + runtime secret + recorded\n                                      state).\n  logs [options]                      Show the selected deployment's logs via\n                                      bnbagent-deploy.\n  fix-gitignore [options]             Ensure the workspace .gitignore excludes\n                                      .studio/ (the agent's .env.local +\n                                      keystore)."
+      },
+      "bag doctor": {
+        "exit": 0,
+        "help": "Usage: bag doctor [options]\n\nDiagnose project + environment.\n\nOptions:\n  --project-root <path>  Override project root.\n  --network <name>       Override studio.toml [network].default for RPC\n                         reachability check.\n  --check-env            Safely report presence/length/sha256-prefix of known\n                         secret keys in .studio/.env.local (never prints any\n                         secret value).\n  -h, --help             display help for command"
+      },
+      "bag erc8004": {
+        "exit": 0,
+        "help": "Usage: bag erc8004 [options] [command]\n\nERC-8004 identity (register / show / resolve / update-endpoint / update-metadata\n/ get-metadata / clear-pending).\n\nOptions:\n  -h, --help                    display help for command\n\nCommands:\n  register [options]            Register this wallet as an ERC-8004 agent.\n  show [options]                Show this wallet's on-chain agent record.\n  resolve [options] <agent_id>  Resolve an agent_id to its agentURI.\n  update-endpoint [options]     Update this wallet's registered service endpoint\n                                on ERC-8004.\n  update-metadata [options]     Set an arbitrary metadata key/value on this\n                                wallet's ERC-8004 agent.\n  get-metadata [options]        Read a metadata value by key from this wallet's\n                                ERC-8004 agent.\n  clear-pending [options]       Clear stale [identity] pending_* state from\n                                studio.toml (e.g. an unverified relay tx that\n                                never reached the chain). Refuses when the\n                                pending tx is still known to the chain RPC\n                                unless --force."
+      },
+      "bag erc8183": {
+        "exit": 0,
+        "help": "Usage: bag erc8183 [options] [command]\n\nERC-8183 commerce (list / buy / status / submit / fetch / settle).\n\nOptions:\n  -h, --help                                 display help for command\n\nCommands:\n  list [options]                             List recent on-chain jobs.\n  buy [options] [task]                       Buy a job: create / register / set_budget / fund.\n  status [options] <job_id>                  Show on-chain summary for a job.\n  submit [options] <job_id> <response_text>  Seller: submit a deliverable for a job.\n  fetch [options] <job_id>                   Buyer: fetch the deliverable URL for a submitted job.\n  settle [options] <job_id>                  Buyer: settle a submitted job."
+      },
+      "bag recipe": {
+        "exit": 0,
+        "help": "Usage: bag recipe [options] [command]\n\nPrint recipe code/files (agent / wallet / 8004).\n\nOptions:\n  -h, --help             display help for command\n\nCommands:\n  list                   List bundled recipes.\n  show <name>            Print recipe metadata only.\n  code [options] <name>  Render recipe (metadata + template files) to stdout."
+      },
+      "bag wallet": {
+        "exit": 0,
+        "help": "Usage: bag wallet [options] [command]\n\nWallet keystore helpers (create / list / inspect).\n\nOptions:\n  -h, --help           display help for command\n\nCommands:\n  new [options]        Create or import a local EVM keystore.\n  twak-init [options]  Create the project's twak wallet without YOU typing the\n                       password on a command line (wallet.kind=twak): wraps\n                       `twak wallet create --no-keychain` reading the password\n                       from stdin / a 0600 file / a hidden prompt, seeds the\n                       NaaS credentials, then adopts the address like `bag\n                       wallet new`. twak requires --password on its own argv, so\n                       the value does reach that short-lived child process.\n  show [options]       Show the wallet configured in studio.toml.\n  list [options]       List keystore addresses under [wallet] keystore_dir.\n  sign [options]       Sign an arbitrary message with the loaded wallet.\n  balance [options]    Show native (BNB/tBNB) + U balances for the configured\n                       network(s).\n  policy [options]     Inspect the wallet's SigningPolicy (read-only).\n  session              Manage the bounded Altana session used by the Agent.\n  help [command]       display help for command"
+      },
+      "bag x402": {
+        "exit": 0,
+        "help": "Usage: bag x402 [options] [command]\n\nx402 payment client helpers.\n\nOptions:\n  -h, --help                  display help for command\n\nCommands:\n  quote [options] <url>       Probe an x402-protected URL without paying\n                              (returns 402 challenge).\n  buy [options] <url>         Pay an x402-protected URL with $U via EIP-3009.\n  trust [options] <merchant>  Trust an x402 merchant: probe its live 402,\n                              confirm payTo + price, write\n                              [payments.x402.merchants.<name>] to studio.toml.\n  sell                        Configure and inspect the B402-backed x402 seller\n                              rail."
+      }
+    },
+    "installed": true,
+    "version": "0.0.13"
+  },
+  "deployed": false,
+  "dns": {
+    "error": "[Errno 8] nodename nor servname provided, or not known",
+    "host": "studio.bnbchain.org",
+    "resolves": false
+  },
+  "endpoints": {
+    "declared_repository": {
+      "reachable": true,
+      "status": 404,
+      "url": "https://github.com/bnb-chain/bnbagent-studio"
+    },
+    "install_page": {
+      "error": "URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known>",
+      "reachable": false,
+      "status": null,
+      "url": "https://studio.bnbchain.org/install"
+    },
+    "product_page": {
+      "reachable": true,
+      "status": 200,
+      "url": "https://www.bnbchain.org/en/bnb-agent-studio"
+    }
+  },
+  "install_page_reachable": false,
+  "installable": true,
+  "package": {
+    "declared_repository": "git+https://github.com/bnb-chain/bnbagent-studio.git",
+    "description": "Skills-first toolkit and bag CLI for BNB Chain seller agents: ERC-8004 identity, ERC-8183 escrowed commerce, and x402 payments.",
+    "homepage": "https://github.com/bnb-chain/bnbagent-studio#readme",
+    "latest": "0.0.13",
+    "license": "Apache-2.0",
+    "name": "@bnbagent/studio-cli",
+    "published": true,
+    "versions": 39
+  },
+  "read_at": "2026-09-02T06:52:54+00:00",
+  "subject": "BNB Agent Studio",
+  "why_not_deployed": "This probe installs the CLI and reads its help. It does not deploy: deployment through this vendor reportedly hands a wallet key to their Secrets Manager, which is a custody decision rather than a probe step."
+}

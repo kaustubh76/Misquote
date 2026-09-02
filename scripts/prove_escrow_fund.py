@@ -122,6 +122,7 @@ def run(
     *,
     self_provider: bool = False,
     budget: int = BUDGET,
+    expiry_hours: int = 30 * 24,
 ) -> dict[str, Any]:
     """Drive the flow on a fork.
 
@@ -206,7 +207,7 @@ def run(
                     # the same one on this deployment. That is the finding this
                     # proof exists for — see `EVALUATOR_MUST_BE_THE_ROUTER`.
                     evaluator=addresses["router"],
-                    expired_at=int(time.time()) + 30 * 24 * 3600,
+                    expired_at=int(time.time()) + expiry_hours * 3600,
                     description="Misquote fork proof: does the escrow accept a funded job",
                 ),
             )
@@ -314,6 +315,12 @@ def main() -> int:
     ap.add_argument(
         "--budget", type=float, default=None, help="budget in whole tokens"
     )
+    ap.add_argument(
+        "--expiry-hours",
+        type=int,
+        default=30 * 24,
+        help="how far out expiredAt sits. The mainnet run asked for 12 and submit refused.",
+    )
     args = ap.parse_args()
 
     import shutil
@@ -327,6 +334,7 @@ def main() -> int:
         args.block,
         self_provider=args.self_provider,
         budget=int(args.budget * 10**18) if args.budget else BUDGET,
+        expiry_hours=args.expiry_hours,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
