@@ -797,6 +797,45 @@ describe("Registry", () => {
 });
 
 describe("Status", () => {
+  it("names the artifacts behind the engine, not just how many", async () => {
+    /**
+     * The regression this closes, and why a count alone is not enough.
+     *
+     * `check_artifact_freshness`'s detail became "6 replay artifact(s) were
+     * generated before an engine change" — a better summary than six sentences,
+     * and it moved the names into `check.data`, which this page did not read.
+     * So the one check on the page marked `blocking` reported a number and
+     * named nothing, while its remedy asks the reader to regenerate specific
+     * files.
+     *
+     * Asserted against whatever the artifact currently carries rather than a
+     * fixed name: when everything is fresh there is nothing to name, and this
+     * skips instead of inventing a stale card to look at.
+     */
+    const status = readArtifact<{
+      checks: {
+        name: string;
+        data?: { behind?: { artifact: string }[]; unstamped?: string[] };
+      }[];
+    }>("status.json");
+    const freshness = status.checks.find((c) => c.name === "artifacts match the engine");
+    const named = [
+      ...(freshness?.data?.behind ?? []).map((b) => b.artifact),
+      ...(freshness?.data?.unstamped ?? []),
+    ];
+    if (!named.length) return;
+
+    render(<StatusPage />);
+    // The first name is enough: they render from one list, so one arriving
+    // proves the list is read and one missing proves it is not.
+    // `named` is non-empty — the early return above guarantees it — but the
+    // compiler cannot see that through the index.
+    const first = (named[0] ?? "").split(" ")[0] ?? "";
+    await waitFor(() =>
+      expect(screen.getAllByText(new RegExp(first.replace(".", "\\."))).length).toBeGreaterThan(0)
+    );
+  });
+
   it("shows the fourth category as not built instead of omitting it", async () => {
     // Moved here from the Overview test of the same name when the ledger left
     // the landing page. The claim is unchanged and is worth keeping wherever it

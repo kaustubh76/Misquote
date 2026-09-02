@@ -269,8 +269,15 @@ def test_a_card_generated_before_an_engine_commit_is_named(tmp_path, monkeypatch
 
     check = gng.check_artifact_freshness()
     assert check.status == gng.UNVERIFIED
-    assert "warden.json" in check.detail
-    assert "engine commit" in check.detail
+    assert "engine change" in check.detail
+    # Named — which is what this test is called and what the gate is for.
+    #
+    # The name moved out of `detail` into `data` when the summary became a
+    # count, and that is a better artifact: six stale cards should not produce
+    # six sentences. What it must not become is unnameable, so the assertion
+    # follows the name rather than the prose it used to sit in.
+    assert [b["artifact"] for b in check.data["behind"]] == ["warden.json"]
+    assert check.data["behind"][0]["commits"] > 0
 
 
 def test_a_card_with_no_recorded_commit_is_unverified_not_green(tmp_path, monkeypatch) -> None:
@@ -285,7 +292,8 @@ def test_a_card_with_no_recorded_commit_is_unverified_not_green(tmp_path, monkey
 
     check = gng.check_artifact_freshness()
     assert check.status == gng.UNVERIFIED
-    assert "records no commit" in check.detail
+    assert "no commit at all" in check.detail
+    assert check.data["unstamped"] == ["grid.json"]
 
 
 def test_a_commit_this_repository_does_not_have_is_not_a_pass(tmp_path, monkeypatch) -> None:
@@ -299,7 +307,13 @@ def test_a_commit_this_repository_does_not_have_is_not_a_pass(tmp_path, monkeypa
 
     check = gng.check_artifact_freshness()
     assert check.status == gng.UNVERIFIED
-    assert "does not have" in check.detail
+    # The *reason* travels with the artifact, in `data`, not in the count.
+    # "1 record no commit at all" would be true of a card that simply has no
+    # `git_sha`, and this case is different and worse: it has one, and the
+    # repository has never heard of it.
+    assert check.data["unstamped"] == [
+        "build.json (records " + "0" * 40 + ", which this repository does not have)"
+    ]
 
 
 def test_a_commit_touching_nothing_the_engine_owns_leaves_it_current(tmp_path, monkeypatch) -> None:

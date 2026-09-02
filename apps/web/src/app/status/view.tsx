@@ -6,6 +6,7 @@ import { TallyStrip } from "@/components/TallyStrip";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { Prose } from "@/components/Blocks";
+import { count } from "@/lib/format";
 import { ChipGroup, type Chip } from "@/components/ChipGroup";
 import { LedgerTable } from "@/components/Ledger";
 import { Pill, statusTone } from "@/components/Pill";
@@ -19,6 +20,23 @@ interface StatusCheck {
   detail: string;
   remedy: string;
   blocking: boolean;
+  /**
+   * What the summary counted, named.
+   *
+   * `detail` became a count — "6 replay artifact(s) were generated before an
+   * engine change" — which is the right summary and left this page unable to
+   * say *which six*. The names were still published, in `data`, and nothing
+   * here read it: the one blocking check on the page named nothing, and the
+   * gate's whole purpose is to send someone to regenerate a specific file.
+   *
+   * Loosely typed on purpose. Every check may carry its own shape here and this
+   * page renders the two the freshness gate uses; a check that grows a third
+   * key does not need this interface edited before it can be added.
+   */
+  data?: {
+    behind?: { artifact: string; recorded_sha?: string; commits?: number }[];
+    unstamped?: string[];
+  };
 }
 
 export interface StatusArtifact {
@@ -234,6 +252,27 @@ export function StatusView({
                       <p className="mt-1 mb-0 font-mono text-xs break-words text-dim">
                         {check.detail}
                       </p>
+                      {/* The names behind the count. A reader told that six
+                          artifacts are stale, on a check marked blocking, needs
+                          to know which six before the remedy means anything.
+
+                          `commits` is how far behind, which is the difference
+                          between a card written one commit ago and one written
+                          fifty ago — both are "behind" and only one is urgent. */}
+                      {(check.data?.behind?.length || check.data?.unstamped?.length) && (
+                        <ul className="mt-2 mb-0 list-none space-y-0.5 p-0 font-mono text-xs text-faint">
+                          {check.data?.behind?.map((b) => (
+                            <li key={b.artifact}>
+                              {b.artifact}
+                              {typeof b.commits === "number" &&
+                                ` — ${count(b.commits)} engine commit${b.commits === 1 ? "" : "s"} since`}
+                            </li>
+                          ))}
+                          {check.data?.unstamped?.map((u) => (
+                            <li key={u}>{u}</li>
+                          ))}
+                        </ul>
+                      )}
                       {check.remedy && (
                         <p className="mt-2 mb-0 text-xs text-faint">
                           → <Prose text={check.remedy} />

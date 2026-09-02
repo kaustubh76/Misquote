@@ -51,9 +51,9 @@ pytestmark = pytest.mark.chainfork
 def record() -> dict:
     if not shutil.which("anvil"):
         pytest.skip("anvil not installed")
-    from prove_escrow_fund import run  # noqa: PLC0415 — needs the path insert above
-
     import os
+
+    from prove_escrow_fund import run  # noqa: PLC0415 — needs the path insert above
 
     rpc = os.environ.get("BSC_ARCHIVE_RPC_URL") or "https://bsc-dataseed.bnbchain.org"
     result = run(rpc, None)

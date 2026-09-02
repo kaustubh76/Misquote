@@ -157,7 +157,7 @@ def test_an_underlying_that_disagrees_with_addresses_py_fails() -> None:
     chain = FakeChain()
     chain.per_market[(VUSDT.key, "underlying")] = "0x" + "22" * 20
     report = venus.survey(chain, CHAIN)
-    assert statuses(report)[f"{VUSDT.symbol} underlying agrees with addresses.py"] == FAIL
+    assert statuses(report)[f"{VUSDT.symbol} underlying agrees with the address table"] == FAIL
 
 
 def test_the_vtoken_decimals_check_reads_the_vtoken_not_the_underlying() -> None:
