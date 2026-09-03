@@ -82,6 +82,9 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
       `--fast`, non-mainnet — six of fifteen gates skipped.
 - [ ] **D1 checklist reconciled.** `Readme.md` §8 and
       `docs/REQUIREMENTS_MATRIX.md` disagree on two of five rows.
+- [ ] **Studio deployment to AWS.** The agent runs locally and `bag deploy
+      prepare` names exactly five blockers — see `docs/DEPLOY_AWS.md`. Two need
+      a free testnet faucet, three need an AWS account id and a profile.
 - [ ] **WalletConnect project id.** `NEXT_PUBLIC_WC_PROJECT_ID` is wired and
       unset; until it is set, only browser-extension wallets can connect and no
       phone can.
