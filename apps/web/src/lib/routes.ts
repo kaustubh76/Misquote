@@ -44,9 +44,12 @@ export const ROUTES: readonly Route[] = [
   // visitor had to know `?scenario=` existed and guess a fixture name. A feature
   // nobody can find is one nobody built.
   { href: "/demo", label: "Demo", group: "product" },
+  { href: "/category", label: "Agents", group: "product" },
   { href: "/quote", label: "Quote", group: "product" },
-  { href: "/activate", label: "Activate", group: "product" },
-  { href: "/category", label: "Categories", group: "product" },
+  // "Activate" is what the page does to a key. "Hire" is what a visitor came
+  // to do, and it is the verb the whole site is built around — it appeared in
+  // the nav nowhere, on the tab that performs it.
+  { href: "/activate", label: "Hire", group: "product" },
   { href: "/registry", label: "Registry", group: "product" },
   { href: "/advantage", label: "Advantage", group: "evidence" },
   { href: "/methods", label: "Methods", group: "evidence" },

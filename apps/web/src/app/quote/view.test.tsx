@@ -561,3 +561,79 @@ describe("the connected-wallet offer", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("arriving from the guided run", () => {
+  /**
+   * `/demo` used to send a judge to an empty form and tell them to press a
+   * button that is not rendered until an address has been submitted. The
+   * fixture answers for any address, so the link carries one now and the page
+   * runs it on arrival — under a scenario, which issues no request at all.
+   */
+  const ADDRESS = "0x000000000000000000000000000000000000dEaD";
+
+  const fixture = {
+    name: "guided",
+    label: "A quote the tape can support",
+    // `activeScenario` requires both `label` and `why` to be strings and
+    // silently resolves to null without them — which sends the read to the real
+    // API base instead of the fixture. A scenario that does not describe itself
+    // is not a scenario.
+    why: "The recorded answer, so the guided run lands on one.",
+    responses: {
+      "/quote/eligibility/{address}": {
+        status: 200,
+        body: eligible(holding("0xabc", "USDT/USDC 0.01%")),
+      },
+    },
+  };
+
+  afterEach(() => window.history.replaceState({}, "", "/quote"));
+
+  it("fills the address in and shows the answer without a submit", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/quote?scenario=guided&address=${ADDRESS}`,
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/scenarios/")) return json(fixture);
+        throw new Error(`a scenario must not reach ${url}`);
+      }),
+    );
+
+    render(<QuoteView />, { wrapper: WithWallet });
+
+    expect(await screen.findByDisplayValue(ADDRESS)).toBeInTheDocument();
+    // The point of the change: a rendered answer, with nothing pressed.
+    expect(
+      await screen.findByRole("button", { name: /Replay this pool/ }, { timeout: 5000 }),
+    ).toBeInTheDocument();
+  });
+
+  it("fills the address in but does not read it when there is no scenario", async () => {
+    // Without a fixture this would be a live call to a stranger's wallet, made
+    // because a link said so. The page's promise is that it asks for nothing it
+    // was not given.
+    window.history.replaceState(
+      {},
+      "",
+      `/quote?address=${ADDRESS}`,
+    );
+    const reached: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        reached.push(String(input));
+        throw new Error("no read should happen");
+      }),
+    );
+
+    render(<QuoteView />, { wrapper: WithWallet });
+
+    expect(await screen.findByDisplayValue(ADDRESS)).toBeInTheDocument();
+    expect(reached.filter((u) => u.includes("/quote/eligibility/"))).toEqual([]);
+  });
+});

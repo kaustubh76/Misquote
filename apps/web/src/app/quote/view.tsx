@@ -12,6 +12,7 @@ import { Pill } from "@/components/Pill";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { AnsweredBy } from "@/components/AnsweredBy";
 import { loadLive, postLive, RefusalError, type Source } from "@/lib/api";
+import { activeScenarioName } from "@/lib/scenario";
 import { count, hours, isNum, pct } from "@/lib/format";
 import {
   isFinished,
@@ -190,9 +191,33 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // `?address=` arrives from `/demo`, which is the only reason it exists.
+  //
+  // The guided run used to send a judge to an empty form and tell them to press
+  // a button that is not rendered until an address has been submitted. The
+  // fixture answers for any address, so the demo could always have arrived at a
+  // result and instead arrived at a text box. Under a scenario the read issues
+  // no request at all — `lib/api.ts` short-circuits above the network — so
+  // running it on arrival costs nothing and is not a live call made on someone
+  // else's behalf. Without a scenario the field is filled and left alone: this
+  // page's promise is that it asks for nothing it was not given.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const wanted = new URLSearchParams(window.location.search).get("address");
+    if (!wanted || !/^0x[0-9a-fA-F]{40}$/.test(wanted)) return;
+    setAddress(wanted);
+    if (activeScenarioName()) void run(wanted);
+    // Once, on arrival. A re-run on every render would be a request loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function check(event: React.FormEvent) {
     event.preventDefault();
-    const wanted = address.trim();
+    await run(address);
+  }
+
+  async function run(raw: string) {
+    const wanted = raw.trim();
     if (!wanted) return;
 
     setState({ phase: "reading" });
@@ -292,11 +317,19 @@ export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
           <ErrorNotice
             title="Could not read this wallet"
             detail={state.message}
+            // A remedy is only a remedy for whoever can perform it. This told a
+            // visitor to run two Makefile targets in a repository they have not
+            // cloned, on a service they do not host — a maintainer's note in
+            // the one place a maintainer will never read it. The recorded run
+            // is the thing they can actually do, and it answers the same
+            // question.
             remedy={
               <>
-                This page needs the live API. Start it with{" "}
-                <code className="font-mono text-xs">make api</code> and publish its
-                address with <code className="font-mono text-xs">make api-config</code>.
+                The service backing this page is on a free plan and sleeps when
+                idle, so the first request after a quiet spell can time out.
+                Try again in a moment &mdash; or{" "}
+                <Link href="/demo">take the recorded run</Link>, which needs no
+                service at all.
               </>
             }
           />

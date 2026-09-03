@@ -64,6 +64,15 @@ let cached: ApiConfig | null | undefined;
  * without a reload. `window.__MISQUOTE_API__` overrides it, which is how a demo
  * repoints a built export without rebuilding or redeploying anything.
  */
+/**
+ * How long to wait on a sleeping instance before giving up.
+ *
+ * Long enough to cover a cold start on a free plan — measured around fifty
+ * seconds — and short enough that a visitor is told something rather than left
+ * watching a spinner with no end.
+ */
+const WAKE_MS = 70_000;
+
 export async function apiBase(): Promise<string | null> {
   const injected = (globalThis as { __MISQUOTE_API__?: string }).__MISQUOTE_API__;
   if (injected) return injected.replace(/\/+$/, "");
@@ -224,7 +233,17 @@ export async function loadLive<T>(
   if (base) {
     const url = `${base}${path}`;
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      // The API sleeps. It is on a free plan that spins down when idle, and the
+      // next request pays the boot — measured around fifty seconds. With no
+      // timeout a visitor watched "Reading…" for a minute with nothing to say
+      // whether it was working, and `AbortSignal.timeout` is not available in
+      // every runtime this file is parsed in, so it is fetched defensively.
+      const res = await fetch(url, {
+        cache: "no-store",
+        ...(typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+          ? { signal: AbortSignal.timeout(WAKE_MS) }
+          : {}),
+      });
 
       if (res.ok) {
         return { ok: true, value: (await res.json()) as T, source: "live" };

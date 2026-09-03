@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
@@ -138,6 +139,31 @@ export function ActivateView({
           moved with it. */}
       <div className="-mx-5 mt-8 px-5">
         <HireFlow />
+      </div>
+
+      {/* The other half of hiring, which had no way in.
+          A session key authorises an agent to act; it does not pay one, and it
+          is not bound to a job — `HireFlow` says so itself a few lines up. The
+          money side is ERC-8183, it is built, it has escrowed and refunded real
+          money on BSC mainnet, and the only route to it was scrolling six
+          screens down a different page. A marketplace whose payment rail is
+          unreachable from its hire page is not one. */}
+      <div className="-mx-5 mt-6 px-5">
+        <Card>
+          <CardHeader title="Paying for the work" eyebrow="ERC-8183 escrow" />
+          <p className="mt-2 mb-0 max-w-[70ch] text-sm text-dim">
+            A session key lets an agent act. It does not pay one. Escrow is the
+            other half: a job with a budget locked in a contract, released on
+            delivery or reclaimed when nobody delivers. It has moved real money
+            on BSC mainnet &mdash; funded, then refunded &mdash; and you can send
+            every call in the flow yourself.
+          </p>
+          <div className="mt-4">
+            <Button href="/registry/#escrow" size="sm" tone="secondary">
+              Open the escrow console
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* Was "What a grant would consist of", in the conditional, on a page

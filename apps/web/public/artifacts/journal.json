@@ -1,5 +1,26 @@
 {
   "agents": {
+    "grid": {
+      "summary": {
+        "decisions": 108,
+        "dropped": 0,
+        "errors": 0,
+        "executed": 1,
+        "failed": 0,
+        "fallback_samples": 0,
+        "first_ts": 1788406497,
+        "gate_blocks": {},
+        "holds": 107,
+        "kappa_fallback_samples": 0,
+        "last_ts": 1788406991,
+        "mints": 1,
+        "pulls": 0,
+        "rebalances": 0,
+        "rows": 122
+      },
+      "total_rows": 122,
+      "unparsed_rows": 0
+    },
     "router": {
       "summary": {
         "decisions": 169,
@@ -19,6 +40,27 @@
         "rows": 169
       },
       "total_rows": 169,
+      "unparsed_rows": 0
+    },
+    "sentinel": {
+      "summary": {
+        "decisions": 24,
+        "dropped": 0,
+        "errors": 0,
+        "executed": 1,
+        "failed": 0,
+        "fallback_samples": 24,
+        "first_ts": 1788407104,
+        "gate_blocks": {},
+        "holds": 23,
+        "kappa_fallback_samples": 0,
+        "last_ts": 1788407165,
+        "mints": 1,
+        "pulls": 0,
+        "rebalances": 0,
+        "rows": 30
+      },
+      "total_rows": 30,
       "unparsed_rows": 0
     },
     "warden": {
@@ -49,9 +91,9 @@
   },
   "build": {
     "command": "python scripts/journal_report.py",
-    "generated_at": "2026-08-27T20:05:59+00:00",
+    "generated_at": "2026-09-03T03:47:10+00:00",
     "git_dirty": true,
-    "git_sha": "e219d26",
+    "git_sha": "23b9d37",
     "source": "journal"
   },
   "note": "What the live agents did, summarised. An agent absent from this object has never run \u2014 which is an absence rather than an empty journal, and the two are different claims. The decisions themselves are not carried: 344 rows is 340KB of artifact for a page that renders their summary."

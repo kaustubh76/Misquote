@@ -34,6 +34,14 @@ import type { ScenarioSummary } from "@/lib/build-artifact";
  * link to an ordinary page carrying a query parameter, and every one of them
  * arrives with the banner on.
  */
+/**
+ * Any address works — the fixture matches `/quote/eligibility/{address}` as a
+ * wildcard — so this one is chosen only to be recognisably not a real holder's.
+ * Carrying one in the link is what turns the guided run from "type something
+ * into a box" into a page that arrives with its answer on screen.
+ */
+const DEMO_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+
 export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
   const happy = scenarios.find((s) => s.name === "demo-quote");
   const rest = scenarios.filter((s) => s.name !== "demo-quote");
@@ -44,9 +52,50 @@ export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
         See it work, without a wallet.
       </h1>
       <p className="mt-4 max-w-[62ch] text-md text-dim">
-        The states that need a running API, a worker, or a BSC position you do not
-        hold — recorded, and replayed here from files you can read.
+        Three steps to a real quote, with no wallet and no running backend.
+        Recorded from a live job and replayed here from files you can read.
       </p>
+
+      {happy && (
+        <Section
+          title="The guided run"
+          className="mt-10"
+          headingClassName="text-lg font-semibold"
+          intro={
+            <>
+              Four real pages with the simulation banner on them &mdash; not a mock,
+              not a video. The last one is not simulated at all.
+            </>
+          }
+        >
+          <ol className="m-0 list-none space-y-4 p-0">
+            <Step
+              n={1}
+              title="Pick something to have handled"
+              href="/category/"
+              note="Four categories, four agents, each card a mini-tearsheet built from a replay over real pool history."
+            />
+            {/* Steps 2 and 3 were the same URL, and step 3 told the reader to
+                press a button that does not exist until an address has been
+                submitted — so the interesting step landed on an empty form. The
+                fixture answers for any address, so the link now carries one and
+                `/quote` runs it on arrival. One click, one rendered range. */}
+            <Step
+              n={2}
+              title="Read the range, on a wallet you do not own"
+              href={`/quote/?scenario=${happy.name}&address=${DEMO_ADDRESS}`}
+              note="Arrives with the answer already on screen: a P25–P75 range recorded from a real job against the real 30-day tape. Then press “Replay this pool” to watch it run."
+              simulated
+            />
+            <Step
+              n={3}
+              title="See what hiring involves, and what it did"
+              href="/activate/"
+              note="Not simulated. Three mined chapel transactions — bootstrap, grant, revoke — with isValidKey reading true and then false. Real receipts you can open on a block explorer."
+            />
+          </ol>
+        </Section>
+      )}
 
       <div className="-mx-5 mt-8 px-5">
         <Card>
@@ -79,48 +128,6 @@ export function DemoView({ scenarios }: { scenarios: ScenarioSummary[] }) {
         </Card>
       </div>
 
-      {happy && (
-        <Section
-          title="The guided run"
-          className="mt-10"
-          headingClassName="text-lg font-semibold"
-          intro={
-            <>
-              Four real pages with the simulation banner on them &mdash; not a mock,
-              not a video. The last one is not simulated at all.
-            </>
-          }
-        >
-          <ol className="m-0 list-none space-y-4 p-0">
-            <Step
-              n={1}
-              title="Pick something to have handled"
-              href="/category/"
-              note="Four categories, four agents, each card a mini-tearsheet built from a replay over real pool history."
-            />
-            <Step
-              n={2}
-              title="Ask for a quote on a wallet you do not own"
-              href={`/quote/?scenario=${happy.name}`}
-              note="A recorded wallet with one quotable position. Paste any address — the fixture answers for all of them, because a demo cannot know yours in advance."
-              simulated
-            />
-            <Step
-              n={3}
-              title="Run the replay and read the range"
-              href={`/quote/?scenario=${happy.name}`}
-              note="Press “Replay this pool”. The answer is a P25–P75 range recorded from a real job on the real tape, with the assumption sheet one click away."
-              simulated
-            />
-            <Step
-              n={4}
-              title="See what hiring involves, and what it did"
-              href="/activate/"
-              note="Not simulated. Three mined chapel transactions — bootstrap, grant, revoke — with isValidKey reading true and then false. Real receipts you can open on a block explorer."
-            />
-          </ol>
-        </Section>
-      )}
 
       <Section
         title="Every recorded state"

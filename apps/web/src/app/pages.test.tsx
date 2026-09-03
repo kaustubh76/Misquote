@@ -423,7 +423,7 @@ describe("Agent detail", () => {
     }
   });
 
-  it("says the live loop has not run, rather than reporting it as zero", async () => {
+  it("says no loop was attached at build, rather than reporting zero decisions", async () => {
     // Grid and Sentinel have no journal — neither has ever written the file
     // `provenance.journal` names — and this card rendered that as
     // "0 decisions · 0.0h journalled",
@@ -443,7 +443,7 @@ describe("Agent detail", () => {
     await screen.findByRole("heading", { name: "Grid" });
 
     expect(
-      screen.getByRole("heading", { name: /live loop has not run/i })
+      screen.getByRole("heading", { name: /No live loop was attached when this card was built/i })
     ).toBeInTheDocument();
     // The path, so the absence is checkable rather than asserted.
     expect(screen.getByText(textFrom(grid.provenance.journal))).toBeInTheDocument();
@@ -476,7 +476,7 @@ describe("Agent detail", () => {
       screen.getByText(new RegExp(`${warden.activity.decisions} decisions`))
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: /live loop has not run/i })
+      screen.queryByRole("heading", { name: /No live loop was attached when this card was built/i })
     ).not.toBeInTheDocument();
   });
 });

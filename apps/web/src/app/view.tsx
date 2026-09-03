@@ -230,58 +230,51 @@ export function OverviewView({
             scale's own note says 3xl and 4xl were added because "a hero and a
             section heading had to be the same thing" — and the hero was still
             at 3xl, which is the size every other page's h1 uses. */}
-        <h1 className="rise-2 max-w-[16ch] text-4xl leading-[1.05] font-semibold tracking-[-0.022em] text-balance">
-          Every marketplace misquotes you.
+        {/* The headline said "Every marketplace misquotes you." — a thesis
+            title, and the site's name argued for rather than the product
+            described. A judge reading only the first screen learned that we
+            distrust star ratings; they did not learn this is a marketplace
+            where you hire an agent to run a PancakeSwap position under a
+            session key you can revoke. The word "hire" — the product's own verb
+            — appeared nowhere above the fold.
+
+            The thesis is still here, in the line under it, where a claim about
+            other people belongs. */}
+        <h1 className="rise-2 max-w-[20ch] text-4xl leading-[1.05] font-semibold tracking-[-0.022em] text-balance">
+          Hire an agent to run your liquidity position.
         </h1>
-        {/* 48 words carrying four claims, three of which the page demonstrates
-            below: the ranges are drawn, the withheld quotes say so themselves,
-            and every figure links to its assumption. What only prose can say is
-            what the alternative does — so that is what is left. */}
         <p className="rise-3 mt-4 max-w-[60ch] text-md text-dim">
-          Others rank agents by star ratings. Every number here traces to chain
-          state or a <Link href="/assumptions">published assumption</Link>, and
-          where the evidence is thin it{" "}
-          <strong className="text-ink">says nothing instead</strong>.
+          Four agents, each replayed over 30 days of chain history, each quoted
+          as a range with the losses shown. You grant a session key that expires
+          and that you can revoke in one transaction.{" "}
+          <strong className="text-ink">
+            Every marketplace misquotes you; this one shows its arithmetic
+          </strong>{" "}
+          &mdash; every number traces to chain state or a{" "}
+          <Link href="/assumptions">published assumption</Link>, and where the
+          evidence is thin it says nothing instead.
         </p>
 
-        {/* The marketplace path first, and that is a correction rather than a
-            preference.
-
-            Both buttons here pointed at evidence routes — `/advantage` and
-            `/methods`. They are the right two links and they were the *only*
-            two, so the journey this site is judged on (land, find an agent by
-            category, understand it, activate it) had its first edge existing
-            nowhere but the top nav. A reader who does not read nav bands could
-            reach the argument for the product and never the product.
-
-            The evidence keeps a button, because "does hiring an agent beat
-            doing it yourself" is the question this whole site exists to answer
-            and burying it under a browse link would be the opposite mistake. */}
-        {/* The one input §1 has promised since the beginning and the site never
-            had. It routes, and when it cannot it says so rather than picking —
-            see `lib/categories.ts::routeIntent`, which returns null for a tie as
-            well as for a miss. */}
+        {/* One input and one button. There were five first actions here — a
+            free-text router and four buttons, two of which led to essays — and
+            five equally-weighted choices is the same as none. The two evidence
+            routes keep their place as text, below, because the question they
+            answer is the one this site exists for and hiding it would be the
+            opposite mistake. */}
         <IntentInput agents={index?.ok ? index.value.agents : undefined} />
 
-        <div className="rise-4 mt-6 flex flex-wrap gap-3">
-          <Button href="/category">Find an agent by what you need done</Button>
-          {/* The on-ramp that did not exist.
-              `Readme.md` §5's definition of done is "an external tester
-              completes land → quote → activate → revoke with no dead end and no
-              instruction" — and nothing on this page, on a category page, or on
-              an agent card pointed at `/quote`. The whole journey's first edge
-              lived in the top nav, which is not somewhere a first-time reader
-              looks for a verb. */}
+        <div className="rise-4 mt-6 flex flex-wrap items-center gap-3">
+          <Button href="/category">Find an agent</Button>
           <Button href="/demo" tone="secondary">
-            See it work, without a wallet
-          </Button>
-          <Button href="/advantage" tone="secondary">
-            Does hiring one beat doing it yourself?
-          </Button>
-          <Button href="/methods" tone="secondary">
-            How a quote is made
+            Watch it run, no wallet
           </Button>
         </div>
+
+        <p className="rise-4 mt-4 mb-0 max-w-[60ch] text-sm text-dim">
+          Or read the arithmetic first:{" "}
+          <Link href="/advantage">does hiring one beat doing it yourself?</Link>{" "}
+          &middot; <Link href="/methods">how a quote is made</Link>
+        </p>
 
         <TickRule className="mt-10" />
       </div>

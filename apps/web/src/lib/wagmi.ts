@@ -29,11 +29,42 @@
  */
 import { createConfig, http } from "wagmi";
 import { bsc, bscTestnet } from "wagmi/chains";
-import { injected } from "wagmi/connectors";
+import { injected, walletConnect } from "wagmi/connectors";
+
+/**
+ * WalletConnect, when there is a project id to reach it with.
+ *
+ * `injected()` alone means a browser extension or nothing, and on a phone it is
+ * nothing: the connect button calls a connector with no provider to find, so
+ * `/activate` — the one page here that performs a transaction — is unreachable
+ * from any mobile browser. That is most of the ways a person might arrive.
+ *
+ * It is conditional rather than unconditional because WalletConnect needs a
+ * project id provisioned at cloud.reown.com, and a build that fails without one
+ * would be a worse outcome than the extension-only behaviour it replaces. With
+ * no id set, this is exactly the config that shipped before.
+ */
+const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID?.trim();
+
+const connectors = projectId
+  ? [
+      injected(),
+      walletConnect({
+        projectId,
+        showQrModal: true,
+        metadata: {
+          name: "Misquote",
+          description: "Hire an agent to run your liquidity position on BNB Chain.",
+          url: "https://misquote.vercel.app",
+          icons: ["https://misquote.vercel.app/opengraph-image.png"],
+        },
+      }),
+    ]
+  : [injected()];
 
 export const config = createConfig({
   chains: [bsc, bscTestnet],
-  connectors: [injected()],
+  connectors,
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),

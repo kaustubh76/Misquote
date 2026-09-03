@@ -75,11 +75,17 @@ describe("Demo: the way into a feature that had none", () => {
     expect(activate).toHaveAttribute("href", "/activate");
   });
 
-  it("marks the quote steps simulated, and points them at the recorded state", () => {
+  it("marks the quote step simulated, and carries an address so it lands on an answer", () => {
+    // Two steps pointed at the same URL and the second told the reader to press
+    // a button that only exists after a submit — so the interesting step landed
+    // on an empty form. One step now, with an address in the link.
     render(<DemoView scenarios={[happy, refusal]} />);
 
-    const run = screen.getByRole("link", { name: /Run the replay and read the range/ });
-    expect(run).toHaveAttribute("href", "/quote?scenario=demo-quote");
+    const run = screen.getByRole("link", { name: /Read the range, on a wallet you do not own/ });
+    const href = run.getAttribute("href") ?? "";
+    expect(href).toContain("/quote");
+    expect(href).toContain("scenario=demo-quote");
+    expect(href).toMatch(/address=0x[0-9a-fA-F]{40}/);
     expect(within(run.closest("li")!).getByText("Simulated")).toBeInTheDocument();
   });
 

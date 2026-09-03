@@ -51,6 +51,10 @@ import type { RouterArtifact } from "@/lib/artifacts";
  * depth, which is the state this file was already in.
  */
 export function RouterDetail({ data }: { data: RouterArtifact }) {
+  // The index keys agents by a lowercase slug and this artifact carries only a
+  // display name. Derived once, here, so the two links below cannot disagree
+  // about which agent they mean.
+  const slug = data.agent.toLowerCase();
   const q = data.quote;
   const r = data.replay;
   const adv = data.advantage;
@@ -621,15 +625,24 @@ export function RouterDetail({ data }: { data: RouterArtifact }) {
           judge comparing two agents actually is — it lived only on the cards, so
           anyone who drilled into two detail pages had no way to add either to
           the tray they were about to look for. */}
+      {/* `data.agent` is the display name — "Router", capitalised — and
+          `router.json` carries no slug of its own. Both of these want the slug
+          the index uses, and passing the name broke each in its own way: the
+          hire link arrived as `?agent=Router`, which fails `HireFlow`'s
+          `/^[a-z0-9-]{1,32}$/` and silently forgets the choice, and the compare
+          toggle wrote "Router" into localStorage where `CompareTray` resolves
+          against "router" — so the tray showed `loading` for ever, with no
+          error and no way out. Comparing two agents from their detail pages is
+          the first thing anyone tries here. */}
       <div className="mt-10 flex flex-wrap items-center gap-3">
-        <Button href={`/activate/?agent=${data.agent}`} size="sm">
+        <Button href={`/activate/?agent=${slug}`} size="sm">
           Hire {data.agent}
         </Button>
         <Button href="/quote/" size="sm" tone="secondary">
           Quote my position
         </Button>
         <span className="ml-auto">
-          <CompareToggle slug={data.agent} name={data.agent} />
+          <CompareToggle slug={slug} name={data.agent} />
         </span>
       </div>
     </div>

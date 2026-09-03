@@ -227,8 +227,16 @@ export function HireFlow() {
         </p>
       )}
 
+      {/* The guards used to live only inside the handlers, which made the
+          primary action of the site's best page a brand-coloured button that
+          could be pressed and do nothing: `getRegistrationFeeInWei` comes from
+          a rate-limited public RPC, and while it is unread `fee.data` is
+          undefined, so the click evaluated to `false` and returned. No wallet
+          prompt, no error, no state change. A button that cannot act has to say
+          so before it is pressed, not after. */}
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button
+          disabled={!session || fee.data === undefined || grant.isPending}
           onClick={() =>
             session &&
             fee.data !== undefined &&
@@ -256,6 +264,10 @@ export function HireFlow() {
 
         <Button
           tone="secondary"
+          // Offering to revoke a key the chain says is not there is offering a
+          // revert. `isValidKey` is already read and already on screen as a
+          // pill; this is the same reading, applied to the control.
+          disabled={!session || !isValid || revoke.isPending}
           onClick={() =>
             session &&
             revoke.writeContract({
@@ -277,6 +289,14 @@ export function HireFlow() {
       {/* Which call, and why it is that one. A wallet that has never held a key
           takes a different entry point, and a button that quietly picks one is
           a button whose revert the presser cannot explain. */}
+      {fee.data === undefined && (
+        <p className="mt-3 mb-0 text-xs text-faint">
+          Reading the registration fee from a public RPC. The grant stays
+          disabled until it answers — the fee is an argument to the call, and
+          sending one without it would revert.
+        </p>
+      )}
+
       {bootstrapped !== undefined && (
         <p className="mt-3 mb-0 text-xs text-faint">
           <span className="font-mono">{registerCall}</span> —{" "}

@@ -477,11 +477,19 @@ export function AgentDetail({
               <>
                 <CardHeader
                   title="Why it held"
-                  aside={<Badge tone="neutral">Not run</Badge>}
+                  aside={<Badge tone="neutral">Not in this card</Badge>}
                 />
+                {/* This used to read "This agent's live loop has not run",
+                    which is a claim about now made from a number recorded when
+                    the card was built. Running `make grid` made it false
+                    without touching the card: the journal below filled with 122
+                    rows while this panel still said the loop had never started,
+                    and regenerating the card is a four-hour replay. A card
+                    should say what it knows — what was true at build — and
+                    leave the live reading to the section that does a live read. */}
                 <Refusal
-                  title="This agent's live loop has not run"
-                  reason={`Nothing was journalled to ${d.provenance.journal}, so there are no decisions to account for. The replay beside this card is a counterfactual over recorded tape; it is not a record of this loop.`}
+                  title="No live loop was attached when this card was built"
+                  reason={`Nothing had been journalled to ${d.provenance.journal} at the time of this replay, so the figures beside it account for no live decisions. The journal below reads the current file and is the answer for now; the replay here is a counterfactual over recorded tape either way.`}
                   // No invented remedy, so no `floor`. The Makefile has a
                   // target for Warden's loop and one for Router's, and none for
                   // the other two — so a command named here would be a floor a
