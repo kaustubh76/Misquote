@@ -40,6 +40,47 @@ It needs ≥ 0.02 tBNB on bsc-testnet, and 1 U for one auto-topup chunk.
    CRITICAL 1. `us-east-1` is the region the CLI references.
 5. `aws configure --profile misquote`, then `AWS_PROFILE=misquote bag deploy --provider aws`.
 
+## The two IAM identities, and why they are separate
+
+The Studio wants a **deliverable key** that is not the deploy profile, and that
+separation is worth keeping rather than collapsing. The deploy provisions
+infrastructure once; the running agent writes an object per job, forever, from a
+container. Giving the second one the first one's rights is how a compromised
+runtime becomes a compromised account.
+
+**1. The deploy profile** — `aws configure --profile misquote`, used once by
+`bag deploy --provider aws`. Needs ECR, `bedrock-agentcore`,
+`bedrock-agentcore-control`, Secrets Manager, STS, and — the widest, worth
+scoping to a path — `iam:CreateRole` and `iam:PassRole`, because the starter
+toolkit provisions the runtime's execution role.
+
+**2. The deliverable key** — `DELIVERABLE_S3_ACCESS_KEY_ID` and
+`DELIVERABLE_S3_SECRET_ACCESS_KEY` in `.studio/.env.local`. This one should do
+nothing but write to one bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:PutObject", "s3:GetObject"],
+    "Resource": "arn:aws:s3:::misquote-agent-deliverables/*"
+  }]
+}
+```
+
+No `s3:ListBucket`, no `s3:DeleteObject`, no wildcard resource. If the container
+leaks the key, what leaks is the ability to write into one bucket.
+
+### The bucket, and the part to get right
+
+`misquote-agent-deliverables` in `us-east-1`. A buyer fetches the deliverable by
+URL, so the object has to be readable — but **do not make the bucket public**.
+Prefer presigned URLs; if the agent publishes a plain `https://` object URL on
+chain, scope a read policy to that one prefix rather than enabling public access
+at the bucket level. A world-readable bucket is the single easiest thing to get
+wrong here and the reason IPFS was the safer default.
+
 ## AWS permissions
 
 The starter toolkit provisions an execution role, so `iam:CreateRole` and
