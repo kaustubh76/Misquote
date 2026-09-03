@@ -98,8 +98,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"nonce     POST {auth.NONCE_PATH}")
     print(f"verify    POST {auth.WALLET_PATH}  {list(auth.WALLET_FIELDS)}")
     print(
-        "note      the platform is chain 56 only; our four agents are on chapel, "
-        "so a token\n          authenticates us and still cannot list them"
+        "note      the platform is chain 56 only. Three of our four are listed "
+        "there;\n          warden is not, because TermiX attributes an agent to "
+        "the wallet that\n          minted it and warden was minted by a delegate "
+        "and transferred"
     )
 
     if not args.authenticate:
@@ -159,8 +161,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nrecorded -> {out}  (no token in it)")
 
     print(
-        "\nThe exchange completes. What it does not do is list our agents: their\n"
-        "backend has no chain-97 base URL, and the four are on chapel."
+        "\nThe exchange completes and the authenticated read answers. This used to "
+        "say\nit could not list our agents, which was true while the four were only "
+        "on\nchapel and stopped being true when they were minted on 56 — see\n"
+        "vetting/identity/termix-listing-56.json."
     )
     return 0
 

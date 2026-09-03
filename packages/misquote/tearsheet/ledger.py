@@ -55,10 +55,11 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "The install page is dead and the declared repository 404s, but the CLI "
-            "installs from npm and its `bag` binary offers erc8004, erc8183 and x402 "
-            "commands. Nothing has been deployed through it: that step hands a wallet "
-            "key to the vendor's infrastructure, which is a custody decision."
+            "The CLI installs from npm and its `bag` binary offers erc8004, erc8183 "
+            "and x402 commands. Nothing has been deployed through it. The custody "
+            "objection recorded here applied to one flag: only `--provider bnb` with "
+            "a local wallet sends a key to the vendor. `--destination self` deploys "
+            "to your own cloud, and that needs cloud credentials nobody has supplied."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),

@@ -557,6 +557,17 @@ def main() -> int:
         help="send this much gas from the delegate to the operator first, e.g. 0.01",
     )
     ap.add_argument(
+        "--remint",
+        action="store_true",
+        help="register again, signed by the operator, even if already recorded. "
+        "Leaves the previous id on chain and orphaned — see --only.",
+    )
+    ap.add_argument(
+        "--only",
+        metavar="AGENT[,AGENT]",
+        help="register just these agents, by name. Everything else is left alone.",
+    )
+    ap.add_argument(
         "--upgrade-cards",
         action="store_true",
         help="rewrite recorded agents' cards to the complete shape. Operator signs.",
@@ -711,10 +722,36 @@ def main() -> int:
     else:
         base = api_base()
         cards = build_cards(api_base=base)
+        if args.only:
+            # Registering all four is right the first time and wrong every time
+            # after it. TermiX attributes an agent to the wallet that minted it,
+            # so warden — minted by the delegate and transferred — cannot be
+            # listed by any amount of re-owning, and the only repair is a fresh
+            # mint signed by the operator. Without this filter that repair costs
+            # four duplicate identities to fix one.
+            wanted = {name.strip().lower() for name in args.only.split(",")}
+            known = {c.agent.lower() for c in cards}
+            missing = wanted - known
+            if missing:
+                print(f"no such agent: {sorted(missing)} (have {sorted(known)})", file=sys.stderr)
+                return 2
+            cards = tuple(c for c in cards if c.agent.lower() in wanted)
         print(f"  cards    {len(cards)} built against {base}")
         print(f"  owner    {owner}")
 
-        signer = BscSigner(w3, kill_file=REPO / "ops" / "KILL")
+        # `--remint` signs as the operator, and it has to.
+        #
+        # TermiX attributes an agent to the wallet that **minted** it. Warden was
+        # minted by the delegate and transferred, so it is registered, owned by
+        # the operator, and permanently absent from their index — no transfer,
+        # adopt or card upgrade repairs that. A mint signed by the wallet that
+        # authenticates is the only thing that does, which means the default
+        # delegate signer is exactly the wrong one here.
+        signer = (
+            BscSigner(w3, operator_key(), kill_file=REPO / "ops" / "KILL")
+            if args.remint
+            else BscSigner(w3, kill_file=REPO / "ops" / "KILL")
+        )
         report.signer = signer.address
         # Whether the declaration *matches*, not whether one exists.
         #
@@ -745,6 +782,20 @@ def main() -> int:
             report.agents = [repair_links(a, args.chain) for a in already.values()]
             print(f"  resume   {len(already)} already registered: {', '.join(sorted(already))}")
         remaining = tuple(c for c in cards if c.agent not in already)
+        if args.remint:
+            # The resume filter is right for every other run and wrong for this
+            # one: an agent already registered is precisely what is being
+            # re-registered. The old id is not replaced and does not go away —
+            # it stays on chain, owned, and orphaned — so this prints the cost
+            # rather than presenting a second mint as a repair.
+            remaining = cards
+            for card in cards:
+                prior = already.get(card.agent)
+                if prior:
+                    print(
+                        f"  remint   {card.agent} is already id {prior.get('agent_id')}; "
+                        f"a second mint leaves that one orphaned"
+                    )
 
         if not args.broadcast:
             print("  planning only — pass --broadcast to send\n")

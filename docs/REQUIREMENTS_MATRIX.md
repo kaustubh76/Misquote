@@ -707,11 +707,16 @@ hold one, so recording more would take a visible code change rather than an attr
 
 **What closing it revealed is that the item was mis-titled.** The entry's `what` was *"listing our
 agents on TermiX's own platform, **and** any authenticated read of their order book"* — two things
-joined by an *and*, of which auth only ever gated the second. The authenticated read now works and
-returns **`0 items`**: asked as ourselves, with a token, from the endpoint their own dashboard reads.
-Their backend is chain 56 only and the four agents are on chapel, so they are invisible to it by
-construction. That was already published on `/registry` as an inference from the public explorer; it
-is now a reading from the authenticated side, which is a stronger claim about the same fact.
+joined by an *and*, of which auth only ever gated the second. The authenticated read now works: asked as
+ourselves, with a token, from the endpoint their own dashboard reads.
+
+It returned **`0 items`** while the four agents existed only on chapel, and that is what this
+paragraph recorded. They were then minted on mainnet and it returns **`3`** — grid `323332`,
+sentinel `323333`, router `323334`. Warden `323262` is registered, owned by the same wallet, and
+still absent, because TermiX attributes an agent to the wallet that **minted** it and warden was
+minted by a delegate and transferred afterwards. The indexing-lag explanation was tested and
+falsified: their index passed 323,517, beyond every id we hold, and the absence survived it.
+`vetting/identity/termix-listing-56.json` carries both readings and the falsification.
 
 *The lesson worth keeping:* a uniform error is not evidence. When every path in a namespace answers
 identically, the answer is about the namespace's middleware and not about the path — and the way to

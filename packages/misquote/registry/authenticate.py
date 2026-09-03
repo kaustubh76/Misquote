@@ -30,12 +30,18 @@ still fails verification — one character of whitespace, one field order, one
 `Issued At` rounded differently. The server told us what it wants signed; there
 is no reason to guess.
 
-## What authenticating does not buy
+## What authenticating buys, and what it did not
 
 Their backend is chain 56 only — `aacp.API_BASE` has no chain 97 key, by
-construction, because there is no testnet deployment. Our four agents are
-registered on chapel. So a token authenticates us and **still cannot list them**,
-and the ledger entry narrows to that rather than closing.
+construction, because there is no testnet deployment.
+
+This paragraph used to end "a token authenticates us and **still cannot list
+them**", which was true while the four agents existed only on chapel. They were
+then minted on 56 and the authenticated read went from zero items to three. What
+it buys is the read; what lists an agent is a mainnet mint **by the wallet that
+authenticates** — TermiX attributes an agent to its minter, not its owner, so
+warden is registered, owned, and still absent. `vetting/identity/termix-listing-56.json`
+carries the experiment and the falsified lag hypothesis.
 
 ## The token is a secret
 

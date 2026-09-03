@@ -1,14 +1,14 @@
 {
   "authenticated": true,
   "authenticated_reads": {
-    "/api/v1/agents": "answered: 3 item(s)",
+    "/api/v1/agents": "answered: 5 item(s)",
     "/api/v1/user/profile": "HTTPStatusError: Client error '404 Not Found' for url 'https://platform-backend.prod.termix.live/api/v1/user/profile'\nFor more informatio"
   },
   "chain_id": 56,
   "domain": "termix-platform",
   "endpoint": "/api/v1/auth/wallet",
   "note": "The access token is a bearer credential and is not written to disk, to an artifact, or to the journal. This record says the exchange completed and for whom; it is not a way to repeat it.",
-  "obtained_at": 1788195811,
+  "obtained_at": 1788410018,
   "siwe": true,
   "token_recorded": false,
   "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"

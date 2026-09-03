@@ -37,7 +37,7 @@
       "evidence": "packages/misquote/agents/router/ \u2014 no studio.py",
       "name": "Agent Studio deployment",
       "what": "Router registered and deployed through the BNB Agent Studio CLI, as the native-citizenship proof \u2014 an ERC-8004 identity of its own, an ERC-8183 task interface, and x402 self-funding.",
-      "why": "The install page is dead and the declared repository 404s, but the CLI installs from npm and its `bag` binary offers erc8004, erc8183 and x402 commands. Nothing has been deployed through it: that step hands a wallet key to the vendor's infrastructure, which is a custody decision."
+      "why": "The CLI installs from npm and its `bag` binary offers erc8004, erc8183 and x402 commands. Nothing has been deployed through it. The custody objection recorded here applied to one flag: only `--provider bnb` with a local wallet sends a key to the vendor. `--destination self` deploys to your own cloud, and that needs cloud credentials nobody has supplied."
     },
     {
       "category": "Activation",

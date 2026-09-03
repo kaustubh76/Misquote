@@ -43,7 +43,43 @@ RECORD = REPO / "vetting" / "identity" / "studio-probe.json"
 #: harmless question. `erc8183` is here because the vendor models the very calls
 #: this repository could not complete — its help lists `submit` and `settle`,
 #: which are exactly the two that revert on job 56681.
-SUBCOMMANDS = ("erc8004", "erc8183", "x402", "deploy", "wallet", "doctor", "recipe")
+SUBCOMMANDS = (
+    "init",
+    "config",
+    "env",
+    "erc8004",
+    "erc8004 register",
+    "erc8183",
+    "erc8183 buy",
+    "erc8183 submit",
+    "erc8183 settle",
+    "x402",
+    "mpp",
+    "deploy",
+    "platform",
+    "wallet",
+    "wallet new",
+    "budget",
+    "doctor",
+    "recipe",
+)
+
+#: What each wallet kind actually transmits on a deploy.
+#:
+#: Recorded because the first version of this probe wrote down "deployment hands
+#: a wallet key to the vendor" as though it were a property of the tool. It is a
+#: property of one combination — `--provider bnb` with a local wallet — and
+#: three of the four kinds below never move a signing key at all. A blocker
+#: attached to the wrong noun is how a work item stays parked for a fortnight.
+WALLET_KINDS = {
+    "evm-local": "the encrypted keystore is injected through a Secrets Manager — "
+    "the operator's on `--provider bnb`, your own on `--provider aws|azure`",
+    "turnkey": "no local key material exists; only TURNKEY_* API credentials move, "
+    "and the signing key never leaves the enclave",
+    "altana": "a bounded, revocable session travels; the admin keystore and "
+    "WALLET_PASSWORD never leave the machine",
+    "twak": "self-custody encrypted mnemonic under .studio/twak, deployed as a container",
+}
 
 PACKAGE = "@bnbagent/studio-cli"
 REGISTRY = f"https://registry.npmjs.org/{PACKAGE}"
@@ -136,7 +172,7 @@ def _install_and_ask(version: str, timeout: int = 300) -> dict[str, Any]:
                     # that can authenticate by accident. Only PATH goes in.
                     env={"PATH": os.environ.get("PATH", ""), "NO_COLOR": "1", "CI": "1", "HOME": scratch},
                 )
-                return {"exit": asked.returncode, "help": (asked.stdout or asked.stderr).strip()[:4000]}
+                return {"exit": asked.returncode, "help": (asked.stdout or asked.stderr).strip()[:12000]}
             except Exception as error:  # noqa: BLE001 — a CLI that will not answer is the reading
                 return {"exit": None, "error": f"{type(error).__name__}: {error}"}
 
@@ -147,7 +183,7 @@ def _install_and_ask(version: str, timeout: int = 300) -> dict[str, Any]:
                 continue
             helped[name] = ask(executable, [])
             for sub in SUBCOMMANDS:
-                helped[f"{name} {sub}"] = ask(executable, [sub])
+                helped[f"{name} {sub}"] = ask(executable, sub.split())
 
         return {
             "installed": True,
@@ -189,11 +225,21 @@ def main() -> int:
         # The distinction the ledger got wrong, stated as the record's own claim.
         "installable": bool(cli.get("installed")),
         "install_page_reachable": bool(endpoints["install_page"].get("reachable")),
+        "wallet_kinds": WALLET_KINDS,
         "deployed": False,
         "why_not_deployed": (
-            "This probe installs the CLI and reads its help. It does not deploy: "
-            "deployment through this vendor reportedly hands a wallet key to their "
-            "Secrets Manager, which is a custody decision rather than a probe step."
+            "This probe installs the CLI and reads its help. It does not deploy, "
+            "because deploying is a decision about custody and infrastructure "
+            "rather than a step in a probe."
+        ),
+        "custody": (
+            "Only `--provider bnb` with a local wallet transmits a signing key to "
+            "the vendor, and its own consent gate says so: a testnet-scoped key "
+            "sent to the operator's managed secret channel, reclaimed at 48h. "
+            "`--destination self` with `--provider aws|azure` deploys to your own "
+            "cloud and your own Secrets Manager, and `--wallet-kind turnkey` or "
+            "`altana` never moves a signing key at all. An earlier version of this "
+            "record stated the narrow case as a property of the tool."
         ),
     }
     args.out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")

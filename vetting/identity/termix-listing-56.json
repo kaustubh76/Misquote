@@ -36,6 +36,25 @@
     "sentinel": 323333,
     "warden": 323262
   },
+  "remint": {
+    "answer": "yes. warden appears once minted by the operator, and 323262 still does not.",
+    "cost": "two mints at ~787,000 gas each, one of them unwanted",
+    "listed_now": 5,
+    "orphans": [
+      323262,
+      331590
+    ],
+    "question": "Does a mint by the authenticating wallet list an agent that a transfer could not?",
+    "read_at": 1788410143,
+    "still_true": "The original finding is unchanged and was not the thing that went wrong: TermiX attributes an agent to the wallet that minted it. 323262 is owned by the operator, passes our own listing bar, and remains invisible to their index.",
+    "the_mistake": "Two wardens were minted where one was wanted, and the reason is worth keeping. The first broadcast raised `403 Forbidden` from bsc-rpc.publicnode.com and the run died with a traceback. The log was checked for a transaction hash, found none, and the run was recorded as 'nothing was sent' \u2014 but the 403 came from the receipt read, after the transaction had already been broadcast and before its hash was printed. Absence of a hash in a log is not absence of a transaction on a chain. The second run then minted 331592, and 331590 is the cost of that reasoning: about $0.02 of gas and a permanent duplicate identity.",
+    "warden_ids_on_chain": {
+      "323262": "minted by the delegate 0x14e0073801D8Cc45648E1e2c30F093C3de24dDc4, transferred to the operator, still absent from TermiX after two index passes",
+      "331590": "minted by the operator. Listed as Warden-2. **Unintended** \u2014 see the mistake below.",
+      "331592": "minted by the operator. Listed as Warden-3, and the one vetting/identity/56.json records."
+    }
+  },
   "supersedes": "docs/FOR_JUDGES.md carried this as an inference from an indexing-lag gap \u2014 'their explorer would have found us on mainnet, with no platform flow at all' \u2014 never demonstrated. It is a reading now, and it is narrower than the inference: sufficient for a minted identity, not for a transferred one.",
+  "supersedes_note": "The `answer` and `finding` above describe the state before the re-mint, when three of four were listed. They are kept as written because the experiment they record is what justified the re-mint; `remint` is what happened next.",
   "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
 }
