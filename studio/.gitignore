@@ -1,0 +1,9 @@
+# The Studio scaffold, and everything it generates.
+#
+# `bag init` writes a wallet keystore into `.studio/wallets/` and a
+# `.env.local` holding WALLET_PASSWORD and provider API keys. None of that
+# belongs in a repository, and an earlier scaffold was left in a temp directory
+# with exactly those files in it. The project lives here so it is durable and
+# ignored, rather than durable or ignored.
+*
+!.gitignore

@@ -39,7 +39,14 @@ KEY_WIDTH = re.compile(r"^0x[0-9a-fA-F]{64}$")
 
 #: The networks a record may claim. `erc8183.py` admits two chains and a fork is
 #: not a chain; anything else is a record describing a place we have not been.
-NETWORKS = {"fork", "BSC mainnet", "BSC testnet", "chapel"}
+#:
+#: `local` is here because a record can legitimately be about something that
+#: touched no chain at all — the Studio scaffold builds, starts and serves its
+#: agent card on this machine, and calling that "testnet" because it is
+#: configured for one would be the misquote. It is the weakest claim in the set
+#: and it has to be sayable, or the only way to record a local run is to
+#: overstate it.
+NETWORKS = {"fork", "BSC mainnet", "BSC testnet", "chapel", "local"}
 
 
 def _walk(node: Any, trail: str = "") -> list[tuple[str, Any]]:

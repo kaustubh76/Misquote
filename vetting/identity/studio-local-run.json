@@ -1,0 +1,34 @@
+{
+  "agent_card": {
+    "description": "ERC-8183 seller agent (misquoterouter-agent) \u2014 negotiate + notify_funded over A2A.",
+    "name": "misquoterouter-agent",
+    "preferredTransport": "JSONRPC",
+    "protocolVersion": "0.3.0",
+    "version": "1.0.0"
+  },
+  "blocked_on": [
+    "tBNB and U on bsc-testnet for the scaffold wallet, from the Telegram faucet",
+    "an AWS profile \u2014 `bag deploy` accepts only bnb|aws|azure, so a cloud account is required"
+  ],
+  "cli_version": "0.0.13",
+  "deployed": false,
+  "destination": "self",
+  "doctor": {
+    "fail": 0,
+    "pass": 14,
+    "warn": 7
+  },
+  "network": "local",
+  "project": "studio/misquoterouter (gitignored)",
+  "ran_locally": true,
+  "read_at": 1788414001,
+  "runtime": "agentcore",
+  "served": {
+    "/.well-known/agent-card.json": 200,
+    "/ping": 200
+  },
+  "subject": "BNB Agent Studio scaffold, run locally",
+  "wallet": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+  "wallet_kind": "evm-local",
+  "why_not_deployed": "The agent runs. It is not deployed, and the distinction is the point: `bag deploy` takes only bnb, aws or azure, and this scaffold's runtime is a CodeZip on AWS Bedrock AgentCore rather than a container, so Docker does not substitute for the cloud account. What is proven here is that the Studio's own scaffold builds, installs, starts, and serves its A2A agent card from this machine."
+}
