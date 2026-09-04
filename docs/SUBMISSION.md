@@ -59,7 +59,10 @@ was verified on chain before it was written down — see `vetting/addresses/`.
       quotable, distinct baselines. `docs/AGENT_ADVANTAGE.md`. **The agent loses
       three of four**, which is the report doing its job.
 - [x] **PancakeSwap** — the venue divergence readings and the nine-check pool
-      badges. `/venue`, `/vetting`.
+      badges. `/venue`, `/vetting`. The findings are written up for filing
+      upstream in `docs/PANCAKESWAP_FINDINGS.md` — six ways v3 differs from
+      Uniswap's, each with what it costs to get wrong, one of them a bug we
+      shipped ourselves.
 - [~] **Altana** — expiry and revoke proven on chain; the allowlist and spend
       cap are not, and the ledger says so.
 
