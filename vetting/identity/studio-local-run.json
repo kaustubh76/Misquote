@@ -35,6 +35,16 @@
     "pass": 14,
     "warn": 7
   },
+  "erc8004": {
+    "agent_id": 2102,
+    "chain_id": 97,
+    "endpoint": "https://misquote-agent.onrender.com/.well-known/agent-card.json",
+    "funded_by": "0.007 tBNB from the operator on chapel. The 0.088 tBNB sitting in 0xbF4ef75a443E00415Ee2E368caC089e0834930E6 could not be used: that is MISQUOTE_SIGNER_ADDRESS, the declared signer, and no key in .env derives to it \u2014 which is the same mismatch chain/operator.py refuses on.",
+    "owner": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+    "read_at": 1788518123,
+    "registered_by": "bag erc8004 register \u2014 the Studio CLI, not scripts/register_identity.py",
+    "verified": "Read back independently: ownerOf(2102) is the scaffold wallet and the tokenURI is a data: URI whose services[] endpoint is the running agent. The CLI's own word was not taken for it."
+  },
   "network": "local",
   "project": "studio/misquoterouter (gitignored)",
   "ran_locally": true,

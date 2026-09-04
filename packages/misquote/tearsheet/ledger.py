@@ -55,12 +55,12 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "The agent is deployed and answering at misquote-agent.onrender.com, "
-            "serving the A2A card it advertises its own address in. What has not "
-            "happened is `bag deploy`, which takes bnb, aws or azure: the managed "
-            "path sends a key to the vendor and the cloud paths need an account. "
-            "Running the agent is not the native-citizenship proof — the CLI "
-            "deploying it is, and that is what this entry is still about."
+            "Two of the three now exist: the agent is deployed at "
+            "misquote-agent.onrender.com, and `bag erc8004 register` gave it "
+            "identity 2102 on chapel, whose published endpoint resolves to it. "
+            "The ERC-8183 interface and x402 self-funding do not, and `bag deploy` "
+            "has not run — it takes bnb, aws or azure, and hosting the agent "
+            "ourselves is not the same claim as the CLI deploying it."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),
