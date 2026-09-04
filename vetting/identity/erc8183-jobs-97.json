@@ -1,0 +1,17 @@
+{
+  "chain_id": 97,
+  "corrects": "The first three rows read were all FUNDED, which looked like corroboration for a story where nobody ever settles. A hundred rows say otherwise. Our mainnet job stopped because it asked for a twelve-hour expiry against a seven-day dispute window \u2014 SubmissionTooLate(), a parameter mistake \u2014 not because the path does not work.",
+  "finding": "58 of 100 jobs reach COMPLETED. The release half of ERC-8183 is not unreachable on this deployment \u2014 other people complete jobs on it routinely.",
+  "kernel": "0xa206c0517B6371C6638CD9e4a42Cc9f02A33B0DE",
+  "network": "chapel",
+  "not_ours": "None of these jobs is ours; this is a survey of other people's.",
+  "read_at": 1788519502,
+  "read_by": "bag erc8183 list --limit 100 \u2014 the vendor's own client",
+  "sampled": 100,
+  "statuses": {
+    "COMPLETED": 58,
+    "FUNDED": 29,
+    "OPEN": 7,
+    "REJECTED": 6
+  }
+}
