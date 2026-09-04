@@ -152,6 +152,14 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # What the A2A card advertises as its own address.
+      #
+      # Without it the card publishes `http://localhost:9000/`, which is the
+      # right local-dev fallback and useless to anyone reading the card over the
+      # internet — an agent that cannot be reached at the URL it publishes is
+      # not deployed in any sense a client cares about.
+      - key: AGENTCORE_RUNTIME_URL
+        value: https://misquote-agent.onrender.com
       # The keystore itself, as JSON in one variable — no secret file needed.
       #
       # The runtime reads WALLET_KEYSTORE_JSON, derives the filename from the

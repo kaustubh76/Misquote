@@ -55,11 +55,12 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "The agent is scaffolded, built and runs — it serves its A2A card, and "
-            "`render.yaml` deploys it beside the API. What has not happened is "
-            "`bag deploy`, which takes bnb, aws or azure: the managed path sends a "
-            "key to the vendor and the cloud paths need an account. Running the "
-            "agent is not the native-citizenship proof; the CLI deploying it is."
+            "The agent is deployed and answering at misquote-agent.onrender.com, "
+            "serving the A2A card it advertises its own address in. What has not "
+            "happened is `bag deploy`, which takes bnb, aws or azure: the managed "
+            "path sends a key to the vendor and the cloud paths need an account. "
+            "Running the agent is not the native-citizenship proof — the CLI "
+            "deploying it is, and that is what this entry is still about."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),

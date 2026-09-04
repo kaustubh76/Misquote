@@ -15,6 +15,7 @@ Kept short and kept accurate. An item is ticked only when the thing exists.
 | Live site | https://misquote.vercel.app — static export, Vercel, built from `main` |
 | Guided run, no wallet | https://misquote.vercel.app/demo — one click to a P25–P75 range |
 | Live API | https://misquote-api.onrender.com — free plan, **sleeps when idle**, first request can take ~50s |
+| Live agent | https://misquote-agent.onrender.com — the BNB Agent Studio seller agent, A2A card at `/.well-known/agent-card.json` |
 | Repository | this one; `docs/FOR_JUDGES.md` is the entry point |
 | Twenty-second path | `/demo` → step 2 arrives with the answer on screen |
 
@@ -82,12 +83,8 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
       `--fast`, non-mainnet — six of fifteen gates skipped.
 - [ ] **D1 checklist reconciled.** `Readme.md` §8 and
       `docs/REQUIREMENTS_MATRIX.md` disagree on two of five rows.
-- [ ] **Studio agent on Render.** Declared in `render.yaml` beside the API, and
-      the blueprint's own build and start commands were rehearsed against a
-      clean `git archive` of what is published — install, build and serve all
-      pass, with the keystore supplied as `WALLET_KEYSTORE_JSON` and no file on
-      disk. What remains is pasting three values into the Render dashboard.
-      See `docs/DEPLOY_AWS.md`.
+- [x] **Studio agent on Render.** Live at https://misquote-agent.onrender.com,
+      serving its A2A card with its own public address in it.
 - [ ] **`bag deploy` itself.** Down from five blockers to two. Running the agent
       is not the same claim as deploying it through the vendor's CLI, and only
       the second is the native-citizenship proof.

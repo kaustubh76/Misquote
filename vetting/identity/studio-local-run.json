@@ -11,7 +11,24 @@
     "an AWS profile \u2014 `bag deploy` accepts only bnb|aws|azure, so a cloud account is required"
   ],
   "cli_version": "0.0.13",
-  "deployed": false,
+  "deployed": true,
+  "deployment": {
+    "advertises_its_own_address": true,
+    "agent_card": {
+      "name": "misquoterouter-agent",
+      "preferredTransport": "JSONRPC",
+      "protocolVersion": "0.3.0",
+      "url": "https://misquote-agent.onrender.com"
+    },
+    "branch": "main",
+    "health_check": "/.well-known/agent-card.json",
+    "host": "Render",
+    "not_bag_deploy": "This is the agent running on a host we already operate. `bag deploy` takes bnb, aws or azure, and none of them has been used. Running the agent is not the native-citizenship proof; the CLI deploying it is.",
+    "read_at": 1788516893,
+    "root_dir": "studio/misquoterouter",
+    "service_id": "srv-dad9dvqfngtc738d3or0",
+    "url": "https://misquote-agent.onrender.com"
+  },
   "destination": "self",
   "doctor": {
     "fail": 0,
@@ -41,5 +58,5 @@
   "subject": "BNB Agent Studio scaffold, run locally",
   "wallet": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
   "wallet_kind": "evm-local",
-  "why_not_deployed": "The agent runs. It is not deployed, and the distinction is the point: `bag deploy` takes only bnb, aws or azure, and this scaffold's runtime is a CodeZip on AWS Bedrock AgentCore rather than a container, so Docker does not substitute for the cloud account. What is proven here is that the Studio's own scaffold builds, installs, starts, and serves its A2A agent card from this machine."
+  "why_not_deployed": "Superseded: it is deployed, on Render. What has not happened is `bag deploy`."
 }
