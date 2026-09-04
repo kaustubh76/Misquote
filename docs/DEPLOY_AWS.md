@@ -13,14 +13,23 @@ the project root rather than `app/agent`, because the runtime resolves
 `.studio/` relative to the project root and pointing at the inner package would
 leave the wallet directory outside the build context.
 
-**The unsolved piece, stated rather than glossed:** the agent refuses to start
-without its v3 keystore and `WALLET_PASSWORD` — `kind='evm-local'` needs a key
-to sign with. The keystore is gitignored, correctly, so Render will not have it
-from the repository. It has to arrive as a Render **Secret File** at
-`.studio/wallets/0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29.json`, with the
-password set as an environment variable in the dashboard. That upload is
-untested here, and it is the one step between this blueprint and a running
-service.
+**No secret file is needed, which is not where this started.** The first
+version of this section said the keystore had to be uploaded as a Render secret
+file and called that the one untested step. The runtime has a better door:
+`WALLET_KEYSTORE_JSON` takes the keystore as a JSON string, derives its filename
+from the `address` field inside it, writes it to disk and deletes the variable
+from its own environment afterwards.
+
+Rehearsed against a clean `git archive` checkout with no `.studio/` directory in
+it at all — install, build, and the agent served its A2A card on the port it was
+given. So the whole deployment is four dashboard fields and no file:
+
+| Variable | Value |
+|---|---|
+| `WALLET_KEYSTORE_JSON` | the contents of `.studio/wallets/0xdEaF…5bd7.json`, whole |
+| `WALLET_PASSWORD` | from `.studio/.env.local` |
+| `PIEVERSE_LLM_API_KEY` | from `.studio/.env.local` |
+| `DELIVERABLE_S3_*` | only once the bucket exists |
 
 The three environment variables beside it — `WALLET_PASSWORD`,
 `PIEVERSE_LLM_API_KEY`, and the two `DELIVERABLE_S3_*` values — are declared

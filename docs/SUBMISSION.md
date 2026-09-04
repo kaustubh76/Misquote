@@ -85,8 +85,9 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
 - [ ] **Studio agent on Render.** Declared in `render.yaml` beside the API, and
       the blueprint's own build and start commands were rehearsed against a
       clean `git archive` of what is published — install, build and serve all
-      pass. One step remains: uploading the keystore as a Render secret file,
-      with `WALLET_PASSWORD` in the dashboard. See `docs/DEPLOY_AWS.md`.
+      pass, with the keystore supplied as `WALLET_KEYSTORE_JSON` and no file on
+      disk. What remains is pasting three values into the Render dashboard.
+      See `docs/DEPLOY_AWS.md`.
 - [ ] **`bag deploy` itself.** Down from five blockers to two. Running the agent
       is not the same claim as deploying it through the vendor's CLI, and only
       the second is the native-citizenship proof.

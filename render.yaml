@@ -152,7 +152,15 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      # Unlocks the v3 keystore. Set in the dashboard, never here — the whole
+      # The keystore itself, as JSON in one variable — no secret file needed.
+      #
+      # The runtime reads WALLET_KEYSTORE_JSON, derives the filename from the
+      # `address` field inside it, writes it to disk and then deletes the
+      # variable from its own environment. Rehearsed against a clean checkout
+      # with no `.studio/` directory at all: the agent served its card.
+      - key: WALLET_KEYSTORE_JSON
+        sync: false
+      # Unlocks that keystore. Set in the dashboard, never here — the whole
       # reason `.studio/` is gitignored is that this value and the keystore
       # travelled together in a temp directory once already.
       - key: WALLET_PASSWORD
