@@ -82,9 +82,14 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
       `--fast`, non-mainnet — six of fifteen gates skipped.
 - [ ] **D1 checklist reconciled.** `Readme.md` §8 and
       `docs/REQUIREMENTS_MATRIX.md` disagree on two of five rows.
-- [ ] **Studio deployment to AWS.** The agent runs locally and `bag deploy
-      prepare` names exactly five blockers — see `docs/DEPLOY_AWS.md`. Two need
-      a free testnet faucet, three need an AWS account id and a profile.
+- [ ] **Studio agent on Render.** Declared in `render.yaml` beside the API, and
+      the blueprint's own build and start commands were rehearsed against a
+      clean `git archive` of what is published — install, build and serve all
+      pass. One step remains: uploading the keystore as a Render secret file,
+      with `WALLET_PASSWORD` in the dashboard. See `docs/DEPLOY_AWS.md`.
+- [ ] **`bag deploy` itself.** Down from five blockers to two. Running the agent
+      is not the same claim as deploying it through the vendor's CLI, and only
+      the second is the native-citizenship proof.
 - [ ] **WalletConnect project id.** `NEXT_PUBLIC_WC_PROJECT_ID` is wired and
       unset; until it is set, only browser-extension wallets can connect and no
       phone can.

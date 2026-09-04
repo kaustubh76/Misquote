@@ -22,6 +22,17 @@
   "project": "studio/misquoterouter (gitignored)",
   "ran_locally": true,
   "read_at": 1788414001,
+  "render_rehearsal": {
+    "honours_PORT": true,
+    "keystore": "placed by hand at .studio/wallets/, which is the shape a Render secret file takes. Deleted with the rehearsal directory immediately afterwards.",
+    "method": "git archive HEAD into a clean directory \u2014 22 tracked files, no node_modules, no .studio, no dist \u2014 then the blueprint's own commands, verbatim.",
+    "npm_install": "exit 0",
+    "npm_run_build": "exit 0, app/agent/dist/unifiedMain.js produced",
+    "question": "Do render.yaml's build and start commands work on what git actually publishes?",
+    "read_at": 1788513128,
+    "start": "node app/agent/dist/unifiedMain.js served /.well-known/agent-card.json 200 on PORT=9100",
+    "still_untested": "Render's secret-file upload itself. Everything downstream of it now is."
+  },
   "runtime": "agentcore",
   "served": {
     "/.well-known/agent-card.json": 200,

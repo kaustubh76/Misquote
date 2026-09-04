@@ -55,11 +55,11 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "task interface, and x402 self-funding."
         ),
         why=(
-            "The CLI installs from npm and its `bag` binary offers erc8004, erc8183 "
-            "and x402 commands. Nothing has been deployed through it. The custody "
-            "objection recorded here applied to one flag: only `--provider bnb` with "
-            "a local wallet sends a key to the vendor. `--destination self` deploys "
-            "to your own cloud, and that needs cloud credentials nobody has supplied."
+            "The agent is scaffolded, built and runs — it serves its A2A card, and "
+            "`render.yaml` deploys it beside the API. What has not happened is "
+            "`bag deploy`, which takes bnb, aws or azure: the managed path sends a "
+            "key to the vendor and the cloud paths need an account. Running the "
+            "agent is not the native-citizenship proof; the CLI deploying it is."
         ),
         evidence="packages/misquote/agents/router/ — no studio.py",
     ),
