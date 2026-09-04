@@ -5,6 +5,17 @@
   "escrowed_on_mainnet": false,
   "falsified": "The recorded meaning of 0x15e5dd74 said the refusal came from one address being both client and provider. The 720h trial is self-provider and submits and settles; the 12h trial is self-provider and reverts. The wallet was never the reason.",
   "finding": "submit() is refused unless expiredAt is further away than the policy's dispute window. Everything else held constant across eight fork runs: 168h is refused and 169h is accepted, and the window is 604800s (168h). The mainnet run asked for 12 hours.",
+  "named_later": {
+    "keccak_confirms": true,
+    "name": "SubmissionTooLate()",
+    "read_at": 1788518948,
+    "selector": "0x15e5dd74",
+    "source": "@bnbagent/sdk 0.5.5, dist/chunk-5XYQEBM2.js \u2014 the vendor's own client",
+    "their_cli_would_trip_it": "`bag erc8183 buy` defaults --deadline-min to 30. Thirty minutes against a 604,800-second window is 336 times below their own SDK's threshold, so the default invocation throws in the pre-flight rather than reaching the chain.",
+    "their_guard": "expiredAt - now <= disputeWindow  \u2192 throws before sending",
+    "their_message": "\"the submit deadline (expired_at - dispute_window) is already in the past or within seconds. provider.submit() would revert with SubmissionTooLate(). Set expired_at >= now + dispute_window + a buffer\"",
+    "why_it_matters": "This repository measured the rule and could not name it \u2014 eight fork runs put the boundary between 168h and 169h, and the selector was in no signature database. An independent implementation encodes the identical inequality and names the revert. The measurement did not need the name, and the name does not change the measurement; each confirms the other."
+  },
   "network": "fork",
   "read_at": "2026-09-02T06:59:38+00:00",
   "refused_at_or_below_hours": 168,

@@ -114,12 +114,14 @@ FLOW_ERRORS: dict[str, str] = {
     "0x17be5b7b": "NotDecided() — settle() before the OptimisticPolicy has a "
     "decision to enforce. Observed on mainnet job 56681 both before and after "
     "its dispute window, so waiting alone does not produce one",
-    "0x15e5dd74": "submit() on a job whose expiredAt is not further away than "
-    "the policy's dispute window. Name unresolved — it is in no signature "
-    "database — but the cause is measured: eight fork runs identical but for the "
-    "expiry put the boundary between 168h and 169h against a 604,800s window. "
-    "This entry used to blame one address being both client and provider, which "
-    "the 720h self-provider run falsifies by settling",
+    "0x15e5dd74": "SubmissionTooLate() — submit() on a job whose expiredAt is "
+    "not further away than the policy's dispute window. Measured first: eight "
+    "fork runs identical but for the expiry put the boundary between 168h and "
+    "169h against a 604,800s window. Named later, out of @bnbagent/sdk, which "
+    "guards the same inequality before it sends and quotes the revert by name; "
+    "keccak confirms it. Recorded as unresolved until then, and before that as "
+    "one address being both client and provider, which the 720h self-provider "
+    "run falsifies by settling",
 }
 
 #: **The evaluator must be the EvaluatorRouter itself.**
@@ -136,12 +138,18 @@ FLOW_ERRORS: dict[str, str] = {
 #: later than the mistake.
 #: **A job cannot be submitted to unless it outlives its own dispute window.**
 #:
-#: `submit` reverts `0x15e5dd74` whenever `expiredAt - now <= disputeWindow()`,
+#: `submit` reverts `SubmissionTooLate()` (`0x15e5dd74`) whenever
+#: `expiredAt - now <= disputeWindow()`,
 #: and the deployment's window is 604,800s. Measured rather than reasoned: eight
 #: runs on a fork of mainnet, identical but for the expiry, refuse at 168h and
 #: accept at 169h — `vetting/identity/submit-expiry-fork-56.json` carries all
 #: eight. It makes sense after the fact, since a submission that cannot clear
 #: its dispute window before the job expires could never be settled.
+#:
+#: `@bnbagent/sdk` guards the identical inequality before it sends — an
+#: independent implementation agreeing with a measurement taken without it,
+#: and the source of the name. Their own CLI then defaults `--deadline-min`
+#: to 30, which is 336 times below the threshold their SDK enforces.
 #:
 #: This is why the mainnet run stopped four calls in. `hire_mainnet.py` defaulted
 #: to twelve hours, so the release half was never reachable — and the reason

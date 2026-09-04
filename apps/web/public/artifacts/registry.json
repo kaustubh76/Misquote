@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 331595,
-      "ours_at_block": 119663790,
+      "ours": 333100,
+      "ours_at_block": 119905506,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 331458,
-      "total_pages": 16573,
+      "total": 332963,
+      "total_pages": 16649,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-03T04:36:08+00:00",
+    "generated_at": "2026-09-04T10:49:44+00:00",
     "git_dirty": true,
-    "git_sha": "39d62a5",
+    "git_sha": "02f71b8",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -75,7 +75,7 @@
       }
     },
     "errors": {
-      "0x15e5dd74": "submit() on a job whose expiredAt is not further away than the policy's dispute window. Name unresolved \u2014 it is in no signature database \u2014 but the cause is measured: eight fork runs identical but for the expiry put the boundary between 168h and 169h against a 604,800s window. This entry used to blame one address being both client and provider, which the 720h self-provider run falsifies by settling",
+      "0x15e5dd74": "SubmissionTooLate() \u2014 submit() on a job whose expiredAt is not further away than the policy's dispute window. Measured first: eight fork runs identical but for the expiry put the boundary between 168h and 169h against a 604,800s window. Named later, out of @bnbagent/sdk, which guards the same inequality before it sends and quotes the revert by name; keccak confirms it. Recorded as unresolved until then, and before that as one address being both client and provider, which the 720h self-provider run falsifies by settling",
       "0x17be5b7b": "NotDecided() \u2014 settle() before the OptimisticPolicy has a decision to enforce. Observed on mainnet job 56681 both before and after its dispute window, so waiting alone does not produce one",
       "0x1a5d3d5f": "hook is not an accepted hook contract (name unresolved)",
       "0x32d53d69": "PolicyNotSet() \u2014 fund() on a job whose policy was never registered. Nothing to do with the balance: the fork proof holds ten times the budget and reverts identically until registerJob succeeds",
@@ -1355,7 +1355,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 48.1,
+    "age_hours": 78.3,
     "agents": [
       {
         "agent": "warden",
