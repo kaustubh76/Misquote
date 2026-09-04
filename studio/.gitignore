@@ -1,9 +1,20 @@
-# The Studio scaffold, and everything it generates.
+# Everything the scaffold generates or holds in confidence.
 #
-# `bag init` writes a wallet keystore into `.studio/wallets/` and a
-# `.env.local` holding WALLET_PASSWORD and provider API keys. None of that
-# belongs in a repository, and an earlier scaffold was left in a temp directory
-# with exactly those files in it. The project lives here so it is durable and
-# ignored, rather than durable or ignored.
-*
-!.gitignore
+# This directory used to be ignored in full, which was right while it was
+# scratch and wrong once it became something to deploy: Render builds from a
+# repository, and a path git does not track is a path no host can fetch.
+#
+# So the source is tracked and these are not:
+node_modules/
+dist/
+*.tsbuildinfo
+*.log
+
+# `bag init` writes a v3 keystore and a .env.local holding WALLET_PASSWORD and
+# provider API keys. An earlier scaffold was left in a temp directory with both
+# in it; neither belongs in a repository either.
+.studio/
+
+# Carries the AWS account id. Not a password, and not something to publish in a
+# repository that is going to be read by judges.
+**/agentcore/aws-targets.json

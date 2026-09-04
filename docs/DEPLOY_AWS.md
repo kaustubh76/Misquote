@@ -1,4 +1,34 @@
-# Deploying the Studio agent to AWS
+# Deploying the Studio agent
+
+Two routes, and they do not support the same claim. **Render** runs the agent as
+an ordinary Node service and gives it a public URL. **`bag deploy --provider
+aws`** deploys it through the vendor's own CLI, which is the native-citizenship
+proof the BNB track is about. Only the second one lets anyone say "deployed via
+the Agent Studio CLI", and the ledger says which of the two has happened.
+
+## Render — the route taken when AWS stalled
+
+`render.yaml` declares `misquote-agent` beside the existing API. `rootDir` is
+the project root rather than `app/agent`, because the runtime resolves
+`.studio/` relative to the project root and pointing at the inner package would
+leave the wallet directory outside the build context.
+
+**The unsolved piece, stated rather than glossed:** the agent refuses to start
+without its v3 keystore and `WALLET_PASSWORD` — `kind='evm-local'` needs a key
+to sign with. The keystore is gitignored, correctly, so Render will not have it
+from the repository. It has to arrive as a Render **Secret File** at
+`.studio/wallets/0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29.json`, with the
+password set as an environment variable in the dashboard. That upload is
+untested here, and it is the one step between this blueprint and a running
+service.
+
+The three environment variables beside it — `WALLET_PASSWORD`,
+`PIEVERSE_LLM_API_KEY`, and the two `DELIVERABLE_S3_*` values — are declared
+`sync: false`, so the blueprint names them and holds none of them.
+
+---
+
+## Deploying to AWS
 
 What is left, named by the tool that refuses to proceed without it. Nothing
 here is guesswork: every line came from `bag deploy prepare` on the scaffold in

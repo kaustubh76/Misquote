@@ -125,3 +125,46 @@ services:
 # instance spinning down, and a disk that survives a redeploy so the queue is
 # not lost with it. Neither is needed to answer a hire, which is why this is a
 # note rather than a commented-out block nobody can tell the status of.
+
+  # The BNB Agent Studio seller agent.
+  #
+  # `bag deploy` takes bnb, aws or azure and nothing else, and AWS is where this
+  # got stuck. The agent itself is a plain Node 22 service — `tsc` build,
+  # dist/unifiedMain.js entrypoint, eleven ordinary npm dependencies and no
+  # workspace protocol — so it runs anywhere Node runs. Hosting it here is not
+  # the same claim as deploying it through the vendor's CLI, and the ledger says
+  # which one this is.
+  - type: web
+    name: misquote-agent
+    runtime: node
+    plan: free
+    region: oregon
+    # The project root, not app/agent, even though the agent package builds
+    # standalone. The runtime resolves `.studio/` relative to the project root,
+    # and pointing Render at the inner package would put the wallet directory
+    # outside the build context entirely.
+    rootDir: studio/misquoterouter
+    buildCommand: npm install --prefix app/agent && npm run build --prefix app/agent
+    startCommand: node app/agent/dist/unifiedMain.js
+    # The A2A card is served from the process and needs no wallet, no key and no
+    # chain read, which is exactly what a health check should depend on.
+    healthCheckPath: /.well-known/agent-card.json
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Unlocks the v3 keystore. Set in the dashboard, never here — the whole
+      # reason `.studio/` is gitignored is that this value and the keystore
+      # travelled together in a temp directory once already.
+      - key: WALLET_PASSWORD
+        sync: false
+      # Issued by `bag llm activate` in zero-deposit mode. The free model runs
+      # at $0/token, so this authenticates rather than bills.
+      - key: PIEVERSE_LLM_API_KEY
+        sync: false
+      # The deliverable bucket's own credentials, scoped to PutObject and
+      # GetObject on one ARN — see docs/DEPLOY_AWS.md. Separate from any deploy
+      # profile on purpose: this one runs in a container, per job, forever.
+      - key: DELIVERABLE_S3_ACCESS_KEY_ID
+        sync: false
+      - key: DELIVERABLE_S3_SECRET_ACCESS_KEY
+        sync: false
