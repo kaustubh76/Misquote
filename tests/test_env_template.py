@@ -61,7 +61,17 @@ def _variables_the_code_reads() -> set[str]:
                         found |= _env_names_in(node)
                 elif isinstance(func, ast.Name) and func.id == "getenv":
                     found |= _env_names_in(node)
-    return found
+    return found - SYSTEM
+
+
+#: Variables the operating system owns, which `.env.example` must not claim.
+#:
+#: `scripts/probe_studio.py` builds a deliberately minimal environment for the
+#: subprocess it probes — `PATH` and nothing else that could authenticate it —
+#: and reading `PATH` to do that is not this program asking to be configured.
+#: Listing it in the template would invite someone to set it, which is the
+#: opposite of the point.
+SYSTEM = {"PATH", "HOME", "TMPDIR", "LANG", "SHELL", "USER"}
 
 
 def _is_environ(node: ast.AST) -> bool:
@@ -101,6 +111,10 @@ def test_the_template_does_not_ask_for_things_nothing_reads() -> None:
         "TARGET_POOL",
         "TARGET_CHAIN_ID",
         "CEX_FEED_URL",
+        # Read by the web app in TypeScript, which this scanner does not parse.
+        # `apps/web/src/lib/wagmi.ts` adds the WalletConnect connector only when
+        # it is set, so it is wired — just not from Python.
+        "NEXT_PUBLIC_WC_PROJECT_ID",
     }
     assigned = set(re.findall(r"^([A-Z_][A-Z0-9_]*)=", EXAMPLE.read_text(), re.M))
     orphans = sorted(assigned - _variables_the_code_reads() - read_elsewhere)

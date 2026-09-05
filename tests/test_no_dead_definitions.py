@@ -32,6 +32,14 @@ SEARCHED = (REPO / "packages", REPO / "scripts", REPO / "tests")
 #: strings under `from __future__ import annotations`, so the AST cannot see them.
 #: Anything else here should be viewed with suspicion.
 ALLOWED: dict[str, str] = {
+    "SUBMIT_NEEDS_EXPIRY_BEYOND_DISPUTE_WINDOW": (
+        "A measurement, not a value. `submit` reverts SubmissionTooLate() unless "
+        "expiredAt outlives the policy's dispute window — established across eight "
+        "fork runs varying only the expiry, and later corroborated by the vendor's "
+        "own SDK guarding the identical inequality. The constant exists so the "
+        "finding is greppable from the module whose FLOW_ERRORS it explains. "
+        "Nothing reads it because the chain enforces it, not us."
+    ),
     "MASTERCHEF_V3_IS_A_NON_GOAL": (
         "A declaration, not a value. `docs/ASSUMPTIONS.md` records that Warden "
         "deliberately does not stake into MasterChefV3 — staking transfers NFT "
