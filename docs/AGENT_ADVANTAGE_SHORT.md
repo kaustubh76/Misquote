@@ -7,7 +7,7 @@
 
 - **Tape:** `synthetic`
 - **Capital per task:** 1 (quote token)
-- **Tasks:** 3 · quotable 0 · withheld 3
+- **Tasks:** 4 · quotable 0 · withheld 4
 - **Categories:** security, trading
 
 ## The claim this report is allowed to make
@@ -24,6 +24,7 @@ agent, by charging its baseline differently, is not available here.
 | Task | Category | DIY (P25–P75) | Agent (P25–P75) | Δ median | Verdict |
 |---|---|---|---|---|---|
 | Earn — fees on a liquidity position | trading | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
+| Market-make — quote both sides of a range | trading | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
 | Protect — avoid being picked off by one-way flow | security | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
 | Choose — which pool to provide liquidity to | security | withheld | withheld | withheld | no verdict — baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon |
 
@@ -43,6 +44,19 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 - **With an agent:** Warden — Avellaneda–Stoikov recentring
 - **Metric:** net return on capital (fees − realized convexity cost − costs), P25–P75
 
+- **Worse on the quantity this task is named after** — fees earned: 0.000323538 vs 0.000323538 — worse
+
+**No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
+
+### Market-make — quote both sides of a range
+
+- **Category:** trading · **Venue:** PancakeSwap v3 WBNB/USDT 0.05% · 0x36696169C63e42cd08ce11f5deeBbCeBae652050 (synthetic tape)
+- **Without an agent:** mint once at the same width, never touch it (passive_policy)
+- **With an agent:** Grid — fixed rung ladder, requote when price leaves it
+- **Metric:** net return on capital (fees − realized convexity cost − costs), P25–P75
+
+- **Better on the quantity this task is named after** — time in range: 0.999697 vs 0.781972 — 1.3x better
+
 **No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
 
 ### Protect — avoid being picked off by one-way flow
@@ -51,6 +65,8 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 - **Without an agent:** the same wide band, held through everything (withdrawal disabled)
 - **With an agent:** Sentinel — withdraw on §3.4 toxicity, re-enter after m_clear
 - **Metric:** net return on capital, P25–P75 (the cost of the withdrawals is charged in full)
+
+- **Better on the quantity this task is named after** — realized convexity cost (upper bound on LVR): 0.00186109 vs 0.0031666 — 1.7x better
 
 **No verdict.** baseline: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon; agent: 0 usable replays, assumption A5 requires 20; 60 window(s) were shorter than the 24h policy horizon
 
@@ -65,12 +81,10 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 
 ## What would make this stronger
 
-- **A longer tape, and a second month.** Thirty days is one regime. The
-  caveat that used to sit here — that free BSC endpoints refuse a multi-day
-  backfill, so the word *real* had not been earned — is no longer true and
-  has been removed: both venues are indexed from chain over the same
-  5,802,928 blocks, and `make go-no-go` checks the coverage rather than the
-  span. What a keyed `BSC_RPC_URL` buys now is speed, not honesty.
+- **A chain tape.** This run is `synthetic`, so nothing below rests on
+  anything that happened. A synthetic tape can show the machinery runs; it
+  cannot support a claim about a venue. Run `make advantage` against an
+  indexed pool for a report that can.
 - **A verdict.** Three tasks is three observations, and `tearsheet.verdict`
   refuses below thirty. The report says *no verdict* across all tasks and
   means it; the per-task bands are what it will stand behind.
