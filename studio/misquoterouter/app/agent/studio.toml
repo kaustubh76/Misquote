@@ -75,3 +75,7 @@ kind = "s3"
 region = "us-east-1"
 bucket = "misquote-agent-deliverables"
 
+[identity]
+endpoint = "https://misquote-agent.onrender.com"
+registered_at = "2026-09-04T10:34:47.347Z"
+agent_id = 2102
