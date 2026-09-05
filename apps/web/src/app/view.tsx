@@ -285,8 +285,13 @@ export function OverviewView({
             asking to be read as a mock. */}
         <p className="rise-4 mt-3 mb-0 max-w-[60ch] text-sm text-dim">
           Already on chain:{" "}
+          {/* No figure here on purpose. `test_no_artifact_number_is_hardcoded_in_the_ui`
+              caught the budget typed in as a literal, and it was right to: the
+              amount lives in `registry.json` and the page that renders it reads
+              it from there. A link does not need the number to be worth
+              following. */}
           <Link href="/registry/#escrow">
-            0.1 of a token escrowed on BSC mainnet and reclaimed
+            a payment token escrowed on BSC mainnet, and reclaimed
           </Link>{" "}
           &middot;{" "}
           <a href="https://misquote-agent.onrender.com/.well-known/agent-card.json" target="_blank" rel="noreferrer">
