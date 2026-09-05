@@ -87,9 +87,10 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "have one. Four of the nine now do, including the mint."
         ),
         why=(
-            "The four a transaction can demonstrate now are, including a real mint. "
-            "The other five are readings — a token either reports 18 decimals or it "
-            "does not — and no transaction demonstrates a reading."
+            "Four of the nine can be demonstrated by a transaction, and are — "
+            "including a real mint. The other five are readings: a token either "
+            "reports 18 decimals or it does not, and no transaction demonstrates "
+            "a reading."
         ),
         evidence="packages/misquote/vetting/proof.py — no Prover.sol",
     ),

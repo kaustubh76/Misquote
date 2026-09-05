@@ -287,6 +287,22 @@ export function VenueView({
             title="Where it is not"
             intro="Each row cost something before it was written down. The last column is what catches it now."
           >
+            {/* The one place a PancakeSwap reader will look, linking the one
+                document written for them. It had lived in the repository,
+                referenced from a single line of a single file, which is a
+                findings list that finds nobody. */}
+            <p className="mt-0 mb-5 max-w-[70ch] text-sm text-dim">
+              These are written up as{" "}
+              <a
+                href="https://github.com/kaustubh76/Misquote/blob/main/docs/PANCAKESWAP_FINDINGS.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                six findings to file upstream
+              </a>{" "}
+              &mdash; each with what it costs to get wrong, and opening on the
+              one we got wrong ourselves.
+            </p>
             <div className="grid gap-4">
               {d.divergences.map((row) => (
                 <Card key={row.what} className="!p-5">

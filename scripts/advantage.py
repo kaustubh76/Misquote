@@ -1573,7 +1573,36 @@ def main() -> int:
         finally:
             conn.close()
         if wide:
-            lo, hi = max(events[0].block, wide[0].block), min(events[-1].block, wide[-1].block)
+            # Intersect what was *read*, not what happened to trade.
+            #
+            # This clipped on `events[0].block` / `wide[-1].block` — the first
+            # and last swap in each tape — and rebound `events`, the primary
+            # tape, which tasks 1, 2 and 3 replay and which has nothing to do
+            # with the second venue. The wide pool has no swap in the last 225
+            # blocks of a range it was fully indexed over, so fifteen real
+            # swaps were discarded from the flagship tape because a different
+            # pool happened to be quiet. It was wrong from the day it landed and
+            # invisible until the position started spending its time in range:
+            # at 6% in range those tail swaps earned nothing, at 94% they earn.
+            #
+            # `covered_span` is the honest instrument. It answers "what did we
+            # read", so a second pool genuinely indexed over a different month
+            # still clips — which is what the guard is for — and a quiet tail
+            # does not.
+            conn = store.connect(db)
+            try:
+                narrow_span = store.covered_span(conn, META.address)
+                wide_span = store.covered_span(conn, META_WIDE.address)
+            finally:
+                conn.close()
+            if narrow_span and wide_span:
+                lo, hi = max(narrow_span[0], wide_span[0]), min(narrow_span[1], wide_span[1])
+            else:
+                # No coverage recorded — an older database. Fall back to the
+                # event bounds and say so rather than silently trusting them.
+                lo = max(events[0].block, wide[0].block)
+                hi = min(events[-1].block, wide[-1].block)
+                print("      coverage not recorded; clipping on event bounds instead")
             events = [e for e in events if lo <= e.block <= hi]
             wide = [e for e in wide if lo <= e.block <= hi]
             second_venue = (wide, META_WIDE, venue_name(TARGET_POOL_WIDE))

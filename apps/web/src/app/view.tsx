@@ -276,6 +276,25 @@ export function OverviewView({
           &middot; <Link href="/methods">how a quote is made</Link>
         </p>
 
+        {/* The two strongest things here were the hardest to find.
+            The mainnet escrow was two clicks and a scroll into a 273KB page,
+            and the Studio agent — live, with an ERC-8004 identity the vendor's
+            own CLI registered — was linked from nowhere at all, mentioned only
+            inside a ledger entry explaining what had *not* been built. A
+            marketplace whose on-chain work is only reachable by scrolling is
+            asking to be read as a mock. */}
+        <p className="rise-4 mt-3 mb-0 max-w-[60ch] text-sm text-dim">
+          Already on chain:{" "}
+          <Link href="/registry/#escrow">
+            0.1 of a token escrowed on BSC mainnet and reclaimed
+          </Link>{" "}
+          &middot;{" "}
+          <a href="https://misquote-agent.onrender.com/.well-known/agent-card.json" target="_blank" rel="noreferrer">
+            a live agent
+          </a>{" "}
+          carrying an ERC-8004 identity
+        </p>
+
         <TickRule className="mt-10" />
       </div>
 

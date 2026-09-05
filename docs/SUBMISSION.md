@@ -74,14 +74,17 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
 - **Releasing an escrowed job on mainnet.** `fund` and `claimRefund` are mined;
   `submit`/`settle` need an expiry beyond the 7-day dispute window, so doing it
   on chain locks the budget for over a week.
-- **Agent Studio deployment.** The CLI installs and was probed
-  (`vetting/identity/studio-probe.json`); deploying hands a wallet key to the
-  vendor, which is a custody decision nobody has made.
+- **Agent Studio deployment.** The agent runs at
+  `misquote-agent.onrender.com` with ERC-8004 identity 2102 registered by the
+  CLI itself. What has not happened is `bag deploy`, which takes bnb, aws or
+  azure. The custody objection once recorded here applied to one flag
+  combination, not to the tool.
 
 ## Open before submission
 
-- [ ] **Demo video.** Not started. The one thing on this list with no artifact
-      behind it at all.
+- [ ] **Demo video.** Not recorded. The script is written —
+      `docs/DEMO_SCRIPT.md` — shot by shot, with verbatim narration timed to
+      2:30 and every URL live. It needs a screen recording and a voice.
 - [ ] **`make go-no-go` re-run in full.** The published verdict is from 31 Aug,
       `--fast`, non-mainnet — six of fifteen gates skipped.
 - [ ] **D1 checklist reconciled.** `Readme.md` §8 and

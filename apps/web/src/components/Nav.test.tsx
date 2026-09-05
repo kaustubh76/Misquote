@@ -32,7 +32,7 @@ const ROUTES = [
   ["Venue", "/venue"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],
-  ["Vectors", "/vectors"],
+  ["Tick math", "/vectors"],
   ["Assumptions", "/assumptions"],
   ["Registry", "/registry"],
   ["Vetting", "/vetting"],

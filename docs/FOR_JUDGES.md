@@ -174,12 +174,18 @@ the *pool*, and the shallower of task 3's two venues binds it. Both of its
 columns share the figure, so the delta is sound; the percentages are large
 because the denominator is small.
 
-**The reason the LP tasks lose is one mechanism, and it is not the strategies.**
-Each task's own section derives it from that task's columns, and **P-20** has the
-measurement: the agent never recentres — not once in seven days of instrumented
-replay — and spends its entire daily budget on pulling out and re-entering, at
-exactly `max_rebalances_per_day`. Once the budget is gone it cannot afford to
-return, so it sits flat for the rest of the day. Gas, not strategy.
+**Where an LP task loses, it is one mechanism, and it is not the strategy.**
+This paragraph used to open "the reason the LP tasks lose" — all of them — and
+that stopped being true when Earn and Market-make came out ahead. It is now
+Protect's explanation and Protect's alone, which is a narrower claim and the
+only one the columns support.
+
+**P-20** has the measurement: the agent never recentres — not once in seven days
+of instrumented replay — and spends its entire daily budget on pulling out and
+re-entering, at exactly `max_rebalances_per_day`. Once the budget is gone it
+cannot afford to return, so it sits flat for the rest of the day. Gas, not
+strategy. That is why the agent that withdraws most loses most, and why the two
+that hold a range now win.
 
 That is **P-7 with a price tag, confirmed on real flow by P-19**: §3.4's
 imbalance rule fires often enough to consume the budget, and P-7 had already

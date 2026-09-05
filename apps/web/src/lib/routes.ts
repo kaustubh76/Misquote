@@ -54,7 +54,11 @@ export const ROUTES: readonly Route[] = [
   { href: "/advantage", label: "Advantage", group: "evidence" },
   { href: "/methods", label: "Methods", group: "evidence" },
   { href: "/assumptions", label: "Assumptions", group: "evidence" },
-  { href: "/vectors", label: "Vectors", group: "evidence" },
+  // "Vectors" named the data structure, not the claim. 19,546 answers
+  // differentially tested against real PancakeSwap Solidity at exact integer
+  // equality is probably the most credible artifact here, and it was labelled
+  // like a math library in the tenth slot of a scrolling nav.
+  { href: "/vectors", label: "Tick math", group: "evidence" },
   { href: "/venue", label: "Venue", group: "evidence" },
   { href: "/vetting", label: "Vetting", group: "evidence" },
   { href: "/tape", label: "Tape", group: "evidence" },

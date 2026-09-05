@@ -140,19 +140,11 @@ AGENT_FIELDS: dict[str, str] = {
     "quote_detail.p75": "Band.tsx",
     "quote_detail.samples": "AgentDetail.tsx",
     "quote_detail.windows": "AgentDetail.tsx",
-    # NOT YET DECLARED: `quote_detail.perturbation_fraction`.
-    #
-    # `tearsheet/generate.py` publishes it and `/methods` reads it, but the
-    # committed cards predate the emitter change and a card is a four-hour
-    # replay of a 267,024-swap tape — so regenerating one to add a field is not
-    # a rendering decision, it is a compute budget. The view degrades in the
-    # meantime: an absent fraction renders "γ and κ, each side of nominal"
-    # rather than a number.
-    #
-    # The day anyone runs `make showcase`, the test above fails saying the
-    # emitter writes an undeclared field. That is this comment's cue: add
-    # `"quote_detail.perturbation_fraction": "methods/view.tsx"` and delete
-    # these lines.
+    # Declared the day it was predicted. The note that stood here said a card
+    # is a four-hour replay and regenerating one to add a field is a compute
+    # budget rather than a rendering decision — and that the test would fail
+    # the day anyone ran `make showcase`. Somebody did.
+    "quote_detail.perturbation_fraction": "methods/view.tsx",
     "quote_detail.perturbations": "AgentDetail.tsx",
     "quote_detail.net_positive": "AgentDetail.tsx",
     "quote_detail.returns": "AgentCard.tsx",

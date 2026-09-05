@@ -277,16 +277,26 @@ caps · the tearsheet.
       to a name: the **hook is mandatory** (`address(0)` reverts
       `HookRequired()`, and only the EvaluatorRouter is accepted, against an EIP
       that calls it an optional extension), `expiredAt` is an absolute timestamp
-      with a ceiling, and the evaluator may not be zero. `fund` did not mine and
-      no code closes that: the payment token is owner-minted and this signer
-      holds none. See **P-28** and `registry/hire.py`.
+      with a ceiling, and the evaluator may not be zero. `fund` has since mined on **BSC
+      mainnet** — job 56681, 0.1 of the payment token in, and `claimRefund`
+      brought it back out. This entry said the token was owner-minted and the
+      signer held none; it trades on PancakeSwap, and
+      `scripts/buy_payment_token.py` is the code that closed it. What is still
+      open is release: `submit` needs an expiry beyond the seven-day dispute
+      window and the run asked for twelve hours. See **P-28** and
+      `registry/hire.py`.
 - [ ] Agent Studio CLI hello-world deployed. The router *path* is answered by
       `agents/router/policy.py`; only the deployment is open. The blocker is not
       what was recorded here for weeks: `studio.bnbchain.org` is dead and the
       package's declared repository 404s, but `@bnbagent/studio-cli` installs
       from npm and `bag` offers `erc8004`, `erc8183` and `x402` subcommands —
-      probed and dated in `vetting/identity/studio-probe.json`. What is open is
-      the custody decision, since deploying hands a wallet key to the vendor.
+      probed and dated in `vetting/identity/studio-probe.json`. What is open is a
+      deployment through `bag deploy` itself, which takes bnb, aws or azure. The
+      custody objection recorded here applied to one flag combination and not to
+      the tool — `--destination self` and `--wallet-kind turnkey` move no signing
+      key at all. The agent runs at `misquote-agent.onrender.com` with ERC-8004
+      identity 2102 registered by the CLI; what has not happened is the CLI
+      deploying it.
 - [ ] Mission Control micropayment discrepancy (49 vs 75) resolved; correct
       number recorded in `docs/REQUIREMENTS_MATRIX.md` before any card renders.
 

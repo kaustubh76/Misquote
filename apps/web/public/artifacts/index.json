@@ -51,7 +51,7 @@
       "evidence": "packages/misquote/vetting/proof.py \u2014 no Prover.sol",
       "name": "Vetting proof-of-concepts: the five readings",
       "what": "An executable demonstration for the five badge checks that do not have one. Four of the nine now do, including the mint.",
-      "why": "The four a transaction can demonstrate now are, including a real mint. The other five are readings \u2014 a token either reports 18 decimals or it does not \u2014 and no transaction demonstrates a reading."
+      "why": "Four of the nine can be demonstrated by a transaction, and are \u2014 including a real mint. The other five are readings: a token either reports 18 decimals or it does not, and no transaction demonstrates a reading."
     },
     {
       "category": "Operations",
