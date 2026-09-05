@@ -52,6 +52,7 @@ INTERACTIVE_WINDOWS = 8
 #: The engine's own default, for telling a reduced run apart from a full one.
 DEFAULT_WINDOWS = 20
 
+
 def replay_jobs() -> int:
     """How many processes to fork for the window x perturbation replays.
 
@@ -140,9 +141,7 @@ def tape_db_path(params: dict[str, Any]) -> str:
     reported to a caller as an absence. In the path that answers a hire.
     """
     return str(
-        params.get("db_path")
-        or os.environ.get("DB_PATH")
-        or jobs.REPO / "data" / "misquote.db"
+        params.get("db_path") or os.environ.get("DB_PATH") or jobs.REPO / "data" / "misquote.db"
     )
 
 

@@ -361,16 +361,11 @@ ABSENT_REFUND = {
     "refunded": None,
     "status_after": None,
     "status_before": None,
-    "transactions": []
+    "transactions": [],
 }
 
 ABSENT_MAINNET = {
-    "addresses": {
-        "erc20": None,
-        "kernel": None,
-        "policy": None,
-        "router": None
-    },
+    "addresses": {"erc20": None, "kernel": None, "policy": None, "router": None},
     "budget": None,
     "chain_id": None,
     "client": None,
@@ -388,16 +383,11 @@ ABSENT_MAINNET = {
     "record": None,
     "settled": None,
     "success_criterion": None,
-    "transactions": []
+    "transactions": [],
 }
 
 ABSENT_FORK = {
-    "addresses": {
-        "erc20": None,
-        "kernel": None,
-        "policy": None,
-        "router": None
-    },
+    "addresses": {"erc20": None, "kernel": None, "policy": None, "router": None},
     "budget": None,
     "chain_id": None,
     "client": None,
@@ -420,16 +410,11 @@ ABSENT_FORK = {
     "success_criterion": None,
     "token_owner": None,
     "transactions": [],
-    "why_not_on_mainnet": None
+    "why_not_on_mainnet": None,
 }
 
 ABSENT_PROOF = {
-    "addresses": {
-        "erc20": None,
-        "kernel": None,
-        "policy": None,
-        "router": None
-    },
+    "addresses": {"erc20": None, "kernel": None, "policy": None, "router": None},
     "budget": None,
     "chain_id": None,
     "client": None,
@@ -445,7 +430,7 @@ ABSENT_PROOF = {
     "record": None,
     "reverted": [],
     "success_criterion": None,
-    "transactions": []
+    "transactions": [],
 }
 
 

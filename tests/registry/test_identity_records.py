@@ -29,9 +29,7 @@ IDENTITY = REPO / "vetting" / "identity"
 RECORDS = sorted(IDENTITY.glob("*.json"))
 
 #: A field name that would hold a secret if it held anything.
-SECRET_NAMES = re.compile(
-    r"private|secret|mnemonic|seed|passphrase|password|bearer", re.IGNORECASE
-)
+SECRET_NAMES = re.compile(r"private|secret|mnemonic|seed|passphrase|password|bearer", re.IGNORECASE)
 
 #: 32 bytes of hex. A transaction hash is the same width, so the name is what
 #: decides — this only ever runs on values whose key already sounds like a key.

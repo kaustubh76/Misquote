@@ -940,6 +940,7 @@ def render_markdown(comparisons: list[Comparison], *, source: str, capital: floa
         if not c.quotable:
             lines += [f"**No verdict.** {c.note}", ""]
             continue
+
         # A row per measure the task actually has, and nothing for the ones it
         # does not.
         #

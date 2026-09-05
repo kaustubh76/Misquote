@@ -25,7 +25,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +39,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 from misquote.chain.signer import BscSigner  # noqa: E402
 from misquote.registry.erc8183 import contracts_for  # noqa: E402
 from misquote.registry.hire import JobWriter, read_job  # noqa: E402
-from vetting_proof import ANVIL_KEY, Anvil  # noqa: E402
+from vetting_proof import Anvil  # noqa: E402
 
 CHAIN = 56
 JOB_ID = 56681
@@ -70,7 +70,7 @@ ERC20_ABI = [
 
 
 def _utc(ts: int) -> str:
-    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return datetime.fromtimestamp(ts, UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def job_state(w3, job_id: int) -> dict[str, Any]:
@@ -101,9 +101,7 @@ def claim(
     gwei default that the gas ceiling exists to refuse.
     """
     addresses = contracts_for(CHAIN)
-    token = w3.eth.contract(
-        address=Web3.to_checksum_address(addresses["erc20"]), abi=ERC20_ABI
-    )
+    token = w3.eth.contract(address=Web3.to_checksum_address(addresses["erc20"]), abi=ERC20_ABI)
     before = int(token.functions.balanceOf(client).call())
     state = job_state(w3, job_id)
     now = int(w3.eth.get_block("latest")["timestamp"])
@@ -134,7 +132,11 @@ def claim(
     if on_fork:
         # A guard nobody has watched refuse is a guard nobody has tested.
         print("  before expiry ", end="", flush=True)
-        print("REFUSED (as it must)" if attempt("before expiry") is None else "MINED — the expiry does not hold")
+        print(
+            "REFUSED (as it must)"
+            if attempt("before expiry") is None
+            else "MINED — the expiry does not hold"
+        )
         ahead = state["expires_at"] - now + 60
         w3.provider.make_request("evm_increaseTime", [ahead])
         w3.provider.make_request("evm_mine", [])
@@ -170,8 +172,10 @@ def rehearse(rpc: str, job_id: int = JOB_ID, *, key: str | None = None) -> dict[
     Returns the same record shape the mainnet run writes, so a test cannot pass
     against a rehearsal and fail against the thing it rehearses.
     """
-    key = key or os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY") or os.environ.get(
-        "MISQUOTE_PRIVATE_KEY"
+    key = (
+        key
+        or os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY")
+        or os.environ.get("MISQUOTE_PRIVATE_KEY")
     )
     if not key:
         return {"ran": False, "reason": "no key: export MISQUOTE_OPERATOR_PRIVATE_KEY"}
@@ -221,9 +225,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
-    key = os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY") or os.environ.get(
-        "MISQUOTE_PRIVATE_KEY"
-    )
+    key = os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY") or os.environ.get("MISQUOTE_PRIVATE_KEY")
     if not key:
         print("no key: export MISQUOTE_OPERATOR_PRIVATE_KEY", file=sys.stderr)
         return 2
@@ -251,9 +253,7 @@ def main() -> int:
         out["network"] = "BSC mainnet"
 
     out["ran"] = True
-    destination = args.out or (
-        RECORD.with_name("refund-fork-56.json") if args.fork else RECORD
-    )
+    destination = args.out or (RECORD.with_name("refund-fork-56.json") if args.fork else RECORD)
     destination.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
     print(f"\n  recovered {out['recovered'] / 1e18:g} token   refunded={out['refunded']}")
     print(f"  -> {destination}")

@@ -328,8 +328,7 @@ def register_all(
                 if signs_as_owner
                 else None,
                 "register_block": registered.block,
-                "gas_used": registered.gas_used
-                + (transferred.gas_used if transferred else 0),
+                "gas_used": registered.gas_used + (transferred.gas_used if transferred else 0),
                 "register_url": f"{explorer}/tx/{register_tx}",
                 "transfer_url": f"{explorer}/tx/{transfer_tx}" if transfer_tx else None,
                 "agent_url": f"{explorer}/token/{writer.address}?a={agent_id}",

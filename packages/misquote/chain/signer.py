@@ -176,9 +176,7 @@ class BscSigner:
         # variable unset.
         if max_gas_price_wei is None:
             configured = os.environ.get("MISQUOTE_MAX_GAS_PRICE_WEI")
-            max_gas_price_wei = (
-                DEFAULT_MAX_GAS_PRICE_WEI if configured is None else int(configured)
-            )
+            max_gas_price_wei = DEFAULT_MAX_GAS_PRICE_WEI if configured is None else int(configured)
         self._max_gas_price_wei = max_gas_price_wei if max_gas_price_wei else None
 
         # Only when this signer can actually broadcast.
@@ -385,7 +383,11 @@ class BscSigner:
                     # Only the node that took the send gets to raise a real
                     # error; a peer that has not caught up is the ordinary case
                     # this exists for.
-                    if source is self.w3 and not is_transient(error) and "not found" not in str(error).lower():
+                    if (
+                        source is self.w3
+                        and not is_transient(error)
+                        and "not found" not in str(error).lower()
+                    ):
                         raise
             time.sleep(2)
 

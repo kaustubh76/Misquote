@@ -150,22 +150,23 @@ def run(
 
         forked_at = int(w3.eth.block_number)
         client = Web3().eth.account.from_key(ANVIL_KEY).address
-        provider = (
-            client if self_provider else Web3().eth.account.from_key(PROVIDER_KEY).address
-        )
+        provider = client if self_provider else Web3().eth.account.from_key(PROVIDER_KEY).address
         evaluator = Web3().eth.account.from_key(EVALUATOR_KEY).address
         for who in (client, provider, evaluator):
             w3.provider.make_request("anvil_setBalance", [who, hex(100 * 10**18)])
 
-        token = w3.eth.contract(
-            address=Web3.to_checksum_address(addresses["erc20"]), abi=OWNER_ABI
-        )
+        token = w3.eth.contract(address=Web3.to_checksum_address(addresses["erc20"]), abi=OWNER_ABI)
         owner = Web3.to_checksum_address(token.functions.owner().call())
 
         # The blocker, and its whole cost on a fork.
         w3.provider.make_request("anvil_impersonateAccount", [owner])
         w3.provider.make_request("anvil_setBalance", [owner, hex(10**18)])
-        _step(steps, "mint", "token owner", lambda: token.functions.mint(client, MINT).transact({"from": owner}))
+        _step(
+            steps,
+            "mint",
+            "token owner",
+            lambda: token.functions.mint(client, MINT).transact({"from": owner}),
+        )
         w3.provider.make_request("anvil_stopImpersonatingAccount", [owner])
         minted = int(token.functions.balanceOf(client).call())
 
@@ -189,9 +190,7 @@ def run(
                 return BscSigner(w3, key, kill_file=kill, max_gas_price_wei=0)
 
             writer = JobWriter(signer(ANVIL_KEY), CHAIN)
-            by_provider = JobWriter(
-                signer(ANVIL_KEY if self_provider else PROVIDER_KEY), CHAIN
-            )
+            by_provider = JobWriter(signer(ANVIL_KEY if self_provider else PROVIDER_KEY), CHAIN)
             by_evaluator = JobWriter(signer(EVALUATOR_KEY), CHAIN)
 
             _step(steps, "approve", "client", lambda: writer.approve(budget))
@@ -304,7 +303,10 @@ def run(
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--rpc", default=os.environ.get("BSC_ARCHIVE_RPC_URL") or "https://bsc-dataseed.bnbchain.org")
+    ap.add_argument(
+        "--rpc",
+        default=os.environ.get("BSC_ARCHIVE_RPC_URL") or "https://bsc-dataseed.bnbchain.org",
+    )
     ap.add_argument("--block", type=int, default=None)
     ap.add_argument("--out", type=Path, default=RECORD)
     ap.add_argument(
@@ -312,9 +314,7 @@ def main() -> int:
         action="store_true",
         help="one address as both client and provider — the mainnet rehearsal",
     )
-    ap.add_argument(
-        "--budget", type=float, default=None, help="budget in whole tokens"
-    )
+    ap.add_argument("--budget", type=float, default=None, help="budget in whole tokens")
     ap.add_argument(
         "--expiry-hours",
         type=int,
@@ -345,7 +345,7 @@ def main() -> int:
         print(f"  settled      {record['settled']}")
         for s in record["transactions"]:
             mark = "ok  " if s.get("ok") else "FAIL"
-            print(f"  {mark} {s['call']:<12} {s.get('tx') or s.get('error','')[:90]}")
+            print(f"  {mark} {s['call']:<12} {s.get('tx') or s.get('error', '')[:90]}")
     else:
         print(f"  not run: {record.get('reason')}")
     print(f"  -> {args.out}")

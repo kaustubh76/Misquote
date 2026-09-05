@@ -407,7 +407,9 @@ def worker_status():
         "workers_alive": alive,
         "worker_last_seen": last_seen,
         "started": started,
-        "api_start_attempt": getattr(app.state, "worker_start", "the API has not run its startup hook"),
+        "api_start_attempt": getattr(
+            app.state, "worker_start", "the API has not run its startup hook"
+        ),
         "log_path": str(log_path),
         "log": tail,
         "note": note,

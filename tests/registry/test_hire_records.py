@@ -60,11 +60,7 @@ def _absent(monkeypatch: pytest.MonkeyPatch, paths: tuple[str, ...]) -> None:
 
 def _declared_for(key: str) -> set[str]:
     prefix = f"hire_flow.{key}."
-    return {
-        path[len(prefix) :]
-        for path in contract.REGISTRY_FIELDS
-        if path.startswith(prefix)
-    }
+    return {path[len(prefix) :] for path in contract.REGISTRY_FIELDS if path.startswith(prefix)}
 
 
 def _delivered(payload: dict[str, Any]) -> set[str]:
@@ -121,9 +117,7 @@ def test_absence_and_presence_are_the_same_shape(
 
 
 @pytest.mark.parametrize(("helper", "paths", "key"), RECORDS)
-def test_a_record_on_disk_is_reported_as_run(
-    helper: str, paths: tuple[str, ...], key: str
-) -> None:
+def test_a_record_on_disk_is_reported_as_run(helper: str, paths: tuple[str, ...], key: str) -> None:
     """`ran` is set here rather than trusted to the writer.
 
     It used to be trusted, and unevenly: `_hire_proof` patched it in while its

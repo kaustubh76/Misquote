@@ -38,8 +38,7 @@ def record() -> dict:
     if not shutil.which("anvil"):
         pytest.skip("anvil not installed")
     if not (
-        os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY")
-        or os.environ.get("MISQUOTE_PRIVATE_KEY")
+        os.environ.get("MISQUOTE_OPERATOR_PRIVATE_KEY") or os.environ.get("MISQUOTE_PRIVATE_KEY")
     ):
         pytest.skip("no operator key in the environment")
     from claim_refund import rehearse  # noqa: PLC0415 — needs the path insert above

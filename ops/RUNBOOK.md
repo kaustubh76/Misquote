@@ -43,7 +43,7 @@ Resume with `rm ops/KILL`.
 updating either one, and only the clock says how long ago.
 
 ```python
-beat.stale_for()      # seconds since the last completed cycle; inf if never
+beat.stale_for()  # seconds since the last completed cycle; inf if never
 beat.is_stale(bound)  # you supply the bound
 ```
 

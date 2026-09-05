@@ -447,13 +447,10 @@ def test_the_verify_script_reads_the_shared_accessor_tuple() -> None:
     """
     from pathlib import Path
 
-    script = (
-        Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py"
-    ).read_text()
+    script = (Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py").read_text()
 
     assert "ERC8183_ACCESSORS" in script, (
-        "the script must take the accessor spellings from aacp rather than "
-        "keeping its own list"
+        "the script must take the accessor spellings from aacp rather than keeping its own list"
     )
     assert "answering_accessors" in script
 
@@ -475,9 +472,7 @@ def test_the_verify_script_runs_the_termix_contrast() -> None:
     """
     from pathlib import Path
 
-    script = (
-        Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py"
-    ).read_text()
+    script = (Path(__file__).resolve().parents[2] / "scripts" / "verify_erc8183.py").read_text()
 
     assert "verify as verify_termix" in script
     assert "verify_termix(w3" in script, "imported and not called is not a caller"

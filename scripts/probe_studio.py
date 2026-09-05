@@ -102,12 +102,21 @@ def _http(url: str) -> dict[str, Any]:
     except urllib.error.HTTPError as error:
         return {"url": url, "status": error.code, "reachable": True}
     except Exception as error:  # noqa: BLE001 — the failure is the reading
-        return {"url": url, "status": None, "reachable": False, "error": f"{type(error).__name__}: {error}"}
+        return {
+            "url": url,
+            "status": None,
+            "reachable": False,
+            "error": f"{type(error).__name__}: {error}",
+        }
 
 
 def _dns(host: str) -> dict[str, Any]:
     try:
-        return {"host": host, "resolves": True, "addresses": sorted({a[4][0] for a in socket.getaddrinfo(host, None)})}
+        return {
+            "host": host,
+            "resolves": True,
+            "addresses": sorted({a[4][0] for a in socket.getaddrinfo(host, None)}),
+        }
     except socket.gaierror as error:
         return {"host": host, "resolves": False, "error": str(error)}
 
@@ -144,7 +153,15 @@ def _install_and_ask(version: str, timeout: int = 300) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="studio-probe-") as scratch:
         install = subprocess.run(  # noqa: S603 — fixed argv, no shell
-            [npm, "install", "--no-audit", "--no-fund", "--prefix", scratch, f"{PACKAGE}@{version}"],
+            [
+                npm,
+                "install",
+                "--no-audit",
+                "--no-fund",
+                "--prefix",
+                scratch,
+                f"{PACKAGE}@{version}",
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -157,7 +174,11 @@ def _install_and_ask(version: str, timeout: int = 300) -> dict[str, Any]:
             }
 
         root = Path(scratch) / "node_modules" / PACKAGE.replace("/", os.sep)
-        manifest = json.loads((root / "package.json").read_text()) if (root / "package.json").is_file() else {}
+        manifest = (
+            json.loads((root / "package.json").read_text())
+            if (root / "package.json").is_file()
+            else {}
+        )
         binaries = manifest.get("bin") or {}
 
         def ask(executable: Path, argv: list[str]) -> dict[str, Any]:
@@ -170,9 +191,17 @@ def _install_and_ask(version: str, timeout: int = 300) -> dict[str, Any]:
                     cwd=scratch,
                     # A probe that inherits the operator's environment is a probe
                     # that can authenticate by accident. Only PATH goes in.
-                    env={"PATH": os.environ.get("PATH", ""), "NO_COLOR": "1", "CI": "1", "HOME": scratch},
+                    env={
+                        "PATH": os.environ.get("PATH", ""),
+                        "NO_COLOR": "1",
+                        "CI": "1",
+                        "HOME": scratch,
+                    },
                 )
-                return {"exit": asked.returncode, "help": (asked.stdout or asked.stderr).strip()[:12000]}
+                return {
+                    "exit": asked.returncode,
+                    "help": (asked.stdout or asked.stderr).strip()[:12000],
+                }
             except Exception as error:  # noqa: BLE001 — a CLI that will not answer is the reading
                 return {"exit": None, "error": f"{type(error).__name__}: {error}"}
 

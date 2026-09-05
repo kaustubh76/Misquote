@@ -129,8 +129,7 @@ def test_the_plan_is_published_even_though_the_module_is_not(client: TestClient)
         "registerKey",
     ]
     assert [s.name for s in keys.grant_plan(bootstrapped=True)] == ["registerKey"], (
-        "the bootstrap is once per wallet, and whether it is needed is readable "
-        "rather than assumed"
+        "the bootstrap is once per wallet, and whether it is needed is readable rather than assumed"
     )
     assert all(step["sender"] == "owner" for step in body["grant_plan"] + body["revoke_plan"])
 

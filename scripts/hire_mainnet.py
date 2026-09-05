@@ -90,8 +90,12 @@ def main() -> int:
             print(f"  {name:<12} REVERTED {selector}")
             return None
         tx = result[1] if isinstance(result, tuple) else result
-        entry.update(ok=True, tx_hash=tx.tx_hash, gas_used=tx.gas_used,
-                     explorer=f"https://bscscan.com/tx/{tx.tx_hash}")
+        entry.update(
+            ok=True,
+            tx_hash=tx.tx_hash,
+            gas_used=tx.gas_used,
+            explorer=f"https://bscscan.com/tx/{tx.tx_hash}",
+        )
         steps.append(entry)
         print(f"  {name:<12} {tx.tx_hash}")
         return result
@@ -114,8 +118,8 @@ def main() -> int:
         "createJob",
         "client",
         lambda: writer.create_job(
-            provider=signer.address,          # client and provider, so settle returns it
-            evaluator=addresses["router"],    # RouterNotEvaluator() for anything else
+            provider=signer.address,  # client and provider, so settle returns it
+            evaluator=addresses["router"],  # RouterNotEvaluator() for anything else
             expired_at=int(time.time() + args.hours * 3600),
             description="Misquote: does hiring an agent beat doing it yourself",
         ),

@@ -723,13 +723,25 @@ def check_agent_advantage_report() -> Check:
             "each task needs its own DIY baseline, not one baseline relabelled",
         )
 
-    baselines = {t.get("without_agent", "") for t in tasks}
-    if len(baselines) < len(tasks):
+    # A task is a (baseline, agent) pair, not a baseline.
+    #
+    # This compared baselines alone, which caught the thing it was written for —
+    # three tasks with one DIY column is one task relabelled — and also caught
+    # something legitimate the moment the report grew a fifth task. Earn and
+    # Market-make measure Warden and Grid against the *same* passive position,
+    # which is what a control is for; replaying the identical baseline twice
+    # would burn an hour and a half to produce two identical columns and would
+    # satisfy this check by doing it.
+    #
+    # So the pair. Two tasks sharing a baseline *and* an agent are one task
+    # written twice, and that is still refused.
+    pairs = {(t.get("without_agent", ""), t.get("with_agent", "")) for t in tasks}
+    if len(pairs) < len(tasks):
         return Check(
             "agent advantage report",
             FAIL,
-            "two tasks share a baseline",
-            "three tasks with one DIY column is one task relabelled",
+            "two tasks share both a baseline and an agent",
+            "the same comparison twice is one task relabelled",
         )
 
     # Per task, not per report.
@@ -1318,9 +1330,7 @@ def check_artifact_freshness() -> Check:
 
     parts = []
     if stale:
-        parts.append(
-            f"{len(stale)} replay artifact(s) were generated before an engine change"
-        )
+        parts.append(f"{len(stale)} replay artifact(s) were generated before an engine change")
     if unstamped:
         parts.append(f"{len(unstamped)} record no commit at all")
     detail = "; ".join(parts)

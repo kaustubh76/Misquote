@@ -68,7 +68,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--bnb", type=float, default=0.0003, help="how much BNB to spend")
     ap.add_argument("--slippage", type=float, default=1.0, help="percent")
-    ap.add_argument("--rpc", default=os.environ.get("BSC_RPC_URL") or "https://bsc-dataseed.bnbchain.org")
+    ap.add_argument(
+        "--rpc", default=os.environ.get("BSC_RPC_URL") or "https://bsc-dataseed.bnbchain.org"
+    )
     args = ap.parse_args()
 
     w3 = Web3(Web3.HTTPProvider(args.rpc, request_kwargs={"timeout": 60}))
@@ -108,7 +110,12 @@ def main() -> int:
     # unknown is a swap whose total cost is unknown.
     try:
         gas = w3.eth.estimate_gas(
-            {"from": signer.address, "to": router_address, "value": amount_in, "data": call._encode_transaction_data()}
+            {
+                "from": signer.address,
+                "to": router_address,
+                "value": amount_in,
+                "data": call._encode_transaction_data(),
+            }
         )
         print(f"gas        {gas:,} = {gas * gas_price / 1e18:.8f} BNB")
         print(f"TOTAL      {(amount_in + gas * gas_price) / 1e18:.8f} BNB")
