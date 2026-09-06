@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-06T16:24:12+00:00",
+  "generated_at": "2026-09-06T17:24:43+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --mainnet --json",
     "source": "mainnet",
-    "generated_at": "2026-09-06T16:24:12+00:00",
-    "git_sha": "38ad1e0",
+    "generated_at": "2026-09-06T17:24:43+00:00",
+    "git_sha": "60108f1",
     "git_dirty": true
   },
   "mainnet": true,
@@ -14,14 +14,14 @@
     {
       "name": "offline test suite",
       "status": "PASS",
-      "detail": "2385 passed, 26 skipped, 52 deselected, 26 warnings in 487.13s (0:08:07)",
+      "detail": "2390 passed, 26 skipped, 53 deselected, 26 warnings in 440.48s (0:07:20)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "T1-T4 and L1",
       "status": "PASS",
-      "detail": "14 passed, 9 deselected, 1 warning in 13.78s",
+      "detail": "14 passed, 9 deselected, 1 warning in 10.35s",
       "remedy": "",
       "blocking": false
     },
@@ -48,15 +48,15 @@
     },
     {
       "name": "chain and fork suite",
-      "status": "FAIL",
-      "detail": "6 failed, 46 passed, 2411 deselected, 2 warnings in 215.95s (0:03:35)",
-      "remedy": "make fork-diff",
-      "blocking": true
+      "status": "PASS",
+      "detail": "53 passed, 2416 deselected, 2 warnings in 257.24s (0:04:17)",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 210 deselected, 1 warning in 2.90s",
+      "detail": "7 passed, 210 deselected, 1 warning in 2.91s",
       "remedy": "",
       "blocking": false
     },
@@ -215,7 +215,7 @@
     {
       "name": "24h unattended burn-in",
       "status": "UNVERIFIED",
-      "detail": "warden longest unbroken run 0.4h on BSC mainnet, signing refused \u2014 across 2 run(s), 454 rows (file spans 536.2h \u2014 the gate is the run, not the span). Also: warden 0.4h, sentinel 0.2h, grid 0.1h",
+      "detail": "warden longest unbroken run 1.4h on BSC mainnet, signing refused \u2014 across 2 run(s), 1,208 rows (file spans 537.2h \u2014 the gate is the run, not the span). Also: warden 1.4h, sentinel 0.2h, grid 0.1h",
       "remedy": "the gate is 24h unattended",
       "blocking": true
     },
@@ -243,11 +243,11 @@
     }
   ],
   "summary": {
-    "pass": 19,
-    "fail": 1,
+    "pass": 20,
+    "fail": 0,
     "unverified": 1,
     "total": 21
   },
-  "outcome": "NO GO",
-  "exit_code": 1
+  "outcome": "NOT YET",
+  "exit_code": 2
 }
