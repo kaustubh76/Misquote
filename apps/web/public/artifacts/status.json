@@ -1,27 +1,27 @@
 {
-  "generated_at": "2026-09-06T10:49:57+00:00",
+  "generated_at": "2026-09-06T16:24:12+00:00",
   "build": {
-    "command": "python scripts/go_no_go.py --json",
-    "source": "local checks",
-    "generated_at": "2026-09-06T10:49:57+00:00",
-    "git_sha": "82d0063",
-    "git_dirty": false
+    "command": "python scripts/go_no_go.py --mainnet --json",
+    "source": "mainnet",
+    "generated_at": "2026-09-06T16:24:12+00:00",
+    "git_sha": "38ad1e0",
+    "git_dirty": true
   },
-  "mainnet": false,
+  "mainnet": true,
   "fast": false,
   "skipped": [],
   "checks": [
     {
       "name": "offline test suite",
       "status": "PASS",
-      "detail": "2382 passed, 26 skipped, 52 deselected, 26 warnings in 487.42s (0:08:07)",
+      "detail": "2385 passed, 26 skipped, 52 deselected, 26 warnings in 487.13s (0:08:07)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "T1-T4 and L1",
       "status": "PASS",
-      "detail": "14 passed, 9 deselected, 1 warning in 9.10s",
+      "detail": "14 passed, 9 deselected, 1 warning in 13.78s",
       "remedy": "",
       "blocking": false
     },
@@ -48,15 +48,15 @@
     },
     {
       "name": "chain and fork suite",
-      "status": "PASS",
-      "detail": "48 passed, 4 skipped, 2408 deselected, 2 warnings in 229.15s (0:03:49)",
-      "remedy": "",
-      "blocking": false
+      "status": "FAIL",
+      "detail": "6 failed, 46 passed, 2411 deselected, 2 warnings in 215.95s (0:03:35)",
+      "remedy": "make fork-diff",
+      "blocking": true
     },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 210 deselected, 1 warning in 2.86s",
+      "detail": "7 passed, 210 deselected, 1 warning in 2.90s",
       "remedy": "",
       "blocking": false
     },
@@ -70,7 +70,7 @@
     {
       "name": "dry run",
       "status": "PASS",
-      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
+      "detail": "MISQUOTE_DRY_RUN=1",
       "remedy": "",
       "blocking": false
     },
@@ -133,103 +133,121 @@
     {
       "name": "agent identities",
       "status": "PASS",
-      "detail": "4 agents registered on chapel and owned by 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "detail": "5 agents registered on BSC mainnet and owned by 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
       "remedy": "",
       "blocking": false,
       "data": {
         "agents": [
           {
             "agent": "warden",
-            "agent_id": 1927,
-            "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1927",
-            "gas_used": 1056614,
+            "agent_id": 323262,
+            "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323262",
+            "gas_used": 730652,
             "name": "Warden",
-            "register_block": 127277574,
-            "register_tx": "0xd800eff09b59114c86742f80065d53add78d5cc9e7097a0c395d527ee7d711d3",
-            "register_url": "https://testnet.bscscan.com/tx/0xd800eff09b59114c86742f80065d53add78d5cc9e7097a0c395d527ee7d711d3",
-            "token_uri_bytes": 969,
-            "transfer_tx": "0xd9dd7c359a4d3b8185bd3c142c419621b8f98a4f644ee2e403a3ccca07d3c7b2",
-            "transfer_url": "https://testnet.bscscan.com/tx/0xd9dd7c359a4d3b8185bd3c142c419621b8f98a4f644ee2e403a3ccca07d3c7b2",
-            "upgrade_tx": "0x58435ecaaf3d6452ea64796e4d053f166b344bd68dd1bd8e62a2b2994513fb88",
-            "upgrade_url": "https://testnet.bscscan.com/tx/0x58435ecaaf3d6452ea64796e4d053f166b344bd68dd1bd8e62a2b2994513fb88"
+            "register_block": 119185853,
+            "register_tx": "0xb34ee4b8254f92817a84b7dfd6a51ac73e0325c76c857646f93971b2b531c723",
+            "register_url": "https://bscscan.com/tx/0xb34ee4b8254f92817a84b7dfd6a51ac73e0325c76c857646f93971b2b531c723",
+            "token_uri_bytes": 825,
+            "transfer_skipped": null,
+            "transfer_tx": "0xe2bd3bc69bc2252edca26a05ce82aa125c33523b4d95cce058184cf189eba699",
+            "transfer_url": "https://bscscan.com/tx/0xe2bd3bc69bc2252edca26a05ce82aa125c33523b4d95cce058184cf189eba699"
           },
           {
             "agent": "grid",
-            "agent_id": 1928,
-            "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1928",
-            "gas_used": 1016593,
+            "agent_id": 323332,
+            "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323332",
+            "gas_used": 730508,
             "name": "Grid",
-            "register_block": 127277612,
-            "register_tx": "0x2a383102c15ad8c6da427a39e62d907db74b2c6dabd5a1bf3ca17bf9ba4149c4",
-            "register_url": "https://testnet.bscscan.com/tx/0x2a383102c15ad8c6da427a39e62d907db74b2c6dabd5a1bf3ca17bf9ba4149c4",
-            "token_uri_bytes": 953,
-            "transfer_tx": "0x02ad58ba0009175b3eb08fde459a69efe830d19f19373895cbd4bac2fd133053",
-            "transfer_url": "https://testnet.bscscan.com/tx/0x02ad58ba0009175b3eb08fde459a69efe830d19f19373895cbd4bac2fd133053",
-            "upgrade_tx": "0x279d07a18bb32cc2693e4377d0c4130eacdddd6514b4cad3c527aca8784205cf",
-            "upgrade_url": "https://testnet.bscscan.com/tx/0x279d07a18bb32cc2693e4377d0c4130eacdddd6514b4cad3c527aca8784205cf"
+            "register_block": 119187695,
+            "register_tx": "0xc349b70dd0b69f1fb4d7a2639cdab79b5d3b85dd1d4416870699f95676a34d41",
+            "register_url": "https://bscscan.com/tx/0xc349b70dd0b69f1fb4d7a2639cdab79b5d3b85dd1d4416870699f95676a34d41",
+            "token_uri_bytes": 813,
+            "transfer_skipped": "the signer is already the operator",
+            "transfer_tx": null,
+            "transfer_url": null
           },
           {
             "agent": "sentinel",
-            "agent_id": 1929,
-            "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1929",
-            "gas_used": 1039562,
+            "agent_id": 323333,
+            "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323333",
+            "gas_used": 713600,
             "name": "Sentinel",
-            "register_block": 127277651,
-            "register_tx": "0x29a6d8ec79a439283968be97e96ee8e276d629da78d3c0832f6b7fd9bd0b2405",
-            "register_url": "https://testnet.bscscan.com/tx/0x29a6d8ec79a439283968be97e96ee8e276d629da78d3c0832f6b7fd9bd0b2405",
-            "token_uri_bytes": 969,
-            "transfer_tx": "0x201a04e7250846179e8d448a357e2a4dd512c9e80585f7f28da1b5a6a757906c",
-            "transfer_url": "https://testnet.bscscan.com/tx/0x201a04e7250846179e8d448a357e2a4dd512c9e80585f7f28da1b5a6a757906c",
-            "upgrade_tx": "0x3b0d6458e43eeacaed6616bc5d84ecc6393714856732632f5f9fa749b2a36c24",
-            "upgrade_url": "https://testnet.bscscan.com/tx/0x3b0d6458e43eeacaed6616bc5d84ecc6393714856732632f5f9fa749b2a36c24"
+            "register_block": 119187704,
+            "register_tx": "0xf13eb64bfb997483088538eca39b3462ffe7d8107ba74f5d0c9f6a1fbda291f0",
+            "register_url": "https://bscscan.com/tx/0xf13eb64bfb997483088538eca39b3462ffe7d8107ba74f5d0c9f6a1fbda291f0",
+            "token_uri_bytes": 829,
+            "transfer_skipped": "the signer is already the operator",
+            "transfer_tx": null,
+            "transfer_url": null
           },
           {
             "agent": "router",
-            "agent_id": 1930,
-            "agent_url": "https://testnet.bscscan.com/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=1930",
-            "gas_used": 1039370,
+            "agent_id": 323334,
+            "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=323334",
+            "gas_used": 713504,
             "name": "Router",
-            "register_block": 127277677,
-            "register_tx": "0x4f514f821fa18fe64da658b670da317a4f6cc03613191da81841e289605f0737",
-            "register_url": "https://testnet.bscscan.com/tx/0x4f514f821fa18fe64da658b670da317a4f6cc03613191da81841e289605f0737",
-            "token_uri_bytes": 961,
-            "transfer_tx": "0xaf82b3d06db593fe763bf7ceb62d3eb25d11e05e8c93ef47b12caba55dd166d2",
-            "transfer_url": "https://testnet.bscscan.com/tx/0xaf82b3d06db593fe763bf7ceb62d3eb25d11e05e8c93ef47b12caba55dd166d2",
-            "upgrade_tx": "0x10b3e462f37bf37fca0bca6f4207b7bb44fd0540dec389446463a17b228bb3c6",
-            "upgrade_url": "https://testnet.bscscan.com/tx/0x10b3e462f37bf37fca0bca6f4207b7bb44fd0540dec389446463a17b228bb3c6"
+            "register_block": 119187712,
+            "register_tx": "0xf96be9efe12b0b37dcf490d0044b0b73f916eb3ea929aa574a47902a8b40d220",
+            "register_url": "https://bscscan.com/tx/0xf96be9efe12b0b37dcf490d0044b0b73f916eb3ea929aa574a47902a8b40d220",
+            "token_uri_bytes": 821,
+            "transfer_skipped": "the signer is already the operator",
+            "transfer_tx": null,
+            "transfer_url": null
+          },
+          {
+            "agent": "warden",
+            "agent_id": 331592,
+            "agent_url": "https://bscscan.com/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=331592",
+            "gas_used": 713552,
+            "name": "Warden",
+            "register_block": 119663395,
+            "register_tx": "0xabb7c13404642c98d826fbe29ef65f7c0e6e029db0ddc30906a421e62d0a2abd",
+            "register_url": "https://bscscan.com/tx/0xabb7c13404642c98d826fbe29ef65f7c0e6e029db0ddc30906a421e62d0a2abd",
+            "token_uri_bytes": 825,
+            "transfer_skipped": "the signer is already the operator",
+            "transfer_tx": null,
+            "transfer_url": null
           }
         ],
         "owner": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
       }
     },
     {
-      "name": "24h testnet burn-in",
+      "name": "24h unattended burn-in",
       "status": "UNVERIFIED",
-      "detail": "warden journal records chain(s) [56], not chapel only",
-      "remedy": "this gate is the testnet burn-in; run it with --chain 97",
+      "detail": "warden longest unbroken run 0.4h on BSC mainnet, signing refused \u2014 across 2 run(s), 454 rows (file spans 536.2h \u2014 the gate is the run, not the span). Also: warden 0.4h, sentinel 0.2h, grid 0.1h",
+      "remedy": "the gate is 24h unattended",
       "blocking": true
     },
     {
       "name": "signer",
-      "status": "UNVERIFIED",
-      "detail": "not checked \u2014 this run is not --mainnet",
-      "remedy": "re-run with --mainnet to check the signing key",
-      "blocking": true
+      "status": "PASS",
+      "detail": "the key signs for the declared operator 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "remedy": "",
+      "blocking": false,
+      "data": {
+        "signing_for": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+        "role": "operator",
+        "declared": {
+          "operator": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
+        },
+        "operator": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
+      }
     },
     {
       "name": "position cap",
-      "status": "UNVERIFIED",
-      "detail": "not checked \u2014 this run is not --mainnet",
-      "remedy": "re-run with --mainnet to check the position cap",
-      "blocking": true
+      "status": "PASS",
+      "detail": "1 in quote units",
+      "remedy": "",
+      "blocking": false
     }
   ],
   "summary": {
-    "pass": 18,
-    "fail": 0,
-    "unverified": 3,
+    "pass": 19,
+    "fail": 1,
+    "unverified": 1,
     "total": 21
   },
-  "outcome": "NOT YET",
-  "exit_code": 2
+  "outcome": "NO GO",
+  "exit_code": 1
 }

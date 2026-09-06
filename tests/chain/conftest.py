@@ -131,7 +131,15 @@ def manager(tmp_path_factory):
     # whole thirteen-test module passed or errored on how busy BSC happened to be
     # a second earlier. Demonstrated with `anvil_setNextBlockBaseFeePerGas`.
     signer = BscSigner(w3, ANVIL_KEY, kill_file=kill_file, max_gas_price_wei=0)
-    pm = PositionManager(signer, META, MAINNET)
+    # No position cap here, for the same reason there is no gas ceiling: the
+    # capital is 5,000 impersonated WBNB and a million impersonated USDT, and a
+    # cap exists to bound a real wallet. `MISQUOTE_POSITION_CAP_QUOTE=1` in a
+    # real `.env` — one dollar, which is this deployment's actual ceiling — made
+    # three of these fail with `PositionCapExceeded: this mint would hold
+    # 134.184298 token1`. That is the guard working; it is simply not the guard
+    # this module is about. `float("inf")` rather than a large number, because a
+    # magic constant here would be a second cap to keep in step with the first.
+    pm = PositionManager(signer, META, MAINNET, position_cap_quote=float("inf"))
 
     pm.ensure_allowance(WBNB_MAINNET, 2**200)
     pm.ensure_allowance(USDT_MAINNET, 2**200)

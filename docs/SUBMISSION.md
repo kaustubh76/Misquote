@@ -95,8 +95,22 @@ BSC_RPC_URL=https://bsc-dataseed.bnbchain.org \
   uv run python scripts/hire_mainnet.py --settle 56718
 ```
 
-If it is missed, `claimRefund` recovers the 0.1 token after expiry — the same
-path job 56681 took, already proven.
+If it is missed, `claimRefund` recovers the 0.1 token after **14 Sep 08:00
+UTC**:
+
+```
+MISQUOTE_DRY_RUN=0 uv run python scripts/claim_refund.py --job 56718
+```
+
+That used to read "the same path job 56681 took, already proven", which was a
+weaker claim than it looked. 56681 was funded and never submitted; 56718 has
+been *delivered into*, and whether this deployment lets a client reclaim a
+budget after a delivery nobody decided on is a different question about the
+contract. It is rehearsed rather than assumed now —
+`vetting/identity/refund-fork-56718.json`, a fork of mainnet at the real block
+with only the clock moved: the claim is **refused** before expiry, and after it
+the job goes 2 → 5 and the full 0.1 comes back.
+
 
 ## Open before submission
 

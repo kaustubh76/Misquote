@@ -1,0 +1,31 @@
+{
+  "balance_after": 205790336763253403,
+  "balance_before": 105790336763253403,
+  "budget": 100000000000000000,
+  "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+  "expires_at": 1789372825,
+  "expires_at_utc": "2026-09-14 08:00 UTC",
+  "gas_spent_wei": 75708000000000,
+  "job_id": 56718,
+  "network": "fork",
+  "ran": true,
+  "recovered": 100000000000000000,
+  "refunded": true,
+  "status_after": 5,
+  "status_before": 2,
+  "transactions": [
+    {
+      "call": "claimRefund",
+      "error": "ContractCustomError: ('0x8e78f0cb', '0x8e78f0cb')",
+      "ok": false,
+      "when": "before expiry"
+    },
+    {
+      "call": "claimRefund",
+      "gas_used": 75708,
+      "ok": true,
+      "tx": "b3656518cea0be546792ccf56e5966d204b12b9bb2971253f8f6e1081d77f062",
+      "when": "after expiry"
+    }
+  ]
+}

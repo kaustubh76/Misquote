@@ -150,11 +150,17 @@ def test_recorded_pool_still_matches_the_chain(pool_ref: PoolRef) -> None:
 
     from web3 import Web3
 
-    rpc = os.environ.get(
-        "BSC_RPC_URL" if chain_id == BSC_MAINNET else "BSC_TESTNET_RPC_URL",
+    # `or`, not `os.environ.get(name, default)`. `.env` carries
+    # `BSC_TESTNET_RPC_URL=` with nothing after it — the ordinary way to say "use
+    # the public endpoints" — and a set-but-empty variable is a value, so the
+    # default never applied and this failed with `Invalid URL ''`. It surfaced
+    # the first time the gate was run with `.env` sourced, which is the first
+    # time anything ran `--mainnet`. `indexer/reader.py::connect` had already got
+    # this right, by filtering falsy candidates.
+    rpc = os.environ.get("BSC_RPC_URL" if chain_id == BSC_MAINNET else "BSC_TESTNET_RPC_URL") or (
         "https://bsc-rpc.publicnode.com"
         if chain_id == BSC_MAINNET
-        else "https://bsc-testnet-rpc.publicnode.com",
+        else "https://bsc-testnet-rpc.publicnode.com"
     )
     w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 15}))
     if w3.eth.chain_id != chain_id:
