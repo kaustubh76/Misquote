@@ -61,13 +61,19 @@ The quote page arrives with the answer already on screen.
 reclaimed"** → `/registry#escrow`.
 
 > "This isn't only replays. We escrowed a tenth of a token into a live ERC-8183
-> job on BNB Smart Chain mainnet, and reclaimed it — both mined, both linked to
-> BscScan here.
+> job on BNB Smart Chain mainnet and reclaimed it — both mined, both linked to
+> BscScan here. Then we did it again and got further: job 56718 is funded and
+> delivered into, with `submit` mined on mainnet.
 >
-> Releasing it is what didn't happen. Submit needs an expiry beyond the
-> seven-day dispute window and we asked for twelve hours. We measured that
-> boundary across eight fork runs before we found the name of the error — and
-> then found the vendor's own SDK enforcing exactly the same rule."
+> The first one couldn't reach submit, and the reason is the interesting part.
+> It needs an expiry beyond the seven-day dispute window and we asked for
+> twelve hours. We measured that boundary across eight fork runs before we found
+> the name of the error — and then found the vendor's own SDK enforcing exactly
+> the same rule.
+>
+> What's left is settle, and it's a wait: the dispute window closes on the
+> thirteenth. If we miss it the budget is still recoverable, which we rehearsed
+> on a fork rather than assumed."
 
 *Hover a BscScan link so the URL shows in the status bar.*
 
@@ -76,14 +82,22 @@ reclaimed"** → `/registry#escrow`.
 **Screen:** `/status`.
 
 > "And this is why I'd trust it. A go/no-go checklist that executes — not a
-> document, a program. It gates broadcasting real money on mainnet, and it
-> refuses to go green on anything nobody has checked.
+> document, a program. Twenty-one gates, run against mainnet, and it refuses to
+> go green on anything nobody has checked.
 >
-> Right now it says NOT YET. Three gates are unverified, and below them is a
-> ledger of everything this project advertises and does not have.
+> Below it is a ledger of everything this project advertises and does not have —
+> including the one that matters most here: this has never signed a trade with
+> real money, and the checklist is what stands in front of that.
 >
-> The checklist says not yet — and that's the point. The only thing misquoted
-> here is the name. Audit me."
+> The only thing misquoted here is the name. Audit me."
+
+**Read the verdict off the page rather than from this script.** It has been
+NOT YET for the whole of this project's life and the number of ambers has been
+falling: three, then one — a 24h unattended burn-in on BSC mainnet that was
+still counting when this was written. Say what the page says when you record.
+If every gate is green, the sentence is *"twenty-one of twenty-one, and the
+not-built ledger is still five items long"* — the ledger is the honest part
+either way, and it is what the shot ends on.
 
 *End on the not-built ledger, not on a logo.*
 
