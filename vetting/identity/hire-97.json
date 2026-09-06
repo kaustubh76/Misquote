@@ -38,7 +38,8 @@
     "createJob",
     "setBudget"
   ],
-  "not_escrowed_because": "This signer holds none of the payment token, and nothing has been spent to change that: it is owner-minted with no faucet, but it **trades on PancakeSwap** against USDT at about 0.9996 \u2014 so the escrow is a purchase away rather than out of reach. `fund()` also refuses a zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and `setBudget` are real transactions on a real deployment; `fund` is not among them, and this field is why rather than an omission. The funded flow runs to settlement on a mainnet fork \u2014 see the fork proof below.",
+  "not_escrowed_because": "Superseded. This signer held none of the payment token and this said nothing had been spent to change that. Something was: the operator bought 0.2058 of it on PancakeSwap v2 (0x63a1b95c\u202678f2) and escrowed 0.1 into job 56681 on mainnet. Chapel still did not escrow, which is what this record is about.",
+  "not_escrowed_because_was": "This signer holds none of the payment token, and nothing has been spent to change that: it is owner-minted with no faucet, but it **trades on PancakeSwap** against USDT at about 0.9996 \u2014 so the escrow is a purchase away rather than out of reach. `fund()` also refuses a zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and `setBudget` are real transactions on a real deployment; `fund` is not among them, and this field is why rather than an omission. The funded flow runs to settlement on a mainnet fork \u2014 see the fork proof below.",
   "reverted": [
     "registerJob",
     "fund"

@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 333100,
-      "ours_at_block": 119905506,
+      "ours": 336621,
+      "ours_at_block": 120265996,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 332963,
-      "total_pages": 16649,
+      "total": 336484,
+      "total_pages": 16825,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-04T10:49:44+00:00",
+    "generated_at": "2026-09-06T07:54:18+00:00",
     "git_dirty": true,
-    "git_sha": "02f71b8",
+    "git_sha": "ef6fda9",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -208,7 +208,8 @@
           "tx": "c15e49fff4dc0204eebb195e0205da50e66981ca4b05313014f08caaf58527af"
         }
       ],
-      "why_not_on_mainnet": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
+      "why_not_on_mainnet": "Superseded, and by our own transaction. This said the payment token was owner-minted with no faucet, so no wallet here could hold any. It trades on PancakeSwap: swap 0x63a1b95c\u202678f2 bought 0.2058 of it for 0.0003 BNB, and job 56681 was escrowed with it on mainnet. What this fork run proves is still the flow; what it no longer explains is why the flow had not been run.",
+      "why_not_on_mainnet_was": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
     },
     "mainnet_proof": {
       "addresses": {
@@ -343,7 +344,8 @@
         "createJob",
         "setBudget"
       ],
-      "not_escrowed_because": "This signer holds none of the payment token, and nothing has been spent to change that: it is owner-minted with no faucet, but it **trades on PancakeSwap** against USDT at about 0.9996 \u2014 so the escrow is a purchase away rather than out of reach. `fund()` also refuses a zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and `setBudget` are real transactions on a real deployment; `fund` is not among them, and this field is why rather than an omission. The funded flow runs to settlement on a mainnet fork \u2014 see the fork proof below.",
+      "not_escrowed_because": "Superseded. This signer held none of the payment token and this said nothing had been spent to change that. Something was: the operator bought 0.2058 of it on PancakeSwap v2 (0x63a1b95c\u202678f2) and escrowed 0.1 into job 56681 on mainnet. Chapel still did not escrow, which is what this record is about.",
+      "not_escrowed_because_was": "This signer holds none of the payment token, and nothing has been spent to change that: it is owner-minted with no faucet, but it **trades on PancakeSwap** against USDT at about 0.9996 \u2014 so the escrow is a purchase away rather than out of reach. `fund()` also refuses a zero budget outright (`ZeroBudget()`, `0xff97b861`). `createJob` and `setBudget` are real transactions on a real deployment; `fund` is not among them, and this field is why rather than an omission. The funded flow runs to settlement on a mainnet fork \u2014 see the fork proof below.",
       "ran": true,
       "reason": null,
       "record": "vetting/identity/hire-97.json",
@@ -1355,7 +1357,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 78.3,
+    "age_hours": 123.4,
     "agents": [
       {
         "agent": "warden",

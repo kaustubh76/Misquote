@@ -1164,6 +1164,14 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.fork_proof.job_id": "registry/view.tsx",
     "hire_flow.fork_proof.escrowed_on_mainnet": "registry/view.tsx",
     "hire_flow.fork_proof.why_not_on_mainnet": "registry/view.tsx",
+    # The claims these two records used to make, kept beside the ones that
+    # replaced them. Both said the payment token could not be obtained; a
+    # PancakeSwap swap falsified both, and deleting the sentence would erase
+    # the correction along with the error. Carried, not rendered — a reader
+    # wanting the history has the record; a page showing both would be showing
+    # a retracted claim at the same weight as a true one.
+    "hire_flow.fork_proof.why_not_on_mainnet_was": "",
+    "hire_flow.proof.not_escrowed_because_was": "",
     "hire_flow.fork_proof.transactions": "registry/view.tsx",
     # The fork's own bookkeeping, carried and not rendered for the same reason
     # the chapel run's is.

@@ -291,6 +291,25 @@ export function VenueView({
                 document written for them. It had lived in the repository,
                 referenced from a single line of a single file, which is a
                 findings list that finds nobody. */}
+            {/* The one transaction this project has sent to PancakeSwap.
+                It is a v2 swap, not a position — and saying so is the point:
+                every other mainnet claim here carries a hash, and the one on
+                the venue the whole project is built around did not, because
+                nobody wrote it down. */}
+            <p className="mt-0 mb-3 max-w-[70ch] text-sm text-dim">
+              We have sent exactly one transaction to PancakeSwap:{" "}
+              <a
+                href="https://bscscan.com/tx/0x63a1b95c219806110e3970794df9a537e677272a1b9ed8992fa82d0dbe0878f2"
+                target="_blank"
+                rel="noreferrer"
+              >
+                a v2 swap
+              </a>{" "}
+              that bought the ERC-8183 payment token this project had recorded as
+              unobtainable. Not a liquidity position &mdash; nothing here has
+              minted one on mainnet, and that is on the ledger rather than in a
+              footnote.
+            </p>
             <p className="mt-0 mb-5 max-w-[70ch] text-sm text-dim">
               These are written up as{" "}
               <a

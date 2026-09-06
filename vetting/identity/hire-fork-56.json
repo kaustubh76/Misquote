@@ -104,5 +104,6 @@
       "tx": "c15e49fff4dc0204eebb195e0205da50e66981ca4b05313014f08caaf58527af"
     }
   ],
-  "why_not_on_mainnet": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
+  "why_not_on_mainnet": "Superseded, and by our own transaction. This said the payment token was owner-minted with no faucet, so no wallet here could hold any. It trades on PancakeSwap: swap 0x63a1b95c\u202678f2 bought 0.2058 of it for 0.0003 BNB, and job 56681 was escrowed with it on mainnet. What this fork run proves is still the flow; what it no longer explains is why the flow had not been run.",
+  "why_not_on_mainnet_was": "The payment token is owner-minted and the owner holds none to sell; there is no faucet among its selectors. A fork can impersonate that owner and a wallet cannot buy from it, so what is proven here is the flow, never the funding."
 }

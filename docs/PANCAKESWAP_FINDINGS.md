@@ -16,6 +16,14 @@ next person will get them wrong the same way.
 | WBNB/USDT 0.25% | `0x1401ff943D08a7E098328C1d3a9d388923B115D2` | 2500 | 50 | **3200** |
 | TSLAx/USDT 0.25% | `0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492` | 2500 | 50 | **3200** |
 
+**What we have actually sent you.** One transaction: a v2
+`swapExactETHForTokens`,
+[`0x63a1b95c…78f2`](https://bscscan.com/tx/0x63a1b95c219806110e3970794df9a537e677272a1b9ed8992fa82d0dbe0878f2),
+0.0003 BNB for 0.2058 of an ERC-8183 payment token, block 119,322,218. No
+liquidity position; nothing here has minted one on mainnet. The findings below
+come from reading your contracts and replaying your pools, not from providing
+into them.
+
 ---
 
 ## 1. `feeProtocol` is `slot0[2]`, and we read `slot0[5]` for weeks
