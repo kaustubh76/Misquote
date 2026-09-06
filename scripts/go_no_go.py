@@ -991,6 +991,12 @@ def check_signer_configured(mainnet: bool) -> Check:
     )
 
 
+#: The two identity records, in the order this gate prefers them. Mainnet first
+#: because it is the stronger claim and the one TermiX's explorer indexes.
+IDENTITY_MAINNET = REPO / "vetting" / "identity" / "56.json"
+IDENTITY_CHAPEL = REPO / "vetting" / "identity" / "97.json"
+
+
 def check_identities_registered() -> Check:
     """The README's four-agent claim, as a check that runs.
 
@@ -1003,15 +1009,28 @@ def check_identities_registered() -> Check:
     a checklist that opened four RPC connections would be a checklist people
     stop running. What it does insist on is that the record's own verdict came
     from those re-reads: a file whose checks are empty is UNVERIFIED, not PASS.
+
+    **Mainnet first.** This read `97.json` and nothing else, which was right when
+    chapel was the only place the four agents existed. `56.json` records the same
+    four on BSC mainnet with twenty-one read-backs, all passing, owned by the
+    same address — and it is the registration TermiX's explorer actually indexes,
+    since that indexes mainnet mints. Preferring it is a stronger claim from the
+    same shape of evidence, not a looser one, and the detail names the chain so
+    which was read is never in doubt.
     """
-    record = REPO / "vetting" / "identity" / "97.json"
-    if not record.exists():
+    found = next(
+        ((c, r) for c, r in ((56, IDENTITY_MAINNET), (97, IDENTITY_CHAPEL)) if r.exists()),
+        None,
+    )
+    if found is None:
         return Check(
             "agent identities",
             UNVERIFIED,
             "no agent has been registered on chain",
-            "MISQUOTE_DRY_RUN=0 uv run python scripts/register_identity.py --chain 97 --broadcast",
+            "MISQUOTE_DRY_RUN=0 uv run python scripts/register_identity.py --broadcast",
         )
+    chain, record = found
+    where = CHAIN_NAMES.get(chain, f"chain {chain}")
 
     try:
         payload = json.loads(record.read_text())
@@ -1027,7 +1046,7 @@ def check_identities_registered() -> Check:
             "agent identities",
             UNVERIFIED,
             f"{len(agents)} registered, and nothing has been read back from chain",
-            "uv run python scripts/register_identity.py --chain 97 --verify-only",
+            f"uv run python scripts/register_identity.py --chain {chain} --verify-only",
         )
 
     # Four, because four is what the marketplace lists and what the README
@@ -1060,14 +1079,14 @@ def check_identities_registered() -> Check:
             "agent identities",
             UNVERIFIED,
             f"{len(unknown)} read-back(s) could not be made: {short(unknown[0])}",
-            "uv run python scripts/register_identity.py --chain 97 --verify-only",
+            f"uv run python scripts/register_identity.py --chain {chain} --verify-only",
             data={"agents": agents, "owner": owner},
         )
 
     return Check(
         "agent identities",
         PASS,
-        f"{len(agents)} agents registered on chapel and owned by {owner}",
+        f"{len(agents)} agents registered on {where} and owned by {owner}",
         data={"agents": agents, "owner": owner},
     )
 
@@ -1113,6 +1132,13 @@ BURN_IN_MAX_GAP_S = 15 * 60
 #: names the Warden and nothing else, so the others are reported and not gated —
 #: but they are *reported*, which is the half that was missing.
 BURN_IN_AGENT = "warden"
+
+#: Named once. It was `24h testnet burn-in`, and the word that changed is the
+#: one this project stopped being able to honour — see `check_burn_in`.
+BURN_IN_GATE = "24h unattended burn-in"
+
+#: How the detail says where a run happened. Short, because it goes on a card.
+CHAIN_NAMES = {56: "BSC mainnet", 97: "chapel"}
 
 
 def unbroken_runs(
@@ -1163,6 +1189,11 @@ def _journal_summary(path: Path) -> dict[str, Any]:
         "hours": longest / 3600,
         "span_hours": ((max(stamps) - min(stamps)) / 3600) if stamps else 0.0,
         "chains": chains,
+        # `run_start` records whether the process could spend. A burn-in that
+        # could and one that could not are different claims, and the gate has to
+        # be able to say which it is looking at rather than implying the
+        # stronger one by not mentioning it.
+        "can_sign": {r["can_sign"] for r in rows if isinstance(r.get("can_sign"), bool)},
         "errors": sum(1 for r in rows if r.get("event") == "decide_error"),
         "reconciled": any("reconciled" in r for r in rows if r.get("event") == "run_start"),
     }
@@ -1190,14 +1221,34 @@ def check_burn_in() -> Check:
     days' and passed"*. The lesson was recorded there as a fact about the tape
     rather than as a habit about time, so it did not generalise. Both numbers are
     now the longest unbroken run.
+
+    ## Why it is no longer the *testnet* burn-in
+
+    It required `chains == {97}`, which made it a gate this project could never
+    pass once it decided to spend its remaining days on mainnet. A gate that
+    cannot pass is not a standard, and one relaxed to let a run through is not
+    one either — so the chapel requirement is **replaced rather than dropped**:
+
+    - no `chain_id` anywhere is UNVERIFIED, where it used to be a footnote on a
+      pass. That was the "it never checked the chain" defect surviving in the one
+      case where the journal cannot say;
+    - **more than one chain is UNVERIFIED.** Not hypothetical: `warden.jsonl`
+      already holds chain-56 rows, so any chapel run appended to it produces a
+      single "unbroken" stretch spanning two deployments;
+    - and the detail always names the chain **and whether the run could spend**,
+      from `run_start`'s `can_sign`. On mainnet `--broadcast` is refused in code,
+      so a mainnet burn-in is a day of reading and deciding with signing
+      impossible — a narrower claim than a chapel run that could sign, and the
+      gate has to say which one it is rather than leaving a green tick to imply
+      the wider one.
     """
     journal = Path(os.environ.get("MISQUOTE_JOURNAL_DIR", REPO / "data" / "journal"))
     if not journal.is_dir():
         return Check(
-            "24h testnet burn-in",
+            BURN_IN_GATE,
             UNVERIFIED,
             "no journal directory from a burn-in run",
-            "run the agent on testnet for 24h; the journal is the evidence",
+            "run the agent for 24h; the journal is the evidence",
         )
 
     summaries = sorted(
@@ -1205,53 +1256,72 @@ def check_burn_in() -> Check:
     )
     if not summaries:
         return Check(
-            "24h testnet burn-in",
+            BURN_IN_GATE,
             UNVERIFIED,
             "no journal from a burn-in run",
-            "run the agent on testnet for 24h; the journal is the evidence",
+            "run the agent for 24h; the journal is the evidence",
         )
 
     others = ", ".join(f"{s['agent']} {s['hours']:.1f}h" for s in summaries if s["hours"])
     mine = next((s for s in summaries if s["agent"] == BURN_IN_AGENT), None)
     if mine is None:
         return Check(
-            "24h testnet burn-in",
+            BURN_IN_GATE,
             UNVERIFIED,
             f"no {BURN_IN_AGENT} journal; found {others or 'nothing timestamped'}",
             f"the gate is the {BURN_IN_AGENT}'s — spec section 10 names it",
         )
 
     if not mine["rows"] or not mine["hours"]:
+        return Check(BURN_IN_GATE, UNVERIFIED, f"{BURN_IN_AGENT} journal has no timestamped rows")
+
+    if not mine["chains"]:
         return Check(
-            "24h testnet burn-in", UNVERIFIED, f"{BURN_IN_AGENT} journal has no timestamped rows"
+            BURN_IN_GATE,
+            UNVERIFIED,
+            f"{BURN_IN_AGENT} journal records no chain_id, so which network it ran "
+            f"against is unknown",
+            "re-run the agent; `run_start` records the chain",
         )
 
-    # A mainnet journal is not a testnet burn-in, whatever its length.
-    if mine["chains"] and mine["chains"] != {97}:
+    # One run, one deployment. `warden.jsonl` is appended to, so a chapel run
+    # after a mainnet one leaves a stretch with no gap in it that is nonetheless
+    # two different chains — and the hours would be counted across both.
+    if len(mine["chains"]) > 1:
         return Check(
-            "24h testnet burn-in",
+            BURN_IN_GATE,
             UNVERIFIED,
-            f"{BURN_IN_AGENT} journal records chain(s) {sorted(mine['chains'])}, not chapel only",
-            "this gate is the testnet burn-in; run it with --chain 97",
+            f"{BURN_IN_AGENT} journal mixes chain(s) {sorted(mine['chains'])}; "
+            f"an unbroken run across two deployments is not one run",
+            "burn in on one chain, into a journal that holds only that run",
         )
+
+    chain = next(iter(mine["chains"]))
+    where = CHAIN_NAMES.get(chain, f"chain {chain}")
+    # `True` in the set means at least one run could spend. Absent means the
+    # journal predates the field, which is not the same as "it could not".
+    if mine["can_sign"] == {False}:
+        spending = "signing refused"
+    elif True in mine["can_sign"]:
+        spending = "able to sign"
+    else:
+        spending = "signing capability unrecorded"
 
     detail = (
-        f"{BURN_IN_AGENT} longest unbroken run {mine['hours']:.1f}h "
-        f"across {mine['runs']} run(s), {mine['rows']:,} rows"
+        f"{BURN_IN_AGENT} longest unbroken run {mine['hours']:.1f}h on {where}, "
+        f"{spending} — across {mine['runs']} run(s), {mine['rows']:,} rows"
     )
     if mine["span_hours"] - mine["hours"] > 1:
         # The number the old gate would have reported, kept beside the real one.
         detail += f" (file spans {mine['span_hours']:.1f}h — the gate is the run, not the span)"
     if not mine["reconciled"]:
         detail += "; no run_start records `reconciled`, so this journal predates the boot reconcile"
-    if not mine["chains"]:
-        detail += "; no chain_id recorded, so which network is unknown"
     if others and others != f"{BURN_IN_AGENT} {mine['hours']:.1f}h":
         detail += f". Also: {others}"
 
     if mine["hours"] < 24:
-        return Check("24h testnet burn-in", UNVERIFIED, detail, "the gate is 24h unattended")
-    return Check("24h testnet burn-in", PASS, f"{detail}, {mine['errors']} read errors")
+        return Check(BURN_IN_GATE, UNVERIFIED, detail, "the gate is 24h unattended")
+    return Check(BURN_IN_GATE, PASS, f"{detail}, {mine['errors']} read errors")
 
 
 # --- reporting -------------------------------------------------------------

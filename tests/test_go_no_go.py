@@ -635,8 +635,19 @@ def _journal(tmp_path, monkeypatch, files: dict[str, list[dict]]):
     return gng
 
 
-def _run(start: int, hours: float, *, chain_id: int = 97, interval: int = 5) -> list[dict]:
-    """One continuous run: a `run_start` and a decision every `interval` seconds."""
+def _run(
+    start: int,
+    hours: float,
+    *,
+    chain_id: int = 97,
+    interval: int = 5,
+    can_sign: bool | None = False,
+) -> list[dict]:
+    """One continuous run: a `run_start` and a decision every `interval` seconds.
+
+    `can_sign=None` writes no such field, which is what a journal from before
+    the entrypoint recorded it looks like.
+    """
     rows = [
         {
             "event": "run_start",
@@ -644,6 +655,7 @@ def _run(start: int, hours: float, *, chain_id: int = 97, interval: int = 5) -> 
             "chain_id": chain_id,
             "reconciled": True,
             "ts": start,
+            **({} if can_sign is None else {"can_sign": can_sign}),
         }
     ]
     for offset in range(0, int(hours * 3600), interval):
@@ -687,18 +699,66 @@ def test_one_unbroken_day_does_pass(tmp_path, monkeypatch) -> None:
     assert "1 run(s)" in check.detail
 
 
-def test_a_mainnet_journal_is_not_a_testnet_burn_in(tmp_path, monkeypatch) -> None:
-    """The gate is named `24h testnet burn-in` and never looked at the chain.
+def test_a_mainnet_day_is_a_burn_in_and_the_detail_says_what_kind(tmp_path, monkeypatch) -> None:
+    """The requirement that was `chains == {97}`, and what replaced it.
 
-    This is not hypothetical: the journal committed to this repository records
-    `chain_id: 56`. A 24-hour version of it would have passed a gate whose name
-    says testnet.
+    That gate could not be passed by a project spending its last days on
+    mainnet, and a gate that cannot pass is not a standard. But relaxing it to
+    "any chain" would drop a real distinction, so the distinction moved into the
+    detail: on mainnet `--broadcast` is refused in `agents/warden/__main__.py`,
+    so a mainnet burn-in is a day of reading and deciding with signing
+    impossible. Narrower than a chapel run that could sign, and said rather than
+    implied by a green tick.
     """
     gng = _journal(tmp_path, monkeypatch, {"warden": _run(0, 24.5, chain_id=56)})
     check = gng.check_burn_in()
 
-    assert check.status == gng.UNVERIFIED
-    assert "not chapel only" in check.detail
+    assert check.status == gng.PASS, check.detail
+    assert "on BSC mainnet" in check.detail
+    assert "signing refused" in check.detail
+
+
+def test_a_journal_that_mixes_chains_is_not_one_run(tmp_path, monkeypatch) -> None:
+    """The discriminator kept in place of the one removed.
+
+    Not hypothetical: `data/journal/warden.jsonl` in this repository already
+    holds chain-56 rows, so a chapel run appended to it leaves a stretch with no
+    gap in it that is nonetheless two deployments — and the hours would be
+    counted across both as though one process had survived them.
+    """
+    rows = _run(0, 12.5, chain_id=56) + _run(12 * 3600 + 1900, 12.5, chain_id=97)
+    gng = _journal(tmp_path, monkeypatch, {"warden": rows})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert "mixes chain(s) [56, 97]" in check.detail
+
+
+def test_a_run_that_could_spend_is_not_reported_as_one_that_could_not(
+    tmp_path, monkeypatch
+) -> None:
+    """Green means 24h; the detail says how much was at risk while it ran."""
+    gng = _journal(tmp_path, monkeypatch, {"warden": _run(0, 24.5, chain_id=97, can_sign=True)})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.PASS, check.detail
+    assert "on chapel" in check.detail
+    assert "able to sign" in check.detail
+
+
+def test_a_journal_with_no_chain_id_cannot_say_where_it_ran(tmp_path, monkeypatch) -> None:
+    """This used to be a footnote appended to a **pass**.
+
+    "It never checked the chain" was the defect; a gate that notes the absence
+    of a chain_id in prose and then goes green is that defect surviving in the
+    one case where the journal cannot answer.
+    """
+    rows = [{k: v for k, v in row.items() if k != "chain_id"} for row in _run(0, 24.5)]
+    gng = _journal(tmp_path, monkeypatch, {"warden": rows})
+    check = gng.check_burn_in()
+
+    assert check.status == gng.UNVERIFIED, check.detail
+    assert "no chain_id" in check.detail
 
 
 def test_other_agents_journals_are_visible_rather_than_ignored(tmp_path, monkeypatch) -> None:

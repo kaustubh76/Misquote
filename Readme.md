@@ -325,14 +325,23 @@ Two that are worth knowing before you start:
 Run: `make artifacts` (every JSON the site reads) · `make replay-tests` ·
 `make web` · `make status` — Makefile targets are part of Phase 1 deliverables.
 
-`make warden ENV=testnet` is **not** in that list any more. It pointed at
-`misquote.agents.warden`, which has no `__main__.py`, so the one command that
-runs the agent had never worked; the same was true of `make indexer`'s second
-line and of `make tearsheet`. `make tearsheet` now works. The other two are
-recorded in `packages/misquote/tearsheet/ledger.py` and render on
-[`/status`](apps/web/src/app/status/page.tsx) as not built, and
-`tests/web/test_ledger.py` asserts every `python -m` target in the Makefile
-actually imports and is executable.
+`make warden CHAIN=56` runs the agent against BSC mainnet. It **records and
+cannot spend**: `--broadcast` is refused on chain 56 in
+`agents/warden/__main__.py`, in code rather than by convention, so the 24-hour
+burn-in behind the `/status` gate is a day of reading and deciding with signing
+impossible.
+
+Two corrections live in that sentence. This paragraph used to say the command
+had never worked, because `misquote.agents.warden` had no `__main__.py` — it has
+one, and `tests/web/test_ledger.py` asserts every `python -m` target in the
+Makefile imports and is executable. And the command itself was published
+everywhere as `make warden ENV=testnet`: `ENV` was a Makefile variable
+referenced by nothing, while the target passes `--chain $(CHAIN)`, which
+defaults to 56. It said testnet and ran mainnet.
+
+What remains not built is **signing** on mainnet, which is a different claim and
+is recorded as such in `packages/misquote/tearsheet/ledger.py` and rendered on
+[`/status`](apps/web/src/app/status/page.tsx).
 
 ## 10. The pitch (for the repo header and the demo)
 

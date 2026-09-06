@@ -101,7 +101,7 @@ describe("AgentJournal", () => {
       {
         detail: {
           error: "no journal for 'grid'",
-          remedy: "make warden ENV=testnet, or make router",
+          remedy: "make warden CHAIN=56, or make router",
           available: ["router", "warden"],
         },
       },
@@ -113,7 +113,7 @@ describe("AgentJournal", () => {
       await screen.findByText(/This agent has written no journal/)
     ).toBeInTheDocument();
     expect(screen.getByText(/no journal for 'grid'/)).toBeInTheDocument();
-    expect(screen.getByText(/make warden ENV=testnet/)).toBeInTheDocument();
+    expect(screen.getByText(/make warden CHAIN=56/)).toBeInTheDocument();
   });
 
   it("falls back to the recorded summary when nothing answers", async () => {

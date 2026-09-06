@@ -4,7 +4,6 @@
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
-ENV    ?= testnet
 N      ?= 2000
 CHAIN  ?= 56
 # Chapel. Registering our own agents is a testnet rehearsal of a mainnet action,

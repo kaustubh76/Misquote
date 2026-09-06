@@ -32,12 +32,21 @@ from misquote.tearsheet.generate import read_journal
 #: Keyed by agent so the advice is specific; a name that is not ours resolves to
 #: something true rather than to a confident wrong command.
 WRITTEN_BY: dict[str, str] = {
-    "warden": "make warden ENV=testnet",
+    # `make warden ENV=testnet` until 2026-09-06, and it was wrong in the way a
+    # published command can only be wrong once somebody runs it: `ENV` was
+    # declared in the Makefile and referenced by nothing, while the target
+    # passes `--chain $(CHAIN)`, which defaults to **56**. So the remedy this
+    # API hands every reader of an empty journal said testnet and ran mainnet.
+    "warden": "make warden CHAIN=56",
     "router": "make router",
 }
 
-#: Rows returned when the caller names no limit. The warden journal is ~180
-#: lines today and will not stay that size once the loop runs for a day.
+#: Rows returned when the caller names no limit.
+#:
+#: The note here read "the warden journal is ~180 lines today and will not stay
+#: that size once the loop runs for a day". The day has since happened — a 24h
+#: mainnet burn-in leaves tens of thousands of rows — so this is a tail over a
+#: large file rather than most of a small one, which is what it was written for.
 DEFAULT_TAIL = 200
 
 
@@ -124,7 +133,7 @@ def journal(agent: str, tail: int = Query(DEFAULT_TAIL, ge=0, le=10_000)) -> dic
             # `make router`, so a typo was told to run a command that would
             # succeed and still not produce the file it asked for — the same
             # defect as `REMEDIES["router"]`, one commit after fixing it.
-            remedy=WRITTEN_BY.get(agent, "make warden ENV=testnet, or make router"),
+            remedy=WRITTEN_BY.get(agent, "make warden CHAIN=56, or make router"),
             available=names,
             note=(
                 "Either this agent has never run, or the name is not one of ours. "

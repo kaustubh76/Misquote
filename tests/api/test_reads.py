@@ -119,7 +119,11 @@ def test_an_agent_that_never_ran_is_absent_rather_than_empty(client: TestClient)
     assert response.status_code == 404
 
     detail = response.json()["detail"]
-    assert detail["remedy"] == "make warden ENV=testnet"
+    # `make warden ENV=testnet` until 2026-09-06. `ENV` was a Makefile variable
+    # nothing read, and the target passes `--chain $(CHAIN)`, default 56 — so
+    # the remedy said testnet and would have run against mainnet. This test
+    # pinned the string and not the claim, so it held the mistake in place.
+    assert detail["remedy"] == "make warden CHAIN=56"
     assert "empty journal" in detail["note"]
 
 

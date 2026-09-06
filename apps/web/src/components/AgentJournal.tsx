@@ -144,7 +144,7 @@ export function AgentJournal({ agent }: { agent: string }) {
   //
   // These were one branch, and collapsing them cost the page a finding. The
   // API does not 404 blankly here — it answers `{error: "no journal for
-  // 'grid'", remedy: "make warden ENV=testnet, or make router", available:
+  // 'grid'", remedy: "make warden CHAIN=56, or make router", available:
   // ["router", "warden"], note: "Either this agent has never run, or the name
   // is not one of ours. Both are absences and neither is an empty journal."}`
   // — and `return null` discarded all of it, on grid and sentinel every time
