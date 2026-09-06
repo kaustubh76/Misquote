@@ -234,13 +234,20 @@ export function StatusView({
               </p>
             </div>
 
-            {shown.length === 0 ? (
-              /* In words. A filter that empties the list and says nothing reads
-                 as a broken page, and on this page in particular "no gate is
-                 failing" is a result worth stating rather than implying with
-                 blank space. */
+            {checks.length === 0 ? (
+              /* In words. A page that renders blank space where a checklist
+                 goes reads as broken.
+
+                 This used to test `shown.length` and name the filter — "no
+                 gate is failing" — which could not happen, and did not say the
+                 right thing when it could: `chips` is built from the statuses
+                 actually present, so no chip a reader can click filters to
+                 nothing. The only empty list is an empty artifact, where
+                 `STATUS_LABEL["all"]` is undefined and the sentence read "No
+                 gate is ." The test over it passed by taking its other branch. */
               <p className="m-0 text-sm text-dim">
-                No gate is {STATUS_LABEL[only as Verdict].toLowerCase()}.
+                No gate has run — <code className="font-mono text-xs">make status</code>{" "}
+                writes this page.
               </p>
             ) : (
             <div className="grid gap-3">
@@ -249,8 +256,13 @@ export function StatusView({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Heading className="m-0 text-sm font-semibold">{check.name}</Heading>
+                      {/* Through `Prose` for the same reason `remedy` is: a
+                          detail is the last line the tool printed, and tools
+                          print backticks — vitest's node warning arrived here
+                          reading "(Use `node --trace-warnings ...`)" with the
+                          characters on the page. */}
                       <p className="mt-1 mb-0 font-mono text-xs break-words text-dim">
-                        {check.detail}
+                        <Prose text={check.detail} />
                       </p>
                       {/* The names behind the count. A reader told that six
                           artifacts are stale, on a check marked blocking, needs

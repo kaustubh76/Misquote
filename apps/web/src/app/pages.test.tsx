@@ -1912,6 +1912,14 @@ describe("Status can be narrowed to what nobody checked", () => {
     checks: { name: string; status: string }[];
   }
 
+  // The chip labels are English and the artifact's verdicts are not. Written
+  // out rather than uppercased, because "Failing" is not "FAILING".
+  const VERDICT_OF: Record<string, string> = {
+    Passing: "PASS",
+    Failing: "FAIL",
+    Unverified: "UNVERIFIED",
+  };
+
   it("counts each verdict from the checks, not from the summary block", async () => {
     // Two sets of the same numbers exist in the artifact — `summary` and the
     // checks themselves — and a filter whose label disagrees with the list
@@ -1956,21 +1964,37 @@ describe("Status can be narrowed to what nobody checked", () => {
     );
   });
 
-  it("says so in words when a verdict has no gates", async () => {
-    // A filter that empties the list and renders blank space reads as a broken
-    // page — and on this page "no gate is failing" is a result worth stating.
+  it("offers no chip that filters the list to nothing", async () => {
+    // The property the page actually has, and the one the test that used to be
+    // here did not check. It clicked a "Failing" chip if one was offered and
+    // expected "No gate is failing" — a contradiction, because the chips are
+    // built from the statuses present, so a Failing chip existing means gates
+    // are failing. It passed by taking its other branch, and went red the first
+    // time a gate failed.
+    //
+    // What is true instead: every chip on this page filters to at least one
+    // card, and its count says how many.
     const user = userEvent.setup();
+    const status = readArtifact<Status>("status.json");
     render(<StatusPage />);
     await screen.findByRole("heading", { name: "Gates" });
 
-    const failing = screen.queryByRole("radio", { name: /^Failing/ });
-    if (failing) {
-      await user.click(failing);
-      expect(screen.getByText(/No gate is failing/)).toBeInTheDocument();
-    } else {
-      // No FAIL chip is offered when nothing failed — which is itself the
-      // answer, and is why the chips are built from the checks present.
-      expect(screen.getByRole("radio", { name: /^All/ })).toBeInTheDocument();
+    for (const [label, verdict] of Object.entries(VERDICT_OF)) {
+      const chip = screen.queryByRole("radio", { name: new RegExp(`^${label}`) });
+      const matching = status.checks.filter((c) => c.status === verdict);
+      if (!chip) {
+        expect(matching).toHaveLength(0);
+        continue;
+      }
+
+      await user.click(chip);
+      expect(matching.length).toBeGreaterThan(0);
+      for (const check of matching) {
+        expect(screen.getByRole("heading", { name: check.name })).toBeInTheDocument();
+      }
+      expect(screen.getByLabelText("Filter result")).toHaveTextContent(
+        `${matching.length} of ${status.checks.length} gates`
+      );
     }
   });
 });

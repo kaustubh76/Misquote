@@ -77,10 +77,37 @@ RENDERED_AS_MARKDOWN: dict[str, str] = {
     "vetting.json:pools[].proof.coverage.not_provable.tokens-are-contracts": "app/vetting/view.tsx",
     "vetting.json:pools[].proof.coverage.not_provable.recorded-matches-chain": "app/vetting/view.tsx",
     "registry.json:hire_flow.escrow.evidence[]": "app/registry/view.tsx",
-    "registry.json:hire_flow.proof.not_escrowed_because": "app/registry/view.tsx",
+    # `not_escrowed_because` itself is no longer here and that is not an
+    # oversight: the correction that replaced it — nothing had been spent to buy
+    # the payment token, and then something was — is written in plain sentences.
+    # It is still rendered through `Prose`; it just has nothing for `Prose` to
+    # do. The superseded original keeps the backticks and is listed below.
+    "registry.json:hire_flow.submit_proof.what_this_run_changes": "app/registry/view.tsx",
+    "status.json:checks[].detail": "app/status/view.tsx",
     "status.json:checks[].remedy": "app/status/view.tsx",
     "venue.json:divergences[].what": "app/venue/view.tsx",
 }
+
+#: Fields whose markdown comes and goes with the run rather than with the code.
+#:
+#: `status.json` is the go/no-go gate's own output: a check's `detail` is the
+#: last line the tool printed and its `remedy` is only written when the check is
+#: not passing. So whether either carries a backtick depends on which gates were
+#: red when `make status` last ran — `checks[].remedy` had markdown in every
+#: artifact until the run where the three failing checks all had bare-command
+#: remedies, and `checks[].detail` gained it the same day, from vitest printing
+#: a node warning.
+#:
+#: Dropping them when they go quiet and re-adding them when they come back is a
+#: gate that flaps for no reason, so the staleness sweep skips them. They stay
+#: in the map above, which is what matters: if the markdown does appear, it is
+#: accounted for and its renderer is held to using `Prose`.
+VOLATILE = frozenset(
+    {
+        "status.json:checks[].detail",
+        "status.json:checks[].remedy",
+    }
+)
 
 #: Markdown that must stay on the page as characters, and why.
 PLAIN_BY_DESIGN: dict[str, str] = {
@@ -95,6 +122,14 @@ PLAIN_BY_DESIGN: dict[str, str] = {
     # Declared unrendered in `test_artifact_contract.REGISTRY_FIELDS`. A field
     # no view reads cannot be rendered wrong.
     "registry.json:third_party.census.note": "not rendered by any view",
+    # The claim `hire-97.json` used to make, kept beside the one that replaced
+    # it because a PancakeSwap swap falsified it and deleting the sentence would
+    # erase the correction along with the error. Declared unrendered in
+    # `REGISTRY_FIELDS` on purpose: showing a retracted claim at the same weight
+    # as a true one is the failure this whole site is named after.
+    "registry.json:hire_flow.proof.not_escrowed_because_was": (
+        "a superseded claim, carried in the record and rendered by no view"
+    ),
 }
 
 
@@ -145,7 +180,7 @@ def test_every_field_declared_rendered_still_carries_markdown(prose: dict[str, i
     The same failure `test_artifact_contract` guards for its own maps: a claim
     about a field that no longer looks like that is a claim nobody is checking.
     """
-    stale = sorted(f for f in RENDERED_AS_MARKDOWN if f not in prose)
+    stale = sorted(f for f in RENDERED_AS_MARKDOWN if f not in prose and f not in VOLATILE)
 
     assert not stale, (
         "these fields are listed as carrying markdown and no longer do — the "
@@ -163,6 +198,19 @@ def test_the_named_renderer_uses_prose(field: str, renderer: str) -> None:
     assert "Prose" in source, (
         f"{field} carries inline markdown and {renderer} renders it without "
         f"`Prose`, so its asterisks and backticks reach the reader"
+    )
+
+
+def test_volatile_entries_are_declared_rendered() -> None:
+    """`VOLATILE` waives the staleness sweep, not the rendering claim.
+
+    An entry here that is not in `RENDERED_AS_MARKDOWN` would be a field
+    exempted from both checks at once, which is the exemption this file exists
+    to make impossible.
+    """
+    unclaimed = sorted(VOLATILE - set(RENDERED_AS_MARKDOWN))
+    assert not unclaimed, (
+        f"these are waived from the staleness sweep and named by no renderer: {unclaimed}"
     )
 
 

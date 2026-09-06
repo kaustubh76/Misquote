@@ -74,7 +74,16 @@ class Check:
         return self.status != PASS
 
 
-def _run(command: list[str], timeout: int = 900) -> tuple[int, str]:
+#: Long enough for the suite it actually has to run.
+#:
+#: 900s was a knife-edge: `make test` is 2,378 offline tests over a 252,923-swap
+#: tape and measures **775s** on an idle machine, so anything else running turned
+#: a passing suite into `timed out after 900s` — a red gate reporting on the
+#: host, not the work. Raising the ceiling changes nothing about what is checked.
+SUITE_TIMEOUT = 2400
+
+
+def _run(command: list[str], timeout: int = SUITE_TIMEOUT) -> tuple[int, str]:
     try:
         result = subprocess.run(
             command, cwd=REPO, capture_output=True, text=True, timeout=timeout, check=False
@@ -123,6 +132,20 @@ def check_lint() -> Check:
     return Check("lint", PASS, last)
 
 
+def _summary_line(lines: list[str], marker: str, fallback: str) -> str:
+    """A tool's own result line, rather than whatever it printed last.
+
+    vitest ends a **passing** run with a node warning —
+
+        (Use `node --trace-warnings ...` to show where the warning was created)
+
+    — so `lines[-1]` published that as the gate's detail and `/status` showed it
+    to a reader as the result of the component suite, backticks and all. The
+    line that says what happened is `Tests  469 passed (469)`, three above it.
+    """
+    return next((line for line in reversed(lines) if line.startswith(marker)), fallback)
+
+
 def check_web_component_suite() -> Check:
     """`make web-test`: vitest over the component layer.
 
@@ -138,7 +161,7 @@ def check_web_component_suite() -> Check:
 
     UNVERIFIED when node is absent, for the reason the browser suite gives.
     """
-    code, output = _run(["make", "web-test"], timeout=900)
+    code, output = _run(["make", "web-test"], timeout=SUITE_TIMEOUT)
     lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
     last = lines[-1] if lines else "no output"
 
@@ -157,7 +180,7 @@ def check_web_component_suite() -> Check:
             "; ".join(failed) or last,
             "make web-test",
         )
-    return Check("web component suite", PASS, last)
+    return Check("web component suite", PASS, _summary_line(lines, "Tests ", last))
 
 
 def check_web_browser_suite() -> Check:
@@ -180,7 +203,7 @@ def check_web_browser_suite() -> Check:
     fork: an amber light carrying the remedy, because a red one for a missing
     browser teaches people to ignore the colour.
     """
-    code, output = _run(["make", "web-check"], timeout=900)
+    code, output = _run(["make", "web-check"], timeout=SUITE_TIMEOUT)
     lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
     last = lines[-1] if lines else "no output"
 

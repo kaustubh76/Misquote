@@ -762,3 +762,44 @@ def test_the_gap_threshold_is_derived_from_the_cadences() -> None:
     # And it must actually split on that boundary.
     assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S + 1])) == 2
     assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S - 1])) == 1
+
+
+#: A passing vitest run, tail-first as `check_web_component_suite` sees it.
+VITEST_TAIL = """
+ Test Files  43 passed (43)
+      Tests  469 passed (469)
+   Start at  14:05:57
+   Duration  21.76s (transform 2.71s, setup 9.44s)
+
+(node:48257) ExperimentalWarning: localStorage is not available
+(Use `node --trace-warnings ...` to show where the warning was created)
+"""
+
+
+def test_a_passing_component_suite_publishes_its_result_and_not_its_trailer() -> None:
+    """What `/status` showed a reader as the result of 469 tests.
+
+    vitest prints a node warning after its summary, so `lines[-1]` was
+
+        (Use `node --trace-warnings ...` to show where the warning was created)
+
+    and that is what the gate published as `detail` — rendered on `/status` in
+    monospace under "web component suite", backticks and all. It also made
+    `test_prose_is_rendered` go red, which is how it was found: the field had
+    become markdown-bearing without anybody writing markdown.
+    """
+    module = load()
+    lines = [line.strip() for line in VITEST_TAIL.strip().splitlines() if line.strip()]
+
+    detail = module._summary_line(lines, "Tests ", lines[-1])
+
+    assert detail == "Tests  469 passed (469)"
+    assert "trace-warnings" not in detail
+
+
+def test_a_tool_that_prints_no_summary_still_gets_a_detail() -> None:
+    """The fallback is the old behaviour, not an empty string or a crash."""
+    module = load()
+    lines = ["something went sideways"]
+
+    assert module._summary_line(lines, "Tests ", lines[-1]) == "something went sideways"
