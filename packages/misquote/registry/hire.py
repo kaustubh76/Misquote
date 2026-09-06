@@ -151,10 +151,14 @@ FLOW_ERRORS: dict[str, str] = {
 #: and the source of the name. Their own CLI then defaults `--deadline-min`
 #: to 30, which is 336 times below the threshold their SDK enforces.
 #:
-#: This is why the mainnet run stopped four calls in. `hire_mainnet.py` defaulted
-#: to twelve hours, so the release half was never reachable — and the reason
+#: This is why job 56681 stopped four calls in. `hire_mainnet.py` defaulted to
+#: twelve hours, so the release half was never reachable — and the reason
 #: recorded at the time, that the policy reaches no decision, was a symptom.
 #: `settle` had nothing to decide about because nothing had been submitted.
+#:
+#: Job 56718 asked for 192 hours and `submit` mined on mainnet
+#: (`vetting/identity/hire-mainnet-56-submitted.json`). The default is 192 now:
+#: one that cannot reach `submit` spends four transactions of real gas to fail.
 SUBMIT_NEEDS_EXPIRY_BEYOND_DISPUTE_WINDOW = True
 
 EVALUATOR_MUST_BE_THE_ROUTER = True

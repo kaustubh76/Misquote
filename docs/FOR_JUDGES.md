@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 2,402 tests, no network, ~13 min
+make test                     # 2,403 tests, no network, ~13 min
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -68,7 +68,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**2454 tests: 2402 offline, 52 against a live chain or a fork.**
+**2455 tests: 2403 offline, 52 against a live chain or a fork.**
 
 ---
 
@@ -383,17 +383,22 @@ project exists to argue against.
   reading. The badge says which of the nine it is showing you, so this is a gap
   in the demonstration rather than in the check.
 
-- **Releasing an escrowed job on mainnet.** `fund` and `claimRefund` are both
-  mined on BSC mainnet — 0.1 of the payment token in and back out. `submit` and
-  `settle` have only ever run on a fork.
+- **Settling an escrowed job on mainnet.** `fund`, `claimRefund` and now
+  `submit` are all mined on BSC mainnet. `settle` is the one call that has never
+  run outside a fork, and it is a wait rather than a gap: it reverts
+  `NotDecided()` until the OptimisticPolicy's 7-day dispute window has run, and
+  is due **13 Sep 2026, 08:01 UTC** on job 56718.
 
   The reason recorded at the time was that the policy reaches no decision. That
   was a symptom. `submit` is refused unless `expiredAt` is further away than the
-  7-day dispute window, and the mainnet run asked for a 12-hour job — so nothing
-  was ever submitted, and `settle` had nothing to decide about. Eight fork runs
-  identical but for the expiry put the boundary between 168h and 169h against a
-  604,800s window; `vetting/identity/submit-expiry-fork-56.json` carries all
-  eight. Doing it on mainnet means locking the budget for over a week.
+  dispute window, and job 56681 asked for a 12-hour job — so nothing was ever
+  submitted, and `settle` had nothing to decide about. Eight fork runs identical
+  but for the expiry put the boundary between 168h and 169h against a 604,800s
+  window; `vetting/identity/submit-expiry-fork-56.json` carries all eight. Job
+  56718 asked for 192 hours and `submit` mined:
+  `vetting/identity/hire-mainnet-56-submitted.json`, rendered on `/registry`.
+  56681's record stays beside it — fund-and-reclaim is still true, and it is the
+  half that shows the money coming back.
 
 - **The 30-day tape exists, and the survey that said it could not is the reason
   it does.** This entry used to read *"No 30-day tape"*. It is now 252,923 swaps

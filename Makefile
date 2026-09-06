@@ -317,6 +317,10 @@ hire-mainnet:  ## run the ERC-8183 flow on BSC MAINNET. SPENDS REAL MONEY.
 	# token's owner as a fork can. Roughly a dollar a unit, and `fund` refuses
 	# only a budget of exactly zero, so a fraction is a real escrow.
 	#
+	# `--hours` defaults to 192, a day clear of the 168h dispute window. Twelve
+	# was the default once and it is why job 56681's submit reverted
+	# SubmissionTooLate() after four transactions of real gas.
+	#
 	# Resumable: an allowance that already covers the budget is not re-approved.
 	# It confirms receipts across several endpoints because `bsc-dataseed` is
 	# load-balanced and a mined transaction has looked like a timeout three times.

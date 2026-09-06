@@ -67,10 +67,13 @@ def main() -> int:
     ap.add_argument(
         "--hours",
         type=float,
-        default=12.0,
-        help="how long the job stays open. Twelve is what job 56681 asked for and "
-        "why its submit reverted SubmissionTooLate(): the deployment refuses a "
-        "submission that cannot clear the 168h dispute window before expiry.",
+        default=192.0,
+        help="how long the job stays open. The default was twelve, which is what "
+        "job 56681 asked for and why its submit reverted SubmissionTooLate(): the "
+        "deployment refuses a submission that cannot clear the 168h dispute window "
+        "before expiry. A default that cannot reach submit is a default that "
+        "spends four transactions of real gas to fail, so it is 192 now — a day of "
+        "margin over the window, which is what job 56718 used.",
     )
     ap.add_argument(
         "--settle",
