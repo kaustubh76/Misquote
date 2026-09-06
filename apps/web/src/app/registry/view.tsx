@@ -2187,7 +2187,12 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
     );
   }
 
-  const explorer = ours.explorer || "https://testnet.bscscan.com";
+  // The record names its own explorer; this is only the floor under a record
+  // that does not. It was `testnet.bscscan.com`, which was right while chapel
+  // was the only place these four existed and became a wrong default the day
+  // the emitter started preferring `vetting/identity/56.json` — a mainnet id
+  // linked to a testnet explorer resolves to nothing.
+  const explorer = ours.explorer || "https://bscscan.com";
 
   return (
     <>

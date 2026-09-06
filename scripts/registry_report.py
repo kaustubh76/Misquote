@@ -1500,6 +1500,36 @@ def publishable_scan(reading: dict[str, Any], token_ids: set[str] | None = None)
     }
 
 
+#: Ours, mainnet first. The order is the claim: the mainnet mint is the one
+#: TermiX indexes and the one a judge can look up on bscscan.
+OURS_MAINNET_PATH = REPO / "vetting" / "identity" / "56.json"
+OURS_CHAPEL_PATH = REPO / "vetting" / "identity" / "97.json"
+
+#: Every key a present record carries, nulled — the same floor the four hire
+#: records sit on, and here for the same reason. `97.json` has a `funding` block
+#: and `56.json` does not, so which file is preferred would otherwise decide
+#: whether five contracted leaves exist.
+ABSENT_OURS: dict[str, Any] = {
+    "agents": [],
+    "block": None,
+    "chain_id": None,
+    "checks": [],
+    "explorer": None,
+    "funding": {"amount": None, "from": None, "to": None, "tx": None, "url": None},
+    "implementation": None,
+    "owner": None,
+    "read_at": None,
+    "reason": None,
+    "record": None,
+    "registry": None,
+    "signer": None,
+    "summary": {"checked": None, "failed": None, "registered": None, "unknown": None},
+    "surveyed": False,
+    "verdict": None,
+    "age_hours": None,
+}
+
+
 def ours() -> dict[str, Any]:
     """The four registrations this project made, as recorded on disk.
 
@@ -1512,26 +1542,46 @@ def ours() -> dict[str, Any]:
     Freshness comes from the file's mtime rather than from a field inside it,
     again following `addresses_report`: the record says when the chain was read,
     and the file says when we last asked.
+
+    ## Mainnet first
+
+    This read `97.json` and nothing else, so `/registry` showed a reader the
+    chapel ids 1927-1930 against a testnet explorer while `/status`'s identity
+    gate — which now prefers the mainnet record — reported five agents on BSC
+    mainnet. Two pages of one site disagreeing about which registration is ours.
+
+    `56.json` is the same four agents on mainnet with twenty-one read-backs, all
+    passing, the same owner, and it is the registration TermiX's explorer
+    indexes, because that indexes mainnet mints. Chapel remains the fallback.
+
+    Merged over a skeleton rather than published raw, for the reason
+    `_published_record` gives above: `97.json` carries a `funding` block and
+    `56.json` does not, and the artifact contract declares
+    `ours.funding.*`. Without the skeleton, changing which file is preferred
+    would silently drop five contracted leaves.
     """
-    path = REPO / "vetting" / "identity" / "97.json"
-    if not path.exists():
+    path = next(
+        (p for p in (OURS_MAINNET_PATH, OURS_CHAPEL_PATH) if p.exists()),
+        None,
+    )
+    if path is None:
         return {
-            "surveyed": False,
+            **ABSENT_OURS,
             "reason": (
                 "no agent of ours has been registered. `Readme.md` says all four "
                 "do; until this file exists that is a claim rather than a reading."
             ),
-            "chain_id": 97,
-            "agents": [],
-            "checks": [],
         }
 
     record: dict[str, Any] = json.loads(path.read_text())
     read_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
-    record["read_at"] = read_at.isoformat(timespec="seconds")
-    record["age_hours"] = round((datetime.now(UTC) - read_at).total_seconds() / 3600, 1)
-    record["record"] = str(path.relative_to(REPO))
-    return record
+    return {
+        **ABSENT_OURS,
+        **record,
+        "read_at": read_at.isoformat(timespec="seconds"),
+        "age_hours": round((datetime.now(UTC) - read_at).total_seconds() / 3600, 1),
+        "record": str(path.relative_to(REPO)),
+    }
 
 
 def main() -> int:
