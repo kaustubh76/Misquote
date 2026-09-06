@@ -1,27 +1,62 @@
 {
-  "generated_at": "2026-08-31T06:10:23+00:00",
+  "generated_at": "2026-09-06T10:49:57+00:00",
   "build": {
-    "command": "python scripts/go_no_go.py --fast --json",
+    "command": "python scripts/go_no_go.py --json",
     "source": "local checks",
-    "generated_at": "2026-08-31T06:10:23+00:00",
-    "git_sha": "c71dad9",
-    "git_dirty": true
+    "generated_at": "2026-09-06T10:49:57+00:00",
+    "git_sha": "82d0063",
+    "git_dirty": false
   },
   "mainnet": false,
-  "fast": true,
-  "skipped": [
-    "offline test suite",
-    "replay invariants (T1-T4, L1)",
-    "web browser suite",
-    "web component suite",
-    "lint",
-    "chain and fork suite"
-  ],
+  "fast": false,
+  "skipped": [],
   "checks": [
+    {
+      "name": "offline test suite",
+      "status": "PASS",
+      "detail": "2382 passed, 26 skipped, 52 deselected, 26 warnings in 487.42s (0:08:07)",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "T1-T4 and L1",
+      "status": "PASS",
+      "detail": "14 passed, 9 deselected, 1 warning in 9.10s",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "lint",
+      "status": "PASS",
+      "detail": "270 files already formatted",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "web component suite",
+      "status": "PASS",
+      "detail": "Tests  470 passed (470)",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "web browser suite",
+      "status": "PASS",
+      "detail": "every route clean in both themes and at 390px, with 18 distinct titles.",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "chain and fork suite",
+      "status": "PASS",
+      "detail": "48 passed, 4 skipped, 2408 deselected, 2 warnings in 229.15s (0:03:49)",
+      "remedy": "",
+      "blocking": false
+    },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 206 deselected, 1 warning in 2.26s",
+      "detail": "7 passed, 210 deselected, 1 warning in 2.86s",
       "remedy": "",
       "blocking": false
     },
@@ -35,7 +70,7 @@
     {
       "name": "dry run",
       "status": "PASS",
-      "detail": "MISQUOTE_DRY_RUN=(unset — defaults to dry)",
+      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
       "remedy": "",
       "blocking": false
     },
@@ -84,51 +119,16 @@
     {
       "name": "agent advantage report",
       "status": "PASS",
-      "detail": "4 tasks on a chain tape, all quotable",
+      "detail": "5 tasks on a chain tape, all quotable",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "artifacts match the engine",
-      "status": "UNVERIFIED",
-      "detail": "6 replay artifact(s) were generated before an engine change",
-      "remedy": "regenerate them (`make showcase`, `make advantage`) — or accept that the published numbers describe an engine that has since changed",
-      "blocking": true,
-      "data": {
-        "behind": [
-          {
-            "artifact": "build.json",
-            "recorded_sha": "a1a8af3",
-            "commits": 8
-          },
-          {
-            "artifact": "warden.json",
-            "recorded_sha": "a1a8af3",
-            "commits": 8
-          },
-          {
-            "artifact": "grid.json",
-            "recorded_sha": "a1a8af3",
-            "commits": 8
-          },
-          {
-            "artifact": "sentinel.json",
-            "recorded_sha": "a1a8af3",
-            "commits": 8
-          },
-          {
-            "artifact": "advantage.json",
-            "recorded_sha": "237c678",
-            "commits": 12
-          },
-          {
-            "artifact": "advantage_short.json",
-            "recorded_sha": "eb040ed",
-            "commits": 12
-          }
-        ],
-        "unstamped": []
-      }
+      "status": "PASS",
+      "detail": "7 replay artifacts, none generated before an engine change",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "agent identities",
@@ -212,23 +212,23 @@
     {
       "name": "signer",
       "status": "UNVERIFIED",
-      "detail": "not checked — this run is not --mainnet",
+      "detail": "not checked \u2014 this run is not --mainnet",
       "remedy": "re-run with --mainnet to check the signing key",
       "blocking": true
     },
     {
       "name": "position cap",
       "status": "UNVERIFIED",
-      "detail": "not checked — this run is not --mainnet",
+      "detail": "not checked \u2014 this run is not --mainnet",
       "remedy": "re-run with --mainnet to check the position cap",
       "blocking": true
     }
   ],
   "summary": {
-    "pass": 11,
+    "pass": 18,
     "fail": 0,
-    "unverified": 4,
-    "total": 15
+    "unverified": 3,
+    "total": 21
   },
   "outcome": "NOT YET",
   "exit_code": 2
