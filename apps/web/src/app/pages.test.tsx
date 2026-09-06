@@ -644,6 +644,55 @@ describe("Assumptions", () => {
   });
 });
 
+describe("Registry: the mainnet submit shows its transactions", () => {
+  interface Submit {
+    hire_flow: {
+      submit_proof?: {
+        ran: boolean;
+        job_id?: number;
+        transactions?: { call: string; tx_hash?: string; explorer?: string }[];
+      };
+    };
+  }
+
+  /**
+   * The bug this exists for, which nothing here could have caught.
+   *
+   * The block was written against `sent.ok && sent.tx`, and the record has no
+   * `tx` — it has `tx_hash` and its own `explorer` URL, the way every other
+   * transaction list in this artifact does. So the filter dropped all seven
+   * rows and the block rendered two paragraphs of prose about a mainnet
+   * `submit` with not one hash under it, on the page whose whole argument is
+   * that the hashes are there. TypeScript was no help: the interface declared
+   * the field the view read, so both halves agreed with each other and neither
+   * agreed with the artifact.
+   *
+   * Asserted off the record rather than off a fixture, so the day the file
+   * gains a call this fails instead of quietly showing six of seven.
+   */
+  const submit = readArtifact<Submit>("registry.json").hire_flow.submit_proof;
+
+  it("links every mined call to the explorer entry the record names", async () => {
+    if (!submit?.ran) {
+      // No mainnet submit has been run. The block is not on the page, and
+      // asserting a fixture's worth of links against that would be asserting
+      // the run rather than the behaviour.
+      return;
+    }
+
+    render(<RegistryPage />);
+    await screen.findByRole("heading", { name: "The escrow contract" });
+
+    const mined = (submit.transactions ?? []).filter((t) => t.tx_hash && t.explorer);
+    expect(mined.length).toBeGreaterThan(0);
+
+    for (const sent of mined) {
+      const link = screen.getByRole("link", { name: sent.tx_hash });
+      expect(link).toHaveAttribute("href", sent.explorer);
+    }
+  });
+});
+
 describe("Registry: the escrow claims only what was recorded", () => {
   interface Reg {
     hire_flow: {

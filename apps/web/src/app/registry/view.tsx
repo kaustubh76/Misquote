@@ -288,7 +288,14 @@ export interface RegistryArtifact {
       settle_earliest_utc?: string;
       why_settle_reverted?: string;
       what_this_run_changes?: string;
-      transactions?: { call: string; ok?: boolean; tx?: string; reverted?: string }[];
+      transactions?: {
+        actor?: string;
+        call: string;
+        ok?: boolean;
+        tx_hash?: string;
+        explorer?: string;
+        reverted?: string;
+      }[];
     };
     refund_proof?: {
       ran: boolean;
@@ -1135,18 +1142,25 @@ export function RegistryView({
                         {d.hire_flow.submit_proof.expires_at_utc}
                       </span>
                     </div>
+                    {/* `tx_hash` and the record's own `explorer`, the way the
+                        chapel block above does it. This read `sent.tx` against a
+                        URL built here from `bscscan.com` — a field the record
+                        does not have, so the filter dropped all seven rows and
+                        the block rendered its prose with no hash under it. The
+                        record carries the explorer link; building one here would
+                        also mean this block deciding which network it is on. */}
                     {(d.hire_flow.submit_proof.transactions ?? [])
-                      .filter((sent) => sent.ok && sent.tx)
+                      .filter((sent) => sent.tx_hash && sent.explorer)
                       .map((sent) => (
-                        <p key={sent.tx} className="mt-2 mb-0 text-xs">
+                        <p key={sent.tx_hash} className="mt-2 mb-0 text-xs">
                           <span className="font-mono text-faint">{sent.call}</span>{" "}
                           <a
                             className="font-mono break-all text-dim underline"
-                            href={`https://bscscan.com/tx/${sent.tx}`}
+                            href={sent.explorer}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            {sent.tx}
+                            {sent.tx_hash}
                           </a>
                         </p>
                       ))}
