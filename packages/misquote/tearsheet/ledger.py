@@ -118,10 +118,11 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
         ),
         why=(
             "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet and "
-            "`claimRefund` moved it back, both mined. Release was never reachable there: "
-            "`submit` needs an expiry beyond the 7-day dispute window and the run asked "
-            "for 12 hours. Proven on a fork, not on the chain, and it would lock the "
-            "budget for a week."
+            "`claimRefund` moved it back, both mined. `submit` has since mined too, on "
+            "job 56718 — the same flow with a 192-hour expiry instead of twelve, which "
+            "is the whole difference. What is left is `settle`, which reverts "
+            "`NotDecided()` until the 7-day dispute window runs and is due 13 Sep: a "
+            "wait rather than a gap, and the only part still unproven on chain."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),

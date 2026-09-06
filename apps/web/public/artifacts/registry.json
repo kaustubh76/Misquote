@@ -25,13 +25,13 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 336621,
-      "ours_at_block": 120265996,
+      "ours": 336629,
+      "ours_at_block": 120267056,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 336484,
+      "total": 336492,
       "total_pages": 16825,
       "withheld_fields": [
         "onTimeRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-06T07:54:18+00:00",
+    "generated_at": "2026-09-06T08:02:16+00:00",
     "git_dirty": true,
-    "git_sha": "ef6fda9",
+    "git_sha": "7e15bf2",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -479,6 +479,110 @@
         "why": "releases escrow or opens a dispute, on the EvaluatorRouter. The OptimisticPolicy's disputeWindow() is 604,800s on mainnet"
       }
     ],
+    "submit_proof": {
+      "addresses": {
+        "erc20": "0xcE24439F2D9C6a2289F741120FE202248B666666",
+        "kernel": "0xEa4DAa3100A767e86FDed867729ae7446476EBA6",
+        "policy": "0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5",
+        "router": "0x51895229E12F9876011789B04f8698af06cCD6DA"
+      },
+      "budget": 100000000000000000,
+      "chain_id": 56,
+      "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "dispute_window_s": 604800,
+      "escrowed": true,
+      "escrowed_on_mainnet": true,
+      "evaluator": "0x51895229E12F9876011789B04f8698af06cCD6DA",
+      "expires_at": 1789358400,
+      "expires_at_utc": "2026-09-14 08:00 UTC",
+      "gas_spent_wei": 38599550000000,
+      "job_exists": true,
+      "job_id": 56718,
+      "job_words": [
+        "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "0x000000000000000000000000000000000000000000000000000000000000dd8e",
+        "0x0000000000000000000000000c501ee1924bfb91a028db4bcd68f4861b0ff6ee",
+        "0x0000000000000000000000000c501ee1924bfb91a028db4bcd68f4861b0ff6ee",
+        "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+        "0x0000000000000000000000000000000000000000000000000000000000000160",
+        "0x000000000000000000000000000000000000000000000000016345785d8a0000",
+        "0x000000000000000000000000000000000000000000000000000000006aa7a999",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x00000000000000000000000051895229e12f9876011789b04f8698af06ccd6da",
+        "0x000000000000000000000000000000000000000000000000000000006a9d1db2",
+        "0x6ca22b0a1f2ad36980fc61735e70529ec44298b2bb0ddd1cef96aecc6e928ae9",
+        "0x0000000000000000000000000000000000000000000000000000000000000035",
+        "0x4d697371756f74653a20646f657320686972696e6720616e206167656e742062",
+        "0x65617420646f696e6720697420796f757273656c660000000000000000000000"
+      ],
+      "network": "BSC mainnet",
+      "provider": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "ran": true,
+      "reason": null,
+      "record": "vetting/identity/hire-mainnet-56-submitted.json",
+      "settle_earliest_utc": "2026-09-13 08:01 UTC",
+      "settled": false,
+      "submitted": true,
+      "success_criterion": "submit() mined on BSC mainnet, which it had never done. settle() waits for the dispute window and is due 13 Sep.",
+      "transactions": [
+        {
+          "actor": "client",
+          "call": "approve",
+          "explorer": "https://bscscan.com/tx/5a44e6a75da6bf8e0abc3050658170f98211b2d48b9487463207d1e7f7372d87",
+          "gas_used": 60245,
+          "ok": true,
+          "tx_hash": "5a44e6a75da6bf8e0abc3050658170f98211b2d48b9487463207d1e7f7372d87"
+        },
+        {
+          "actor": "client",
+          "call": "createJob",
+          "explorer": "https://bscscan.com/tx/112602d4435bbec7e5e05378972a8ea6731b669dc77830a098203781de85cbe4",
+          "gas_used": 261767,
+          "ok": true,
+          "tx_hash": "112602d4435bbec7e5e05378972a8ea6731b669dc77830a098203781de85cbe4"
+        },
+        {
+          "actor": "client",
+          "call": "setBudget",
+          "explorer": "https://bscscan.com/tx/51e9487e93049c720baf432170ef4429edaa1e1b477971e658d9f60e70f6704b",
+          "gas_used": 96162,
+          "ok": true,
+          "tx_hash": "51e9487e93049c720baf432170ef4429edaa1e1b477971e658d9f60e70f6704b"
+        },
+        {
+          "actor": "client",
+          "call": "registerJob",
+          "explorer": "https://bscscan.com/tx/16ea9130b67d9422da9a027f65b5711603c149d7bda274fae182a3f5b4da5a40",
+          "gas_used": 100342,
+          "ok": true,
+          "tx_hash": "16ea9130b67d9422da9a027f65b5711603c149d7bda274fae182a3f5b4da5a40"
+        },
+        {
+          "actor": "client",
+          "call": "fund",
+          "explorer": "https://bscscan.com/tx/3fa6709caf1b70ef1945ba1423f6807948b8d89544999571b2d71dd2c10dba8c",
+          "gas_used": 102529,
+          "ok": true,
+          "tx_hash": "3fa6709caf1b70ef1945ba1423f6807948b8d89544999571b2d71dd2c10dba8c"
+        },
+        {
+          "actor": "provider",
+          "call": "submit",
+          "explorer": "https://bscscan.com/tx/64f76380afc80e7e55f6c4af49e0e2ce9bc55e321a58eac2fc52f2d41ef3f1c1",
+          "gas_used": 150946,
+          "ok": true,
+          "tx_hash": "64f76380afc80e7e55f6c4af49e0e2ce9bc55e321a58eac2fc52f2d41ef3f1c1"
+        },
+        {
+          "actor": "evaluator",
+          "call": "settle",
+          "ok": false,
+          "reverted": "0x17be5b7b"
+        }
+      ],
+      "what_this_run_changes": "Job 56681 asked for a twelve-hour expiry and `submit` reverted SubmissionTooLate(): the deployment refuses a submission that cannot clear the dispute window before the job expires. This one asked for 192h and submit mined. The release half of ERC-8183 is reachable on mainnet, and what stood between the two runs was one argument.",
+      "why_settle_reverted": "NotDecided() (0x17be5b7b), and it is a wait rather than a failure. The OptimisticPolicy has no decision to enforce until its 168h dispute window has run; settling before then is the call arriving early, not being refused."
+    },
     "terminal_states": [
       "Completed",
       "Rejected",
@@ -1357,7 +1461,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 123.4,
+    "age_hours": 123.5,
     "agents": [
       {
         "agent": "warden",

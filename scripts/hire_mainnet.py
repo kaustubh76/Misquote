@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import sys
 import time
 from pathlib import Path
@@ -36,6 +37,7 @@ from web3 import Web3
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "packages"))
 
+from misquote.chain.operator import operator_key  # noqa: E402
 from misquote.chain.signer import BscSigner  # noqa: E402
 from misquote.registry.erc8183 import contracts_for  # noqa: E402
 from misquote.registry.hire import JobWriter, read_job  # noqa: E402
@@ -62,7 +64,29 @@ ERC20 = json.loads(
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--budget", type=float, default=0.1, help="budget in whole tokens")
-    ap.add_argument("--hours", type=float, default=12.0, help="how long the job stays open")
+    ap.add_argument(
+        "--hours",
+        type=float,
+        default=12.0,
+        help="how long the job stays open. Twelve is what job 56681 asked for and "
+        "why its submit reverted SubmissionTooLate(): the deployment refuses a "
+        "submission that cannot clear the 168h dispute window before expiry.",
+    )
+    ap.add_argument(
+        "--settle",
+        type=int,
+        metavar="JOB",
+        help="settle an already-submitted job and stop. `settle` reverts "
+        "NotDecided() until the policy's 168h dispute window has run, so this is "
+        "the second visit a submitted job needs — job 56718 is due 13 Sep.",
+    )
+    ap.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=RECORD,
+        help="where to write the record. Defaults to the fund-and-reclaim run's "
+        "file; pass a different path rather than overwriting a mined history.",
+    )
     args = ap.parse_args()
 
     budget = int(args.budget * 10**18)
@@ -71,11 +95,59 @@ def main() -> int:
     # The peers are the whole point of this runner — see
     # `BscSigner.wait_for_receipt`. Without them a mined transaction can
     # look like a timeout, which is how the first attempt died.
-    signer = BscSigner(w3, peer_rpcs=ENDPOINTS[1:])
+    # Sign as the operator, which is the wallet that holds the token.
+    #
+    # The default signer is MISQUOTE_PRIVATE_KEY, the delegate — which holds
+    # none of the payment token, so every call after `approve` would refuse for
+    # a reason that looks like the escrow rejecting us rather than us bringing
+    # the wrong wallet. The operator bought the token and owns job 56681.
+    signer = BscSigner(w3, operator_key(), peer_rpcs=ENDPOINTS[1:])
     writer = JobWriter(signer, CHAIN)
     token = w3.eth.contract(address=Web3.to_checksum_address(addresses["erc20"]), abi=ERC20)
 
     steps: list[dict[str, Any]] = []
+
+    if args.settle:
+        # The second visit. Nothing is created, funded or approved — the job
+        # already exists and the money is already in it; this is the call that
+        # was too early last time.
+        state = read_job(w3, CHAIN, args.settle)
+        print(f"  job {args.settle} exists: {state.exists}")
+        entry: dict[str, Any] = {"call": "settle", "actor": "client"}
+        try:
+            sent = writer.settle(args.settle)
+            entry.update(
+                ok=True,
+                tx_hash=sent.tx_hash,
+                gas_used=sent.gas_used,
+                explorer=f"https://bscscan.com/tx/{sent.tx_hash}",
+            )
+            print(f"  settle       {sent.tx_hash}")
+        except Exception as error:  # noqa: BLE001 — a revert is the finding
+            text = str(error)
+            selector = text.split("'")[1] if "'" in text else text[:80]
+            entry.update(ok=False, reverted=selector)
+            print(f"  settle       REVERTED {selector}")
+            if selector == "0x17be5b7b":
+                print("               NotDecided() — the dispute window has not run yet")
+        steps.append(entry)
+        args.out.write_text(
+            json.dumps(
+                {
+                    "ran": True,
+                    "network": "BSC mainnet",
+                    "chain_id": CHAIN,
+                    "job_id": args.settle,
+                    "settled": bool(entry.get("ok")),
+                    "transactions": steps,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        print(f"  -> {args.out}")
+        return 0 if entry.get("ok") else 1
 
     def send(name: str, actor: str, call) -> Any:
         """Send, then confirm across endpoints. A revert is recorded, not raised."""
@@ -171,8 +243,8 @@ def main() -> int:
         pass
 
     RECORD.parent.mkdir(parents=True, exist_ok=True)
-    RECORD.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
-    print(f"\n  escrowed  {escrowed}\n  settled   {settled}\n  -> {RECORD}")
+    args.out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    print(f"\n  escrowed  {escrowed}\n  settled   {settled}\n  -> {args.out}")
     return 0
 
 

@@ -45,11 +45,17 @@ registry_report = _load("registry_report", REPO / "scripts" / "registry_report.p
 contract = _load("artifact_contract", REPO / "tests" / "web" / "test_artifact_contract.py")
 
 #: Each helper, the path constants it consults, and the artifact key it fills.
+#:
+#: `_submit_proof` was added to `registry_report.py` without being added here,
+#: and its skeleton was written from the fields `/registry` renders rather than
+#: from the record — fourteen keys short. Three of these tests failed the moment
+#: it was listed, which is the whole reason the list exists.
 RECORDS = (
     ("_hire_proof", ("HIRE_PROOF_PATH",), "proof"),
     ("_hire_fork_proof", ("HIRE_FORK_PATH",), "fork_proof"),
     ("_hire_mainnet_proof", ("HIRE_MAINNET_PATH",), "mainnet_proof"),
     ("_refund_proof", ("REFUND_MAINNET_PATH", "REFUND_FORK_PATH"), "refund_proof"),
+    ("_submit_proof", ("SUBMIT_PATH",), "submit_proof"),
 )
 
 

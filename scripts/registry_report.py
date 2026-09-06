@@ -218,6 +218,7 @@ def hire_flow() -> dict[str, Any]:
         "proof": _hire_proof(),
         "fork_proof": _hire_fork_proof(),
         "mainnet_proof": _hire_mainnet_proof(),
+        "submit_proof": _submit_proof(),
         "refund_proof": _refund_proof(),
         # The four addresses a browser needs to send any of this itself.
         #
@@ -411,6 +412,7 @@ ABSENT_FORK = {
     "token_owner": None,
     "transactions": [],
     "why_not_on_mainnet": None,
+    "why_not_on_mainnet_was": None,
 }
 
 ABSENT_PROOF = {
@@ -425,6 +427,7 @@ ABSENT_PROOF = {
     "job_words": [],
     "mined": [],
     "not_escrowed_because": None,
+    "not_escrowed_because_was": None,
     "ran": False,
     "reason": None,
     "record": None,
@@ -432,6 +435,54 @@ ABSENT_PROOF = {
     "success_criterion": None,
     "transactions": [],
 }
+
+
+#: The run where `submit` mined. A fourth record, and the one that moves the
+#: release half from "never reached" to "waiting on a clock".
+#:
+#: `hire-mainnet-56.json` is job 56681: funded, then reclaimed, with `submit`
+#: refused. This is job 56718 with a 192-hour expiry instead of twelve, which is
+#: the whole difference — `SubmissionTooLate()` is a comparison against the
+#: policy's dispute window, and one argument was on the wrong side of it.
+SUBMIT_PATH = REPO / "vetting" / "identity" / "hire-mainnet-56-submitted.json"
+
+ABSENT_SUBMIT: dict[str, Any] = {
+    "addresses": {"erc20": None, "kernel": None, "policy": None, "router": None},
+    "budget": None,
+    "chain_id": None,
+    "client": None,
+    "dispute_window_s": None,
+    "escrowed": None,
+    "escrowed_on_mainnet": None,
+    "evaluator": None,
+    "expires_at": None,
+    "expires_at_utc": None,
+    "gas_spent_wei": None,
+    "job_exists": None,
+    "job_id": None,
+    "job_words": [],
+    "network": None,
+    "provider": None,
+    "ran": False,
+    "reason": None,
+    "record": None,
+    "settle_earliest_utc": None,
+    "settled": None,
+    "submitted": None,
+    "success_criterion": None,
+    "transactions": [],
+    "what_this_run_changes": None,
+    "why_settle_reverted": None,
+}
+
+
+def _submit_proof() -> dict[str, Any]:
+    """The run that got `submit` mined, or an honest absence."""
+    return _published_record(
+        (SUBMIT_PATH,),
+        ABSENT_SUBMIT,
+        "no submitted mainnet hire — `hire_mainnet.py --hours 192` writes this",
+    )
 
 
 def _refund_proof() -> dict[str, Any]:

@@ -80,6 +80,24 @@ The five entries on the not-built ledger, rendered at `/status` and listed in
   azure. The custody objection once recorded here applied to one flag
   combination, not to the tool.
 
+## One thing due after submission
+
+**Settle job 56718 on or after 13 Sep 2026, 08:01 UTC.** `submit` mined on
+mainnet; `settle` reverts `NotDecided()` until the OptimisticPolicy's seven-day
+dispute window has run. Expiry is 14 Sep 08:00 UTC, so there is a 24-hour
+window, and judging runs to 23 Sep.
+
+```
+set -a; . ./.env; set +a
+MISQUOTE_DRY_RUN=0 \
+MISQUOTE_SIGNER_ADDRESS=0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE \
+BSC_RPC_URL=https://bsc-dataseed.bnbchain.org \
+  uv run python scripts/hire_mainnet.py --settle 56718
+```
+
+If it is missed, `claimRefund` recovers the 0.1 token after expiry — the same
+path job 56681 took, already proven.
+
 ## Open before submission
 
 - [ ] **Demo video.** Not recorded. The script is written —

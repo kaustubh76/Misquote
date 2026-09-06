@@ -276,6 +276,20 @@ export interface RegistryArtifact {
      * was, and a fork hash is deliberately not a link: it was never on a chain
      * anyone can look it up on.
      */
+    submit_proof?: {
+      ran: boolean;
+      reason?: string;
+      network?: string;
+      job_id?: number;
+      submitted?: boolean;
+      settled?: boolean;
+      escrowed?: boolean;
+      expires_at_utc?: string;
+      settle_earliest_utc?: string;
+      why_settle_reverted?: string;
+      what_this_run_changes?: string;
+      transactions?: { call: string; ok?: boolean; tx?: string; reverted?: string }[];
+    };
     refund_proof?: {
       ran: boolean;
       reason?: string;
@@ -1096,6 +1110,60 @@ export function RegistryView({
                       kernel&rsquo;s own bytecode.{" "}
                       {d.hire_flow.fork_proof.escrowed_on_mainnet === false &&
                         d.hire_flow.fork_proof.why_not_on_mainnet}
+                    </p>
+                  </div>
+                )}
+
+                {/* The run where submit mined. Placed before the refund
+                    because it is the later claim and the stronger one: 56681
+                    funded and reclaimed, 56718 funded and *delivered into*.
+                    The only difference between them is an argument. */}
+                {d.hire_flow.submit_proof?.ran && (
+                  <div className="mt-5 border-t border-line pt-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <Badge tone="neutral">
+                        {d.hire_flow.submit_proof.network ?? "BSC mainnet"}
+                      </Badge>
+                      <Pill tone={d.hire_flow.submit_proof.submitted ? "pass" : "fail"}>
+                        submitted: {String(d.hire_flow.submit_proof.submitted ?? false)}
+                      </Pill>
+                      <Pill tone={d.hire_flow.submit_proof.settled ? "pass" : "none"}>
+                        settled: {String(d.hire_flow.submit_proof.settled ?? false)}
+                      </Pill>
+                      <span className="font-mono text-xs text-faint">
+                        job {d.hire_flow.submit_proof.job_id} &middot; expires{" "}
+                        {d.hire_flow.submit_proof.expires_at_utc}
+                      </span>
+                    </div>
+                    {(d.hire_flow.submit_proof.transactions ?? [])
+                      .filter((sent) => sent.ok && sent.tx)
+                      .map((sent) => (
+                        <p key={sent.tx} className="mt-2 mb-0 text-xs">
+                          <span className="font-mono text-faint">{sent.call}</span>{" "}
+                          <a
+                            className="font-mono break-all text-dim underline"
+                            href={`https://bscscan.com/tx/${sent.tx}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {sent.tx}
+                          </a>
+                        </p>
+                      ))}
+                    {/* Both through `Prose`: these are emitter prose with
+                        backticks around the selector names, and printing the
+                        characters is the failure `test_prose_is_rendered`
+                        exists for. */}
+                    <p className="mt-3 mb-0 max-w-[70ch] text-sm text-dim">
+                      <Prose text={d.hire_flow.submit_proof.what_this_run_changes ?? ""} />
+                    </p>
+                    <p className="mt-2 mb-0 max-w-[70ch] text-sm text-dim">
+                      <Prose text={d.hire_flow.submit_proof.why_settle_reverted ?? ""} /> Settle is
+                      due{" "}
+                      <strong className="text-ink">
+                        {d.hire_flow.submit_proof.settle_earliest_utc}
+                      </strong>
+                      .
                     </p>
                   </div>
                 )}
