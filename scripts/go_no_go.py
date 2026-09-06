@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -83,12 +84,29 @@ class Check:
 SUITE_TIMEOUT = 2400
 
 
+#: How much of each stream a gate gets to see. Per stream, deliberately.
+#:
+#: This was one `[-4000:]` over `stdout + stderr` — a concatenation, not an
+#: interleave — so a command that is chatty on stderr silently evicted every
+#: word it wrote to stdout. `make web-check` is that command: `check-pages.mjs`
+#: prints its verdict on stdout and the static server it loads from logs every
+#: request to stderr, thousands of lines of them. The gate's whole view of the
+#: only check that runs real layout was
+#:
+#:     ::1 - - [06/Sep/2026 15:42:27] "GET /tape/index.txt…" 200 -
+#:
+#: with "every route clean in both themes and at 390px" cut off some four
+#: thousand characters earlier. Reading the tail of each stream costs nothing
+#: and means neither can hide the other.
+STREAM_TAIL = 4000
+
+
 def _run(command: list[str], timeout: int = SUITE_TIMEOUT) -> tuple[int, str]:
     try:
         result = subprocess.run(
             command, cwd=REPO, capture_output=True, text=True, timeout=timeout, check=False
         )
-        return result.returncode, (result.stdout + result.stderr)[-4000:]
+        return result.returncode, result.stdout[-STREAM_TAIL:] + result.stderr[-STREAM_TAIL:]
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout}s"
     except FileNotFoundError:
@@ -183,6 +201,39 @@ def check_web_component_suite() -> Check:
     return Check("web component suite", PASS, _summary_line(lines, "Tests ", last))
 
 
+#: Where the published API base lives, and how long a cold instance takes.
+#:
+#: The browser check loads routes that read the live API. The API is on a free
+#: plan that spins down after about fifteen minutes idle, and the offline suite
+#: ahead of it in this gate takes five to thirteen — so the gate reliably put the
+#: instance to sleep and then failed the one check that needs it awake, with
+#: `page.goto: Timeout 60000ms exceeded — still in flight: 60s …/tape`. Twice out
+#: of four runs. Nothing about the page was disproven either time.
+API_CONFIG = REPO / "apps" / "web" / "public" / "artifacts" / "api.json"
+WAKE_TIMEOUT_S = 90
+
+
+def _wake_api() -> str | None:
+    """Knock on the published API base and wait for it to get up.
+
+    Returns the base it woke, or None if there is none configured — an export
+    with no backend is the ordinary case and not a failure.
+    """
+    try:
+        base = json.loads(API_CONFIG.read_text()).get("base")
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not base:
+        return None
+
+    try:
+        with urllib.request.urlopen(f"{base}/tape", timeout=WAKE_TIMEOUT_S):
+            pass
+    except Exception:  # noqa: BLE001 — a sleeping instance is the case being handled
+        pass
+    return base
+
+
 def check_web_browser_suite() -> Check:
     """`make web-check`: the built export, loaded in a real browser.
 
@@ -203,6 +254,7 @@ def check_web_browser_suite() -> Check:
     fork: an amber light carrying the remedy, because a red one for a missing
     browser teaches people to ignore the colour.
     """
+    base = _wake_api()
     code, output = _run(["make", "web-check"], timeout=SUITE_TIMEOUT)
     lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
     last = lines[-1] if lines else "no output"
@@ -223,7 +275,29 @@ def check_web_browser_suite() -> Check:
         # The failure lines, not the last line. `check-pages.mjs` prints an
         # enumerated list and then exits, so the tail is the exit noise while
         # the routes that failed are three lines above it.
-        named = [line for line in lines if line.startswith("/") or ": " in line][-3:]
+        #
+        # `FAIL` first, because that is how the tool marks them and the fallback
+        # is a heuristic: "starts with / or contains ': '" also matches
+        # `make: *** [web-check] Error 1`, and a run whose only failure line had
+        # no colon in it published the make error as the finding.
+        named = [line for line in lines if line.startswith("FAIL") or " FAIL " in line][:3]
+        named = named or [line for line in lines if line.startswith("/") or ": " in line][-3:]
+
+        # A sleeping backend is not a failing page. Waking it above makes this
+        # rare rather than impossible — the instance can go back to sleep
+        # between the knock and the route that reads it — and reporting red for
+        # it would teach a reader to discount the colour, which is the same
+        # argument the missing-Chromium branch above makes.
+        failures = [line for line in lines if "still in flight" in line]
+        if base and failures and all(base in line for line in failures):
+            return Check(
+                "web browser suite",
+                UNVERIFIED,
+                f"{base} did not answer inside the page's timeout; "
+                f"{len(failures)} route(s) never finished loading",
+                f"curl {base}/tape to wake it, then make web-check",
+            )
+
         return Check(
             "web browser suite",
             FAIL,

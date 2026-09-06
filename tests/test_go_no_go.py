@@ -820,6 +820,109 @@ def test_a_passing_browser_suite_publishes_its_result_and_not_the_server_log() -
     assert "GET /" not in detail
 
 
+#: A `make web-check` run where the only thing that went wrong was a cold API.
+ASLEEP = """
+  FAIL  tape-dark-1280                  page.goto: Timeout 60000ms exceeded. — still in flight: 60s https://misquote-api.example/tape
+  1 failure(s):
+make: *** [web-check] Error 1
+"""
+
+#: And one where a route is genuinely broken.
+BROKEN = """
+  FAIL  vetting-dark-390                 2 animation(s) still running — CSSTransition
+  1 failure(s):
+make: *** [web-check] Error 1
+"""
+
+
+def _browser_gate(monkeypatch: pytest.MonkeyPatch, output: str, base: str | None):
+    monkeypatch.setattr(gng, "_wake_api", lambda: base)
+    monkeypatch.setattr(gng, "_run", lambda *a, **k: (2, output))
+    return gng.check_web_browser_suite()
+
+
+def test_a_sleeping_backend_is_amber_and_not_a_failing_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gate put the API to sleep itself and then failed the check that needs it.
+
+    The offline suite ahead of this one runs for five to thirteen minutes and
+    the API spins down after about fifteen idle, so `page.goto` timed out
+    waiting on `/tape` — twice in four runs. Nothing about the page was
+    disproven either time. Red for it teaches a reader to discount the colour,
+    which is the argument the missing-Chromium branch already makes.
+    """
+    check = _browser_gate(monkeypatch, ASLEEP, "https://misquote-api.example")
+
+    assert check.status == gng.UNVERIFIED
+    assert "misquote-api.example" in check.detail
+    assert "wake it" in (check.remedy or "")
+
+
+def test_a_route_that_actually_broke_is_still_red(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The half that matters: amber is for the backend, not for the page.
+
+    The detail names the route too. It used to be chosen by "starts with / or
+    contains a colon-space", which `make: *** [web-check] Error 1` satisfies and
+    a failure line without a colon does not — so the finding published for this
+    exact case was the make error.
+    """
+    check = _browser_gate(monkeypatch, BROKEN, "https://misquote-api.example")
+
+    assert check.status == gng.FAIL
+    assert "animation" in check.detail
+    assert "vetting-dark-390" in check.detail
+
+
+def test_a_timeout_against_something_that_is_not_the_api_is_red(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A route hanging on a third party is a page problem and reads as one."""
+    hung = ASLEEP.replace("misquote-api.example", "cdn.somewhere-else.example")
+    check = _browser_gate(monkeypatch, hung, "https://misquote-api.example")
+
+    assert check.status == gng.FAIL
+
+
+def test_waking_an_api_that_is_not_configured_is_not_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An export with no backend is the ordinary case, not a broken one."""
+    monkeypatch.setattr(gng, "API_CONFIG", REPO / "no" / "such" / "api.json")
+    assert gng._wake_api() is None
+
+
+def test_a_chatty_stderr_does_not_evict_what_the_tool_said_on_stdout() -> None:
+    """The reason two gates published their tools' noise instead of their results.
+
+    `_run` capped `stdout + stderr` — a concatenation — at four thousand
+    characters, so the tail is stderr's whenever stderr is long, and everything
+    the command wrote to stdout is gone. `make web-check` writes its verdict to
+    stdout and serves the built site from a `http.server` that logs every
+    request to stderr, thousands of lines; the gate for the only check that runs
+    real layout could see nothing but access logs.
+
+    Asserted against a real subprocess rather than a stub, because the defect is
+    in how the two streams are joined and a stub would join them however this
+    test decided to.
+    """
+    module = load()
+    noise = "x" * (module.STREAM_TAIL * 3)
+    _, output = module._run(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; print('every route clean'); sys.stderr.write({noise!r})",
+        ]
+    )
+
+    assert "every route clean" in output, (
+        "stderr evicted stdout, which is the bug — the tool's own result is the "
+        "half a gate exists to publish"
+    )
+    assert output.rstrip().endswith("x"), "and the stderr tail is still there to diagnose with"
+
+
 def test_a_tool_that_prints_no_summary_still_gets_a_detail() -> None:
     """The fallback is the old behaviour, not an empty string or a crash."""
     module = load()
