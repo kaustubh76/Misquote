@@ -21,6 +21,21 @@ So the base URL is read at runtime, from a file. Putting that file *inside*
 the normal case — the whole export works without one — and `null` says "there is
 no live API here" where an empty string would read as "the API is at the site
 root", which is a different and wrong claim.
+
+## Why null cannot silently replace a base that is already there
+
+`make artifacts` runs this target unconditionally, nothing in the build loads
+`.env`, and `MISQUOTE_API_BASE` is not in `.env.example` — so any rebuild that
+did not happen to have the variable inline wrote `base: null` over a working
+one, and every live feature on the site went dark with no error and no diff
+anybody reads. Commit `840b3dd` is that happening: the base was restored the
+next day by someone noticing the site, not by a check.
+
+So an empty base now **keeps** the base already on disk and says so, loudly.
+Blanking it deliberately is `--allow-null`, which is one flag and a decision
+rather than an omission. This is not a validity check — null is valid, and a
+fresh clone with no `api.json` still publishes it without complaint. It is only
+a refusal to *lose* a value that nothing else in the build remembers.
 """
 
 from __future__ import annotations
@@ -84,6 +99,20 @@ def config(base: str | None) -> dict[str, Any]:
     }
 
 
+def existing_base(path: Path) -> str | None:
+    """The base already published at `path`, if there is a readable one.
+
+    A missing, empty or malformed file is not an error here — it is the fresh
+    clone, and it has no value to lose.
+    """
+    try:
+        published = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    base = published.get("base") if isinstance(published, dict) else None
+    return base if isinstance(base, str) and base else None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     # The literal, not a constant holding it. `tests/test_env_template.py` finds
@@ -94,15 +123,31 @@ def main(argv: list[str] | None = None) -> int:
     # cost the check.
     parser.add_argument("--base", default=os.environ.get("MISQUOTE_API_BASE", ""))
     parser.add_argument("--out", default=str(DEFAULT_OUT))
+    parser.add_argument(
+        "--allow-null",
+        action="store_true",
+        help="blank a base that is already published (dark-site the live features)",
+    )
     args = parser.parse_args(argv)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     path = out / "api.json"
-    path.write_text(json.dumps(config(args.base), indent=2, sort_keys=True) + "\n")
 
-    where = config(args.base)["base"] or "no live API configured"
-    print(f"  api base -> {where}")
+    base = args.base
+    kept = None
+    if not config(base)["base"] and not args.allow_null:
+        kept = existing_base(path)
+        if kept:
+            base = kept
+
+    path.write_text(json.dumps(config(base), indent=2, sort_keys=True) + "\n")
+
+    if kept:
+        print(f"  MISQUOTE_API_BASE is unset; kept the published base -> {kept}")
+        print("  (pass --allow-null to blank it, which dark-sites every live feature)")
+    else:
+        print(f"  api base -> {config(base)['base'] or 'no live API configured'}")
     print(f"\n  -> {path}")
     return 0
 

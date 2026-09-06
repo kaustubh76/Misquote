@@ -558,9 +558,12 @@ artifacts: showcase-auto router-card ledger advantage-auto advantage-short regis
 	# checks the document is current, so it has to see the synced version.
 
 api-config:  ## publish where the live API is, as apps/web/public/artifacts/api.json
-	# Reads MISQUOTE_API_BASE. Unset publishes `base: null`, which is the honest
-	# default: the export works with no backend, and a client that finds null must
-	# not fall back to the site origin.
+	# Reads MISQUOTE_API_BASE. Unset KEEPS whatever base is already published and
+	# says so — nothing in this build loads `.env`, so an unset variable is an
+	# omission rather than an instruction, and it once wrote `base: null` over a
+	# working base and dark-sited every live feature (commit 840b3dd).
+	# `--allow-null` blanks it deliberately; a fresh clone with no api.json still
+	# publishes null, which is the honest default for an export with no backend.
 	$(UV) run python scripts/emit_api_config.py
 
 api-worker:  ## drain the quote job queue (a replay is hours, not seconds)

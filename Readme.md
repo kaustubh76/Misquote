@@ -302,15 +302,25 @@ caps · the tearsheet.
 
 ## 9. Environment
 
-```
-BSC_RPC_URL=            # mainnet
-BSC_TESTNET_RPC_URL=
-WALLET_KEYSTORE_PATH=   # never a raw key in env
-TARGET_POOL=            # Pancake v3 pool address (Warden)
-CEX_FEED_URL=           # toxicity signal; on-chain fallback if unset
-ALTANA_*=               # session key config
-DB_PATH=./misquote.db
-```
+**[`.env.example`](.env.example) is the list.** Copy it to `.env` and fill in
+what you need; every variable in it is one the code reads, and every variable
+the code reads is in it — [`tests/test_env_template.py`](tests/test_env_template.py)
+walks the AST for `os.environ` accesses and fails if the two sets differ.
+
+This section used to carry its own copy of that list, and the copy was wrong in
+the way an unguarded copy always goes wrong: `WALLET_KEYSTORE_PATH` and
+`ALTANA_*` were read by nothing, and `DB_PATH=./misquote.db` named a path that
+is not the default (`data/misquote.db`). A second list is a second thing to keep
+true, and this one was not being kept.
+
+Two that are worth knowing before you start:
+
+- **`MISQUOTE_DRY_RUN`** defaults to on. Every chain write prints what it would
+  send and sends nothing until `MISQUOTE_DRY_RUN=0` is set on that one command.
+  It does not belong in `.env`.
+- **`MISQUOTE_API_BASE`** is where the live API is. Unset, `make artifacts`
+  keeps whatever base is already published rather than blanking it — see the
+  `api-config` target for why that is not the obvious behaviour.
 
 Run: `make artifacts` (every JSON the site reads) · `make replay-tests` ·
 `make web` · `make status` — Makefile targets are part of Phase 1 deliverables.
