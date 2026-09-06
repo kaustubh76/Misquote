@@ -282,9 +282,17 @@ class BscSigner:
         if self._max_gas_price_wei is None:
             return
         if price_wei > self._max_gas_price_wei:
+            # The wei, not only the gwei. Rendered at three decimals this read
+            # "the node quotes 1.000 gwei and the ceiling is 1.000 gwei" — a
+            # refusal that appears to contradict itself — for a quote of
+            # 1,000,000,001 against 1,000,000,000. That is the ordinary case on a
+            # fork, where anvil answers `base_fee + 1 gwei` and inherits a base
+            # fee of a wei or two from a busy BSC block, so the one message most
+            # likely to be read said the least.
             raise GasPriceTooHigh(
-                f"the node quotes {price_wei / 1e9:.3f} gwei and the ceiling is "
-                f"{self._max_gas_price_wei / 1e9:.3f} gwei. Nothing was signed. "
+                f"the node quotes {price_wei / 1e9:.3f} gwei ({price_wei:,} wei) and the "
+                f"ceiling is {self._max_gas_price_wei / 1e9:.3f} gwei "
+                f"({self._max_gas_price_wei:,} wei). Nothing was signed. "
                 f"Raise MISQUOTE_MAX_GAS_PRICE_WEI if this price is one you meant "
                 f"to pay, or wait — on BSC this is usually a passing spike."
             )

@@ -118,7 +118,19 @@ def manager(tmp_path_factory):
         for name in ("MISQUOTE_OPERATOR_ADDRESS", "MISQUOTE_SIGNER_ADDRESS")
     }
     kill_file = tmp_path_factory.mktemp("ops") / "KILL"
-    signer = BscSigner(w3, ANVIL_KEY, kill_file=kill_file)
+    # The gas ceiling is off, the way `prove_escrow_fund.py` turns it off on its
+    # own fork and for the same reason: a fork has neither a wallet nor a price,
+    # and the ceiling exists to stop a thin real one overpaying.
+    #
+    # Leaving it on made this module fail intermittently, and the message was
+    # unreadable — "the node quotes 1.000 gwei and the ceiling is 1.000 gwei",
+    # rendered at three decimals from 1,000,000,001 against 1,000,000,000. anvil
+    # quotes `base_fee + 1 gwei`, and it inherits the base fee from whichever BSC
+    # block it forked at: a block more than half full leaves a base fee of one
+    # wei or more, which puts the quote one wei over the default ceiling. So the
+    # whole thirteen-test module passed or errored on how busy BSC happened to be
+    # a second earlier. Demonstrated with `anvil_setNextBlockBaseFeePerGas`.
+    signer = BscSigner(w3, ANVIL_KEY, kill_file=kill_file, max_gas_price_wei=0)
     pm = PositionManager(signer, META, MAINNET)
 
     pm.ensure_allowance(WBNB_MAINNET, 2**200)

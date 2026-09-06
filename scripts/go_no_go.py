@@ -231,7 +231,12 @@ def check_web_browser_suite() -> Check:
             "make web-check — each failure names the route and the viewport",
         )
 
-    return Check("web browser suite", PASS, last)
+    # `check-pages.mjs` closes with "every route clean in both themes and at
+    # 390px…", and then the static server it loaded from goes on logging
+    # requests until it is killed — so `lines[-1]` was an access log line, and
+    # the gate published `::1 - - [06/Sep/2026 14:45:08] "GET /tape/index.txt…"`
+    # as the result of every route in two themes at two viewports.
+    return Check("web browser suite", PASS, _summary_line(lines, "every route clean", last))
 
 
 def check_chain_suite() -> Check:

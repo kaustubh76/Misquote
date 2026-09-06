@@ -797,6 +797,29 @@ def test_a_passing_component_suite_publishes_its_result_and_not_its_trailer() ->
     assert "trace-warnings" not in detail
 
 
+#: A passing `make web-check`, whose static server logs on after the check.
+WEB_CHECK_TAIL = """
+  ok    nothing animates under reduce   47 routes
+
+  every route clean in both themes and at 390px, with 47 distinct titles.
+::1 - - [06/Sep/2026 14:45:08] "GET /tape/index.txt?_rsc=doD_FWmrzap9 HTTP/1.1" 200 -
+"""
+
+
+def test_a_passing_browser_suite_publishes_its_result_and_not_the_server_log() -> None:
+    """The same shape, one gate over. `check-pages.mjs` finishes and the static
+    server it loaded from keeps logging until it is killed, so the last line was
+    an HTTP access log — published as the result of every route in two themes at
+    two viewports."""
+    module = load()
+    lines = [line.strip() for line in WEB_CHECK_TAIL.strip().splitlines() if line.strip()]
+
+    detail = module._summary_line(lines, "every route clean", lines[-1])
+
+    assert detail.startswith("every route clean in both themes")
+    assert "GET /" not in detail
+
+
 def test_a_tool_that_prints_no_summary_still_gets_a_detail() -> None:
     """The fallback is the old behaviour, not an empty string or a crash."""
     module = load()

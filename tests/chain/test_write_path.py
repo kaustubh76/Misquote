@@ -392,8 +392,16 @@ def test_a_gas_price_above_the_ceiling_is_refused_before_anything_is_estimated()
         signer.build(call)
 
     assert call.estimated is False, "the estimate ran despite the price refusal"
-    # Both numbers, because "too high" without them is not actionable.
-    assert "1.000 gwei" in str(excinfo.value)
+    # Both numbers, in wei, because "too high" without them is not actionable —
+    # and because this test's own case proves gwei alone is not enough. A quote
+    # one wei over the ceiling rendered at three decimals reads "the node quotes
+    # 1.000 gwei and the ceiling is 1.000 gwei", which looks like a refusal
+    # contradicting itself. It is the ordinary case on a fork, where anvil
+    # answers `base_fee + 1 gwei`, and it cost an hour to read. The old
+    # assertion was `"1.000 gwei" in ...`, which both halves satisfy.
+    message = str(excinfo.value)
+    assert f"{DEFAULT_MAX_GAS_PRICE_WEI + 1:,} wei" in message
+    assert f"{DEFAULT_MAX_GAS_PRICE_WEI:,} wei" in message
 
 
 def test_a_price_at_the_ceiling_is_allowed() -> None:
