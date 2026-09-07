@@ -392,3 +392,37 @@ export function createJobArgs(input: {
     router,
   ] as const;
 }
+
+/**
+ * Where a visitor gets the token the kernel settles in.
+ *
+ * ## The wall this exists to put a door in
+ *
+ * The kernel does not take BNB. It takes one ERC-20, chosen by whoever deployed
+ * it, and `fund` reverts without it. So a judge arriving with a funded wallet
+ * hit a greyed button reading *"this wallet does not hold that much of the
+ * payment token"* — accurate, and a dead end: no faucet, no link, no address to
+ * copy, nothing anywhere on the site saying what to do next. The one place this
+ * repository recorded that the token is *buyable* was a TypeScript docstring the
+ * browser never renders.
+ *
+ * It is buyable, and cheaply: `registry.json` records the swap that proved it —
+ * 0.2058 of the token for 0.0003 BNB, and job 56681 was escrowed with what it
+ * bought.
+ *
+ * ## Mainnet only, and that is the honest direction
+ *
+ * Chapel's payment token is the same contract shape with no market behind it:
+ * owner-minted, no faucet among its selectors, and no pool to buy from. Sending
+ * someone to a testnet to avoid spending twenty cents would send them somewhere
+ * strictly harder, so this returns null there and the caller says so.
+ */
+export function paymentTokenMarket(
+  deployment: EscrowDeployment | undefined,
+): { url: string; token: string } | null {
+  if (!deployment || deployment.chain_id !== 56) return null;
+  return {
+    token: deployment.erc20,
+    url: `https://pancakeswap.finance/swap?chain=bsc&outputCurrency=${deployment.erc20}`,
+  };
+}

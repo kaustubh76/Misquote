@@ -968,8 +968,34 @@ def render_markdown(comparisons: list[Comparison], *, source: str, capital: floa
             f"| Net return P25–P75 | {c.baseline_p25:.2f} – {c.baseline_p75:.2f}% "
             f"| {c.agent_p25:.2f} – {c.agent_p75:.2f}% |",
             f"| Median | {c.baseline_p50:.2f}% | {c.agent_p50:.2f}% |",
-            f"| Time taken | {c.baseline_seconds:,.0f}s | {c.agent_seconds:,.0f}s |",
-            f"| Cost to hire | — | {c.hire_cost_quote:.6f} BNB |",
+            # Time, in the unit this report can defend.
+            #
+            # This row used to print `baseline_seconds` and `agent_seconds`,
+            # which are how long *our replay* took on the author's laptop under
+            # an 8-way pool — a number that says nothing about doing the job and
+            # is degenerate besides: Earn and Market-make share one control run,
+            # so the same 7,723s printed as two different DIY times, and
+            # `task_choose` reuses one replay and printed it in both columns.
+            #
+            # What the engine does measure is *decisions*: who had to make one,
+            # how many, and at times chosen by whom. Converting those to hours
+            # would need a minutes-per-decision assumption this report does not
+            # have, so it counts decisions and refuses to invent the rest.
+            *(
+                [
+                    f"| Decisions somebody had to make | {c.baseline_moves} | 0 |",
+                    f"| Decisions made for you | 0 | {c.agent_moves} |",
+                ]
+                if c.baseline_moves is not None and c.agent_moves is not None
+                else []
+            ),
+            f"| Replay compute (ours, not yours) | {c.baseline_seconds:,.0f}s "
+            f"| {c.agent_seconds:,.0f}s |",
+            # Cost, both columns. The DIY column was an em dash, which read as
+            # "doing it yourself is free". It is not: the passive position pays
+            # gas to open, and that number was already measured two rows down
+            # under a different name.
+            f"| Fee to hire | none | {c.hire_cost_quote:.6f} BNB |",
             *row("In range", c.baseline_in_range, c.agent_in_range, ".1%"),
             *row("Fees", c.baseline_fees, c.agent_fees, ".4f"),
             *row(
@@ -1152,11 +1178,44 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float, co
                     "without_agent": round(c.baseline_seconds, 1),
                     "with_agent": round(c.agent_seconds, 1),
                 },
+                # Time as decisions, which is what the engine measures. See the
+                # markdown row for why `seconds` is not the answer to "how long
+                # did the job take" — it is how long *our replay* took.
+                "attention": {
+                    "decisions_you_make": c.baseline_moves,
+                    "decisions_made_for_you": c.agent_moves,
+                    "unattended": c.agent_moves is not None and c.baseline_moves is not None,
+                    "note": (
+                        "Counted, not timed. The DIY column's moves are decisions somebody "
+                        "had to make; the agent's are decisions it made instead, at times "
+                        "its policy chose rather than times anyone was watching. Turning "
+                        "either into hours would need a minutes-per-decision assumption "
+                        "this report does not have."
+                    ),
+                },
                 "hire_cost": {
                     "amount": c.hire_cost_quote,
                     "unit": "BNB",
                     "note": c.hire_cost_note,
+                    # Both columns, because "cost to hire: —" read as "doing it
+                    # yourself is free". The passive position pays gas to open,
+                    # and that number was already measured under another name.
+                    "you_also_pay": {
+                        "without_agent": c.baseline_costs,
+                        "with_agent": c.agent_costs,
+                        "unit": "quote token",
+                        "note": (
+                            "The strategy's own gas and slippage while the task runs, "
+                            "which is a different quantity from the fee to hire and is "
+                            "charged to both columns by the same cost model."
+                        ),
+                    },
                 },
+                # The win rate the track asks a trading agent for, and it is a
+                # different question from `verdicts.profitable`: that one counts
+                # windows finishing above zero, this one counts windows finishing
+                # above the baseline. Only the second is what a buyer pays for.
+                "beat_rate": _beat_rate(c),
                 "delta_pp": round(c.delta, 6),
                 "ranges_overlap": c.ranges_overlap,
                 "same_run": c.same_run,
@@ -1167,6 +1226,31 @@ def to_payload(comparisons: list[Comparison], *, source: str, capital: float, co
             for c in comparisons
         ],
     }
+
+
+def _beat_rate(c: Comparison) -> dict[str, Any] | None:
+    """`beat_rate` as the artifact carries it, or `None` when nothing pairs.
+
+    Omitted rather than zeroed when there are no returns to compare — the same
+    rule `_side` follows, and for the same reason: a zero here would read as
+    "the agent never won" when the truth is "nobody counted".
+    """
+    rate = c.beat_rate
+    if rate is None:
+        return None
+    out: dict[str, Any] = {
+        "wins": rate.wins,
+        "ties": rate.ties,
+        "losses": rate.losses,
+        "windows": rate.n,
+        "comparable": rate.comparable,
+        "label": rate.label(),
+    }
+    if rate.rate is not None:
+        out["rate"] = round(rate.rate, 6)
+    if rate.why:
+        out["why"] = rate.why
+    return out
 
 
 #: Sub-windows per task. The same 20 `compute_quote` uses for the LP tasks, so

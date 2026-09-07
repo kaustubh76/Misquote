@@ -267,6 +267,13 @@ export function useEscrowFlow({
 
   const isClient =
     Boolean(state && address) && state!.client.toLowerCase() === address!.toLowerCase();
+
+  // How much of the payment token is missing, if any. The console stated this
+  // as a refusal and stopped — "this wallet does not hold that much" — which is
+  // the one place a marketplace must not stop, because it is the step where a
+  // stranger with a funded wallet is turned away.
+  const held = balance.data as bigint | undefined;
+  const shortfall = held !== undefined && amount > 0n && held < amount ? amount - held : null;
   const providerAddress = (provider || address || "").toLowerCase();
   const youDeliver = Boolean(address) && providerAddress === address!.toLowerCase();
 
@@ -378,7 +385,7 @@ export function useEscrowFlow({
           call: "fund(jobId, expectedBudget, 0x)",
           hint: "The money moves here. A budget of exactly zero is the only one it refuses.",
           disabled:
-            balance.data !== undefined && (balance.data as bigint) < amount
+            shortfall !== null
               ? "this wallet does not hold that much of the payment token"
               : undefined,
           run: () =>
@@ -491,7 +498,8 @@ export function useEscrowFlow({
     state,
     expiresIn,
     isClient,
-    balance: balance.data as bigint | undefined,
+    balance: held,
+    shortfall,
     reading,
     steps,
     nextUp,

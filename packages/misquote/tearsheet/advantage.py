@@ -68,6 +68,54 @@ MATERIAL_PP = 0.10
 
 
 @dataclass(frozen=True, slots=True)
+class BeatRate:
+    """How often the agent beat doing it yourself, window by window.
+
+    The track asks a trading agent for "a real record: win rate, the window, and
+    the risk taken to get there." This repository already published a rate and
+    it answers a different question: `verdicts.profitable` counts windows that
+    finished **above zero**, which in a fee-earning position is close to free.
+    Counting windows that finished **above the baseline** is the marketplace's
+    own claim, and it is the one a buyer is paying for.
+
+    It is a paired comparison and it is only meaningful paired. Both arms replay
+    the same windows in the same order — same tape, same seed, same
+    perturbations, only `policy=` differs — so index *i* is one window seen
+    twice. That is also the whole fragility: if the two arms report different
+    numbers of usable replays they are no longer the same windows, and this
+    refuses rather than zipping to the shorter one.
+
+    Ties are kept separate from losses. `task_choose` reuses one replay in both
+    columns when the two rules pick the same pool, so it ties on every window by
+    construction; folding that into "0% win rate" would report a measurement
+    where there was none.
+    """
+
+    wins: int
+    ties: int
+    losses: int
+    n: int
+    comparable: bool
+    why: str = ""
+
+    @property
+    def rate(self) -> float | None:
+        """Wins as a fraction of decided windows, or None when undecidable."""
+        decided = self.wins + self.losses
+        return self.wins / decided if self.comparable and decided else None
+
+    def label(self) -> str:
+        if not self.comparable:
+            return self.why
+        if self.ties == self.n:
+            return f"tied on all {self.n} windows"
+        rate = self.rate
+        pct = "" if rate is None else f" ({rate * 100:.0f}%)"
+        tied = f", {self.ties} tied" if self.ties else ""
+        return f"beat doing it yourself on {self.wins} of {self.n} windows{pct}{tied}"
+
+
+@dataclass(frozen=True, slots=True)
 class PrimaryMetric:
     """The quantity a task is *named after*, and both sides' value for it.
 
@@ -285,6 +333,38 @@ class Comparison:
         cannot support. This is the whole reason the product publishes ranges.
         """
         return self.agent_p25 <= self.baseline_p75 and self.baseline_p25 <= self.agent_p75
+
+    @property
+    def beat_rate(self) -> BeatRate | None:
+        """The paired win rate, or None when there is nothing to pair."""
+        base, agent = self.baseline_returns, self.agent_returns
+        if not base or not agent:
+            return None
+        if len(base) != len(agent):
+            return BeatRate(
+                0,
+                0,
+                0,
+                0,
+                comparable=False,
+                why=(
+                    f"the two arms reported {len(base)} and {len(agent)} usable "
+                    f"windows, so they are not the same windows and cannot be paired"
+                ),
+            )
+        wins = sum(1 for a, b in zip(agent, base, strict=True) if a > b)
+        ties = sum(1 for a, b in zip(agent, base, strict=True) if a == b)
+        n = len(agent)
+        if self.same_run:
+            return BeatRate(
+                wins,
+                ties,
+                n - wins - ties,
+                n,
+                comparable=False,
+                why="one replay printed in both columns, so every window ties by construction",
+            )
+        return BeatRate(wins, ties, n - wins - ties, n, comparable=True)
 
     @property
     def material(self) -> bool:
