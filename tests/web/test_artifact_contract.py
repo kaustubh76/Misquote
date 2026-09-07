@@ -431,7 +431,26 @@ def test_every_contracted_router_field_is_read_by_the_named_view() -> None:
 
 
 def test_emitter_writes_exactly_the_contracted_fields(agent_artifact: dict) -> None:
-    """Both directions. Neither side may move without the other noticing."""
+    """Both directions. Neither side may move without the other noticing.
+
+    ## If this is failing on fields you have never seen
+
+    The emitters gained five on 8 Sep and the artifacts they write are a
+    multi-hour rebuild, so the two halves land at different times. After
+    `make artifacts` this will report them as undeclared; they are all real and
+    all rendered, and the map wants:
+
+        "quote_detail.worst_return":     "AgentCard.tsx"
+        "quote_detail.best_return":      "AgentCard.tsx"
+        "quote_detail.distinct_returns": "AgentCard.tsx"
+        "replay.first_ts":               "AgentCard.tsx"
+        "replay.last_ts":                "AgentCard.tsx"
+        "advantage.beat_rate.*":         "AgentCard.tsx"
+
+    They are not declared here yet on purpose: this assertion fails just as
+    loudly for a field declared and *not* delivered, and pre-declaring them
+    would have left the suite red for everyone until somebody found eleven
+    hours."""
     actual = flatten(agent_artifact)
     declared = set(AGENT_FIELDS)
 

@@ -313,7 +313,7 @@ export interface Estimators {
   imbalance_ready?: boolean;
 }
 
-export interface ReplayBlock {
+export interface ReplayBlock extends ReplayWindow {
   samples: number;
   hours: number;
   mints: number;
@@ -347,6 +347,23 @@ export interface ProvenanceBlock {
   journal_rows: number;
   hours_covered: number;
   every_number_derived: boolean;
+}
+
+export interface ReplayWindow {
+  /**
+   * When the replayed tape starts and ends, in unix seconds.
+   *
+   * The card stated the window's *length* in three places and its position
+   * nowhere — a reader could learn the replay covered 725.7 hours and not which
+   * 725.7 hours. `build.generated_at` is when the card was built, a different
+   * date that drifts from the tape every time the emitter runs without a
+   * re-index.
+   *
+   * Optional: cards written before the emitter carried it are still readable,
+   * and a tape with no events records neither rather than zero.
+   */
+  first_ts?: number;
+  last_ts?: number;
 }
 
 export interface AdvantageBlock {
@@ -415,6 +432,21 @@ export interface AgentArtifact {
    * unknown unit is rendered bare — never with a guessed one. See `money()`.
    */
   quote_symbol?: string;
+  /**
+   * The position size the quote is a rate on.
+   *
+   * A rate without a size is not a quote. Fees are prorated by a position's
+   * share of pool liquidity, so a larger one earns less on every unit of
+   * itself — measured on the same pool at the same width, 200x the size costs
+   * 0.474pp at ±40 ticks and 0.008pp at ±800. The penalty is a function of how
+   * tight the range is, and these agents run tight by design.
+   *
+   * `RouterArtifact` has carried this since it was written; the three LP cards
+   * did not, so the one figure telling a reader what the headline rate applies
+   * to was the one missing from it. Optional because cards written before the
+   * emitter carried it are still readable.
+   */
+  capital_quote?: number;
 }
 
 /**

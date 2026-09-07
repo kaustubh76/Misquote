@@ -295,6 +295,8 @@ def emit(
     source: str,
     command: str,
     baseline: dict | None = None,
+    window: tuple[int, int] | None = None,
+    capital: float | None = None,
 ) -> Path:
     """Build the tearsheet and write the artifact, with the badge attached.
 
@@ -349,9 +351,37 @@ def emit(
     # for an artifact written before this field existed and the wrong one to
     # guess at.
     payload["quote_symbol"] = TARGET_POOL.quote_symbol
+    # The size the rate is for.
+    #
+    # The card published "20.70% to 36.15%" with no position size attached to
+    # it, and the rate is not size-independent: a position's fees are prorated
+    # by its share of pool liquidity, `L/(L_pool+L)`, so a larger one earns a
+    # lower rate on every unit. Measured on the same pool at the same width,
+    # 200x the size costs 0.474pp at +/-40 ticks and 0.008pp at +/-800 — the
+    # penalty is a function of how tight the range is, and these agents run
+    # tight by design.
+    #
+    # `router.json` has carried `capital_quote` since it was written. The three
+    # LP cards did not, so the one number a reader needs to know what the
+    # headline rate applies to was the one number absent from it.
+    if capital is not None:
+        payload["capital_quote"] = capital
     payload["replay"] = {
         "samples": result.samples,
         "hours": round(result.hours, 2),
+        # *When*, not just how long.
+        #
+        # The track asks a trading agent for "win rate, the window, and the risk
+        # taken to get there". The card stated the window's **length** in three
+        # places and its position nowhere: a reader could learn the replay
+        # covered 725.7 hours and not which 725.7 hours. `build.generated_at` is
+        # when the card was built, which is a different date and drifts from the
+        # tape every time the emitter runs without a re-index.
+        #
+        # Unix seconds, formatted by the reader. Absent rather than zero for a
+        # tape with no events, which is the rule every other optional figure
+        # here follows.
+        **({"first_ts": window[0], "last_ts": window[1]} if window is not None else {}),
         "mints": result.mints,
         "rebalances": result.rebalances,
         "pulls": result.pulls,
@@ -556,7 +586,16 @@ def main() -> int:
 
     print(f"\n  {COUNTERFACTUAL_BADGE}\n")
     for run in runs:
-        path = emit(run, journal_dir, out_dir, source=source, command=command, baseline=baseline)
+        path = emit(
+            run,
+            journal_dir,
+            out_dir,
+            source=source,
+            command=command,
+            baseline=baseline,
+            window=(events[0].ts, events[-1].ts) if events else None,
+            capital=args.capital,
+        )
         result, quote = run["result"], run["quote"]
         print(f"  {run['name']}")
         print(f"    quote        {quote.render()}")

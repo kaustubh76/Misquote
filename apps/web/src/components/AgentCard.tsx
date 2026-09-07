@@ -9,8 +9,29 @@ import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { HirePrice, type HireTerms } from "@/components/HirePrice";
 import { Pill, verdictTone } from "@/components/Pill";
-import { count, fraction, hours, isNum, pct, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import {
+  count,
+  fraction,
+  hours,
+  isNum,
+  money,
+  pct,
+  signed,
+  SIGN_CLASS,
+  signOf,
+} from "@/lib/format";
 import type { AgentArtifact, AgentRef, IndexArtifact } from "@/lib/artifacts";
+
+/** A tape timestamp as a plain UTC day. Fixed locale so the card does not
+ *  render differently in the prerendered HTML than in the browser. */
+function tapeDay(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export function AgentCard({
   ref_,
@@ -146,13 +167,37 @@ export function AgentCard({
                   and the verdicts below already say FAIL. */}
               <span className={q.net_positive === 0 ? "text-warn" : undefined}>
                 {count(q.net_positive)} of {count(q.samples)} observations finished in profit.
-              </span>{" "}
+              </span>{" "}{/* The size the rate is for. A percentage with no position behind it
+                  is not a quote: fees are prorated by share of pool liquidity,
+                  so the same strategy at a larger size earns less on every unit
+                  — and more so the tighter the range, which is how these agents
+                  run. `/simulate` is where that gradient is measured. */}
+              {isNum(data.capital_quote) && (
+                <>
+                  {" "}
+                  <span className="text-faint">
+                    On {money(data.capital_quote, data.quote_symbol)} of capital;{" "}
+                    <Link href="/simulate" className="text-dim">
+                      a larger position earns a lower rate →
+                    </Link>
+                  </span>
+                </>
+              )}
               {/* The card used to print the quote's window length beside the tape's
                   total length with no explanation, so it appeared to contradict
                   itself: "over 31h" directly above "44,802 over 62.2h". */}
               <Link href="/methods" className="text-dim">
                 Why that differs from the {hours(r.hours)} of tape →
               </Link>
+              {/* Which 725.7 hours, not just how many. The track asks for "the
+                  window" and the card stated its length in three places and its
+                  position in none — and `build.generated_at` is when the card
+                  was built, which drifts from the tape on every re-emit. */}
+              {isNum(r.first_ts) && isNum(r.last_ts) && (
+                <span className="block text-faint">
+                  Tape runs {tapeDay(r.first_ts)} to {tapeDay(r.last_ts)}.
+                </span>
+              )}
             </p>
           )}
 
