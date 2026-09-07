@@ -444,8 +444,8 @@ export function StudioView({ initial }: { initial?: StudioArtifact }) {
               {quote.phase === "unavailable" && (
                 <div className="mt-4">
                   <Refusal
-                    title="The agent did not answer in time"
-                    reason="Its host scales to zero, so the first request after an idle spell pays a cold start — and the request goes through this site's API, because the agent sends no cross-origin header and a browser cannot call it directly. Either can time out."
+                    title="No signed quote came back"
+                    reason="Two services stand between this button and an answer: this site's API, which forwards because the agent sends no cross-origin header and a browser cannot call it directly, and the agent itself. Both scale to zero. Which of them was quiet is not something this page can tell you, so it does not say."
                     floor="Press it again. The envelope below was recorded earlier, and is the same call answered on a day the host was awake."
                   />
                 </div>

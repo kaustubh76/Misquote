@@ -117,7 +117,7 @@ describe("Studio: the work that was built and wired to no reader", () => {
     await userEvent.click(screen.getByRole("button", { name: /Ask for a signed quote/ }));
 
     await waitFor(() =>
-      expect(screen.getByText(/did not answer in time/)).toBeInTheDocument(),
+      expect(screen.getByText(/No signed quote came back/)).toBeInTheDocument(),
     );
     // Asserted on the envelope itself rather than on the "recorded earlier"
     // label, which the refusal's own remedy sentence also contains. The claim
