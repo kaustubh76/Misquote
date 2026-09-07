@@ -141,3 +141,30 @@ describe("PoolLookup", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("the answerable set is reachable without knowing an address", () => {
+  // `/pools/{address}` resolves through `pool_by_address` before it opens the
+  // artifact, so every address anyone could plausibly paste is a 404 and the
+  // refusal was the only outcome a reader without the source could reach.
+  const KNOWN = [
+    { label: "PancakeSwap v3 WBNB/USDT 0.05%", address: "0x3669" },
+    { label: "PancakeSwap v3 TSLAx/USDT 0.25%", address: "0x5E12" },
+  ];
+
+  it("fills the field from a chip rather than submitting behind the reader", async () => {
+    render(<PoolLookup known={KNOWN} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "PancakeSwap v3 TSLAx/USDT 0.25%" })
+    );
+
+    expect(screen.getByLabelText(/Look up one pool/)).toHaveValue("0x5E12");
+    // Nothing was asked. The reader still presses Check, so what the control
+    // does stays visible and a mistaken tap costs a keystroke.
+    expect(screen.queryByText(/No ladder for that address/)).not.toBeInTheDocument();
+  });
+
+  it("offers nothing at all when the caller knows of no pools", () => {
+    render(<PoolLookup />);
+    expect(screen.queryByText(/Answerable here/)).not.toBeInTheDocument();
+  });
+});

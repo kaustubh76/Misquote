@@ -212,30 +212,52 @@ export function WidthLadder({
                           because a floor draws a range the data does not have,
                           and the flagship's tightest rung is 5.9 percentage
                           points inside an axis spanning 26 — narrow, and
-                          genuinely that narrow. */}
+                          genuinely that narrow.
+
+                          And no `band-draw`, which is the site's own reveal for
+                          exactly this shape. It is a scroll-driven `scaleX`:
+                          `animation-timeline: view()` over `entry 10% cover
+                          30%`, so a band is drawn short until it has scrolled
+                          far enough in. `Band.tsx` can afford that because its
+                          two series sit in one small box and enter together.
+                          Seven rows are four hundred pixels tall, so at most
+                          scroll positions the top rungs are at full length and
+                          the bottom ones are not — measured at 2.9px against a
+                          declared 15.4%. On a chart whose entire message is
+                          *this band is longer than that one*, an animation that
+                          shortens some rows and not others is not a flourish,
+                          it is a wrong reading held for as long as somebody is
+                          scrolling. */}
                       <div
-                        className={`band-draw absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border ${fill}`}
+                        className={`absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border ${fill}`}
                         style={{ left: `${at(band.p25)}%`, width: `${at(band.p75) - at(band.p25)}%` }}
                       />
                       <div
-                        className={`band-tick absolute top-1/2 h-5 w-0.5 -translate-y-1/2 ${tick}`}
+                        className={`absolute top-1/2 h-5 w-0.5 -translate-y-1/2 ${tick}`}
                         style={{ left: `${at(band.p50)}%` }}
                       />
                     </div>
                     <span className="tabular mt-0.5 block text-xs text-dim">
                       {fraction(band.p25)} – {fraction(band.p75)}
+                      {/* The verdict, beside the range it is a verdict about,
+                          and in words rather than only in the band's colour —
+                          a reader who cannot separate warn from good has the
+                          whole answer in a channel they do not have.
+
+                          This column and not the next one, because of the
+                          phone. The table scrolls inside its own region at
+                          390px and "Median · windows" is the half that goes
+                          off-screen; the range is on-screen at every width, so
+                          the payload of pressing a rung is too. */}
+                      {tied && <span className="ml-2 text-warn">not separated</span>}
+                      {clear && <span className="ml-2 text-good">separated</span>}
                     </span>
                   </td>
 
-                  <td className="py-2 text-xs text-dim">
+                  <td className="py-2 text-xs whitespace-nowrap text-dim">
                     <span className="tabular">{fraction(band.p50)}</span> ·{" "}
                     {count(band.observations)} windows
                     {band.width_ticks === bestWidth && " · leads"}
-                    {/* The verdict, in the row it is about. A colour alone
-                        would put the whole answer in a channel a greyscale
-                        reader does not have. */}
-                    {tied && <span className="block text-warn">not separated</span>}
-                    {clear && <span className="block text-good">separated</span>}
                   </td>
                 </tr>
               );
