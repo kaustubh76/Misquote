@@ -245,7 +245,7 @@ checks.
 |---|---|
 | **`bag deploy` itself** | The agent runs on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none has been used. Running the agent is not the claim; the CLI deploying it is. Five CRITICAL items in `docs/DEPLOY_AWS.md`. |
 | **x402 self-funding** | `protocols = ["A2A"]`, one face published. `x402Buyer.ts` has never been generated. The Pieverse LLM credit does top itself up, which is a different mechanism. |
-| **A delivery driven through this agent** | `negotiate` has been called and checked four ways. `notify_funded` needs a job funded against the agent's own quote, and the scaffold wallet holds no payment token on chapel. The escrow half is proven elsewhere in this repository — by our own signer, not by this agent. |
+| **A delivery driven through this agent** | `negotiate` has been called and checked four ways. `notify_funded` needs a job funded against the agent's own quote, and the obstacle is **not the money** — an earlier draft of this row said the scaffold wallet holds no payment token on chapel, as though chapel were merely unfunded. Chapel is the harder chain: no faucet for the token and no market to buy it on. On mainnet it costs about twenty cents and a recorded PancakeSwap swap already bought some. What actually stops it is that the agent's identity is on chapel and its envelope binds to chapel's kernel — the two agreeing is what the four checks verify — so pointing it at mainnet means a second registration and a signing key on a chain with real money. That is a decision about capital, not a line of code. *(Correction owed to `misquote-59`, which was reading the same records.)* |
 
 ---
 

@@ -98,9 +98,15 @@ NOT_DONE: tuple[dict[str, str], ...] = (
         "why": (
             "`negotiate` has been called and its signature checked four ways. "
             "The other half needs a job funded against the agent's own quote, "
-            "and the scaffold wallet holds no payment token on chapel. The "
-            "escrow half is proven elsewhere in this repository, by our own "
-            "signer rather than by this agent."
+            "and the obstacle is not the money: chapel has no faucet and no "
+            "market for the payment token, while on mainnet it costs about "
+            "twenty cents and a recorded swap already bought some. What stops "
+            "it is that the agent's identity is on chapel and its envelope "
+            "binds to chapel's kernel — pointing it at mainnet means a second "
+            "registration and a signing key on a chain with real money, which "
+            "is a decision about capital rather than a line of code. The escrow "
+            "half is proven elsewhere here, by our own signer rather than by "
+            "this agent."
         ),
         "evidence": "vetting/identity/studio-negotiation.json — not_covered",
     },

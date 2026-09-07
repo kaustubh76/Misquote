@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 2,470 tests, no network, ~13 min
+make test                     # 2,480 tests, no network, ~13 min
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -69,7 +69,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**2523 tests: 2470 offline, 53 against a live chain or a fork.**
+**2533 tests: 2480 offline, 53 against a live chain or a fork.**
 
 ---
 
@@ -408,6 +408,18 @@ project exists to argue against.
   own Secrets Manager; `--wallet-kind turnkey` or `altana` never move a signing
   key at all. What is open is a self-hosted deployment and the cloud credentials
   it needs — a bill of materials, not a principle.
+
+- **A delivery driven through the Studio agent.** `negotiate` is called and
+  checked; `notify_funded` — verify a funded job on chain, work it, mine
+  `submit` — has not been. The obstacle is not the money, and saying so was a
+  correction: chapel has no faucet for the payment token and no market to buy it
+  on, while on mainnet it costs about twenty cents and a recorded PancakeSwap
+  swap already bought some. What stops it is that the agent's identity is on
+  chapel and its envelope binds to chapel's kernel — those two agreeing is
+  exactly what `make studio-negotiate` verifies — so pointing it at mainnet
+  means a second registration and a signing key on a chain with real money.
+  A decision about capital, two days from submission, and not one made
+  unilaterally.
 
 - **The Studio agent's x402 self-funding.** Split out of the entry above, and
   the split is the point: one piece of evidence covering three claims meant two
