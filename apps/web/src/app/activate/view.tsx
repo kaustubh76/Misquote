@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { Heading, Section } from "@/components/Heading";
 import { Pill } from "@/components/Pill";
 import { Prose } from "@/components/Blocks";
+import { HireEscrow, type HireableAgent } from "@/components/HireEscrow";
+import type { EscrowDeployment } from "@/lib/escrow";
 import { HireFlow } from "@/components/HireFlow";
 import { AnsweredBy } from "@/components/AnsweredBy";
 import { loadLive, type Source } from "@/lib/api";
@@ -85,12 +86,27 @@ export interface SessionProof {
  * Standing prose is prerendered; only the live capability read needs
  * JavaScript, and its absence renders the same answer from the fallbacks.
  */
+/** `hire_flow`, narrowed to what escrowing a budget from a browser needs. */
+export interface EscrowHalf {
+  deployments?: Record<string, EscrowDeployment>;
+  errors?: Record<string, string>;
+  mainnet_proof?: { budget?: number };
+}
+
 export function ActivateView({
   proof,
   survey,
+  escrow,
+  agents,
+  owner,
 }: {
   proof?: SessionProof;
   survey?: SessionKeySurvey;
+  escrow?: EscrowHalf;
+  /** The four agents this marketplace lists, for the "who delivers" choice. */
+  agents?: HireableAgent[];
+  /** The wallet holding their ERC-8004 identities — the default provider. */
+  owner?: string;
 }) {
   const [cap, setCap] = useState<Capability | null>(null);
   const [source, setSource] = useState<Source | null>(null);
@@ -137,33 +153,22 @@ export function ActivateView({
 
           `HireFlow` carries that warning inline. The needle in `check-pages.mjs`
           moved with it. */}
+      {/* Two halves, in the order they happen. Escrowing a budget is the
+          hire; a session key is what lets the agent act once hired. The escrow
+          was the half with no way in — built, mined on mainnet, and reachable
+          only by scrolling six screens down a different page. */}
       <div className="-mx-5 mt-8 px-5">
-        <HireFlow />
+        <HireEscrow
+          deployments={escrow?.deployments}
+          defaultBudget={escrow?.mainnet_proof?.budget}
+          errors={escrow?.errors}
+          agents={agents}
+          owner={owner}
+        />
       </div>
 
-      {/* The other half of hiring, which had no way in.
-          A session key authorises an agent to act; it does not pay one, and it
-          is not bound to a job — `HireFlow` says so itself a few lines up. The
-          money side is ERC-8183, it is built, it has escrowed and refunded real
-          money on BSC mainnet, and the only route to it was scrolling six
-          screens down a different page. A marketplace whose payment rail is
-          unreachable from its hire page is not one. */}
       <div className="-mx-5 mt-6 px-5">
-        <Card>
-          <CardHeader title="Paying for the work" eyebrow="ERC-8183 escrow" />
-          <p className="mt-2 mb-0 max-w-[70ch] text-sm text-dim">
-            A session key lets an agent act. It does not pay one. Escrow is the
-            other half: a job with a budget locked in a contract, released on
-            delivery or reclaimed when nobody delivers. It has moved real money
-            on BSC mainnet &mdash; funded, then refunded &mdash; and you can send
-            every call in the flow yourself.
-          </p>
-          <div className="mt-4">
-            <Button href="/registry/#escrow" size="sm" tone="secondary">
-              Open the escrow console
-            </Button>
-          </div>
-        </Card>
+        <HireFlow />
       </div>
 
       {/* Was "What a grant would consist of", in the conditional, on a page

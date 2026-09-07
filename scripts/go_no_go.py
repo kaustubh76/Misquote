@@ -1346,6 +1346,7 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
         check_badge_coverage(),
         check_docs_current(),
         check_agent_advantage_report(),
+        check_escrow_flow(),
         check_artifact_freshness(),
         check_identities_registered(),
         check_burn_in(),
@@ -1405,6 +1406,94 @@ def _recorded_sha(payload: dict) -> str | None:
             return str(section["git_sha"])
     return str(payload["git_sha"]) if payload.get("git_sha") else None
 
+
+def check_escrow_flow() -> Check:
+    """The hire itself, which no gate covered.
+
+    The advantage report proves an agent beats doing the job yourself. This is
+    the other half of the same track's question: that hiring one is a thing this
+    marketplace can actually do, on a chain, with money.
+
+    Nothing checked it. `grep -i "escrow\\|8183\\|hire"` over this file returned
+    comments, and the whole flow was held up by a sentence in `SUBMISSION.md`.
+    That is how the browser came to pass a zero hook for the life of the console
+    — every `createJob` sent from the site reverted `HookRequired()`, and the
+    only thing that would have said so was somebody pressing the button.
+
+    Three claims, in the order they can be lost:
+
+    - **funded** — `fund` moved the payment token into a job on mainnet.
+    - **reclaimed** — `claimRefund` moved it back out. Escrow that cannot be
+      recovered is a donation, and this is the half that shows the way out.
+    - **settled** — the release path. It has run on a fork and never on
+      mainnet: `settle` reverts `NotDecided()` until the OptimisticPolicy's
+      seven-day window has run. That is a wait rather than a gap, and it is
+      reported amber with the date rather than counted as done.
+    """
+    artifact = REPO / "apps" / "web" / "public" / "artifacts" / "registry.json"
+    if not artifact.exists():
+        return Check(
+            "erc-8183 escrow",
+            UNVERIFIED,
+            "no registry artifact has been generated",
+            "make registry",
+        )
+
+    import json
+
+    try:
+        flow = json.loads(artifact.read_text()).get("hire_flow", {})
+    except (OSError, json.JSONDecodeError) as error:
+        return Check("erc-8183 escrow", FAIL, f"unreadable: {error}")
+
+    mainnet = flow.get("mainnet_proof") or {}
+    refund = flow.get("refund_proof") or {}
+
+    if not mainnet.get("ran"):
+        return Check(
+            "erc-8183 escrow",
+            UNVERIFIED,
+            mainnet.get("reason") or "no mainnet hire is on record",
+            "MISQUOTE_DRY_RUN=0 make hire-mainnet",
+        )
+
+    # `escrowed_on_mainnet` and `escrowed` are different claims and the fork
+    # record carries both, so the narrower one is the one asked for here.
+    if not mainnet.get("escrowed_on_mainnet"):
+        return Check(
+            "erc-8183 escrow",
+            FAIL,
+            f"job {mainnet.get('job_id')} ran but escrowed nothing on mainnet",
+            "check the payment token balance before fund()",
+        )
+
+    job = mainnet.get("job_id")
+    budget = mainnet.get("budget")
+    escrowed = f"job {job} escrowed {budget} on chain {mainnet.get('chain_id')}"
+
+    if not refund.get("refunded"):
+        return Check(
+            "erc-8183 escrow",
+            UNVERIFIED,
+            f"{escrowed}; nothing has been reclaimed, so the way out is unproven",
+            "make claim-refund",
+        )
+
+    # The one call that has never run outside a fork.
+    submitted = flow.get("submit_proof") or {}
+    due = submitted.get("settle_earliest_utc")
+    if not submitted.get("settled"):
+        return Check(
+            "erc-8183 escrow",
+            UNVERIFIED,
+            f"{escrowed} and was reclaimed; settle has run on a fork only"
+            + (f", and opens {due}" if due else ""),
+            f"make hire-mainnet ARGS='--settle {submitted.get('job_id')}'"
+            if submitted.get("job_id")
+            else "settle after the dispute window",
+        )
+
+    return Check("erc-8183 escrow", PASS, f"{escrowed}, reclaimed, and settled")
 
 def check_artifact_freshness() -> Check:
     """Does the published card still describe the engine that exists?

@@ -752,6 +752,11 @@ export function RegistryView({
               ...(gate ? [{ id: "deliverable", label: "Deliverable" }] : []),
               { id: "ours", label: "Our agents" },
               { id: "hiring", label: "Hiring" },
+              // Always present: both branches of the record check render a
+              // section with this id, one of them a Refusal. It was the only
+              // block on the page the rail could not reach, and it is the one
+              // carrying the transactions.
+              { id: "hired", label: "Proofs" },
               { id: "escrow", label: "Escrow" },
               { id: "identity", label: "Identity" },
               { id: "third-party", label: "Third-party index" },
@@ -824,8 +829,8 @@ export function RegistryView({
             intro={
               <>
                 Every other number on this page is about somebody else&rsquo;s agent.
-                These are ours, registered on BSC testnet and transferred to
-                the address this project publishes as its own &mdash; and held to{" "}
+                These are ours, registered on BNB Smart Chain against the same
+                registry the survey above walks &mdash; and held to{" "}
                 <em>the same</em> <code className="font-mono text-xs">assess()</code>{" "}
                 that decides whether a stranger&rsquo;s listing counts as substantive.
               </>
@@ -2218,8 +2223,8 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
         {/* The whole tally, including the two that are zero.
             The contract declared `checked` and `registered` as rendered here
             and they were not: the guard matches a field by its leaf name, and
-            "registered" appears in this file twice in ordinary prose — "285,599
-            registered agents", "registered on BSC testnet". So the positive
+            "registered" appears in this file in ordinary prose — "285,599
+            registered agents". So the positive
             direction of that check has the same weakness as the negative one it
             was written to complement, and all four of these were unrendered.
 
@@ -2263,6 +2268,24 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
           </p>
         )}
 
+        {(() => {
+          // Named here rather than left to be noticed. Two registrations of one
+          // agent looks like a double-send; it is the measurement.
+          const seen = new Map<string, number>();
+          for (const a of ours.agents) seen.set(a.name, (seen.get(a.name) ?? 0) + 1);
+          const twice = [...seen].filter(([, n]) => n > 1).map(([name]) => name);
+          return twice.length === 0 ? null : (
+            <p className="mt-3 mb-0 max-w-[70ch] text-xs text-faint">
+              {twice.join(", ")} is here twice, and the second one is a finding
+              rather than a slip: TermiX attributes an agent to the wallet that{" "}
+              <em>minted</em> it, not the wallet that owns it now. The first was
+              minted by the delegate and handed over, and never appeared in their
+              dashboard though <span className="font-mono">ownerOf</span> agreed
+              it was ours. The re-mint went straight to the operator and did.
+            </p>
+          );
+        })()}
+
         <div className="mt-4 grid gap-3">
           {ours.agents.map((agent) => (
             // `min-w-0`, and it is the fix `ListingCard` documents three
@@ -2273,7 +2296,10 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
             // tables below it were reported as overflowing too; they were
             // simply riding on this.
             <div
-              key={agent.agent}
+              // Keyed on the id, not the slug. Two of these are named Warden
+              // and both carry `agent: "warden"`, so this collided and React
+              // warned about it in the console of a page about data quality.
+              key={agent.agent_id}
               className="min-w-0 rounded-md border border-glass-line bg-glass p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">

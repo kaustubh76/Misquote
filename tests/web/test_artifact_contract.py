@@ -460,8 +460,19 @@ def strip_comments(source: str) -> str:
 
 
 def _sources() -> dict[str, str]:
-    return {p.name: p.read_text() for p in WEB_SRC.rglob("*.tsx")} | {
-        f"{p.parent.name}/{p.name}": p.read_text() for p in WEB_SRC.rglob("*.tsx")
+    """Every module a field could be read by, keyed by name and by parent/name.
+
+    `.ts` as well as `.tsx`. This globbed only `.tsx`, which was fine while
+    every artifact field was consumed in a component — and stopped being fine
+    when the escrow flow's chain logic moved into `useEscrowFlow.ts` so that the
+    guided hire and the raw console could share one implementation. A renderer
+    named against a `.ts` module resolved to `None` and the check asserted the
+    file did not exist, which was the guard being blind rather than the field
+    being unread.
+    """
+    files = [*WEB_SRC.rglob("*.tsx"), *WEB_SRC.rglob("*.ts")]
+    return {p.name: p.read_text() for p in files} | {
+        f"{p.parent.name}/{p.name}": p.read_text() for p in files
     }
 
 
@@ -1308,16 +1319,16 @@ REGISTRY_FIELDS: dict[str, str] = {
     # than typed into TypeScript because `erc8183.py` is where a deployment is
     # admitted after being read, and a second copy is a second thing to be
     # wrong — the wrong one being the address a reader sends money to.
-    "hire_flow.deployments.56.kernel": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.56.router": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.56.policy": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.56.erc20": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.56.kernel": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.56.router": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.56.policy": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.56.erc20": "components/useEscrowFlow.ts",
     "hire_flow.deployments.56.explorer": "components/EscrowConsole.tsx",
     "hire_flow.deployments.56.name": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.97.kernel": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.97.router": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.97.policy": "components/EscrowConsole.tsx",
-    "hire_flow.deployments.97.erc20": "components/EscrowConsole.tsx",
+    "hire_flow.deployments.97.kernel": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.97.router": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.97.policy": "components/useEscrowFlow.ts",
+    "hire_flow.deployments.97.erc20": "components/useEscrowFlow.ts",
     "hire_flow.deployments.97.explorer": "components/EscrowConsole.tsx",
     "hire_flow.deployments.97.name": "components/EscrowConsole.tsx",
     # The console keys deployments by the wallet's chain id, so the id inside

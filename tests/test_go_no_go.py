@@ -993,3 +993,38 @@ def test_a_tool_that_prints_no_summary_still_gets_a_detail() -> None:
     lines = ["something went sideways"]
 
     assert module._summary_line(lines, "Tests ", lines[-1]) == "something went sideways"
+
+
+# --- the escrow gate --------------------------------------------------------
+#
+# Added because nothing covered the hire at all. The advantage report gate
+# proves an agent beats doing the job yourself; this is the other half of the
+# same track's question, and it was held up by a sentence in a document.
+
+
+def test_the_escrow_gate_reports_what_is_on_record() -> None:
+    """It reads the artifact rather than a memory, and never opens green."""
+    check = gng.check_escrow_flow()
+    assert check.name == "erc-8183 escrow"
+    assert check.status in (gng.PASS, gng.FAIL, gng.UNVERIFIED)
+    if check.status != gng.PASS:
+        assert check.remedy, "the escrow gate is not green and says nothing about how to make it"
+
+
+def test_the_escrow_gate_will_not_call_a_fork_run_a_mainnet_one() -> None:
+    """`escrowed` and `escrowed_on_mainnet` are different claims.
+
+    `prove_escrow_fund.py` writes `escrowed: true` and `escrowed_on_mainnet:
+    false` on every fork run, deliberately. A gate reading the wider field would
+    go green on a rehearsal.
+    """
+    source = SOURCE.read_text()
+    gate = source[source.index("def check_escrow_flow"): source.index("def check_artifact_freshness")]
+    assert "escrowed_on_mainnet" in gate
+    assert "settle" in gate, "the one call never run outside a fork is not mentioned"
+
+
+def test_the_escrow_gate_is_in_the_run() -> None:
+    """A gate nothing calls is a gate that cannot fail."""
+    source = SOURCE.read_text()
+    assert "check_escrow_flow()," in source, "check_escrow_flow is defined and never run"

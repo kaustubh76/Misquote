@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ActivateView, type SessionKeySurvey, type SessionProof } from "./view";
+import { ActivateView, type EscrowHalf, type SessionKeySurvey, type SessionProof } from "./view";
+import type { HireableAgent } from "@/components/HireEscrow";
 import { readArtifact } from "@/lib/build-artifact";
 
 export const metadata: Metadata = {
@@ -23,10 +24,23 @@ export default function Page() {
   // Chapel, because chapel is where the round trip was run. Publishing the
   // mainnet survey beside a testnet proof would invite reading one as evidence
   // for the other.
+  // The escrow half, read at build time from the same artifact `/registry`
+  // renders. The addresses are not duplicated here for the reason `lib/escrow.ts`
+  // opens with: a second copy would be a second thing to be wrong, and the
+  // wrong one would be the one people send money to.
+  const registry = readArtifact<{
+    hire_flow?: EscrowHalf;
+    ours?: { owner?: string };
+  }>("registry.json");
+  const index = readArtifact<{ agents?: HireableAgent[] }>("index.json");
+
   return (
     <ActivateView
       proof={addresses?.session_key_proof}
       survey={addresses?.session_keys?.["97"]}
+      escrow={registry?.hire_flow}
+      agents={index?.agents}
+      owner={registry?.ours?.owner}
     />
   );
 }
