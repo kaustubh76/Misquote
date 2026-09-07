@@ -1598,7 +1598,14 @@ def test_every_contracted_registry_field_is_read_by_the_named_view() -> None:
 #: the whole array is one leaf and its members have no paths of their own. The
 #: guard was right that a `.tx` is read in `registry/view.tsx`; it was reading
 #: the wrong one.
-LEAF_COLLISIONS = frozenset({"x402_supported", "tx"})
+#: `amount` is `ours.funding.amount` — carried, all-null, never rendered — and
+#: also `tasks[].hire_cost.amount` in `advantage.json`, which `readHireTerms`
+#: reads to put a fee on an agent card. The second artifact has no field map at
+#: all (`flatten` stops at a list, so `tasks[]` has no paths), so the guard sees
+#: one `.amount` in a file it now scans and can only attribute it to the map it
+#: knows. Both statements are true, and it is the third collision in this list
+#: to involve `ours.funding.*`.
+LEAF_COLLISIONS = frozenset({"x402_supported", "tx", "amount"})
 
 
 def _blank_entries_that_look_rendered() -> list[str]:
