@@ -103,24 +103,33 @@ export function WidthLadder({
   const at = (v: number) => ((v - scale[0]) / (scale[1] - scale[0])) * 100;
   const zeroInside = scale[0] < 0 && scale[1] > 0;
 
+  // The axis, drawn once for the rows it scales. Without it the bars encode a
+  // value nobody can decode, and seven bands sharing one scale is the whole
+  // reason this is a chart rather than a column of ranges.
+  //
+  // It lives *inside the range column*, as a header row. Above the table it
+  // spanned the full width while the bands occupied the middle third, so
+  // "5.4%" sat two hundred pixels left of the position that actually means
+  // 5.4% — an axis that misreads every band on the chart it labels. In the
+  // column, its ends are the track's ends by construction.
+  //
+  // `aria-hidden` because it is the picture's furniture: every value it marks
+  // is already spoken in each band's own label, and a screen reader announcing
+  // two bare percentages as a table row learns nothing from them.
+  const axis = (
+    <div className="relative h-4 text-[10px] font-normal tracking-normal normal-case text-faint">
+      <span className="absolute left-0">{fraction(scale[0])}</span>
+      {zeroInside && at(0) > 14 && at(0) < 86 && (
+        <span className="absolute -translate-x-1/2" style={{ left: `${at(0)}%` }}>
+          0
+        </span>
+      )}
+      <span className="absolute right-0">{fraction(scale[1])}</span>
+    </div>
+  );
+
   return (
     <div>
-      {/* The axis, once, above the rows it scales. Without it the bars encode a
-          value nobody can decode, and seven bands sharing one scale is the
-          whole reason this is a chart rather than a column of ranges. */}
-      <div
-        className="relative mb-1 h-4 border-b border-line text-[10px] text-faint"
-        aria-hidden="true"
-      >
-        <span className="absolute left-0">{fraction(scale[0])}</span>
-        {zeroInside && at(0) > 14 && at(0) < 86 && (
-          <span className="absolute -translate-x-1/2" style={{ left: `${at(0)}%` }}>
-            0
-          </span>
-        )}
-        <span className="absolute right-0">{fraction(scale[1])}</span>
-      </div>
-
       <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-sm">
         <table className="w-full border-collapse text-sm">
           <caption className="mb-2 text-left text-sm text-dim">{caption}</caption>
@@ -135,6 +144,11 @@ export function WidthLadder({
               <th scope="col" className="py-1.5">
                 Median · windows
               </th>
+            </tr>
+            <tr aria-hidden="true">
+              <th />
+              <th className="border-b border-line pr-3 pb-1">{axis}</th>
+              <th />
             </tr>
           </thead>
           <tbody>
