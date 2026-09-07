@@ -34,12 +34,15 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "packages"))
+
 OUT = REPO / "apps" / "web" / "public" / "artifacts" / "studio.json"
 
 IDENTITY = REPO / "vetting" / "identity"
@@ -65,52 +68,78 @@ EXPLORER = "https://testnet.bscscan.com"
 PUBLISHED_COMMANDS = ("erc8004", "erc8183", "x402", "deploy")
 
 
-#: What the Studio half does not have, in the ledger's own shape.
+#: The one gap that is this page's alone, plus whatever the ledger already says.
 #:
-#: This list is the correction. The ledger said "the ERC-8183 interface and x402
-#: self-funding do not [exist]" — and the interface does exist, is deployed, and
-#: signs. What is actually missing is narrower and is these three.
-NOT_DONE: tuple[dict[str, str], ...] = (
-    {
-        "name": "Deployment through the CLI itself",
-        "what": "The agent deployed through the vendor's CLI, which is the native-citizenship claim.",
-        "why": (
-            "It is running, on Render, on infrastructure we operate. `bag deploy` "
-            "takes bnb, aws or azure and none of them has been used. Running the "
-            "agent is not the same claim as the CLI deploying it, and only the "
-            "second one is the proof the track is about."
-        ),
-        "evidence": "docs/DEPLOY_AWS.md — five CRITICAL items on bag deploy prepare",
-    },
-    {
-        "name": "The x402 or MPP payment face",
-        "what": "A sibling B402 seller route at /x402 or /mpp, so the agent can be paid per call.",
-        "why": (
-            '`studio.toml` declares `protocols = ["A2A"]` and publishes one '
-            "face. The commerce path here is escrowed ERC-8183, negotiated and "
-            "signed; per-call payment is a different rail and it is not wired."
-        ),
-        "evidence": "studio/misquoterouter/app/agent/studio.toml — protocols is A2A only",
-    },
-    {
-        "name": "A delivery driven through this agent",
-        "what": "`notify_funded`: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
-        "why": (
-            "`negotiate` has been called and its signature checked four ways. "
-            "The other half needs a job funded against the agent's own quote, "
-            "and the obstacle is not the money: chapel has no faucet and no "
-            "market for the payment token, while on mainnet it costs about "
-            "twenty cents and a recorded swap already bought some. What stops "
-            "it is that the agent's identity is on chapel and its envelope "
-            "binds to chapel's kernel — pointing it at mainnet means a second "
-            "registration and a signing key on a chain with real money, which "
-            "is a decision about capital rather than a line of code. The escrow "
-            "half is proven elsewhere here, by our own signer rather than by "
-            "this agent."
-        ),
-        "evidence": "vetting/identity/studio-negotiation.json — not_covered",
-    },
+#: This list was three entries written by hand, two of which restated ledger
+#: entries in different words: "Deployment through the CLI itself" for
+#: `Agent Studio deployment`, "The x402 or MPP payment face" for
+#: `The Studio agent's x402 self-funding`. Two lists of what is not done about
+#: one subject, maintained separately, is the drift this whole pass exists to
+#: fix — and it would have drifted, because the ledger has tests holding it to
+#: reality and a hand-written copy in an emitter has none.
+#:
+#: So the ledger is the source for anything it already covers, and this holds
+#: only what it does not. `tearsheet/ledger.py` has no entry for the delivery
+#: half because that is a fact about this agent rather than about the site's
+#: advertised capabilities, and inventing a site-wide ledger row for it would be
+#: the same mistake pointing the other way.
+STUDIO_LEDGER_ENTRIES = (
+    "Agent Studio deployment",
+    "The Studio agent's x402 self-funding",
 )
+
+OWN_GAP: dict[str, str] = {
+    "name": "A delivery driven through this agent",
+    "what": (
+        "`notify_funded`: a funded job verified on chain, worked, and `submit` "
+        "mined by the agent itself."
+    ),
+    "why": (
+        "`negotiate` has been called and its signature checked four ways. The "
+        "other half needs a job funded against the agent's own quote, and the "
+        "obstacle is not the money: chapel has no faucet and no market for the "
+        "payment token, while on mainnet it costs about twenty cents and a "
+        "recorded swap already bought some. What stops it is that the agent's "
+        "identity is on chapel and its envelope binds to chapel's kernel — "
+        "pointing it at mainnet means a second registration and a signing key "
+        "on a chain with real money, which is a decision about capital rather "
+        "than a line of code. The escrow half is proven elsewhere here, by our "
+        "own signer rather than by this agent."
+    ),
+    "evidence": "vetting/identity/studio-negotiation.json — not_covered",
+}
+
+
+def _not_done() -> list[dict[str, str]]:
+    """The ledger's Studio entries, then the one it does not cover.
+
+    Imported rather than copied. A name that stops matching a ledger entry
+    silently drops it from this page, so the lookup asserts instead: the whole
+    point is that these two lists cannot disagree.
+    """
+    from misquote.tearsheet import ledger
+
+    by_name = {entry.name: entry for entry in ledger.NOT_BUILT}
+    rows: list[dict[str, str]] = []
+    for name in STUDIO_LEDGER_ENTRIES:
+        entry = by_name.get(name)
+        if entry is None:
+            raise SystemExit(
+                f"studio_report expects a ledger entry named {name!r} and there is "
+                "none. Either it was built and the entry removed — in which case "
+                "drop it from STUDIO_LEDGER_ENTRIES — or it was renamed, in which "
+                "case this page has been quietly dropping it."
+            )
+        rows.append(
+            {
+                "name": entry.name,
+                "what": entry.what,
+                "why": entry.why,
+                "evidence": entry.evidence,
+            }
+        )
+    rows.append(dict(OWN_GAP))
+    return rows
 
 
 def _read(path: Path) -> dict[str, Any] | None:
@@ -326,7 +355,7 @@ def main() -> int:
         "commerce": _commerce(),
         "negotiation": _negotiation(negotiation),
         "doctor": _doctor(local),
-        "not_done": list(NOT_DONE),
+        "not_done": _not_done(),
     }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -339,7 +368,7 @@ def main() -> int:
     print(
         f"        negotiation verdict={neg.get('verdict')}  checks={len(neg.get('checks') or [])}"
     )
-    print(f"        not done: {len(NOT_DONE)}")
+    print(f"        not done: {len(payload['not_done'])}")
     print(f"  -> {args.out}")
     return 0
 

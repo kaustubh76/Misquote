@@ -23,9 +23,9 @@
   },
   "build": {
     "command": "make studio",
-    "generated_at": "2026-09-07T16:20:25+00:00",
+    "generated_at": "2026-09-07T16:26:32+00:00",
     "git_dirty": true,
-    "git_sha": "7446e94",
+    "git_sha": "29d3d87",
     "source": "recorded"
   },
   "cli": {
@@ -153,16 +153,16 @@
   },
   "not_done": [
     {
-      "evidence": "docs/DEPLOY_AWS.md \u2014 five CRITICAL items on bag deploy prepare",
-      "name": "Deployment through the CLI itself",
-      "what": "The agent deployed through the vendor's CLI, which is the native-citizenship claim.",
-      "why": "It is running, on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none of them has been used. Running the agent is not the same claim as the CLI deploying it, and only the second one is the proof the track is about."
+      "evidence": "vetting/identity/ \u2014 no studio-deploy.json",
+      "name": "Agent Studio deployment",
+      "what": "The seller agent deployed **through the vendor's own CLI** \u2014 `bag deploy --provider bnb|aws|azure` \u2014 which is the native-citizenship claim the track is about.",
+      "why": "Everything except the deploy verb now exists. The agent runs at misquote-agent.onrender.com; `bag erc8004 register` gave it identity 2102 on chapel; and its ERC-8183 task interface is live and signs \u2014 `make studio-negotiate` gets a quote back whose signature recovers to the wallet owning that identity, and whose verifying contract is the kernel this repository verified from bytecode. What has not happened is `bag deploy`: it takes bnb, aws or azure, and running the agent on a host we already operate is not the same claim as the CLI deploying it. `/studio` renders all of it, this entry included."
     },
     {
-      "evidence": "studio/misquoterouter/app/agent/studio.toml \u2014 protocols is A2A only",
-      "name": "The x402 or MPP payment face",
-      "what": "A sibling B402 seller route at /x402 or /mpp, so the agent can be paid per call.",
-      "why": "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one face. The commerce path here is escrowed ERC-8183, negotiated and signed; per-call payment is a different rail and it is not wired."
+      "evidence": "studio/misquoterouter/app/agent/src/ \u2014 no x402Buyer.ts",
+      "name": "The Studio agent's x402 self-funding",
+      "what": "The agent buying the paid data its work needs with its own wallet, per call, instead of only being paid through escrow.",
+      "why": "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one face. The scaffold's own comment in `unifiedMain.ts` names the file this would take \u2014 `bag x402 trust <merchant>` then `bag recipe code x402-buyer`, emitting the tools that spread into the work hook \u2014 and that file has never been generated. The LLM credit does top itself up from the Pieverse balance, which is a different mechanism and not this one."
     },
     {
       "evidence": "vetting/identity/studio-negotiation.json \u2014 not_covered",
