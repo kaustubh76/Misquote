@@ -81,8 +81,8 @@
   ],
   "envelope": {
     "chain_id": 97,
-    "negotiation_hash": "0xf63e1624ac36176a62fe47653e6a13c2343c0ab19b8e370296b08ca8fc30f44e",
-    "provider_sig": "0x90ed941dba8e49f7c01b8085f7944c2f20ea641bb974e57dd1b4882033730cf206ac2bd6b05acc9c900d7de07e18d87e4bcabc570916d599e2ebba65aa9fa9441c",
+    "negotiation_hash": "0xc367212fa29ceae08c7cd56f903f369fb81c0e8b074953e6749ccf5725af8a0b",
+    "provider_sig": "0x4675ae2cfbb36d3e7d2d54338a5465215ac8932f49104f661e734ee510760987417944a251728f4c3a533b7178fefa09d0b486a14e11c9a0be8d9609c2c2dbbe1c",
     "request": {
       "task_description": "Choose which PancakeSwap v3 WBNB/USDT pool range to provide liquidity to over the next 24 hours, and say why.",
       "terms": {
@@ -96,8 +96,8 @@
     "response": {
       "accepted": true,
       "estimated_completion_seconds": 600,
-      "negotiated_at": 1788793989,
-      "quote_expires_at": 1788794889,
+      "negotiated_at": 1788798008,
+      "quote_expires_at": 1788798908,
       "terms": {
         "currency": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
         "deliverables": "A named tick range, the expected fee APR net of realized convexity cost, and the assumption sheet behind it.",
@@ -107,14 +107,14 @@
         "quality_standards": "Every number traces to chain state or a published assumption. A range, not a point estimate."
       }
     },
-    "response_hash": "0x7bb038a8c9f0040d245d29c17f85c882b43e33336fde04a4e8bfac6388929de2",
+    "response_hash": "0xb8390c94c57b0bdc26f52fb499a4a1d65480e12f533e82c358275e22a9db3872",
     "verifying_contract": "0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de"
   },
   "not_covered": "This is the negotiation half. `notify_funded` \u2014 verify a funded job on chain, deliver, and `submit` \u2014 has not been driven through this agent, and no job has been created against the quote below.",
-  "read_at": "2026-09-07T15:13:10+00:00",
+  "read_at": "2026-09-07T16:20:10+00:00",
   "reason": null,
   "recovered": {
-    "as_bytes": "0xbec0235f38F0e40A2d23D758b8FeC4F6dea06F6a",
+    "as_bytes": "0x1F9622230E40Ad8dd5f0CF10751714ddA44CaaE8",
     "as_text": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29"
   },
   "request": {
