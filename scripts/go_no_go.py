@@ -1495,6 +1495,7 @@ def check_escrow_flow() -> Check:
 
     return Check("erc-8183 escrow", PASS, f"{escrowed}, reclaimed, and settled")
 
+
 def check_artifact_freshness() -> Check:
     """Does the published card still describe the engine that exists?
 

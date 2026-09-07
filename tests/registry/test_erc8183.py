@@ -128,10 +128,7 @@ def test_the_published_order_is_one_that_has_actually_been_sent() -> None:
         path = records / name
         if not path.exists():
             continue
-        sent = [
-            entry.get("call")
-            for entry in json.loads(path.read_text()).get("transactions", [])
-        ]
+        sent = [entry.get("call") for entry in json.loads(path.read_text()).get("transactions", [])]
         # The fork run mints itself a balance first; that is not part of a hire.
         sent = [call for call in sent if call in set(published)]
         assert sent == published, (

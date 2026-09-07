@@ -70,9 +70,7 @@ def test_the_browser_declares_the_same_arguments_as_the_verified_abi(name: str) 
     # The browser is allowed to carry fewer calls than Python — it has no reason
     # to declare `paymentToken()`. It is not allowed to declare one differently.
     for call, types in browser.items():
-        assert call in verified, (
-            f"{name}.{call} exists in the browser and not in the verified ABI"
-        )
+        assert call in verified, f"{name}.{call} exists in the browser and not in the verified ABI"
         assert types == verified[call], (
             f"{name}.{call} takes {types} in the browser and "
             f"{verified[call]} in the ABI read off deployed bytecode"

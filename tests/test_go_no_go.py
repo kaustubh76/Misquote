@@ -1019,7 +1019,9 @@ def test_the_escrow_gate_will_not_call_a_fork_run_a_mainnet_one() -> None:
     go green on a rehearsal.
     """
     source = SOURCE.read_text()
-    gate = source[source.index("def check_escrow_flow"): source.index("def check_artifact_freshness")]
+    gate = source[
+        source.index("def check_escrow_flow") : source.index("def check_artifact_freshness")
+    ]
     assert "escrowed_on_mainnet" in gate
     assert "settle" in gate, "the one call never run outside a fork is not mentioned"
 

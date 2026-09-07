@@ -73,9 +73,23 @@ reclaimed"** → `/registry#escrow`.
 >
 > What's left is settle, and it's a wait: the dispute window closes on the
 > thirteenth. If we miss it the budget is still recoverable, which we rehearsed
-> on a fork rather than assumed."
+> on a fork rather than assumed.
+>
+> And none of that is a recording you have to take my word for. Same seven
+> calls, from your wallet, on the Hire tab."
 
-*Hover a BscScan link so the URL shows in the status bar.*
+*Hover a BscScan link so the URL shows in the status bar, then click **Hire** in
+the nav.* On `/activate`, the escrow sits above the session key: pick an agent
+in **Who delivers**, and the stepper offers one call — the next one — with every
+other row saying what it is waiting for or who signs it.
+
+> "Hiring Warden means the money is escrowed to Warden, not to me. Which costs
+> me `submit` — that's the provider's signature, and this page won't offer me a
+> button that would revert. Five calls I can send, two I can't, and it says
+> which is which before I sign anything."
+
+*Do not send a transaction here unless the wallet is funded and the run is
+rehearsed — `make prove-escrow` is the fork rehearsal.*
 
 ## Shot 5 · The checklist that says no — 2:00–2:30
 
