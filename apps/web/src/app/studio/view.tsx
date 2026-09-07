@@ -485,6 +485,37 @@ export function StudioView({ initial }: { initial?: StudioArtifact }) {
                 </div>
               )}
 
+              {recorded?.available && !live && (
+                <p className="mt-3 mb-1 text-xs text-faint">
+                  Taken {timestamp(recorded.read_at)} and recorded at{" "}
+                  <code className="font-mono text-xs">{recorded.record}</code>.
+                  Every other reading on this site says how old it is; an
+                  envelope with no date reads as current.
+                </p>
+              )}
+
+              {/* The rest of the terms the agent signed up to. A quote is not
+                  just a price — it carries how long the price stands, how long
+                  the work is expected to take, and who adjudicates if the
+                  buyer disputes the delivery. That last one is the interesting
+                  field: the seller names an optimistic oracle, not us. */}
+              {(recorded?.quote_expires_at || recorded?.evaluator_type) && (
+                <dl className="mt-3 mb-0 grid gap-3 sm:grid-cols-3">
+                  {recorded.quote_expires_at != null && (
+                    <Field label="quote stands until" value={timestamp(new Date(recorded.quote_expires_at * 1000).toISOString())} />
+                  )}
+                  {recorded.estimated_completion_seconds != null && (
+                    <Field
+                      label="delivery estimated"
+                      value={`${count(recorded.estimated_completion_seconds)}s`}
+                    />
+                  )}
+                  {recorded.evaluator_type && (
+                    <Field label="evaluator" value={recorded.evaluator_type} />
+                  )}
+                </dl>
+              )}
+
               {recorded?.signed_over && (
                 <p className="mt-3 mb-0 text-xs text-faint">
                   Signed over {recorded.signed_over}. That encoding is documented
@@ -663,6 +694,22 @@ export function StudioView({ initial }: { initial?: StudioArtifact }) {
                       {shortAddress(d.identity.owner)}
                     </a>{" "}
                     &mdash; the wallet the envelope above recovers to.
+                  </p>
+                )}
+                {d.identity.endpoint && (
+                  <p className="mt-2 mb-0 text-sm text-dim">
+                    Its card publishes{" "}
+                    <a
+                      className="font-mono text-xs break-all"
+                      href={d.identity.endpoint}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {d.identity.endpoint}
+                    </a>{" "}
+                    &mdash; a registration with no resolvable endpoint is a row,
+                    and <code className="font-mono text-xs">assess()</code>{" "}
+                    refuses one.
                   </p>
                 )}
                 {d.identity.verified && (

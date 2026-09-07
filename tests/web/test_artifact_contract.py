@@ -1743,6 +1743,143 @@ def test_the_build_emitter_writes_exactly_the_contracted_fields(build_artifact: 
 # site the one section showing what a live agent decided was missing — while
 # `/status` reported the burn-in gate against that same journal. This artifact
 # is its fallback.
+# ── studio.json: the Agent Studio half, which had no contract and no page ────
+#
+# Added with the route. The lesson `registry.json` taught — "the largest artifact
+# this site fetches and it was the largest thing with no contract" — applies to a
+# new emitter on the day it is written, not once it has drifted.
+#
+# `""` means the same thing here as everywhere else: carried for a machine
+# reader, rendered by nothing, and that is deliberate rather than an oversight.
+# Most of them are values the emitter uses to build a field that *is* rendered —
+# `identity.explorer` becomes `owner_url`, `commerce.signer` is `identity.owner`
+# under another name — and publishing the input beside the output is what lets a
+# reader check the derivation without running the emitter.
+STUDIO_FIELDS: dict[str, str] = {
+    "agent.url": "app/studio/view.tsx",
+    "agent.name": "app/studio/view.tsx",
+    "agent.description": "app/studio/view.tsx",
+    "agent.protocol_version": "app/studio/view.tsx",
+    "agent.preferred_transport": "app/studio/view.tsx",
+    "agent.host": "app/studio/view.tsx",
+    "agent.health_check": "app/studio/view.tsx",
+    # A list is a leaf to `flatten`, so the container is the whole
+    # declaration and the shapes inside it are not covered here. What covers
+    # those is `test_every_contracted_field_is_read_by_the_named_view`, which
+    # matches on the leaf name, plus the per-element assertions the view
+    # tests make. Same convention as `JOURNAL_FIELDS.agents`.
+    "agent.skills": "app/studio/view.tsx",
+    "agent.not_bag_deploy": "app/studio/view.tsx",
+    "identity.agent_id": "app/studio/view.tsx",
+    "identity.chain_id": "app/studio/view.tsx",
+    "identity.owner": "app/studio/view.tsx",
+    "identity.owner_url": "app/studio/view.tsx",
+    "identity.endpoint": "app/studio/view.tsx",
+    "identity.registered_by": "app/studio/view.tsx",
+    "identity.verified": "app/studio/view.tsx",
+    # The input `owner_url` is built from. Both are published so the derivation
+    # is checkable without running the emitter.
+    "identity.explorer": "",
+    "identity.audit": "app/studio/view.tsx",
+    "cli.package": "app/studio/view.tsx",
+    "cli.version": "app/studio/view.tsx",
+    "cli.versions": "app/studio/view.tsx",
+    "cli.read_at": "app/studio/view.tsx",
+    "cli.install_page_reachable": "app/studio/view.tsx",
+    "cli.commands": "app/studio/view.tsx",
+    "cli.record": "app/studio/view.tsx",
+    # True whenever the probe ran at all, so it distinguishes nothing a reader
+    # can see. The version and the count next to it are the claim.
+    "cli.published": "",
+    "commerce.available": "app/studio/view.tsx",
+    "commerce.protocols": "app/studio/view.tsx",
+    "commerce.runtime": "app/studio/view.tsx",
+    "commerce.network": "app/studio/view.tsx",
+    "commerce.wallet_kind": "app/studio/view.tsx",
+    "commerce.price_wei": "app/studio/view.tsx",
+    "commerce.min_price_wei": "app/studio/view.tsx",
+    "commerce.max_price_wei": "app/studio/view.tsx",
+    "commerce.quote_ttl_seconds": "app/studio/view.tsx",
+    "commerce.note": "app/studio/view.tsx",
+    # `identity.owner` under another name — `studio.toml`'s declared signer,
+    # which the negotiation independently proves holds the key. Published
+    # because the two agreeing is the finding; rendered once, as the owner.
+    "commerce.signer": "",
+    # The same address `negotiation.currency` carries, from configuration rather
+    # than from the signed envelope. The envelope's copy is the one that matters
+    # and is the one shown.
+    "commerce.currency": "",
+    # Off, and it stays off: an agent settling its own jobs unattended is a
+    # decision about money this deployment has not made. Carried so the setting
+    # is greppable from the artifact rather than only from the TOML.
+    "commerce.auto_settle": "",
+    "negotiation.available": "app/studio/view.tsx",
+    "negotiation.verdict": "app/studio/view.tsx",
+    "negotiation.checks": "app/studio/view.tsx",
+    "negotiation.task_description": "app/studio/view.tsx",
+    "negotiation.negotiation_hash": "app/studio/view.tsx",
+    "negotiation.provider_sig": "app/studio/view.tsx",
+    "negotiation.chain_id": "app/studio/view.tsx",
+    "negotiation.verifying_contract": "app/studio/view.tsx",
+    "negotiation.price_wei": "app/studio/view.tsx",
+    "negotiation.currency": "app/studio/view.tsx",
+    "negotiation.evaluator_type": "app/studio/view.tsx",
+    "negotiation.quote_expires_at": "app/studio/view.tsx",
+    "negotiation.estimated_completion_seconds": "app/studio/view.tsx",
+    "negotiation.recovered_signer": "app/studio/view.tsx",
+    "negotiation.signed_over": "app/studio/view.tsx",
+    "negotiation.not_covered": "app/studio/view.tsx",
+    "negotiation.read_at": "app/studio/view.tsx",
+    "negotiation.record": "app/studio/view.tsx",
+    # `available` is what the page branches on, and the two cannot disagree: a
+    # record exists only if the agent answered. Carried because the *record*
+    # distinguishes "asked and got nothing" from "never asked", and a reader
+    # reaching for the file should find that distinction in it.
+    "negotiation.answered": "",
+    "not_done": "app/studio/view.tsx",
+    "doctor.pass": "app/studio/view.tsx",
+    "doctor.warn": "app/studio/view.tsx",
+    "doctor.fail": "app/studio/view.tsx",
+    "build.command": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
+    "build.source": "",
+}
+
+
+@pytest.fixture(scope="module")
+def studio_artifact() -> dict:
+    path = ARTIFACTS / "studio.json"
+    if not path.exists():
+        pytest.skip("no studio artifact; run `make studio`")
+    return json.loads(path.read_text())
+
+
+def test_the_studio_emitter_writes_exactly_the_contracted_fields(studio_artifact: dict) -> None:
+    """Both directions, as everywhere else.
+
+    The Agent Studio record spent its whole existence on disk with nothing
+    reading it, which is how the ledger came to describe an interface that had
+    been deployed for days. A contract does not prevent that on its own — the
+    route does — but it is what stops the emitter and the page drifting apart
+    once both exist.
+    """
+    actual = flatten(studio_artifact)
+    declared = set(STUDIO_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the studio emitter writes fields the contract does not declare — render "
+        f"them and add them to STUDIO_FIELDS, or stop emitting them: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        f"the contract declares studio fields the emitter no longer writes: {sorted(undelivered)}"
+    )
+
+
 JOURNAL_FIELDS: dict[str, str] = {
     # Opaque: the keys are agent names. See the OPAQUE entry above.
     "agents": "AgentJournal.tsx",
