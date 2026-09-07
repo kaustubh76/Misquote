@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CategoryView } from "./view";
 import type { ScanArtifact } from "./view";
 import type { AdvantageArtifact, AgentArtifact, IndexArtifact } from "@/lib/artifacts";
-import { readArtifact } from "@/lib/build-artifact";
+import { readArtifact, readHireTerms } from "@/lib/build-artifact";
 import { categoriesFrom, categoryBySlug } from "@/lib/categories";
 
 /**
@@ -82,6 +82,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       // reading renders the rest of the page and the component refuses on its
       // own terms.
       initialScan={readArtifact<{ third_party?: ScanArtifact }>("registry.json")?.third_party}
+      hire={readHireTerms()}
     />
   );
 }

@@ -152,7 +152,16 @@ def test_the_disagreement_is_visible_rather_than_averaged() -> None:
     — would pass every other test in this directory.
     """
     report = _load("advantage.json")
-    tasks = {task.get("with_agent", ""): task for task in report.get("tasks", [])}
+    # A list, not a dict keyed on `with_agent`.
+    #
+    # Two tasks may legitimately name one agent: the equities task runs the same
+    # Warden against the same baseline on the tokenized-equity venue, and is
+    # withheld. Keyed by that column, the later one silently replaced the
+    # earlier — so this test went on passing while checking a task nobody
+    # intended it to check, which is the quietest way for a guard to stop
+    # guarding. `lib/counterpart.ts` had the same collision and resolves it by
+    # preferring a quotable task; here every match is checked.
+    tasks = report.get("tasks", [])
 
     judged_twice: list[str] = []
     for name in CARDS:
@@ -165,7 +174,8 @@ def test_the_disagreement_is_visible_rather_than_averaged() -> None:
         # name against the start of the report's sentence, ending at the dash.
         # Kept deliberately simple here — this asserts the relation exists, and
         # `counterpart.test.ts` is what pins the matching rule.
-        for column, task in tasks.items():
+        for task in tasks:
+            column = task.get("with_agent", "")
             if not column.lower().startswith(agent.lower()):
                 continue
             judged_twice.append(agent)
@@ -173,10 +183,10 @@ def test_the_disagreement_is_visible_rather_than_averaged() -> None:
             card_source = card.get("source")
             task_source = task.get("source") or report.get("source")
             assert card_source and task_source, (
-                f"{agent} is judged in both {name} and advantage.json, and one "
-                "of the two does not say which tape it read."
+                f"{agent} is judged in both {name} and advantage.json as "
+                f"{task.get('task')!r}, and one of the two does not say which "
+                "tape it read."
             )
-            break
 
     assert judged_twice, (
         "no agent is judged in both the report and its own card, so the "

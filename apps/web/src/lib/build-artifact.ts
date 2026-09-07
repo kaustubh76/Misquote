@@ -105,3 +105,48 @@ export function readScenarios(): ScenarioSummary[] {
   }
   return found;
 }
+
+/**
+ * What hiring an agent costs, read at build time from the two artifacts that
+ * record it.
+ *
+ * Shared rather than duplicated: the landing page and each category page both
+ * render `AgentCard`, and a second copy of this join is a second thing to go
+ * stale — the trap `studio_report.py` fell into with its own hand-written copy
+ * of the ledger.
+ *
+ * Neither half is typed. The opening escrow is what the recorded mainnet hire
+ * actually escrowed; the fee is the keystore's own `getRegistrationFeeInWei()`
+ * plus the measured gas of a grant and a revoke, which the advantage report
+ * already carries on every task.
+ */
+export interface HireTermsRead {
+  opening_budget: number | null;
+  budget_decimals: number | null;
+  fee_bnb: number | null;
+}
+
+export function readHireTerms(): HireTermsRead | undefined {
+  const registry = readArtifact<{
+    hire_flow?: { mainnet_proof?: { budget?: number } };
+  }>("registry.json");
+  const advantage = readArtifact<{
+    tasks?: { hire_cost?: { amount?: number } }[];
+  }>("advantage.json");
+
+  const budget = registry?.hire_flow?.mainnet_proof?.budget;
+  // One hire, not one per task, so every task carries the same fee and the
+  // first that has one is the figure. A report with none yields nothing here
+  // rather than a zero.
+  const fee = advantage?.tasks?.find((t) => typeof t.hire_cost?.amount === "number")?.hire_cost
+    ?.amount;
+  if (typeof budget !== "number" && typeof fee !== "number") return undefined;
+  return {
+    opening_budget: typeof budget === "number" ? budget : null,
+    // The payment token's decimals. 18 on both deployments — `chain/addresses.py`
+    // reads this rather than assuming it, and says why: BSC's USDT is 18 where
+    // Ethereum's is 6, and guessing misprices by twelve orders of magnitude.
+    budget_decimals: 18,
+    fee_bnb: typeof fee === "number" ? fee : null,
+  };
+}

@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { CompareToggle } from "@/components/CompareToggle";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
+import { HirePrice, type HireTerms } from "@/components/HirePrice";
 import { Pill, verdictTone } from "@/components/Pill";
 import { count, fraction, hours, isNum, pct, signed, SIGN_CLASS, signOf } from "@/lib/format";
 import type { AgentArtifact, AgentRef, IndexArtifact } from "@/lib/artifacts";
@@ -15,9 +16,18 @@ export function AgentCard({
   ref_,
   data,
   baseline,
+  hire,
 }: {
   ref_: AgentRef;
   data: AgentArtifact;
+  /**
+   * What hiring costs, from the two artifacts that record it.
+   *
+   * Optional: a call site that has not threaded the terms through renders no
+   * price rather than a guessed one, which is the same rule `money()` follows
+   * for a figure whose unit is unknown.
+   */
+  hire?: HireTerms;
   /**
    * What the DIY series is called, from `index.json`.
    *
@@ -279,7 +289,9 @@ export function AgentCard({
           and grants the same key whichever card you came from, which is honest
           about the keystore and silent about the reader's intent; the parameter
           is what lets the next page say which agent they picked. */}
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <HirePrice terms={hire} />
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button href={`/activate/?agent=${ref_.slug}`} size="sm">
           Hire {ref_.name}
         </Button>

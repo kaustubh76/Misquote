@@ -1,5 +1,5 @@
 import { OverviewView } from "./view";
-import { readArtifact } from "@/lib/build-artifact";
+import { readArtifact, readHireTerms } from "@/lib/build-artifact";
 import { entryOf, type EvidenceEntry } from "@/components/EvidenceRail";
 import type { AgentArtifact, IndexArtifact } from "@/lib/artifacts";
 
@@ -117,6 +117,7 @@ export default function OverviewPage() {
       initialIndex={index}
       initialAgents={agentCards(index)}
       evidence={evidence()}
+      hire={readHireTerms()}
     />
   );
 }

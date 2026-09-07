@@ -10,6 +10,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
+import type { HireTerms } from "@/components/HirePrice";
 import { RouterCard } from "@/components/RouterCard";
 import { AgentComparison } from "@/components/AgentComparison";
 import { Integrations } from "@/components/Integrations";
@@ -48,7 +49,10 @@ export function OverviewView({
   initialIndex,
   initialAgents,
   evidence,
+  hire,
 }: {
+  /** What hiring costs, read at build time from registry.json and the report. */
+  hire?: HireTerms;
   /**
    * Read from disk at build time by `app/page.tsx`, so the landing page is not
    * a heading and a spinner in the exported HTML.
@@ -422,6 +426,7 @@ export function OverviewView({
                   ref_={ref_}
                   data={slot.result.value}
                   baseline={index.value.baseline}
+                  hire={hire}
                 />
               );
             })}

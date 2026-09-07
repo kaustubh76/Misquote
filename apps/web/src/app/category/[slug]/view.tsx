@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentCard } from "@/components/AgentCard";
+import type { HireTerms } from "@/components/HirePrice";
 import { Card, CardHeader } from "@/components/Card";
 import { CategoryGlyph } from "@/components/CategoryGlyph";
 import { Heading, Section } from "@/components/Heading";
@@ -62,8 +63,11 @@ export function CategoryView({
   initialAdvantage,
   initialCards,
   initialScan,
+  hire,
 }: {
   slug: string;
+  /** What hiring costs, read at build time. See `readHireTerms`. */
+  hire?: HireTerms;
   initialIndex?: IndexArtifact;
   initialAdvantage?: AdvantageArtifact;
   /** Read from disk by `page.tsx`, so the card is in the prerendered HTML. */
@@ -191,7 +195,7 @@ export function CategoryView({
                   {kind === "allocation" ? (
                     <RouterCard ref_={ref} data={data as unknown as RouterArtifact} />
                   ) : (
-                    <AgentCard ref_={ref} data={data} baseline={artifact?.baseline} />
+                    <AgentCard ref_={ref} data={data} baseline={artifact?.baseline} hire={hire} />
                   )}
                 </div>
               );

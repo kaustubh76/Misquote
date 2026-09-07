@@ -60,6 +60,37 @@ describe("counterpartTask", () => {
   });
 });
 
+describe("when one agent is named by more than one task", () => {
+  // The equities task runs the same Warden against the same baseline on the
+  // tokenized-equity venue, and it is withheld: 85 swaps over 4.1 days cannot
+  // support the twenty windows A5 asks for. Two tasks, one agent column.
+  const withheld = task("Warden — Avellaneda–Stoikov recentring", {
+    task: "Equities — provide liquidity to a tokenized stock",
+    quotable: false,
+  });
+  const measured = task("Warden — Avellaneda–Stoikov recentring", {
+    task: "Earn — fees on a liquidity position",
+    quotable: true,
+  });
+
+  it("prefers the task that measured something, whatever the order", () => {
+    // The array order is what made this correct before it was a rule, so the
+    // withheld one goes first here on purpose.
+    expect(counterpartTask("Warden", report([withheld, measured]))?.task.task).toBe(
+      "Earn — fees on a liquidity position",
+    );
+    expect(counterpartTask("Warden", report([measured, withheld]))?.task.task).toBe(
+      "Earn — fees on a liquidity position",
+    );
+  });
+
+  it("still shows a refusal when the refusal is the only reading there is", () => {
+    // Not `undefined`. "The only run we have withheld itself" is a second
+    // opinion worth carrying; silence is not.
+    expect(counterpartTask("Warden", report([withheld]))?.task.quotable).toBe(false);
+  });
+});
+
 describe("agentSlugFor", () => {
   it("uses the index's slug rather than lowercasing the name", () => {
     const agents = [{ slug: "warden-v2", name: "Warden" }];

@@ -83,19 +83,33 @@ function namesAgent(withAgent: string, agent: string): boolean {
 /**
  * The advantage report's answer for one agent, if it has one.
  *
- * `undefined` is a real and common result, not a failure: the report has three
- * tasks and the site has four agents, and they do not line up. Grid appears in
- * neither of the two agent-shaped tasks, and the third task is a choice between
- * pools rather than a policy anybody hired. So two of the pairings resolve to
- * nothing, and the caller must render nothing rather than an empty box — which
- * is the case worth testing, because it is the one that only shows up on the
- * page a judge is least likely to open.
+ * `undefined` is a real and common result, not a failure: the report has more
+ * tasks than the site has agents and they do not line up. Grid appears in
+ * neither of the two agent-shaped tasks, and the pool-choice task hires nobody.
+ * So some pairings resolve to nothing, and the caller must render nothing
+ * rather than an empty box — which is the case worth testing, because it is the
+ * one that only shows up on the page a judge is least likely to open.
+ *
+ * ## One agent, more than one task
+ *
+ * This took the first match, which was right while no two tasks named the same
+ * agent. The equities task broke that: it runs the same Warden against the same
+ * baseline on the tokenized-equity venue, and it is **withheld** — 85 swaps
+ * over 4.1 days cannot support the twenty windows A5 asks for.
+ *
+ * First-match still happens to be correct, because Earn is earlier in the
+ * array. That is ordering, not a rule, and the failure it is one edit away from
+ * is a card carrying a real number whose "second opinion" is a task that
+ * measured nothing. A withheld task is never the better answer here, so the
+ * preference is explicit: a quotable one if there is one, otherwise the first —
+ * because "the only reading is a refusal" is still worth showing.
  */
 export function counterpartTask(
   agent: string,
   report: AdvantageArtifact | undefined,
 ): Counterpart | undefined {
-  const task = report?.tasks?.find((t) => namesAgent(t.with_agent ?? "", agent));
+  const named = report?.tasks?.filter((t) => namesAgent(t.with_agent ?? "", agent)) ?? [];
+  const task = named.find((t) => t.quotable) ?? named[0];
   if (!task || !report) return undefined;
 
   const source = task.source ?? report.source;

@@ -650,7 +650,11 @@ function TaskCard({
           and this page carried only the third. The other two were in the JSON
           and in the Markdown the whole time; the judged surface was the one
           that omitted them. */}
-      {(task.beat_rate || task.attention || task.hire_cost) && (
+      {/* Only where something ran. A withheld task has no moves and no result,
+          so these would draw "— you make · — made for you" and a fee under a
+          row that measured nothing — the same reason `_side` omits an absent
+          quantity rather than zeroing it. */}
+      {task.quotable && (task.beat_rate || task.attention || task.hire_cost) && (
         <dl className="mt-4 grid gap-x-6 gap-y-2 border-t border-line pt-4 text-xs sm:grid-cols-3">
           {task.beat_rate && (
             <div>
