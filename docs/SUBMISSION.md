@@ -48,16 +48,28 @@ was verified on chain before it was written down — see `vetting/addresses/`.
 | Escrow funded, BSC mainnet | job 56681, `fund` `0xbc225eb7…a692` |
 | Escrow refunded, BSC mainnet | `claimRefund` `0xfb77c53e…7c35`, status 1 → 5, 0.1 token returned |
 | Session key granted and revoked | three mined chapel transactions, `vetting/identity/session-keys-97.json` |
-| Four ERC-8004 identities | chapel ids 1927–1930, `vetting/identity/97.json` |
+| ERC-8004 identities, BSC **mainnet** | ids 323262, 323332–323334, 331592, `vetting/identity/56.json` — the record `go_no_go` reads, because it is the stronger claim and the one TermiX's explorer indexes |
+| ERC-8004 identities, chapel | ids 1927–1930, `vetting/identity/97.json` |
+| Escrow submitted, BSC mainnet | job 56718, `submit` — `settle` opens 13 Sep after the dispute window |
 
 ## Track deliverables
 
 - [x] **BNB main track** — four agent categories at equal depth, each with a
       card built from a replay over 30 days of chain history, each runnable as a
       live process (`make warden|grid|sentinel|router`) and each with a journal.
-- [x] **TermiX** — Agent Advantage Report, four tasks on a chain tape, all
-      quotable, distinct baselines. `docs/AGENT_ADVANTAGE.md`. **The agent loses
-      three of four**, which is the report doing its job.
+- [x] **TermiX** — Agent Advantage Report, **five** tasks on a chain tape, all
+      quotable, distinct baselines. `docs/AGENT_ADVANTAGE.md`. **The agent wins
+      two with non-overlapping bands, loses one, and ties two** below the
+      materiality floor — which is the report doing its job. This line said four
+      tasks and three losses for as long as that was true; it was not updated
+      when the fifth task landed and Earn and Market-make turned, so the
+      submission document was under-claiming the deliverable the track is
+      judged on. `go_no_go`'s `agent advantage report` gate reads the artifact.
+- [x] **TermiX, the other half** — hiring is a thing this site does, not a thing
+      it describes. `/activate` escrows a budget against a job through the
+      ERC-8183 kernel from the reader's own wallet, one call at a time, with the
+      agent as provider. `check_escrow_flow` gates it: funded on mainnet,
+      reclaimed, settled — amber today on the third.
 - [x] **PancakeSwap** — the venue divergence readings and the nine-check pool
       badges. `/venue`, `/vetting`. The findings are written up for filing
       upstream in `docs/PANCAKESWAP_FINDINGS.md` — six ways v3 differs from
@@ -117,10 +129,15 @@ the job goes 2 → 5 and the full 0.1 comes back.
 - [ ] **Demo video.** Not recorded. The script is written —
       `docs/DEMO_SCRIPT.md` — shot by shot, with verbatim narration timed to
       2:30 and every URL live. It needs a screen recording and a voice.
-- [ ] **`make go-no-go` re-run in full.** The published verdict is from 31 Aug,
-      `--fast`, non-mainnet — six of fifteen gates skipped.
-- [ ] **D1 checklist reconciled.** `Readme.md` §8 and
-      `docs/REQUIREMENTS_MATRIX.md` disagree on two of five rows.
+- [x] **`make go-no-go` re-run in full.** The published verdict in
+      `artifacts/status.json` is a mainnet, non-`--fast` run with nothing
+      skipped. This entry described the 31 Aug run for a week after that stopped
+      being the published one — an open item that had closed and went on being
+      listed, which costs exactly as much credibility as one that had not.
+- [x] **D1 checklist reconciled.** The ERC-8183 row disagreed because the matrix
+      recorded a blocker one level too high — "no job can be read back", when the
+      accessors it named were simply the wrong names. Both now say resolved, with
+      `settle` as the single open call. The Agent Studio row is open in both.
 - [x] **Studio agent on Render.** Live at https://misquote-agent.onrender.com,
       serving its A2A card with its own public address in it.
 - [ ] **`bag deploy` itself.** Down from five blockers to two. Running the agent

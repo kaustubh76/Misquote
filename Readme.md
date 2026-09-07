@@ -55,13 +55,27 @@ one click away. Built solo, in public. Audit me.
     ledger; the policy and the card are.
 - **Agent Studio native:** the marketplace indexes the ERC-8004 registry for
   third-party agents (see D1 decision rule, §8), and **all four of our agents are
-  registered on chapel** — ids 1927-1930, owned by the operator, each card
-  byte-identical to the one `cards.py` builds and each passing `erc8004.assess()`
-  as *substantive*, which is the same bar the survey holds third parties to.
-  `vetting/identity/97.json` is the reading; `make identity-verify` re-derives it
-  from chain. **ERC-8183 hire interfaces are not built** — the escrow deployment
-  is verified but nobody here has created, funded, submitted or settled a job on
-  it, and `index.json`'s `not_built` block stays the authority on that half.
+  registered on both networks** — chapel ids 1927-1930 and **mainnet ids 323262,
+  323332-323334 and 331592** — owned by the operator, each card byte-identical
+  to the one `cards.py` builds and each passing `erc8004.assess()` as
+  *substantive*, which is the same bar the survey holds third parties to.
+  `vetting/identity/56.json` is the reading the go/no-go prefers, because it is
+  the stronger claim and the one TermiX's explorer indexes; `97.json` is the
+  chapel one. `make identity-verify` re-derives either from chain. There are two
+  Wardens on mainnet and that is a measurement, not a slip — TermiX attributes an
+  agent to the wallet that *minted* it rather than the one that owns it now, so
+  the transferred registration stayed invisible and a re-mint was the test.
+
+  **The ERC-8183 hire is built and has moved real money.** This bullet said the
+  interfaces were "not built" and that "nobody here has created, funded,
+  submitted or settled a job" long after all but the last of those had happened
+  — job 746 on chapel, then **56681 on BSC mainnet funded with 0.1 of the
+  payment token and reclaimed by `claimRefund`**, then 56718 funded and
+  submitted. `settle` is the one call still unproven outside a fork; it reverts
+  `NotDecided()` until the OptimisticPolicy's seven-day window runs. The `hire`
+  entry in `index.json`'s `not_built` block is the authority on that last call
+  and on nothing wider, and `check_escrow_flow` in the go/no-go now reads it off
+  the artifact rather than leaving it to a sentence here.
 
   This sentence has now been wrong in both directions. It claimed both as done
   when neither was; it was then corrected to "planned, not built" against the
