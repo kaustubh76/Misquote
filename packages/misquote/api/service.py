@@ -57,6 +57,7 @@ from misquote.api import pools as pools_routes
 from misquote.api import quote as quote_routes
 from misquote.api import registry as registry_routes
 from misquote.api import sessions as sessions_routes
+from misquote.api import studio as studio_routes
 from misquote.api import tape as tape_routes
 from misquote.api import vetting as vetting_routes
 from misquote.api import wallet as wallet_routes
@@ -538,6 +539,13 @@ for _path, _handler in (
     ("/quote/eligibility/{address}", quote_routes.quote_eligibility),
     ("/sessions/capability", sessions_routes.sessions_capability),
     ("/sessions/{owner}", sessions_routes.sessions_for),
+    # A GET that causes somebody else's agent to sign something, which is
+    # worth pausing on. It is still a read: nothing is created, nothing is
+    # funded, and the seller's own `negotiate` is rule-based rather than an
+    # LLM call. The verb follows what the caller gets back — a quote — and
+    # the browser needs this route only because the agent sends no CORS
+    # header of its own.
+    ("/studio/negotiate", studio_routes.studio_negotiate),
     ("/quote/job/{job_id}", quote_routes.quote_job_status),
     ("/quote/job/{job_id}/stream", quote_routes.quote_job_stream),
 ):

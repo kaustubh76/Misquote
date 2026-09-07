@@ -88,6 +88,12 @@ def config(base: str | None) -> dict[str, Any]:
             "job": "/quote/job/{job_id}",
             "stream": "/quote/job/{job_id}/stream",
             "capability": "/sessions/capability",
+            # The one route on this map that exists because of a header nobody
+            # sent. The Agent Studio seller returns no `Access-Control-Allow-Origin`,
+            # so a page cannot call it and the service forwards on the page's
+            # behalf. If the vendor's runtime ever sends the header, this entry
+            # is the thing to delete.
+            "negotiate": "/studio/negotiate",
         },
         "note": (
             "base is null when no live API is configured, which is the ordinary "

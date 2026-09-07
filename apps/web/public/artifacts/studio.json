@@ -1,0 +1,174 @@
+{
+  "agent": {
+    "description": "ERC-8183 seller agent (misquoterouter-agent) \u2014 negotiate + notify_funded over A2A.",
+    "health_check": "/.well-known/agent-card.json",
+    "host": "Render",
+    "name": "misquoterouter-agent",
+    "not_bag_deploy": "This is the agent running on a host we already operate. `bag deploy` takes bnb, aws or azure, and none of them has been used. Running the agent is not the native-citizenship proof; the CLI deploying it is.",
+    "preferred_transport": "JSONRPC",
+    "protocol_version": "0.3.0",
+    "skills": [
+      {
+        "description": "Send a data part {\"skill\": \"negotiate\", \"task_description\": \"...\", \"terms\": {\"deliverables\": \"...\", \"quality_standards\": \"...\"}} (both terms keys are REQUIRED) and receive a wallet-signed price quote (price, currency, negotiation_hash, provider_sig). Anchor the returned envelope on-chain via createJob + fund, then send the `notify_funded` skill with the job_id to request delivery.",
+        "id": "negotiate",
+        "name": "Negotiate an ERC-8183 job"
+      },
+      {
+        "description": "After you fund the job on-chain, send {\"skill\": \"notify_funded\", \"job_id\": <int>} to tell the seller \"I funded job X \u2014 please deliver\". The seller verifies the funded job carries its signed quote and replies AT ONCE with {\"status\": \"accepted\"|\"rejected\", \"job_id\"}; delivery then runs in the background (work takes time). Do NOT wait on this call for the result \u2014 read the deliverable back from the CHAIN once the job reaches SUBMITTED (the `submit` tx carries the deliverable_url; ERC-8183 `get_deliverable_url`). The agent serves no job-query endpoint.",
+        "id": "notify_funded",
+        "name": "Notify the seller a job is funded (request delivery)"
+      }
+    ],
+    "url": "https://misquote-agent.onrender.com"
+  },
+  "build": {
+    "command": "make studio",
+    "generated_at": "2026-09-07T14:48:18+00:00",
+    "git_dirty": true,
+    "git_sha": "d189d32",
+    "source": "recorded"
+  },
+  "cli": {
+    "commands": [
+      {
+        "name": "erc8004",
+        "summary": "ERC-8004 identity (register / show / resolve / update-endpoint / update-metadata"
+      },
+      {
+        "name": "erc8183",
+        "summary": "ERC-8183 commerce (list / buy / status / submit / fetch / settle)."
+      },
+      {
+        "name": "x402",
+        "summary": "x402 payment client helpers."
+      },
+      {
+        "name": "deploy",
+        "summary": "Deploy the agent after explicitly selecting a provider (bnb|aws|azure);"
+      }
+    ],
+    "install_page_reachable": false,
+    "package": "@bnbagent/studio-cli",
+    "published": true,
+    "read_at": "2026-09-03T04:29:20+00:00",
+    "record": "vetting/identity/studio-probe.json",
+    "version": "0.0.13",
+    "versions": 39
+  },
+  "commerce": {
+    "auto_settle": false,
+    "available": true,
+    "currency": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+    "max_price_wei": "200000000000000000",
+    "min_price_wei": "0",
+    "network": "bsc-testnet",
+    "note": "The price is fixed in configuration and clamped to [min, max] before signing. The model never prices.",
+    "price_wei": "100000000000000000",
+    "protocols": [
+      "A2A"
+    ],
+    "quote_ttl_seconds": 900,
+    "runtime": "agentcore",
+    "signer": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+    "wallet_kind": "evm-local"
+  },
+  "doctor": {
+    "fail": 0,
+    "pass": 14,
+    "warn": 7
+  },
+  "identity": {
+    "agent_id": 2102,
+    "audit": [
+      {
+        "actor": "cli",
+        "agent_id": null,
+        "chain_id": 97,
+        "op": "8004_register",
+        "status": "submitted",
+        "ts": "2026-09-04T10:34:17.371Z"
+      },
+      {
+        "actor": "cli",
+        "agent_id": 2102,
+        "chain_id": 97,
+        "op": "8004_register",
+        "status": "confirmed",
+        "ts": "2026-09-04T10:34:47.338Z"
+      }
+    ],
+    "chain_id": 97,
+    "endpoint": "https://misquote-agent.onrender.com/.well-known/agent-card.json",
+    "explorer": "https://testnet.bscscan.com",
+    "owner": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+    "owner_url": "https://testnet.bscscan.com/address/0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+    "registered_by": "bag erc8004 register \u2014 the Studio CLI, not scripts/register_identity.py",
+    "verified": "Read back independently: ownerOf(2102) is the scaffold wallet and the tokenURI is a data: URI whose services[] endpoint is the running agent. The CLI's own word was not taken for it."
+  },
+  "negotiation": {
+    "answered": true,
+    "available": true,
+    "chain_id": 97,
+    "checks": [
+      {
+        "detail": "provider_sig over the negotiation hash recovers to 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29, and 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29 owns ERC-8004 identity 2102",
+        "name": "the signer holds the identity's key",
+        "provenance": "eth_account.recover_message + vetting/identity/studio-local-run.json",
+        "status": "PASS"
+      },
+      {
+        "detail": "verifyingContract 0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de is erc8183.JOB_ESCROW[97], whose selectors this repository recovered from deployed bytecode",
+        "name": "the signature binds to the kernel we verified",
+        "provenance": "packages/misquote/registry/erc8183.py::JOB_ESCROW",
+        "status": "PASS"
+      },
+      {
+        "detail": "currency 0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565 is erc8183.PAYMENT_TOKEN[97], read from the kernel",
+        "name": "the quote is denominated in the kernel's own token",
+        "provenance": "packages/misquote/registry/erc8183.py::PAYMENT_TOKEN",
+        "status": "PASS"
+      },
+      {
+        "detail": "signed for chain 97; identity 2102 is on 97",
+        "name": "the chain matches the registered identity",
+        "provenance": "the envelope, and vetting/identity/studio-local-run.json",
+        "status": "PASS"
+      }
+    ],
+    "currency": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+    "estimated_completion_seconds": 600,
+    "evaluator_type": "uma_oov3",
+    "negotiation_hash": "0x645fd0745a3275b222fa7c631888ff46101c58bb7f7624047b86f560a998d7f0",
+    "not_covered": "This is the negotiation half. `notify_funded` \u2014 verify a funded job on chain, deliver, and `submit` \u2014 has not been driven through this agent, and no job has been created against the quote below.",
+    "price_wei": "100000000000000000",
+    "provider_sig": "0xcc9493a5a9ea3e5e4c4d72f6a26c05652866dd8bb37c10d7bd3698ebade578855d8a8d4dcd2f74cbb8fb9a262bc9d4ead86f63030b4288dd315a3d2913a2d1731b",
+    "quote_expires_at": 1788793316,
+    "read_at": "2026-09-07T14:46:56+00:00",
+    "record": "vetting/identity/studio-negotiation.json",
+    "recovered_signer": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
+    "signed_over": "the negotiation hash as a hex string, EIP-191",
+    "task_description": "Choose which PancakeSwap v3 WBNB/USDT pool range to provide liquidity to over the next 24 hours, and say why.",
+    "verdict": "PASS",
+    "verifying_contract": "0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de"
+  },
+  "not_done": [
+    {
+      "evidence": "docs/DEPLOY_AWS.md \u2014 five CRITICAL items on `bag deploy prepare`",
+      "name": "`bag deploy` itself",
+      "what": "The agent deployed through the vendor's CLI, which is the native-citizenship claim.",
+      "why": "It is running, on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none of them has been used. Running the agent is not the same claim as the CLI deploying it, and only the second one is the proof the track is about."
+    },
+    {
+      "evidence": "studio/misquoterouter/app/agent/studio.toml \u2014 protocols is A2A only",
+      "name": "The x402 or MPP payment face",
+      "what": "A sibling B402 seller route at /x402 or /mpp, so the agent can be paid per call.",
+      "why": "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one face. The commerce path here is escrowed ERC-8183, negotiated and signed; per-call payment is a different rail and it is not wired."
+    },
+    {
+      "evidence": "vetting/identity/studio-negotiation.json \u2014 not_covered",
+      "name": "A delivery driven through this agent",
+      "what": "notify_funded: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
+      "why": "`negotiate` has been called and its signature checked four ways. The other half needs a job funded against the agent's own quote, and the scaffold wallet holds no payment token on chapel. The escrow half is proven elsewhere in this repository, by our own signer rather than by this agent."
+    }
+  ]
+}

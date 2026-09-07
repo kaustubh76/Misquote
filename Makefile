@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
+.PHONY: studio studio-negotiate probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
 .PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
@@ -275,6 +275,25 @@ session-keys:  ## grant a session key, read it back, revoke it, read that back. 
 	#
 	# Nothing here loads .env; export it, as with BSC_RPC_URL.
 	$(UV) run python scripts/grant_session_key.py --chain $(IDENTITY_CHAIN) --out
+
+studio-negotiate:  ## ask the deployed Agent Studio seller for a signed quote. READS, spends nothing.
+	# The scaffold's ERC-8183 `negotiate` skill, actually called. It is the safe
+	# half of the pair: rule-based rather than an LLM, no money, no chain write.
+	#
+	# What the record is for is not the quote. It is that the envelope the agent
+	# signs binds to `erc8183.JOB_ESCROW[97]` and `PAYMENT_TOKEN[97]` — constants
+	# this repository recovered from deployed bytecode long before the scaffold
+	# existed — and that `provider_sig` recovers to the wallet owning the
+	# ERC-8004 identity the vendor's CLI minted. Four agreements between two
+	# paths that never consulted each other.
+	#
+	# Needs a network. `make studio` republishes the record without one.
+	$(UV) run python scripts/studio_negotiate.py
+
+studio:  ## republish the recorded Agent Studio readings as the site's artifact
+	# Offline, like `registry`. Projects the probe, the local run, the
+	# negotiation and `studio.toml` into one artifact the /studio route reads.
+	$(UV) run python scripts/studio_report.py
 
 probe-studio:  ## read what the BNB Agent Studio CLI offers. Installs, deploys nothing.
 	# The ledger parked the Studio on "the vendor's site does not resolve".
@@ -565,7 +584,7 @@ pools:  ## which Pancake pool, at what width, as P25-P75 bands. reads the tape.
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-auto router-card ledger advantage-auto advantage-short registry venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
+artifacts: showcase-auto router-card ledger advantage-auto advantage-short registry studio venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
 	# `judges` sits second-to-last on purpose: it derives its blocks from the
 	# artifacts above it, and `status` runs the go/no-go gate — which now
 	# checks the document is current, so it has to see the synced version.

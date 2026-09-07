@@ -1,0 +1,130 @@
+{
+  "agent": "https://misquote-agent.onrender.com",
+  "agent_card": {
+    "capabilities": {
+      "streaming": false
+    },
+    "defaultInputModes": [
+      "application/json"
+    ],
+    "defaultOutputModes": [
+      "application/json"
+    ],
+    "description": "ERC-8183 seller agent (misquoterouter-agent) \u2014 negotiate + notify_funded over A2A.",
+    "name": "misquoterouter-agent",
+    "preferredTransport": "JSONRPC",
+    "protocolVersion": "0.3.0",
+    "skills": [
+      {
+        "description": "Send a data part {\"skill\": \"negotiate\", \"task_description\": \"...\", \"terms\": {\"deliverables\": \"...\", \"quality_standards\": \"...\"}} (both terms keys are REQUIRED) and receive a wallet-signed price quote (price, currency, negotiation_hash, provider_sig). Anchor the returned envelope on-chain via createJob + fund, then send the `notify_funded` skill with the job_id to request delivery.",
+        "id": "negotiate",
+        "inputModes": [
+          "application/json"
+        ],
+        "name": "Negotiate an ERC-8183 job",
+        "outputModes": [
+          "application/json"
+        ],
+        "tags": [
+          "erc8183",
+          "negotiation",
+          "bnb-chain"
+        ]
+      },
+      {
+        "description": "After you fund the job on-chain, send {\"skill\": \"notify_funded\", \"job_id\": <int>} to tell the seller \"I funded job X \u2014 please deliver\". The seller verifies the funded job carries its signed quote and replies AT ONCE with {\"status\": \"accepted\"|\"rejected\", \"job_id\"}; delivery then runs in the background (work takes time). Do NOT wait on this call for the result \u2014 read the deliverable back from the CHAIN once the job reaches SUBMITTED (the `submit` tx carries the deliverable_url; ERC-8183 `get_deliverable_url`). The agent serves no job-query endpoint.",
+        "id": "notify_funded",
+        "inputModes": [
+          "application/json"
+        ],
+        "name": "Notify the seller a job is funded (request delivery)",
+        "outputModes": [
+          "application/json"
+        ],
+        "tags": [
+          "erc8183",
+          "delivery",
+          "bnb-chain"
+        ]
+      }
+    ],
+    "url": "https://misquote-agent.onrender.com",
+    "version": "1.0.0"
+  },
+  "answered": true,
+  "chain_id": 97,
+  "checks": [
+    {
+      "detail": "provider_sig over the negotiation hash recovers to 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29, and 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29 owns ERC-8004 identity 2102",
+      "name": "the signer holds the identity's key",
+      "provenance": "eth_account.recover_message + vetting/identity/studio-local-run.json",
+      "status": "PASS"
+    },
+    {
+      "detail": "verifyingContract 0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de is erc8183.JOB_ESCROW[97], whose selectors this repository recovered from deployed bytecode",
+      "name": "the signature binds to the kernel we verified",
+      "provenance": "packages/misquote/registry/erc8183.py::JOB_ESCROW",
+      "status": "PASS"
+    },
+    {
+      "detail": "currency 0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565 is erc8183.PAYMENT_TOKEN[97], read from the kernel",
+      "name": "the quote is denominated in the kernel's own token",
+      "provenance": "packages/misquote/registry/erc8183.py::PAYMENT_TOKEN",
+      "status": "PASS"
+    },
+    {
+      "detail": "signed for chain 97; identity 2102 is on 97",
+      "name": "the chain matches the registered identity",
+      "provenance": "the envelope, and vetting/identity/studio-local-run.json",
+      "status": "PASS"
+    }
+  ],
+  "envelope": {
+    "chain_id": 97,
+    "negotiation_hash": "0x645fd0745a3275b222fa7c631888ff46101c58bb7f7624047b86f560a998d7f0",
+    "provider_sig": "0xcc9493a5a9ea3e5e4c4d72f6a26c05652866dd8bb37c10d7bd3698ebade578855d8a8d4dcd2f74cbb8fb9a262bc9d4ead86f63030b4288dd315a3d2913a2d1731b",
+    "request": {
+      "task_description": "Choose which PancakeSwap v3 WBNB/USDT pool range to provide liquidity to over the next 24 hours, and say why.",
+      "terms": {
+        "deliverables": "A named tick range, the expected fee APR net of realized convexity cost, and the assumption sheet behind it.",
+        "evaluation_required": true,
+        "evaluator_type": "uma_oov3",
+        "quality_standards": "Every number traces to chain state or a published assumption. A range, not a point estimate."
+      }
+    },
+    "request_hash": "0xb8c1bf64d597add8d9db25dfd3d1e2731b723b1c0740345e6da179650ac35c0e",
+    "response": {
+      "accepted": true,
+      "estimated_completion_seconds": 600,
+      "negotiated_at": 1788792416,
+      "quote_expires_at": 1788793316,
+      "terms": {
+        "currency": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
+        "deliverables": "A named tick range, the expected fee APR net of realized convexity cost, and the assumption sheet behind it.",
+        "evaluation_required": true,
+        "evaluator_type": "uma_oov3",
+        "price": "100000000000000000",
+        "quality_standards": "Every number traces to chain state or a published assumption. A range, not a point estimate."
+      }
+    },
+    "response_hash": "0x0d3473f35420b7761674523051607755b1e070ee6d127f263bccebf26f49544a",
+    "verifying_contract": "0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de"
+  },
+  "not_covered": "This is the negotiation half. `notify_funded` \u2014 verify a funded job on chain, deliver, and `submit` \u2014 has not been driven through this agent, and no job has been created against the quote below.",
+  "read_at": "2026-09-07T14:46:56+00:00",
+  "reason": null,
+  "recovered": {
+    "as_bytes": "0xB53bc399aA2199892E3DdB8fF1C32b89cDA6e279",
+    "as_text": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29"
+  },
+  "request": {
+    "skill": "negotiate",
+    "task_description": "Choose which PancakeSwap v3 WBNB/USDT pool range to provide liquidity to over the next 24 hours, and say why.",
+    "terms": {
+      "deliverables": "A named tick range, the expected fee APR net of realized convexity cost, and the assumption sheet behind it.",
+      "quality_standards": "Every number traces to chain state or a published assumption. A range, not a point estimate."
+    }
+  },
+  "subject": "the Agent Studio seller's ERC-8183 negotiate skill",
+  "verdict": "PASS"
+}
