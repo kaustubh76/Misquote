@@ -60,12 +60,14 @@ const props = {
   owner: OWNER,
 };
 
-const wallet = (extra: { address?: `0x${string}`; disputeWindow?: bigint } = {}) =>
+const wallet = (
+  extra: { address?: `0x${string}`; disputeWindow?: bigint; balance?: bigint } = {},
+) =>
   withConnectedWallet({
     address: extra.address,
     calls: {
       [DECIMALS]: asWord(18n),
-      [BALANCE_OF]: asWord(10n ** 18n),
+      [BALANCE_OF]: asWord(extra.balance ?? 10n ** 18n),
       [ALLOWANCE]: asWord(0n),
       [DISPUTE_WINDOW]: asWord(extra.disputeWindow ?? 604_800n),
     },
@@ -156,6 +158,31 @@ describe("the stepper", () => {
     render(<HireEscrow {...props} />, { wrapper: wallet() });
     await screen.findByRole("button", { name: "approve" });
     expect(screen.queryByRole("button", { name: /Claim it back/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("when the wallet cannot cover the budget", () => {
+  // The defect this suite exists to prevent a second time. The helper shipped
+  // exported and called by nothing — `test_no_dead_exports` caught it, and a
+  // commit message had already claimed the door was open.
+  it("offers a way to get the payment token instead of a greyed button", async () => {
+    render(<HireEscrow {...props} />, { wrapper: wallet({ balance: 0n }) });
+
+    expect(await screen.findByText(/more of the payment token/)).toBeInTheDocument();
+    const buy = await screen.findByRole("link", { name: /Buy it on PancakeSwap/ });
+    expect(buy).toHaveAttribute(
+      "href",
+      `https://pancakeswap.finance/swap?chain=bsc&outputCurrency=${flow.deployments["56"]!.erc20}`,
+    );
+    // The address itself, copyable, because a deeplink is not a substitute for
+    // knowing which token you are buying.
+    expect(screen.getByText(flow.deployments["56"]!.erc20)).toBeInTheDocument();
+  });
+
+  it("says nothing when the wallet already holds enough", async () => {
+    render(<HireEscrow {...props} />, { wrapper: wallet() });
+    await screen.findByRole("button", { name: "approve" });
+    expect(screen.queryByText(/more of the payment token/)).not.toBeInTheDocument();
   });
 });
 

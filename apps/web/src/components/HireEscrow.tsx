@@ -32,6 +32,7 @@
  * those two say "sent here" rather than "done". See `Stage`.
  */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { bsc } from "wagmi/chains";
@@ -40,7 +41,12 @@ import { Card, CardHeader } from "@/components/Card";
 import { EscrowField } from "@/components/EscrowField";
 import { Pill } from "@/components/Pill";
 import { useEscrowFlow, type Stage } from "@/components/useEscrowFlow";
-import { countdown, selectorFrom, type EscrowDeployment } from "@/lib/escrow";
+import {
+  countdown,
+  paymentTokenMarket,
+  selectorFrom,
+  type EscrowDeployment,
+} from "@/lib/escrow";
 import { shortAddress } from "@/lib/format";
 
 export interface HireableAgent {
@@ -145,6 +151,7 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
     state,
     expiresIn,
     balance,
+    shortfall,
     steps,
     send,
     write,
@@ -164,6 +171,7 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
   const selector = selectorFrom(write.error);
   const meaning = selector && errors ? errors[selector] : undefined;
 
+  const market = paymentTokenMarket(deployment);
   const title = agent ? `Hire ${agent.name}` : "Hire an agent";
 
   if (!mounted || !isConnected) {
@@ -284,6 +292,56 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
           </span>
         )}
       </div>
+
+      {/* The wall this marketplace had, with a door in it.
+
+          The kernel settles in one ERC-20 chosen by whoever deployed it, not in
+          BNB, so a visitor with a funded wallet reached step five and found
+          `fund` greyed: "this wallet does not hold that much of the payment
+          token". True, and the end of the road — no faucet, no address to copy,
+          no link, and nothing anywhere on this site saying what to do about it.
+
+          It is buyable, and this repository already knew: `registry.json`
+          records the swap that proved it and job 56681 was escrowed with what
+          it bought. That lived in a docstring the browser never renders. */}
+      {shortfall !== null && (
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="m-0 max-w-[70ch] text-sm text-ink">
+            <strong>
+              You need {formatUnits(shortfall, units)} more of the payment token.
+            </strong>{" "}
+            The escrow settles in one ERC-20 chosen by whoever deployed the
+            kernel, not in BNB.
+          </p>
+          {market ? (
+            <>
+              <p className="mt-2 mb-0 max-w-[70ch] text-xs text-dim">
+                It trades on PancakeSwap. The swap{" "}
+                <Link href="/registry/#hired">recorded on the proofs page</Link>{" "}
+                bought enough for a hire several times over, for a fraction of a
+                cent of BNB.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button href={market.url} size="sm">
+                  Buy it on PancakeSwap ↗
+                </Button>
+                <code className="rounded-sm border border-line bg-panel px-2 py-1 font-mono text-xs break-all text-faint">
+                  {market.token}
+                </code>
+              </div>
+            </>
+          ) : (
+            /* Chapel's token is the same shape with no market behind it —
+               owner-minted, no faucet among its selectors, nothing to buy from.
+               "Switch to testnet" would send someone somewhere strictly harder. */
+            <p className="mt-2 mb-0 max-w-[70ch] text-xs text-dim">
+              This chain&rsquo;s payment token is owner-minted, with no faucet and
+              nowhere to buy it. The hire completes on BNB Smart Chain, where the
+              token trades.
+            </p>
+          )}
+        </div>
+      )}
 
       <ol className="mt-4 mb-0 grid list-none gap-2 p-0">
         {steps
