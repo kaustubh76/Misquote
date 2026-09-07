@@ -9,7 +9,7 @@ which is the better direction and only available where the value is emitted —
 the session-key addresses for chain 56 are not, and the ABIs are not emitted at
 all.
 
-The four duplications, and why each one is dangerous:
+The five duplications, and why each one is dangerous:
 
   * **Session-key addresses.** Four contract addresses typed into
     `sessionKeys.ts` by hand. The wrong one is an address a visitor sends a
@@ -22,6 +22,13 @@ The four duplications, and why each one is dangerous:
     encodes a call that does not exist.
   * **Job word offsets.** `hire.py` names one offset and refuses to name the
     rest; `escrow.ts` names seven. Two of those seven are named nowhere else.
+  * **The arguments `createJob` is actually sent.** The one this file was
+    missing, and the one that cost the most. A signature check pins the
+    *shape* of the call; it says nothing about the values. `hire.py` refuses to
+    build a `createJob` with a zero hook, because this deployment reverts it —
+    and the browser passed exactly that for the whole life of the console, so
+    every hire sent from the site failed at step two while the ABI checks above
+    stayed green.
 """
 
 from __future__ import annotations
@@ -130,6 +137,42 @@ def test_every_typescript_signature_was_resolved_against_bytecode(
             f"deployment has a function this repository never resolved, or the TypeScript "
             f"copy has drifted from the one that was"
         )
+
+
+def test_the_browser_sends_the_arguments_the_chain_accepts() -> None:
+    """Values, not signatures — the gap every other check in this file leaves.
+
+    `createJobArgs` is the only place the browser builds those five arguments.
+    Two of them are the EvaluatorRouter and neither is a choice: a zero hook
+    reverts `0x55c45de1 HookRequired()`, against an EIP that calls the hook an
+    optional extension, and a human evaluator reverts `RouterNotEvaluator()` two
+    transactions later at `registerJob`. `hire.py` encodes both rules and refuses
+    to build the call otherwise; this is the same refusal, on the other side of
+    the boundary.
+
+    Confirmed against the chain rather than the ABI: the mined mainnet
+    `createJob` for job 56718 carries the router in both slots.
+    """
+    from misquote.registry.hire import EVALUATOR_MUST_BE_THE_ROUTER, REQUIRED_HOOK_IS_THE_ROUTER
+
+    assert REQUIRED_HOOK_IS_THE_ROUTER and EVALUATOR_MUST_BE_THE_ROUTER
+
+    source = ts("lib/escrow.ts")
+    start = source.index("export function createJobArgs")
+    # Not the next `\n}` — the inline parameter type closes with a brace of its
+    # own, so that lands inside the signature.
+    opened = source.index("return [", start)
+    returned = source[opened : source.index("] as const;", opened)]
+
+    assert "0x0000000000000000000000000000000000000000" not in returned, (
+        "createJobArgs is passing a zero address again. On this deployment the hook "
+        "may not be zero — createJob reverts 0x55c45de1 HookRequired() — and every "
+        "hire sent from the browser would fail at step two"
+    )
+    assert returned.count("router") == 2, (
+        "createJobArgs should name the router twice, as the evaluator and as the hook, "
+        f"and names it {returned.count('router')} time(s)"
+    )
 
 
 def test_the_word_offsets_agree_across_the_boundary() -> None:
