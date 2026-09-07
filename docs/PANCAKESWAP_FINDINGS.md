@@ -132,3 +132,32 @@ generalising from Uniswap, ourselves first among them.
 Five of our nine pool checks have no executable proof-of-concept, and finding 1
 and finding 2 are carried by two of those five. They are readings — a pool
 either reports 3400 or it does not — and no transaction demonstrates a reading.
+
+## Where this goes
+
+A document that stays in our own repository benefits nobody it is about. Two
+places, and the first is the one that matters:
+
+- **Contracts and integration behaviour** — an issue per finding, or one issue
+  linking to this file, at
+  <https://github.com/pancakeswap/pancake-v3-contracts/issues>. Findings 1, 2, 4
+  and 5 are about what the deployed contracts return and are reproducible from a
+  fork with no permission needed.
+- **Developer documentation** — <https://developer.pancakeswap.finance/contracts/v3/>
+  is where a reader arrives believing v3 is Uniswap v3 with a different address.
+  Findings 1, 3 and 5 are documentation gaps as much as anything.
+
+A summary to paste, which is the whole argument in three lines:
+
+> Integrating PancakeSwap v3 from a Uniswap v3 codebase, we hit six divergences
+> that produce plausible wrong numbers rather than errors. `feeProtocol` is
+> `slot0[2]` and not `slot0[5]`; it differs between tiers of the same pair, so
+> no constant is right; assuming Uniswap's zero overstates LP fee income by
+> 1.515×; `MIN_TICK % 10 == 2`, so the usual full-range mint reverts; and the
+> `Swap` event carries nine parameters, not seven, so a Uniswap ABI decodes it
+> silently wrong. Each with the reading, how to reproduce it, and what it costs:
+> <link to this file>
+
+Not a security disclosure and not filed as one — see the section above. If any
+of it is already known and documented somewhere we did not find, that is a
+finding about the documentation and we would rather hear it than be right.

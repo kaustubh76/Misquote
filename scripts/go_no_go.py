@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from misquote.tearsheet import provenance
+from misquote.tearsheet.generate import unbroken_runs
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -1117,17 +1118,6 @@ def check_position_cap(mainnet: bool) -> Check:
     return Check("position cap", PASS, f"{value:,.0f} in quote units")
 
 
-#: How long a hole in the journal has to be before the run stopped rather than
-#: ticked slowly.
-#:
-#: Derived from the cadences rather than picked: the policy decides every 5s
-#: (spec section 8's delta-s) and the chain is polled every 60s
-#: (`chain/live_source.py::DEFAULT_POLL_SECONDS`, because 5s of `eth_getLogs` is
-#: refused by every public endpoint — matrix D-9). Fifteen minutes is fifteen
-#: poll intervals: long enough that no slow tick reaches it, short enough that a
-#: crash-and-restart cannot hide inside it.
-BURN_IN_MAX_GAP_S = 15 * 60
-
 #: The agent whose burn-in the gate is about. Spec section 10's acceptance list
 #: names the Warden and nothing else, so the others are reported and not gated —
 #: but they are *reported*, which is the half that was missing.
@@ -1139,30 +1129,6 @@ BURN_IN_GATE = "24h unattended burn-in"
 
 #: How the detail says where a run happened. Short, because it goes on a card.
 CHAIN_NAMES = {56: "BSC mainnet", 97: "chapel"}
-
-
-def unbroken_runs(
-    stamps: list[int], *, max_gap_s: int = BURN_IN_MAX_GAP_S
-) -> list[tuple[int, int]]:
-    """Contiguous runs of timestamps, split wherever the clock jumps.
-
-    The journal is opened in append mode, so one file holds every run the agent
-    has ever made. Without this, "how long did it run" and "how far apart are the
-    two ends of the file" are the same query — and they are wildly different
-    questions.
-    """
-    if not stamps:
-        return []
-    ordered = sorted(stamps)
-    runs: list[tuple[int, int]] = []
-    start = previous = ordered[0]
-    for stamp in ordered[1:]:
-        if stamp - previous > max_gap_s:
-            runs.append((start, previous))
-            start = stamp
-        previous = stamp
-    runs.append((start, previous))
-    return runs
 
 
 def _journal_summary(path: Path) -> dict[str, Any]:

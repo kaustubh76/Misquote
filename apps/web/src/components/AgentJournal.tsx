@@ -40,6 +40,14 @@ interface Summary {
   executed: number;
   first_ts?: number | null;
   last_ts?: number | null;
+  /**
+   * The longest unbroken run, the distance between the two ends, and how many
+   * runs the file holds. Carried by the emitter rather than derived here — see
+   * `covered` below for what deriving it cost.
+   */
+  hours?: number | null;
+  span_hours?: number | null;
+  runs?: number | null;
 }
 
 interface Journal {
@@ -58,8 +66,6 @@ interface Journal {
    */
   rows?: Row[];
 }
-
-const SECONDS_PER_HOUR = 3600;
 
 /** How many of the newest decisions to render. The route's own tail is larger. */
 const SHOWN = 8;
@@ -110,7 +116,22 @@ const SHOWN = 8;
  * available would be advertising an empty file as a record". A 404 here is that
  * case, so it renders as nothing at all rather than as a section reading zero.
  */
-export function AgentJournal({ agent }: { agent: string }) {
+export function AgentJournal({
+  agent,
+  cardRows,
+}: {
+  agent: string;
+  /**
+   * How many rows this file had when the card above was generated.
+   *
+   * The card's `activity` block is a reading taken by `make showcase`, which
+   * replays the whole tape and is measured in hours — so it is not re-run every
+   * time the loop is. After a 24-hour burn-in the card said "175 decisions ·
+   * 0.2h" from three weeks earlier while this section said 13,739 over 19.7h,
+   * with nothing on the page reconciling them.
+   */
+  cardRows?: number;
+}) {
   const [journal, setJournal] = useState<Journal | null>(null);
   const [source, setSource] = useState<Source | null>(null);
   const [refused, setRefused] = useState<RefusalError | null>(null);
@@ -174,10 +195,17 @@ export function AgentJournal({ agent }: { agent: string }) {
   if (!journal || journal.total_rows === 0) return null;
 
   const { summary } = journal;
-  const covered =
-    summary.first_ts && summary.last_ts
-      ? (summary.last_ts - summary.first_ts) / SECONDS_PER_HOUR
-      : null;
+  // The emitter's number, not a subtraction done here.
+  //
+  // This was `(last_ts - first_ts) / SECONDS_PER_HOUR`, and the journal is
+  // opened in append mode: `warden.jsonl` holds a ten-minute run from 26 August
+  // as well as a 24-hour mainnet burn-in, so the two ends are 555 hours apart.
+  // That number rendered as "covers", three lines under a sentence calling this
+  // "the same file the readiness gate measures" — and the gate said 19.7h,
+  // because `check_burn_in` had already learned this. It is one measurement now,
+  // made once, in `tearsheet/generate.py::JournalSummary.hours`.
+  const covered = summary.hours ?? null;
+  const runs = summary.runs ?? 1;
   const acted = summary.mints + summary.rebalances + summary.pulls;
   // Decisions only. A `run_start` row has no action and is not something the
   // agent decided; listing it among the decisions would inflate the one number
@@ -199,6 +227,18 @@ export function AgentJournal({ agent }: { agent: string }) {
         {source && <AnsweredBy source={source} />}
       </div>
 
+      {/* Only when the two readings differ, which is a fact about the data
+          rather than a caption anybody has to remember to delete: the day
+          `make showcase` runs again they agree and this disappears. */}
+      {cardRows != null && cardRows !== journal.total_rows && (
+        <p className="mt-0 mb-4 max-w-[62ch] text-xs text-faint">
+          The card above counted {count(cardRows)} rows in this file. It has{" "}
+          {count(journal.total_rows)} now — that block is read when the card is
+          generated, which replays the whole tape and takes hours, so it lags the
+          loop rather than tracking it. The figures here are the file as it stands.
+        </p>
+      )}
+
       <dl className="m-0 mb-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         <Figure label="decisions" value={count(summary.decisions)} />
         <Figure
@@ -212,7 +252,24 @@ export function AgentJournal({ agent }: { agent: string }) {
           }
         />
         <Figure label="acted" value={count(acted)} />
-        <Figure label="covers" value={covered === null ? "—" : hours(covered)} />
+        {/* "longest run", not "covers". A span is what a file covers; this is
+            how long the agent stayed up, and for one of these four they are
+            nothing like each other. Router's rows are a rate tape replayed
+            hourly, so no two are consecutive: 169 decisions, 169 runs, and a
+            longest run of zero. Its card used to report that as 168.0h.
+
+            The span comes along whenever the file holds more than one run,
+            because that is the honest reason the two numbers differ. */}
+        <Figure
+          label="longest run"
+          value={
+            covered === null
+              ? EMPTY
+              : runs > 1 && summary.span_hours
+                ? `${hours(covered)} of ${hours(summary.span_hours)}`
+                : hours(covered)
+          }
+        />
       </dl>
 
       {journal.unparsed_rows > 0 && (

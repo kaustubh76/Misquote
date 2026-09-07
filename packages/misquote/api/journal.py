@@ -102,8 +102,22 @@ def _summary(summary: Any) -> dict[str, Any]:
     """
     out: dict[str, Any] = {}
     for field in dataclasses.fields(summary):
+        if field.metadata.get("publish") is False:
+            continue
         value = getattr(summary, field.name)
         out[field.name] = dict(value) if isinstance(value, dict) else value
+
+    # The three that are properties rather than fields, and are the reason this
+    # walk was not enough on its own.
+    #
+    # The duration was never in this artifact. `AgentJournal.tsx` computed it
+    # from `first_ts` and `last_ts` — the two ends of an append-only file — and
+    # so rendered "covers 555h" for a 24-hour run, beside a sentence calling it
+    # "the same file the readiness gate measures". The gate said 19.7h. Carrying
+    # the number means there is one answer to copy rather than two to derive.
+    out["hours"] = round(summary.hours, 2)
+    out["span_hours"] = round(summary.span_hours, 2)
+    out["runs"] = summary.runs
     return out
 
 

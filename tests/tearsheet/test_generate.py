@@ -13,6 +13,7 @@ import json
 import pytest
 
 from misquote.tearsheet.generate import (
+    MAX_JOURNAL_GAP_S,
     MIN_OBSERVATIONS,
     build,
     read_journal,
@@ -110,9 +111,79 @@ def test_read_errors_are_counted_rather_than_hidden(tmp_path) -> None:
     assert summary.decisions == 2
 
 
+def _run(start: int, hours: float, *, interval: int = 5) -> list[dict]:
+    """A continuous run: one decision every `interval` seconds."""
+    return [decision_row(ts=start + offset) for offset in range(0, int(hours * 3600), interval)]
+
+
 def test_hours_come_from_the_timestamps_not_from_the_row_count(tmp_path) -> None:
-    rows = [decision_row(ts=1_700_000_000), decision_row(ts=1_700_000_000 + 7200)]
-    assert read_journal(write_journal(tmp_path, rows)).hours == pytest.approx(2.0)
+    """Two hours of decisions, at the cadence the loop actually runs at.
+
+    This used to be two rows 7200 seconds apart, which reported 2.0h under the
+    old subtraction and reports 0.0h now — correctly. Two decisions two hours
+    apart are two moments, not two hours of running, and a fixture that cannot
+    tell those apart is the fixture the bug was hiding behind.
+    """
+    summary = read_journal(write_journal(tmp_path, _run(1_700_000_000, 2.0)))
+    assert summary.hours == pytest.approx(2.0, abs=0.01)
+    assert summary.runs == 1
+
+
+def test_two_short_runs_a_day_apart_are_not_a_long_one(tmp_path) -> None:
+    """The defect, on the third quantity it appeared on.
+
+    `check_tape` fixed this for the tape — "a database holding one day at each
+    end of a twenty-six day span reported 26.0 days and passed". `check_burn_in`
+    fixed it for the gate. Both recorded the lesson as a fact about their own
+    quantity, so neither reached `JournalSummary`, and on the day a 24-hour
+    mainnet burn-in finished the real `warden.jsonl` reported **555.5 hours** —
+    because it also holds a ten-minute run from three weeks earlier.
+
+    That number is what the agent card captions "journalled" and what
+    `AgentJournal` rendered as "covers", three lines under a sentence calling it
+    the same file the readiness gate measures. The gate said 19.7h.
+    """
+    start = 1_700_000_000
+    rows = _run(start, 10 / 60) + _run(start + 25 * 3600, 10 / 60)
+    summary = read_journal(write_journal(tmp_path, rows))
+
+    assert summary.hours == pytest.approx(10 / 60, abs=0.01), "the run, not the span"
+    assert summary.span_hours == pytest.approx(25.17, abs=0.05), "and the span, beside it"
+    assert summary.runs == 2
+
+
+def test_a_gap_shorter_than_the_threshold_is_one_run(tmp_path) -> None:
+    """A slow tick is not a restart. The boundary, from both sides."""
+    start = 1_700_000_000
+    inside = read_journal(
+        write_journal(
+            tmp_path, [decision_row(ts=start), decision_row(ts=start + MAX_JOURNAL_GAP_S)]
+        )
+    )
+    assert inside.runs == 1
+
+    outside = read_journal(
+        write_journal(
+            tmp_path, [decision_row(ts=start), decision_row(ts=start + MAX_JOURNAL_GAP_S + 1)]
+        )
+    )
+    assert outside.runs == 2
+
+
+def test_lifecycle_rows_count_towards_the_run_though_not_the_decisions(tmp_path) -> None:
+    """So that this and `check_burn_in` measure the same file the same way.
+
+    The gate collects every row carrying a `ts`; this used to collect only the
+    decision rows, and two programs printing different durations for one file on
+    two pages of one site is the thing being fixed rather than a detail of it.
+    """
+    start = 1_700_000_000
+    rows = [{"event": "run_start", "ts": start, "chain_id": 56}, *_run(start + 5, 1.0)]
+    summary = read_journal(write_journal(tmp_path, rows))
+
+    assert summary.runs == 1
+    assert summary.hours == pytest.approx(1.0, abs=0.01)
+    assert summary.decisions == 720, "the lifecycle row is still not a decision"
 
 
 def test_a_corrupt_line_does_not_lose_the_whole_journal(tmp_path) -> None:

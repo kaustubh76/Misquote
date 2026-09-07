@@ -11,12 +11,15 @@
         "first_ts": 1788406497,
         "gate_blocks": {},
         "holds": 107,
+        "hours": 0.14,
         "kappa_fallback_samples": 0,
         "last_ts": 1788406991,
         "mints": 1,
         "pulls": 0,
         "rebalances": 0,
-        "rows": 122
+        "rows": 122,
+        "runs": 1,
+        "span_hours": 0.14
       },
       "total_rows": 122,
       "unparsed_rows": 0
@@ -32,68 +35,77 @@
         "first_ts": 1786692053,
         "gate_blocks": {},
         "holds": 168,
+        "hours": 0.0,
         "kappa_fallback_samples": 0,
         "last_ts": 1787296853,
         "mints": 0,
         "pulls": 0,
         "rebalances": 0,
-        "rows": 169
+        "rows": 169,
+        "runs": 169,
+        "span_hours": 168.0
       },
       "total_rows": 169,
       "unparsed_rows": 0
     },
     "sentinel": {
       "summary": {
-        "decisions": 24,
+        "decisions": 117,
         "dropped": 0,
         "errors": 0,
         "executed": 1,
         "failed": 0,
-        "fallback_samples": 24,
+        "fallback_samples": 117,
         "first_ts": 1788407104,
         "gate_blocks": {},
-        "holds": 23,
+        "holds": 116,
+        "hours": 0.16,
         "kappa_fallback_samples": 0,
-        "last_ts": 1788407165,
+        "last_ts": 1788407662,
         "mints": 1,
         "pulls": 0,
         "rebalances": 0,
-        "rows": 30
+        "rows": 132,
+        "runs": 1,
+        "span_hours": 0.15
       },
-      "total_rows": 30,
+      "total_rows": 132,
       "unparsed_rows": 0
     },
     "warden": {
       "summary": {
-        "decisions": 175,
+        "decisions": 13791,
         "dropped": 0,
         "errors": 0,
-        "executed": 2,
+        "executed": 3,
         "failed": 0,
-        "fallback_samples": 175,
+        "fallback_samples": 13791,
         "first_ts": 1786781591,
         "gate_blocks": {
-          "R1": 115,
-          "R2": 115,
-          "R3": 115
+          "R1": 10712,
+          "R2": 10760,
+          "R3": 1404
         },
-        "holds": 173,
+        "holds": 13788,
+        "hours": 19.81,
         "kappa_fallback_samples": 0,
-        "last_ts": 1786782430,
-        "mints": 1,
+        "last_ts": 1788781802,
+        "mints": 2,
         "pulls": 1,
         "rebalances": 0,
-        "rows": 181
+        "rows": 14936,
+        "runs": 2,
+        "span_hours": 555.61
       },
-      "total_rows": 181,
+      "total_rows": 14936,
       "unparsed_rows": 0
     }
   },
   "build": {
     "command": "python scripts/journal_report.py",
-    "generated_at": "2026-09-03T03:47:10+00:00",
+    "generated_at": "2026-09-07T11:50:47+00:00",
     "git_dirty": true,
-    "git_sha": "23b9d37",
+    "git_sha": "45c804e",
     "source": "journal"
   },
   "note": "What the live agents did, summarised. An agent absent from this object has never run \u2014 which is an absence rather than an empty journal, and the two are different claims. The decisions themselves are not carried: 344 rows is 340KB of artifact for a page that renders their summary."

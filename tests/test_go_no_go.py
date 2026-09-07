@@ -814,14 +814,18 @@ def test_the_gap_threshold_is_derived_from_the_cadences() -> None:
     reads as a restart — and below anything a crash-and-restart could hide in.
     """
     from misquote.chain.live_source import DEFAULT_POLL_SECONDS
+    from misquote.tearsheet.generate import MAX_JOURNAL_GAP_S, unbroken_runs
 
-    gng = load()
-    assert gng.BURN_IN_MAX_GAP_S > DEFAULT_POLL_SECONDS * 5
-    assert gng.BURN_IN_MAX_GAP_S < 3600, "an hour-long hole is a restart, not a tick"
+    # `MAX_JOURNAL_GAP_S` rather than the gate's own copy: the rule moved into
+    # `tearsheet/generate.py`, beside the thing that reads journals, when a
+    # second reader of the same files turned out to be measuring them a
+    # different way. One name, so it cannot come to mean two things.
+    assert MAX_JOURNAL_GAP_S > DEFAULT_POLL_SECONDS * 5
+    assert MAX_JOURNAL_GAP_S < 3600, "an hour-long hole is a restart, not a tick"
 
     # And it must actually split on that boundary.
-    assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S + 1])) == 2
-    assert len(gng.unbroken_runs([0, gng.BURN_IN_MAX_GAP_S - 1])) == 1
+    assert len(unbroken_runs([0, MAX_JOURNAL_GAP_S + 1])) == 2
+    assert len(unbroken_runs([0, MAX_JOURNAL_GAP_S - 1])) == 1
 
 
 #: A passing vitest run, tail-first as `check_web_component_suite` sees it.

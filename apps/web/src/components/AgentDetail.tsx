@@ -626,7 +626,11 @@ export function AgentDetail({
           service's own refusal for an agent that has never run, and falls back
           to the recorded summary when nothing answers — so unlike when this
           comment was written, it is not silent on the exported site. */}
-      <AgentJournal agent={slug} />
+      {/* The card above reads the journal at build time and this section reads
+          it now, so they disagree whenever the loop has run since. Passing the
+          card's own row count lets the section say so rather than leaving a
+          reader to notice two different numbers for one file. */}
+      <AgentJournal agent={slug} cardRows={d.provenance.journal_rows} />
 
       {/* The last edge of the journey, which existed only in the nav.
           A reader arrives here to understand one agent and then has nowhere to

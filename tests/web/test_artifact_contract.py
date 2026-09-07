@@ -511,7 +511,7 @@ def strip_styling(source: str) -> str:
     """
     source = re.sub(r'className="[^"]*"', "", source)
     source = re.sub(r"className=\{[^}]*\}", "", source, flags=re.DOTALL)
-    return strip_milliseconds(strip_image_metadata(source))
+    return strip_milliseconds(strip_image_metadata(strip_motion_easing(source)))
 
 
 def strip_milliseconds(source: str) -> str:
@@ -536,6 +536,27 @@ def strip_milliseconds(source: str) -> str:
     source = re.sub(r"\b\w*(?:SECOND|SECS?)_MS\w*\s*=\s*1000\b", "", source)
     source = re.sub(r"[*/]\s*1000\b", "", source)
     return source
+
+
+def strip_motion_easing(source: str) -> str:
+    """Remove `ease: [...]`, which is a cubic-bezier curve and not a number.
+
+    Fourth in the family, and it arrived the way the third did. The journal
+    summary started publishing a duration rounded to two decimals, sentinel's
+    came out `0.16`, and `CompareTray.tsx` animates with
+    `ease: [0.16, 1, 0.3, 1]` — the control points of an easing curve, which is
+    the same four numbers every Framer Motion codebase has.
+
+    Structural rather than adding `0.16` to `UNDISTINCTIVE`, for the reason
+    `strip_image_metadata` gives at length: an allowlist entry blinds this guard
+    to a real 0.16 on every page forever, to fix a collision that moves the next
+    time any agent runs for a slightly different length of time. A bezier
+    coefficient is never rendered to a reader, so removing it blinds nothing.
+
+    Narrow on purpose: the `ease` key and its array, nothing else on the
+    transition. A `duration` that matched an artifact value would still fail.
+    """
+    return re.sub(r"\bease:\s*\[[^\]]*\]", "", source)
 
 
 def strip_image_metadata(source: str) -> str:
@@ -1742,6 +1763,14 @@ JOURNAL_SUMMARY_FIELDS = frozenset(
         "gate_blocks",
         "fallback_samples",
         "kappa_fallback_samples",
+        # The duration, which this artifact did not carry at all — so
+        # `AgentJournal` derived it from `first_ts` and `last_ts` and rendered
+        # 555h for a 24-hour run. Three numbers rather than one, because a
+        # journal is appended to: the longest run, the distance between the two
+        # ends, and how many runs are in there.
+        "hours",
+        "span_hours",
+        "runs",
     }
 )
 

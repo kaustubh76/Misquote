@@ -69,6 +69,46 @@ def verdict(
     )
 
 
+#: How long a hole in a journal has to be before the run stopped rather than
+#: ticked slowly.
+#:
+#: Derived from the cadences rather than picked: the policy decides every 5s
+#: (spec section 8's delta-s) and the chain is polled every 60s
+#: (`chain/live_source.py::DEFAULT_POLL_SECONDS`, because 5s of `eth_getLogs` is
+#: refused by every public endpoint — matrix D-9). Fifteen minutes is fifteen
+#: poll intervals: long enough that no slow tick reaches it, short enough that a
+#: crash-and-restart cannot hide inside it.
+#:
+#: It lived in `scripts/go_no_go.py` as `BURN_IN_MAX_GAP_S`, which made it a fact
+#: about one gate. It is a fact about journals, and it is here because the thing
+#: that reads them is here.
+MAX_JOURNAL_GAP_S = 15 * 60
+
+
+def unbroken_runs(
+    stamps: list[int], *, max_gap_s: int = MAX_JOURNAL_GAP_S
+) -> list[tuple[int, int]]:
+    """Contiguous runs of timestamps, split wherever the clock jumps.
+
+    The journal is opened in append mode, so one file holds every run the agent
+    has ever made. Without this, "how long did it run" and "how far apart are the
+    two ends of the file" are the same query — and they are wildly different
+    questions.
+    """
+    if not stamps:
+        return []
+    ordered = sorted(stamps)
+    runs: list[tuple[int, int]] = []
+    start = previous = ordered[0]
+    for stamp in ordered[1:]:
+        if stamp - previous > max_gap_s:
+            runs.append((start, previous))
+            start = stamp
+        previous = stamp
+    runs.append((start, previous))
+    return runs
+
+
 @dataclass(slots=True)
 class JournalSummary:
     """What the decision journal actually contains."""
@@ -99,12 +139,55 @@ class JournalSummary:
     gate_blocks: Counter = field(default_factory=Counter)
     fallback_samples: int = 0
     kappa_fallback_samples: int = 0
+    #: Every timestamp seen, so `hours` can be a run rather than a subtraction.
+    #:
+    #: `publish: False` because `api/journal.py::_summary` serialises this class
+    #: field by field, and a 24-hour journal holds fifteen thousand of these —
+    #: `journal.json` is capped at 32KB precisely so the decisions cannot come
+    #: back into it. Declared on the field rather than skipped by name in the
+    #: serialiser, so the next field to be too big says so here.
+    stamps: list[int] = field(default_factory=list, metadata={"publish": False})
+
+    @property
+    def runs(self) -> int:
+        """How many separate times the agent ran into this file."""
+        return len(unbroken_runs(self.stamps))
 
     @property
     def hours(self) -> float:
-        if self.first_ts is None or self.last_ts is None:
+        """**The longest unbroken run**, not the distance between the two ends.
+
+        This was `(last_ts - first_ts) / 3600` and the change of meaning is
+        deliberate: every caller wants the run. `activity.hours` is captioned
+        "journalled" on the agent card, `provenance.hours_covered` says covered,
+        and the tearsheet says "over Xh" — none of them is asking how old the
+        file is.
+
+        Measured on the real `warden.jsonl` the day a 24-hour mainnet burn-in
+        finished, the old answer was **555.5 hours**, because the file also holds
+        a ten-minute run from three weeks earlier. `check_tape` and
+        `check_burn_in` had each already fixed this exact subtraction on their
+        own quantity, and each recorded the lesson as a fact about that quantity,
+        so it did not reach the third and fourth places it lived.
+        """
+        return max((end - start for start, end in unbroken_runs(self.stamps)), default=0) / 3600.0
+
+    @property
+    def span_hours(self) -> float:
+        """The distance between the two ends, which is a different question.
+
+        Kept rather than deleted, and published beside `hours`: a file whose span
+        is far larger than its longest run is telling a reader something true —
+        that it holds more than one run — and `check_burn_in`'s detail already
+        prints both for the same reason.
+        """
+        # Over `stamps`, not over `first_ts`/`last_ts`. Those two are the first
+        # and last *decision*, which is a different claim and one the API
+        # publishes in its own right — and measuring the two numbers over
+        # different rows produced `sentinel`: a 0.16h run inside a 0.15h span.
+        if not self.stamps:
             return 0.0
-        return max(0.0, (self.last_ts - self.first_ts) / 3600.0)
+        return max(0.0, (max(self.stamps) - min(self.stamps)) / 3600.0)
 
     @property
     def actions(self) -> int:
@@ -133,6 +216,15 @@ def read_journal(path: str | Path) -> JournalSummary:
             continue
 
         summary.rows += 1
+        # Every timestamped row, lifecycle ones included, and before any of the
+        # `continue`s below. `check_burn_in` measures the same file the same way,
+        # and two programs that disagree about how long one run lasted is the
+        # thing this is here to stop — `/status` and the agent page print that
+        # number side by side.
+        stamp = row.get("ts")
+        if isinstance(stamp, int):
+            summary.stamps.append(stamp)
+
         if row.get("event") == "decide_error":
             summary.errors += 1
             continue
@@ -271,6 +363,12 @@ class Tearsheet:
             },
             "activity": {
                 "decisions": self.journal.decisions,
+                # The longest unbroken run. It was the distance between the two
+                # ends of an append-only file, which is how a twenty-four hour
+                # run came to read as five hundred and fifty-five. The span and
+                # the run count are published in `journal.json`, where
+                # `AgentJournal` shows both — this card has one line for it and
+                # the run is the number that belongs in it.
                 "hours": round(self.journal.hours, 2),
                 "mints": self.journal.mints,
                 "rebalances": self.journal.rebalances,
