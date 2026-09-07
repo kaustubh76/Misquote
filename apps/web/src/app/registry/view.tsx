@@ -1399,7 +1399,17 @@ export function RegistryView({
 
             {/* Everything above this line is a recording. This is the same
                 calls with nothing recorded — the reader's wallet signs and the
-                chain answers, including when the answer is a revert. */}
+                chain answers, including when the answer is a revert.
+
+                Unordered and unguided on purpose: an auditor wants to send one
+                call and read what comes back. Someone who came to hire an agent
+                wants the opposite, and that is what `/activate` is. */}
+            <p className="mt-6 mb-3 max-w-[70ch] text-sm text-dim">
+              Every call, in any order, with the revert printed. To hire one of
+              our agents instead &mdash; one step at a time, with the budget
+              escrowed to the agent rather than to yourself &mdash; use{" "}
+              <Link href="/activate/">the Hire tab</Link>.
+            </p>
             <EscrowConsole
               deployments={d.hire_flow.deployments}
               defaultJob={d.hire_flow.mainnet_proof?.job_id}
