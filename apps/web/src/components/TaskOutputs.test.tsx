@@ -84,15 +84,18 @@ describe("what the page offers", () => {
     );
   });
 
-  // The replay keeps no per-decision list; the live loop does. Linking the one
-  // that exists beats inventing the one that does not.
-  it("points at the decision journal when the task names an agent", async () => {
+  // The replay keeps no per-decision list; the live loop does. Linking the page
+  // that carries it beats inventing the one that does not.
+  //
+  // The page, not its `#journal` section: `RouterDetail` renders no such
+  // section, so the anchor resolved on three agent routes and died on the
+  // fourth. `check-pages.mjs` caught it as a dead link from /advantage.
+  it("points at the agent's page, with no anchor that only some routes have", async () => {
     const task = report.tasks[0]!;
-    render(<TaskOutputs task={task} agentSlug="warden" />);
-    expect(await screen.findByRole("link", { name: /decision journal/ })).toHaveAttribute(
-      "href",
-      "/agent/warden/#journal",
-    );
+    render(<TaskOutputs task={task} agentSlug="router" />);
+    const link = await screen.findByRole("link", { name: /own page/ });
+    expect(link).toHaveAttribute("href", "/agent/router/");
+    expect(link.getAttribute("href")).not.toContain("#");
   });
 
   it("says so rather than offering a CSV it cannot build", async () => {

@@ -108,9 +108,16 @@ export function TaskOutputs({ task, agentSlug }: { task: AdvantageTask; agentSlu
       <a className="underline" href="/artifacts/advantage.json">
         the whole report
       </a>
+      {/* The page, not the `#journal` section on it.
+          `AgentDetail` renders that section and `RouterDetail` does not —
+          Router replays a Venus rate tape, and its own journal is 169 rows of
+          which no two are consecutive, so the component that draws a decision
+          history for the LP agents has nothing to draw. The anchor therefore
+          resolved on three of four agent routes and died on the fourth, which
+          `check-pages.mjs` found and reported as a dead link from /advantage. */}
       {agentSlug && (
-        <a className="underline" href={`/agent/${agentSlug}/#journal`}>
-          this agent&rsquo;s decision journal
+        <a className="underline" href={`/agent/${agentSlug}/`}>
+          this agent&rsquo;s own page
         </a>
       )}
     </div>

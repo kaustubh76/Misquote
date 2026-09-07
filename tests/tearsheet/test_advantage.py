@@ -16,6 +16,7 @@ non-zero difference between a run and itself.
 from __future__ import annotations
 
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -887,3 +888,114 @@ def test_the_observations_reach_the_artifact() -> None:
 def test_no_returns_key_when_there_are_none() -> None:
     """An empty list would draw an empty rug; an absent key draws no rug."""
     assert "returns" not in _emitted(returns=())
+
+
+# --- the three columns the track asks for ------------------------------------
+#
+# "For each task, report time, cost and output quality, with the actual outputs
+# attached." Quality was here from the start. The other two were the odd
+# absence, and `seconds`/`hire_cost` shipped with no test at all — the only two
+# fields in this report that nothing checked.
+#
+# Built from constructed quotes rather than from the `comparisons` fixture:
+# that fixture is `synthetic_events(SMALL)`, the deliberately-too-short tape
+# every task refuses, so it publishes no returns and therefore no win rate.
+# Asserting against it would have passed vacuously the moment the emitter
+# stopped emitting.
+
+
+def rated(diy: tuple[float, ...], agent: tuple[float, ...], **kw):
+    """One comparison carrying both arms' per-window returns."""
+    return comparison(
+        replace(quote(1.0, 2.0, 3.0), returns=diy, samples=len(diy)),
+        replace(quote(4.0, 5.0, 6.0), returns=agent, samples=len(agent)),
+        **kw,
+    )
+
+
+def test_the_win_rate_counts_windows_that_beat_the_baseline() -> None:
+    """Not windows that beat zero, which is what the cards already said.
+
+    In a fee-earning position nearly every window clears zero — warden, grid and
+    router all read 100% on that measure. Clearing the *baseline* is the claim
+    somebody hiring is paying for.
+    """
+    c = rated((1.0, 2.0, 3.0, 4.0), (2.0, 1.0, 3.0, 9.0))
+    rate = c.beat_rate
+    assert rate is not None
+    assert (rate.wins, rate.losses, rate.ties, rate.n) == (2, 1, 1, 4)
+    # Ties are excluded from the denominator, not counted as losses.
+    assert rate.rate == pytest.approx(2 / 3)
+    assert "2 of 4" in rate.label()
+
+
+def test_a_losing_agent_publishes_a_zero_rather_than_nothing() -> None:
+    c = rated((5.0, 5.0, 5.0), (1.0, 2.0, 3.0))
+    rate = c.beat_rate
+    assert rate is not None and rate.comparable
+    assert rate.wins == 0 and rate.rate == 0.0
+
+
+def test_arms_of_different_lengths_are_refused_rather_than_zipped() -> None:
+    """Different counts are not the same windows, so the pairing is meaningless.
+
+    Zipping to the shorter one would publish a comparison this report declines
+    to make, and it would look exactly like a real one.
+    """
+    c = rated((1.0, 2.0, 3.0), (2.0, 3.0))
+    rate = c.beat_rate
+    assert rate is not None and not rate.comparable
+    assert rate.rate is None
+    assert "cannot be paired" in rate.why
+
+
+def test_a_same_run_task_reports_ties_rather_than_a_zero_win_rate() -> None:
+    """`task_choose` prints one replay in both columns when the rules agree.
+
+    Every window ties by construction. Reducing that to "won 0%" would publish a
+    measurement where there is none.
+    """
+    same = (1.0, 2.0, 3.0)
+    c = rated(same, same, same_run=True)
+    rate = c.beat_rate
+    assert rate is not None and not rate.comparable
+    assert rate.ties == rate.n
+    assert "both columns" in rate.why
+
+
+def test_the_payload_carries_the_rate_and_agrees_with_the_arrays_beneath_it() -> None:
+    c = rated((1.0, 2.0, 3.0, 4.0), (2.0, 1.0, 3.0, 9.0))
+    payload = to_payload([c], source="chain", capital=1.0, command="pytest")
+    task = payload["tasks"][0]
+
+    rate = task["beat_rate"]
+    assert rate["wins"] + rate["ties"] + rate["losses"] == rate["windows"]
+    # Recomputed from what the artifact publishes, so the figure and the
+    # evidence behind it cannot drift apart.
+    diy, agent = task["baseline"]["returns"], task["agent"]["returns"]
+    assert rate["wins"] == sum(1 for a, b in zip(agent, diy, strict=True) if a > b)
+
+
+def test_the_payload_reports_time_as_decisions_and_cost_on_both_columns() -> None:
+    """The two columns that had no test at all.
+
+    `seconds` is replay compute time on whatever machine ran it, and it is
+    degenerate besides — Earn and Market-make share one control, so one
+    measurement printed as two different DIY times. What the engine measures is
+    decisions. And the cost row hardcoded an em dash for the DIY column, which
+    read as "doing it yourself is free"; it is not, and that figure was already
+    measured two rows down under another name.
+    """
+    c = rated((1.0, 2.0), (3.0, 4.0))
+    payload = to_payload([c], source="chain", capital=1.0, command="pytest")
+    task = payload["tasks"][0]
+
+    attention = task["attention"]
+    assert attention["note"], "the decision counts have to say what they are"
+    assert attention["decisions_you_make"] == task["baseline"].get("moves")
+    assert attention["decisions_made_for_you"] == task["agent"].get("moves")
+
+    also = task["hire_cost"]["you_also_pay"]
+    assert also["without_agent"] == task["baseline"].get("costs")
+    assert also["with_agent"] == task["agent"].get("costs")
+    assert also["unit"] and also["note"]

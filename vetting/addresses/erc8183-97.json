@@ -1,5 +1,5 @@
 {
-  "block": 129638203,
+  "block": 129684321,
   "chain_id": 97,
   "checks": [
     {
@@ -39,7 +39,7 @@
       "status": "PASS"
     },
     {
-      "detail": "returns 1090",
+      "detail": "returns 1095",
       "name": "commerce.jobCounter() answers",
       "provenance": "P-24",
       "status": "PASS"
@@ -57,6 +57,12 @@
       "status": "PASS"
     },
     {
+      "detail": "returns 18",
+      "name": "paymentToken.decimals() answers",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
       "detail": "SDK says 0x8004A818BFB912233c491871b3d84c89A494BD9e, we verified 0x8004A818BFB912233c491871b3d84c89A494BD9e",
       "name": "registry agrees with the ERC-8004 reader",
       "provenance": "P-24",
@@ -69,16 +75,19 @@
       "status": "PASS"
     },
     {
-      "detail": "jobCounter() is 1,090",
+      "detail": "jobCounter() is 1,095",
       "name": "jobs created on this deployment",
       "provenance": "P-24",
       "status": "PASS"
     }
   ],
+  "readings": {
+    "payment_token_decimals": 18
+  },
   "reason": "",
   "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
   "summary": {
-    "checked": 12,
+    "checked": 13,
     "failed": 0,
     "unknown": 0
   },

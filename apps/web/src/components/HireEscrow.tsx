@@ -443,6 +443,31 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
         </dl>
       )}
 
+      {/* What the money buys, and what it does not.
+          A visitor who funds a job was told nothing about what arrives or when
+          — the stepper ends at a greyed `submit` marked "not yours" and stops.
+          Four sentences, because the landing page was once 84% ledger and prose
+          is what that cost. */}
+      <div className="mt-5 border-t border-line pt-4 text-xs text-dim">
+        <p className="m-0 max-w-[70ch]">
+          <strong className="text-ink">What the escrow buys.</strong> The budget
+          sits in the kernel until {agent ? agent.name : "the provider"} submits a
+          deliverable, and comes back to you at the expiry if nobody does. No
+          process here watches for funded jobs and signs that submission yet
+          &mdash; it is on the{" "}
+          <Link href="/status/">not-built ledger</Link>, and the escrow, the
+          refund and the submission are each proven on mainnet from a signer
+          rather than from a service.
+        </p>
+        <p className="mt-2 mb-0 max-w-[70ch]">
+          {agent ? `${agent.name}'s` : "This agent's"} work on this pool already
+          exists and needs no hire to read:{" "}
+          {agent && <Link href={`/agent/${agent.slug}/`}>its tearsheet</Link>}
+          {agent && " · "}
+          <Link href="/advantage/">the same task run without it</Link>.
+        </p>
+      </div>
+
       <p className="mt-4 mb-0 text-xs text-faint">
         Job id <span className="font-mono">{jobId || "—"}</span>. Every call and
         every revert, unguided, is on{" "}

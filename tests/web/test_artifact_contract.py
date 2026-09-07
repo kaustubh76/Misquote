@@ -1249,7 +1249,13 @@ REGISTRY_FIELDS: dict[str, str] = {
     # Seeds the console's budget field, so the page opens on a figure this
     # repository has actually spent rather than a round number in a component.
     "hire_flow.mainnet_proof.budget": "components/EscrowConsole.tsx",
-    "hire_flow.mainnet_proof.chain_id": "",
+    # Read, though not displayed: `readHireTerms` uses it to pick which
+    # deployment's `decimals()` scales the opening escrow, because the budget it
+    # formats is the one that hire escrowed. Declared here rather than left at
+    # "" — the unrendered check happens to skip `chain_id` because the leaf name
+    # is not unique across the maps, and leaning on that blind spot is how a
+    # contract stops describing the code.
+    "hire_flow.mainnet_proof.chain_id": "lib/build-artifact.ts",
     "hire_flow.mainnet_proof.client": "",
     "hire_flow.mainnet_proof.escrowed": "registry/view.tsx",
     "hire_flow.mainnet_proof.escrowed_on_mainnet": "",
@@ -1337,12 +1343,20 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.deployments.56.router": "components/useEscrowFlow.ts",
     "hire_flow.deployments.56.policy": "components/useEscrowFlow.ts",
     "hire_flow.deployments.56.erc20": "components/useEscrowFlow.ts",
+    # Read off chain by `verify_erc8183.py` and consumed at build time by
+    # `readHireTerms`, which formats the opening escrow on an agent card.
+    # It was the literal 18 in that function until the token was asked.
+    "hire_flow.deployments.56.decimals": "lib/build-artifact.ts",
     "hire_flow.deployments.56.explorer": "components/EscrowConsole.tsx",
     "hire_flow.deployments.56.name": "components/EscrowConsole.tsx",
     "hire_flow.deployments.97.kernel": "components/useEscrowFlow.ts",
     "hire_flow.deployments.97.router": "components/useEscrowFlow.ts",
     "hire_flow.deployments.97.policy": "components/useEscrowFlow.ts",
     "hire_flow.deployments.97.erc20": "components/useEscrowFlow.ts",
+    # Read off chain by `verify_erc8183.py` and consumed at build time by
+    # `readHireTerms`, which formats the opening escrow on an agent card.
+    # It was the literal 18 in that function until the token was asked.
+    "hire_flow.deployments.97.decimals": "lib/build-artifact.ts",
     "hire_flow.deployments.97.explorer": "components/EscrowConsole.tsx",
     "hire_flow.deployments.97.name": "components/EscrowConsole.tsx",
     # The console keys deployments by the wallet's chain id, so the id inside

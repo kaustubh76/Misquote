@@ -100,6 +100,13 @@ class Report:
         # *prose*, which is a number nothing can re-derive or contradict.
         self.block = block
         self.checks: list[dict[str, str]] = []
+        #: Readings a *consumer* needs as a number rather than as a sentence.
+        #:
+        #: `checks` is for a reader: "paymentToken.decimals() answers — returns
+        #: 18". `registry_report` needs the 18 itself, and scraping it back out
+        #: of that sentence would make the record's prose load-bearing — which
+        #: is how a renderer starts breaking on a reworded detail string.
+        self.readings: dict[str, Any] = {}
 
     def add(self, name: str, status: str, detail: str, provenance: str = "P-24") -> None:
         # `provenance` matches the shape `vetting/addresses.py` and
@@ -134,6 +141,7 @@ class Report:
             "verdict": self.verdict,
             "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
             "checks": self.checks,
+            "readings": self.readings,
             "summary": {
                 "checked": len(self.checks),
                 "failed": sum(1 for c in self.checks if c["status"] == FAIL),
@@ -226,6 +234,19 @@ def survey(w3: Web3, chain_id: int) -> Report:
     counter = answers("commerce", "jobCounter()")
     token = answers("commerce", "paymentToken()")
     answers("policy", "disputeWindow()")
+    # The token's own decimals, read rather than assumed.
+    #
+    # `_RETURNS` has carried `decimals: uint8` since this script was written and
+    # nothing ever asked. That left the figure recorded in one place only — a
+    # comment in `registry/aacp.py` saying "the budget in 18 decimals" — which
+    # is exactly the shape `chain/addresses.py` refuses for a token: BSC's USDT
+    # is 18 where Ethereum's is 6, and assuming wrong misprices by twelve orders
+    # of magnitude. The site now states an opening escrow on an agent card, so
+    # the scale that renders it is a money figure on a storefront and belongs in
+    # a reading.
+    decimals = answers("paymentToken", "decimals()")
+    if decimals is not None:
+        report.readings["payment_token_decimals"] = int(decimals)
 
     # 3. The answers agree with each other, and with what we already verified.
     ours = IDENTITY_REGISTRY.get(chain_id, "")

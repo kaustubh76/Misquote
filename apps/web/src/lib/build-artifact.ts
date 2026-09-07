@@ -128,7 +128,10 @@ export interface HireTermsRead {
 
 export function readHireTerms(): HireTermsRead | undefined {
   const registry = readArtifact<{
-    hire_flow?: { mainnet_proof?: { budget?: number } };
+    hire_flow?: {
+      mainnet_proof?: { budget?: number; chain_id?: number };
+      deployments?: Record<string, { decimals?: number }>;
+    };
   }>("registry.json");
   const advantage = readArtifact<{
     tasks?: { hire_cost?: { amount?: number } }[];
@@ -141,12 +144,25 @@ export function readHireTerms(): HireTermsRead | undefined {
   const fee = advantage?.tasks?.find((t) => typeof t.hire_cost?.amount === "number")?.hire_cost
     ?.amount;
   if (typeof budget !== "number" && typeof fee !== "number") return undefined;
+
+  // The token's decimals, read off chain by `verify_erc8183.py` and carried
+  // through `registry.json`. This was the literal `18`, under a comment
+  // approving of `chain/addresses.py` for reading rather than assuming — the
+  // wrong way round, on the one figure where that mistake is expensive: BSC's
+  // USDT is 18 where Ethereum's is 6, and guessing misprices by twelve orders
+  // of magnitude. It is the same defect the escrow console was fixed for this
+  // morning, reintroduced one file over.
+  //
+  // From the chain the recorded hire ran on, so the scale belongs to the token
+  // the budget is denominated in. Absent when unread, and `HirePrice` then
+  // shows the fee alone rather than an amount at a guessed scale.
+  const chain = registry?.hire_flow?.mainnet_proof?.chain_id;
+  const decimals =
+    chain === undefined ? undefined : registry?.hire_flow?.deployments?.[String(chain)]?.decimals;
+
   return {
     opening_budget: typeof budget === "number" ? budget : null,
-    // The payment token's decimals. 18 on both deployments — `chain/addresses.py`
-    // reads this rather than assuming it, and says why: BSC's USDT is 18 where
-    // Ethereum's is 6, and guessing misprices by twelve orders of magnitude.
-    budget_decimals: 18,
+    budget_decimals: typeof decimals === "number" ? decimals : null,
     fee_bnb: typeof fee === "number" ? fee : null,
   };
 }

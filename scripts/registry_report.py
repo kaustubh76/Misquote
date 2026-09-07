@@ -237,18 +237,51 @@ def hire_flow() -> dict[str, Any]:
 CHAIN_NAMES = {56: "BNB Smart Chain", 97: "BNB Smart Chain Testnet"}
 
 
+#: Where `verify_erc8183.py` leaves the readings it took off chain.
+ERC8183_RECORD = REPO / "vetting" / "addresses"
+
+
+def _payment_token_decimals(chain: int) -> int | None:
+    """The token's own `decimals()`, as the verifier read it. `None` if unread.
+
+    Not a constant, and the difference is the whole argument `chain/addresses.py`
+    makes about this exact quantity: BSC's USDT is 18 where Ethereum's is 6, and
+    assuming wrong misprices by twelve orders of magnitude. The site now renders
+    an opening escrow on an agent card, so the scale that formats it is a money
+    figure on a storefront.
+
+    Absent rather than 18 when no record exists — `HirePrice` renders no amount
+    without it, which is the same rule `money()` follows for a figure whose unit
+    is unknown.
+    """
+    path = ERC8183_RECORD / f"erc8183-{chain}.json"
+    if not path.exists():
+        return None
+    try:
+        record = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    value = (record.get("readings") or {}).get("payment_token_decimals")
+    return int(value) if isinstance(value, int) else None
+
+
 def _deployments() -> dict[str, Any]:
     """Every chain with a verified ERC-8183 deployment, as the UI needs it."""
-    return {
-        str(chain): {
+    out: dict[str, Any] = {}
+    for chain in sorted(erc8183.JOB_ESCROW):
+        if chain not in chain_addresses.DEPLOYMENTS:
+            continue
+        entry: dict[str, Any] = {
             "chain_id": chain,
             "name": CHAIN_NAMES.get(chain, f"chain {chain}"),
             "explorer": chain_addresses.DEPLOYMENTS[chain].explorer,
             **erc8183.contracts_for(chain),
         }
-        for chain in sorted(erc8183.JOB_ESCROW)
-        if chain in chain_addresses.DEPLOYMENTS
-    }
+        decimals = _payment_token_decimals(chain)
+        if decimals is not None:
+            entry["decimals"] = decimals
+        out[str(chain)] = entry
+    return out
 
 
 #: The chapel run, published beside the flow it exercised.

@@ -1,5 +1,5 @@
 {
-  "block": 120493492,
+  "block": 120539563,
   "chain_id": 56,
   "checks": [
     {
@@ -57,6 +57,12 @@
       "status": "PASS"
     },
     {
+      "detail": "returns 18",
+      "name": "paymentToken.decimals() answers",
+      "provenance": "P-24",
+      "status": "PASS"
+    },
+    {
       "detail": "SDK says 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432, we verified 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
       "name": "registry agrees with the ERC-8004 reader",
       "provenance": "P-24",
@@ -75,10 +81,13 @@
       "status": "PASS"
     }
   ],
+  "readings": {
+    "payment_token_decimals": 18
+  },
   "reason": "",
   "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
   "summary": {
-    "checked": 12,
+    "checked": 13,
     "failed": 0,
     "unknown": 0
   },
