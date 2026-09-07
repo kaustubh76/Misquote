@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Band } from "@/components/Band";
 import { TallyStrip } from "@/components/TallyStrip";
+import { TaskOutputs } from "@/components/TaskOutputs";
 import { TapeSource } from "@/components/TapeSource";
 import { Card } from "@/components/Card";
 import { ComparisonTable } from "@/components/ComparisonTable";
@@ -644,6 +645,80 @@ function TaskCard({
           <> · {fixed(task.replay_days, 1)} days of tape</>
         )}
       </p>
+
+      {/* The track asks for three things per task — time, cost, output quality —
+          and this page carried only the third. The other two were in the JSON
+          and in the Markdown the whole time; the judged surface was the one
+          that omitted them. */}
+      {(task.beat_rate || task.attention || task.hire_cost) && (
+        <dl className="mt-4 grid gap-x-6 gap-y-2 border-t border-line pt-4 text-xs sm:grid-cols-3">
+          {task.beat_rate && (
+            <div>
+              <dt className="text-faint">Won on</dt>
+              <dd className="m-0 mt-0.5 text-ink">
+                {task.beat_rate.comparable ? (
+                  <>
+                    <span className="tabular font-mono">
+                      {count(task.beat_rate.wins)} of {count(task.beat_rate.windows)}
+                    </span>{" "}
+                    windows against doing it yourself
+                    {task.beat_rate.ties > 0 && (
+                      <span className="text-faint">
+                        {" "}
+                        · {count(task.beat_rate.ties)} tied
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  /* Not a zero. `task_choose` prints one replay in both
+                     columns, so it ties on every window by construction, and a
+                     0% here would be a measurement where there is none. */
+                  <span className="text-dim">{task.beat_rate.why ?? task.beat_rate.label}</span>
+                )}
+              </dd>
+            </div>
+          )}
+          {task.attention && (
+            <div>
+              <dt className="text-faint">Decisions</dt>
+              <dd className="m-0 mt-0.5 text-ink">
+                <span className="tabular font-mono">
+                  {isNum(task.attention.decisions_you_make)
+                    ? count(task.attention.decisions_you_make)
+                    : "—"}
+                </span>{" "}
+                <span className="text-faint">you make</span> ·{" "}
+                <span className="tabular font-mono">
+                  {isNum(task.attention.decisions_made_for_you)
+                    ? count(task.attention.decisions_made_for_you)
+                    : "—"}
+                </span>{" "}
+                <span className="text-faint">made for you</span>
+              </dd>
+            </div>
+          )}
+          {task.hire_cost && (
+            <div>
+              <dt className="text-faint">Fee to hire</dt>
+              <dd className="m-0 mt-0.5 text-ink">
+                <span className="tabular font-mono">
+                  {fixed(task.hire_cost.amount, 6)} {task.hire_cost.unit}
+                </span>
+                {task.hire_cost.you_also_pay &&
+                  isNum(task.hire_cost.you_also_pay.without_agent) &&
+                  isNum(task.hire_cost.you_also_pay.with_agent) && (
+                    <span className="block text-faint">
+                      gas either way: {fixed(task.hire_cost.you_also_pay.without_agent, 4)}{" "}
+                      DIY · {fixed(task.hire_cost.you_also_pay.with_agent, 4)} agent
+                    </span>
+                  )}
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      <TaskOutputs task={task} agentSlug={slug} />
 
       {task.quotable && (
         <details className="mt-5 border-t border-line pt-4">

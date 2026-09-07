@@ -868,17 +868,31 @@ def check_agent_advantage_report() -> Check:
             'the track says "three real tasks" — index every venue, then regenerate',
         )
 
+    # The track's bar is **three** real tasks run both ways, not "every task we
+    # can think of clears the floor".
+    #
+    # This required all of them, and that punished the one behaviour this
+    # marketplace is selling. Adding the equities task — a real BNB Chain venue
+    # measured and withheld, because 85 swaps over 4.1 days cannot support the
+    # twenty windows A5 asks for — would have turned a green gate amber for
+    # publishing a refusal, while leaving it green for not looking at all. A
+    # gate that prefers silence to a measured negative is pointed the wrong way.
+    #
+    # So the floor is the track's, and the withheld ones are named rather than
+    # hidden: a reader of this line learns both numbers.
     quotable = payload.get("summary", {}).get("quotable", 0)
-    if quotable < len(tasks):
+    withheld = [t.get("task", "?") for t in tasks if not t.get("quotable")]
+    if quotable < 3:
         return Check(
             "agent advantage report",
             UNVERIFIED,
-            f"{quotable}/{len(tasks)} tasks cleared the sample floor",
-            "extend the tape until every task can be quoted",
+            f"{quotable}/{len(tasks)} tasks cleared the sample floor; the track asks for three",
+            "extend the tape until at least three tasks can be quoted",
         )
-    return Check(
-        "agent advantage report", PASS, f"{len(tasks)} tasks on a chain tape, all quotable"
-    )
+    detail = f"{quotable} of {len(tasks)} tasks quotable on a chain tape"
+    if withheld:
+        detail += f" · withheld and said so: {', '.join(short(t) for t in withheld)}"
+    return Check("agent advantage report", PASS, detail)
 
 
 def check_signer_configured(mainnet: bool) -> Check:

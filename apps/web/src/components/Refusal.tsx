@@ -44,7 +44,14 @@ export function Refusal({
 }: {
   title: string;
   reason: string;
-  floor?: string;
+  /**
+   * The floor that caused the refusal, or — where one exists — the way past it.
+   *
+   * Widened from `string` when `/quote`'s empty-wallet branch needed to offer a
+   * wallet that does hold a position. A refusal that can name a next step and
+   * renders it as unclickable text is a refusal doing half its job.
+   */
+  floor?: React.ReactNode;
   cite?: string;
   size?: "sm" | "lg";
   children?: React.ReactNode;
@@ -81,7 +88,13 @@ export function Refusal({
           only rendered once an artifact reported the escrow unavailable. Every
           other monospace line on the site already carries this. */}
       {floor && (
-        <p className="mt-1 mb-0 font-mono text-xs break-words text-faint">{floor}</p>
+        <p className="mt-1 mb-0 text-xs break-words text-faint">
+          {/* The mono face moved onto the string case only. A floor naming a
+              Makefile target wants it; a floor offering a link does not, and
+              setting a sentence with a link in it in monospace reads as a
+              stack trace. */}
+          {typeof floor === "string" ? <span className="font-mono">{floor}</span> : floor}
+        </p>
       )}
       {cite && (
         <p className="mt-2 mb-0 text-xs">

@@ -390,6 +390,26 @@ def emit(
             "separated": comparison.separated,
             "quotable": comparison.quotable,
             "verdict": comparison.verdict_line(),
+            # The win rate the TermiX track asks a trading agent for, and it is
+            # not the one already on the card. `verdicts.profitable` counts
+            # windows that finished above **zero**, which in a fee-earning
+            # position is nearly free — warden, grid and router all read 100%.
+            # This counts windows that finished above **the baseline**, paired
+            # window by window, which is the claim a buyer is actually paying
+            # for. `compare()` already carries both arms' returns, so it costs
+            # this emitter nothing but the line.
+            "beat_rate": (
+                {
+                    "wins": comparison.beat_rate.wins,
+                    "ties": comparison.beat_rate.ties,
+                    "losses": comparison.beat_rate.losses,
+                    "windows": comparison.beat_rate.n,
+                    "comparable": comparison.beat_rate.comparable,
+                    "label": comparison.beat_rate.label(),
+                }
+                if comparison.beat_rate is not None
+                else None
+            ),
             "without_agent": comparison.without_agent,
             "baseline": {
                 "p25": round(comparison.baseline_p25, 4),

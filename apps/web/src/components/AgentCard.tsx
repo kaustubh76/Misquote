@@ -8,7 +8,7 @@ import { CompareToggle } from "@/components/CompareToggle";
 import { CostBars } from "@/components/CostBars";
 import { DataTable } from "@/components/DataTable";
 import { Pill, verdictTone } from "@/components/Pill";
-import { count, fraction, hours, signed, SIGN_CLASS, signOf } from "@/lib/format";
+import { count, fraction, hours, isNum, pct, signed, SIGN_CLASS, signOf } from "@/lib/format";
 import type { AgentArtifact, AgentRef, IndexArtifact } from "@/lib/artifacts";
 
 export function AgentCard({
@@ -146,6 +146,34 @@ export function AgentCard({
             </p>
           )}
 
+          {/* The risk, which the card did not have. A P25-P75 band is an
+              interquartile range: it says nothing about the quarter below it,
+              so a reader could see warden's floor of 20.7% and not know whether
+              any window lost money. `distinct_returns` is here for the same
+              reason — the denominator behind "of 60" is about twenty, and
+              `ranges.py` has counted that since it was written. */}
+          {q && (isNum(q.worst_return) || isNum(q.distinct_returns)) && (
+            <p className="mt-2 mb-0 text-xs text-faint">
+              {isNum(q.worst_return) && (
+                <>
+                  Worst window <span className="tabular font-mono">{pct(q.worst_return)}</span>
+                  {isNum(q.best_return) && (
+                    <>
+                      , best <span className="tabular font-mono">{pct(q.best_return)}</span>
+                    </>
+                  )}
+                </>
+              )}
+              {isNum(q.worst_return) && isNum(q.distinct_returns) && " · "}
+              {isNum(q.distinct_returns) && (
+                <>
+                  {count(q.distinct_returns)} of {count(q.samples)} observations are
+                  distinct results
+                </>
+              )}
+            </p>
+          )}
+
           <div className="mt-5 flex flex-wrap gap-2">
             <Pill tone={verdictTone(data.verdicts.in_range)}>
               In range: {data.verdicts.in_range.label}
@@ -153,6 +181,26 @@ export function AgentCard({
             <Pill tone={verdictTone(data.verdicts.profitable)}>
               Beats holding: {data.verdicts.profitable.label}
             </Pill>
+            {/* The two are different questions and the card carried only the
+                easier one. "Beats holding" counts windows that finished above
+                zero — in a fee-earning position nearly all of them do, and all
+                three LP agents read 100%. This counts windows that finished
+                above the baseline, which is what somebody hiring is paying for
+                and the number the track means by "win rate". */}
+            {adv?.beat_rate?.comparable && (
+              <Pill
+                tone={
+                  adv.beat_rate.wins > adv.beat_rate.losses
+                    ? "pass"
+                    : adv.beat_rate.wins === 0
+                      ? "fail"
+                      : "none"
+                }
+              >
+                Beats doing it yourself: {count(adv.beat_rate.wins)} of{" "}
+                {count(adv.beat_rate.windows)}
+              </Pill>
+            )}
           </div>
 
           {/* The threshold and the sample size, visible. These were `title`

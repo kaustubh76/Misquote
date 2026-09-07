@@ -315,10 +315,31 @@ def _quote_dict(quote: Any) -> dict[str, Any] | None:
         # the one figure on that page not read from anything.
         "perturbation_fraction": quote.perturbation_fraction,
         "net_positive": quote.net_positive,
+        # The worst window, which is the risk figure this card did not have.
+        #
+        # The track asks a trading agent for "the risk taken to get there" and
+        # the answer here was a P25-P75 band — an interquartile range, which by
+        # construction says nothing about the quarter below it. Sentinel's band
+        # is entirely negative and a reader could see that; warden's P25 of
+        # 20.7% told them nothing about whether any window lost money.
+        #
+        # Published rather than computed in the browser, for the reason `Band`
+        # gives about `ranges_overlap`: a second implementation of a figure, one
+        # inch from the sentence Python wrote about it, is how the two start
+        # disagreeing. `min`/`max` over the same tuple the band was drawn from.
+        "worst_return": min(quote.returns) if quote.returns else None,
+        "best_return": max(quote.returns) if quote.returns else None,
         "returns": list(quote.returns),
         "in_range_p50": quote.in_range_p50,
         "rebalances_p50": quote.rebalances_p50,
         "hours_per_window": quote.hours_per_window,
+        # 60 observations are 20 windows x 3 perturbations, and the
+        # perturbations agree with each other on almost every window: 0 of 60
+        # differ on grid and sentinel, 3 of 60 on warden. `ranges.py` has
+        # counted this since it was written and `advantage.json` publishes it;
+        # `_quote_dict` dropped it, so every card said "100% of 60" with no way
+        # for a reader to learn the real denominator is about twenty.
+        "distinct_returns": quote.distinct_returns,
         "sufficient": quote.sufficient,
         "annualised": quote.annualised,
         "basis": quote.basis,

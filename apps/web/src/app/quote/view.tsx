@@ -168,6 +168,14 @@ type State =
  * silently start exercising a path it has no fixture for and hang until the
  * timeout instead of failing. A test that names its branch keeps naming it.
  */
+/**
+ * The wallet the recorded run belongs to, and the only one this page can
+ * demonstrate on. Named here rather than inlined because `/demo` names the same
+ * address for the same fixture, and two spellings of one wallet is how a demo
+ * starts pointing at nothing.
+ */
+const DEMO_WALLET = "0x000000000000000000000000000000000000dEaD";
+
 export function QuoteView({ stream }: { stream?: StreamOptions } = {}) {
   const [address, setAddress] = useState("");
 
@@ -374,10 +382,29 @@ function Result({
       </p>
 
       {value.holdings.length === 0 ? (
+        /* The most likely outcome on this page, and for a long time the least
+           helpful. A visitor who does not happen to hold a PancakeSwap v3
+           position in one of three verified pools — which is nearly everyone,
+           including every judge — was handed a refusal and a pointer to
+           `/vetting`, a badge page. The failure branch above already offers the
+           recorded run; the branch that actually fires did not.
+
+           An address is offered rather than a page, because the question was
+           "what would these agents have done with a position" and the answer is
+           one click away on a wallet that has one. */
         <Refusal
           title="Nothing here can be quoted"
-          reason="This wallet holds no position in a pool this repository has verified and indexed."
-          floor="The pools that would work are listed on /vetting."
+          reason="This wallet holds no position in a pool this repository has verified and indexed — which is true of most wallets, including ours."
+          floor={
+            <>
+              <Link href={`/quote/?scenario=demo-quote&address=${DEMO_WALLET}`}>
+                Run it on a wallet that does hold one
+              </Link>{" "}
+              &mdash; a recorded job over 3,035,494 events, no service needed.
+              The pools that would work are listed on{" "}
+              <Link href="/vetting">/vetting</Link>.
+            </>
+          }
         />
       ) : (
         <div className="grid gap-4">

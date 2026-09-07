@@ -56,7 +56,7 @@ from typing import Any
 
 from misquote.agents.grid.policy import GridParams, decide_grid
 from misquote.agents.sentinel.policy import SentinelParams, sentinel_policy
-from misquote.chain.addresses import TARGET_POOL, TARGET_POOL_WIDE
+from misquote.chain.addresses import EQUITY_POOL, TARGET_POOL, TARGET_POOL_WIDE
 from misquote.core.liquidity import capital_for_liquidity_cap
 from misquote.core.policy import passive_policy
 from misquote.core.tickmath import Q96, get_sqrt_ratio_at_tick
@@ -196,6 +196,23 @@ META_WIDE = PoolMeta(
     fee_pips=TARGET_POOL_WIDE.fee_pips,
     tick_spacing=TARGET_POOL_WIDE.tick_spacing,
     fee_protocol=TARGET_POOL_WIDE.fee_protocol,
+)
+
+
+# The tokenized-equity venue, and the only one on BSC with any liquidity at all.
+#
+# Its own protocol fee again — 3200, the same as the wide pool and not the
+# flagship's 3400 — for the reason META_WIDE gives.
+META_EQUITY = PoolMeta(
+    address=EQUITY_POOL.address,
+    chain_id=EQUITY_POOL.chain_id,
+    token0=EQUITY_POOL.token0,
+    token1=EQUITY_POOL.token1,
+    dec0=EQUITY_POOL.dec0,
+    dec1=EQUITY_POOL.dec1,
+    fee_pips=EQUITY_POOL.fee_pips,
+    tick_spacing=EQUITY_POOL.tick_spacing,
+    fee_protocol=EQUITY_POOL.fee_protocol,
 )
 
 
@@ -1268,6 +1285,102 @@ ROUTE_WINDOWS = DEFAULT_WINDOWS
 ROUTE_CAPITAL_USD = 10_000.0
 
 
+def task_equities(*, db: str, capital: float, jobs: int | None) -> Comparison | None:
+    """The stock category, answered by measuring the venue rather than ignoring it.
+
+    The track weights *trading, stock/equities and security* above
+    general-purpose, and this report covered two of the three. That was not an
+    oversight — `scripts/find_equity_pool.py` went looking and
+    `assumptions.json` records what it found: TSLAx/USDT 0.25% is the only
+    xStocks v3 pool on BSC with any liquidity, NVDAx and AAPLx have no pool at
+    any fee tier, and the 1.00% TSLAx pool has zero. The conclusion recorded
+    there is blunt: *"there is no equity tape, and there will not be one."*
+
+    What was missing is that the report never said so. A reader could not tell
+    "we looked and the venue is dust" from "we did not look", and those are very
+    different answers to somebody asking whether this marketplace covers stocks.
+
+    ## Why this refuses without replaying
+
+    The first version of this ran the same passive control and the same Warden
+    the Earn task uses, and let `compute_quote` refuse. It does refuse — and it
+    takes long enough on a tape this shape that it would have made every run of
+    this report hang, which is a poor way to publish a negative.
+
+    The refusal does not need the replay. A5's floor is twenty windows of at
+    least twenty-four hours; the tape holds **85 swaps spanning 4.1 days**, so
+    the arithmetic settles it before an engine is started. That is the same gate
+    `api/preflight.py::assess` applies to a pool before `/quote` will enqueue
+    one, and applying it here rather than after an hour of replaying is the
+    honest shape of the same answer.
+
+    Returns `None` only when the pool has never been indexed, which is a
+    different claim again and not one this task should invent a venue for.
+    """
+    from misquote.indexer import store
+    from misquote.replay.ranges import MIN_SAMPLES, MIN_WINDOW_HOURS
+
+    path = Path(db)
+    if not path.exists():
+        return None
+    conn = store.connect(path)
+    try:
+        events = list(store.read_swaps(conn, META_EQUITY.address))
+    finally:
+        conn.close()
+    if not events:
+        return None
+
+    hours = (events[-1].ts - events[0].ts) / 3600.0 if len(events) > 1 else 0.0
+    # How many non-overlapping windows of the minimum length this tape could
+    # yield at best. The engine's own windows overlap, so this is generous to
+    # the venue and it still does not clear the floor.
+    windows_possible = int(hours // MIN_WINDOW_HOURS)
+    note = (
+        f"{len(events):,} swaps spanning {hours / 24:.1f} days on "
+        f"{EQUITY_POOL.label}. Assumption A5 requires {MIN_SAMPLES} replay windows of "
+        f"at least {MIN_WINDOW_HOURS:.0f}h; this tape yields at most "
+        f"{windows_possible}. It is the only tokenized-equity pool on BNB Chain "
+        f"with any liquidity — NVDAx and AAPLx have no v3 pool at any fee tier, "
+        f"and the 1.00% TSLAx pool has none. So the venue is real, our engine "
+        f"prices it, and there is not enough flow through it to quote. "
+        f"Withheld rather than estimated."
+    )
+    print(f"equities: {note}")
+
+    if windows_possible >= MIN_SAMPLES:
+        # The venue got deep enough to quote while nobody was looking. Refusing
+        # on a stale reading would be the same mistake in the other direction.
+        raise RuntimeError(
+            f"the equity tape now spans {hours / 24:.1f} days and could support "
+            f"{windows_possible} windows — this task refuses by arithmetic and "
+            f"that arithmetic no longer holds. Replay it instead of withholding it."
+        )
+
+    return Comparison(
+        task="Equities — provide liquidity to a tokenized stock",
+        category="equities",
+        venue=f"{EQUITY_POOL.label} · {EQUITY_POOL.address}",
+        metric="net return on capital (fees − realized convexity cost − costs), P25–P75",
+        without_agent="mint once at the same width, never touch it (passive_policy)",
+        with_agent="Warden — Avellaneda–Stoikov recentring",
+        # Withheld, so there is nothing to put here. `quotable=False` is what
+        # every renderer keys on, and `summarise` counts it as withheld.
+        baseline_p25=0.0,
+        baseline_p50=0.0,
+        baseline_p75=0.0,
+        agent_p25=0.0,
+        agent_p50=0.0,
+        agent_p75=0.0,
+        quotable=False,
+        note=note,
+        windows=windows_possible,
+        source="chain",
+        capital_quote=capital,
+        days=round(hours / 24, 3),
+    )
+
+
 def task_route(*, db: str) -> Comparison | None:
     """Task 4 — Yield: routing between lending venues vs parking in the best one.
 
@@ -1522,6 +1635,12 @@ def build(
     # bolted on. `to_payload` would have stamped it `source: "mixed"`, which is
     # honest and is not what that report is for.
     if source == "chain":
+        # The stock category. Same rule as `task_route`: only when the rest of
+        # the report is reading chain, so the short report's demonstration is
+        # not disproved by a real task bolted onto a constructed one.
+        equities = task_equities(db=db, capital=capital, jobs=jobs)
+        if equities is not None:
+            tasks.append(equities)
         route = task_route(db=db)
         if route is not None:
             tasks.append(route)

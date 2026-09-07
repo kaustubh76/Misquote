@@ -236,6 +236,29 @@ export interface QuoteDetail {
    */
   perturbation_fraction?: number;
   net_positive: number;
+  /**
+   * The worst and best single window the band was drawn from.
+   *
+   * A P25-P75 band is an interquartile range and by construction says nothing
+   * about the quarter below it. The track asks a trading agent for "the risk
+   * taken to get there"; this is the honest floor of that — the worst
+   * observation actually seen, not a modelled tail.
+   *
+   * Optional because cards written before the emitter carried them are still
+   * readable, and null when a quote reported no observations.
+   */
+  worst_return?: number | null;
+  best_return?: number | null;
+  /**
+   * How many of the reported samples are distinct results.
+   *
+   * 60 observations are 20 windows x 3 perturbations, and the perturbations
+   * agree on almost every window — 0 of 60 differ on grid and sentinel, 3 of 60
+   * on warden. `ranges.py` has counted this since it was written; the card
+   * emitter dropped it, so "100% of 60" reached a reader with no way to learn
+   * the real denominator is about twenty.
+   */
+  distinct_returns?: number | null;
   returns: number[];
   in_range_p50: number;
   rebalances_p50: number;
@@ -328,6 +351,27 @@ export interface ProvenanceBlock {
 
 export interface AdvantageBlock {
   delta_pp: number;
+  /**
+   * How often this agent beat doing it yourself, window by window.
+   *
+   * Not the same question as `verdicts.profitable`, which the card renders as
+   * "Beats holding" — that counts windows finishing above **zero**, and in a
+   * fee-earning position nearly all of them do: warden, grid and router each
+   * read 100%. This counts windows finishing above **the baseline**, paired
+   * over the same windows in the same order, and it is the number the TermiX
+   * track means when it asks a trading agent for a win rate.
+   *
+   * Optional because cards written before the emitter carried it are still
+   * readable, and null when the two arms cannot be paired.
+   */
+  beat_rate?: {
+    wins: number;
+    ties: number;
+    losses: number;
+    windows: number;
+    comparable: boolean;
+    label: string;
+  } | null;
   material: boolean;
   ranges_overlap: boolean;
   separated: boolean;
@@ -730,6 +774,55 @@ export interface AdvantageTask {
    * two pools, and there is no one number the choice is about.
    */
   primary_metric?: PrimaryMetric | null;
+  /**
+   * How often the agent beat doing it yourself, window by window.
+   *
+   * The track asks a trading agent for a win rate. The site already had one and
+   * it answers a different question: the card's "Beats holding" counts windows
+   * that finished above **zero**, which in a fee-earning position is close to
+   * free — warden, grid and router all read 100%. This counts windows that
+   * finished above **the baseline**, paired over the same windows in the same
+   * order, which is the claim somebody is paying for.
+   *
+   * `comparable` is false when the pairing means nothing: `task_choose` prints
+   * one replay in both columns, so it ties on every window by construction, and
+   * reporting that as a 0% win rate would be a measurement where there is none.
+   */
+  beat_rate?: {
+    wins: number;
+    ties: number;
+    losses: number;
+    windows: number;
+    comparable: boolean;
+    label: string;
+    rate?: number;
+    why?: string;
+  } | null;
+  /**
+   * Time, in the unit the engine measures: decisions.
+   *
+   * `seconds` is how long our replay took on the author's laptop, and it is not
+   * an answer to "how long does this job take" — see the emitter, which now
+   * labels it as ours rather than yours.
+   */
+  attention?: {
+    decisions_you_make?: number | null;
+    decisions_made_for_you?: number | null;
+    unattended: boolean;
+    note: string;
+  };
+  /** What hiring costs, and what the task costs whether or not you hire. */
+  hire_cost?: {
+    amount: number;
+    unit: string;
+    note: string;
+    you_also_pay?: {
+      without_agent?: number | null;
+      with_agent?: number | null;
+      unit: string;
+      note: string;
+    };
+  };
 }
 
 /**
