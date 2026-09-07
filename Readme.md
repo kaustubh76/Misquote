@@ -50,9 +50,10 @@ one click away. Built solo, in public. Audit me.
   - **Sentinel** (Health) — threshold de-risk live; Hawkes intensity as
     dashboard early-warning only; backtest = labeled appendix. Own infra.
   - **Router** (Yield) — whitelist APR router, optimal-switching boundary
-    (move only when delta > gas+slippage). The Agent Studio CLI deployment that
-    would make it the native-citizenship proof is **not done** and is on the
-    ledger; the policy and the card are.
+    (move only when delta > gas+slippage). A **second agent**, scaffolded by the
+    Agent Studio CLI, is deployed and serves the ERC-8183 seller interface —
+    `/studio` renders the signed quote it returns. `bag deploy` itself is the
+    one part still not done, and it is on the ledger.
 - **Agent Studio native:** the marketplace indexes the ERC-8004 registry for
   third-party agents (see D1 decision rule, §8), and **all four of our agents are
   registered on both networks** — chapel ids 1927-1930 and **mainnet ids 323262,
@@ -299,8 +300,14 @@ caps · the tearsheet.
       open is release: `submit` needs an expiry beyond the seven-day dispute
       window and the run asked for twelve hours. See **P-28** and
       `registry/hire.py`.
-- [ ] Agent Studio CLI hello-world deployed. The router *path* is answered by
-      `agents/router/policy.py`; only the deployment is open. The blocker is not
+- [ ] Agent Studio CLI hello-world deployed. More than a hello-world exists and
+      the box is still unticked, which is the honest state. The scaffold at
+      `studio/misquoterouter` is deployed, `bag erc8004 register` minted it
+      identity **2102** on chapel, and its ERC-8183 `negotiate` returns an
+      EIP-191-signed quote whose signature recovers to that identity's owner and
+      whose verifying contract is `erc8183.JOB_ESCROW[97]` — checked by
+      `make studio-negotiate` and rendered on `/studio`. The router *path* is
+      answered by `agents/router/policy.py`; only the deployment is open. The blocker is not
       what was recorded here for weeks: `studio.bnbchain.org` is dead and the
       package's declared repository 404s, but `@bnbagent/studio-cli` installs
       from npm and `bag` offers `erc8004`, `erc8183` and `x402` subcommands —

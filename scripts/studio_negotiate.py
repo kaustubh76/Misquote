@@ -189,6 +189,20 @@ def _same(a: str | None, b: str | None) -> bool:
     return bool(a) and bool(b) and a.lower() == b.lower()
 
 
+def _short(address: str | None) -> str:
+    """An address as a reader scans it, not as a chain stores it.
+
+    The detail strings here are rendered verbatim by `CheckList`, and the first
+    of them named the same 42-character address twice in one sentence — 84
+    characters of hex carrying one bit of information, which is that they
+    matched. A reader checking this copies from the envelope block above, where
+    the full value has a `title` on it; the sentence only has to be legible.
+    """
+    if not address or len(address) < 12:
+        return address or "—"
+    return f"{address[:6]}…{address[-4:]}"
+
+
 def _declared_owner() -> str | None:
     """The wallet `studio-local-run.json` says owns identity 2102."""
     if not LOCAL_RUN.exists():
@@ -209,10 +223,10 @@ def check(envelope: dict[str, Any]) -> list[dict[str, Any]]:
             "name": "the signer holds the identity's key",
             "status": "PASS" if _same(signer, owner) else "FAIL",
             "detail": (
-                f"provider_sig over the negotiation hash recovers to {signer}, "
-                f"and {owner} owns ERC-8004 identity 2102"
+                f"provider_sig recovers to {_short(signer)}, which is the wallet "
+                "that owns the identity this agent publishes"
                 if _same(signer, owner)
-                else f"recovered {signer}, expected {owner}"
+                else f"recovered {_short(signer)}, expected {_short(owner)}"
             ),
             "provenance": "eth_account.recover_message + vetting/identity/studio-local-run.json",
         },
@@ -222,7 +236,7 @@ def check(envelope: dict[str, Any]) -> list[dict[str, Any]]:
             if _same(envelope.get("verifying_contract"), JOB_ESCROW.get(STUDIO_CHAIN))
             else "FAIL",
             "detail": (
-                f"verifyingContract {envelope.get('verifying_contract')} is "
+                f"verifyingContract {_short(envelope.get('verifying_contract'))} is "
                 f"erc8183.JOB_ESCROW[{STUDIO_CHAIN}], whose selectors this "
                 "repository recovered from deployed bytecode"
             ),
@@ -234,7 +248,7 @@ def check(envelope: dict[str, Any]) -> list[dict[str, Any]]:
             if _same(terms.get("currency"), PAYMENT_TOKEN.get(STUDIO_CHAIN))
             else "FAIL",
             "detail": (
-                f"currency {terms.get('currency')} is "
+                f"currency {_short(terms.get('currency'))} is "
                 f"erc8183.PAYMENT_TOKEN[{STUDIO_CHAIN}], read from the kernel"
             ),
             "provenance": "packages/misquote/registry/erc8183.py::PAYMENT_TOKEN",
@@ -242,7 +256,10 @@ def check(envelope: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "name": "the chain matches the registered identity",
             "status": "PASS" if envelope.get("chain_id") == STUDIO_CHAIN else "FAIL",
-            "detail": f"signed for chain {envelope.get('chain_id')}; identity 2102 is on {STUDIO_CHAIN}",
+            "detail": (
+                f"signed for chain {envelope.get('chain_id')}, which is the chain "
+                "the CLI registered the identity on"
+            ),
             "provenance": "the envelope, and vetting/identity/studio-local-run.json",
         },
     ]

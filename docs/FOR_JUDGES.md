@@ -368,25 +368,56 @@ agreeing with chain. `make vet` refuses to clear what it cannot read.
 Stated plainly, because a submission that hides its gaps is doing the thing this
 project exists to argue against.
 
-- **The Agent Studio deployment.** It is the first entry on the not-built ledger
-  the site renders and it was missing from this list, which is the one place a
-  judge would look for it. Router's policy and card are built; deploying it
-  through the BNB Agent Studio CLI is not.
+- **The Agent Studio deployment.** Narrower than this list said, and the
+  correction is worth reading before the gap is. Everything except the deploy
+  verb exists: the seller agent runs at `misquote-agent.onrender.com`,
+  `bag erc8004 register` gave it ERC-8004 identity **2102** on chapel, and its
+  **ERC-8183 task interface is live and signs**. What has not happened is
+  `bag deploy` — it takes bnb, aws or azure, and running the agent on a host we
+  already operate is not the same claim as the vendor's CLI deploying it. Only
+  the second is the native-citizenship proof. **`/studio`** renders all of it.
 
-  The reason recorded for weeks was that the vendor could not be reached.
-  Re-checked 2 Sep 2026 and half true: `studio.bnbchain.org` is NXDOMAIN and the
-  npm package's declared repository 404s. Neither prevents installing it —
-  `@bnbagent/studio-cli` is at 0.0.13 across 39 versions, and its `bag` binary
-  offers `erc8004`, `erc8183` and `x402` subcommands. The probe is recorded and
-  dated in `vetting/identity/studio-probe.json`.
+  This entry has now been wrong in both directions. It claimed the deployment as
+  done when nothing was deployed; it was then corrected to "the ERC-8183
+  interface and x402 self-funding do not exist" — and the interface does exist.
+  `app/agent/src/sellerCore.ts` is 507 lines of it and `signing.ts` another 300,
+  tracked, deployed, and serving `negotiate` and `notify_funded` the whole time
+  the ledger said otherwise. The reading was taken in the week the scaffold was
+  empty and quoted forward, which is the third work item here parked on a
+  blocker that did not survive being checked.
 
-  The reason recorded next was wrong in the other direction, and it was mine:
+  `make studio-negotiate` is the check that ends it, and it is the interesting
+  one. The agent returns an EIP-191-signed quote, and three of its four fields
+  agree with constants this repository recovered from **deployed bytecode**
+  before the scaffold existed: `provider_sig` recovers to the wallet that owns
+  identity 2102, `verifyingContract` is `erc8183.JOB_ESCROW[97]`, and the
+  currency is `erc8183.PAYMENT_TOKEN[97]`. Two paths that never consulted each
+  other arriving at the same three values is the corroboration; either alone is
+  a claim. Recorded in `vetting/identity/studio-negotiation.json`.
+
+  The blocker before that was that the vendor could not be reached. Half true:
+  `studio.bnbchain.org` is NXDOMAIN and the npm package's declared repository
+  404s. Neither prevents installing it — `@bnbagent/studio-cli` is at 0.0.13
+  across 39 versions, and its `bag` binary offers `erc8004`, `erc8183` and
+  `x402` subcommands. Dated in `vetting/identity/studio-probe.json`.
+
+  The one after that was wrong in the other direction, and it was mine:
   "deploying hands a wallet key to the vendor" is true of exactly one flag
   combination. `--provider bnb` with a local wallet does that, and its own
   consent gate says so. `--destination self` deploys to your own cloud and your
   own Secrets Manager; `--wallet-kind turnkey` or `altana` never move a signing
   key at all. What is open is a self-hosted deployment and the cloud credentials
   it needs — a bill of materials, not a principle.
+
+- **The Studio agent's x402 self-funding.** Split out of the entry above, and
+  the split is the point: one piece of evidence covering three claims meant two
+  of them could come true without anything going red, which is exactly what
+  happened. This one is genuinely absent. `studio.toml` declares
+  `protocols = ["A2A"]` and publishes one face; the scaffold's own comment in
+  `unifiedMain.ts` names the file that would change it — `bag x402 trust
+  <merchant>`, then `bag recipe code x402-buyer` — and that file has never been
+  generated. The LLM credit does top itself up from the Pieverse balance, which
+  is a different mechanism and is not this one.
 
 - **Five of the nine badge checks have no executable proof-of-concept.** Four
   do, including a real mint. The other five are *readings* — a token either

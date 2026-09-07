@@ -294,10 +294,13 @@ export function OverviewView({
             a payment token escrowed on BSC mainnet, and reclaimed
           </Link>{" "}
           &middot;{" "}
-          <a href="https://misquote-agent.onrender.com/.well-known/agent-card.json" target="_blank" rel="noreferrer">
-            a live agent
-          </a>{" "}
-          carrying an ERC-8004 identity
+          {/* Was a bare external link to a JSON document. It pointed at the
+              strongest thing here and landed the reader in an agent card with
+              no page around it, no explanation of whose agent it was, and
+              nothing to press. `/studio` is that page now, and the link says
+              what a reader gets by following it rather than what is at the
+              other end of it. */}
+          <Link href="/studio">a second agent that signs its own quotes</Link>
         </p>
 
         <TickRule className="mt-10" />

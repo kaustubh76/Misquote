@@ -23,9 +23,9 @@
   },
   "build": {
     "command": "make studio",
-    "generated_at": "2026-09-07T14:58:02+00:00",
+    "generated_at": "2026-09-07T15:13:10+00:00",
     "git_dirty": true,
-    "git_sha": "7812ef6",
+    "git_sha": "2de6e14",
     "source": "recorded"
   },
   "cli": {
@@ -111,25 +111,25 @@
     "chain_id": 97,
     "checks": [
       {
-        "detail": "provider_sig over the negotiation hash recovers to 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29, and 0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29 owns ERC-8004 identity 2102",
+        "detail": "provider_sig recovers to 0xdEaF\u20263e29, which is the wallet that owns the identity this agent publishes",
         "name": "the signer holds the identity's key",
         "provenance": "eth_account.recover_message + vetting/identity/studio-local-run.json",
         "status": "PASS"
       },
       {
-        "detail": "verifyingContract 0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de is erc8183.JOB_ESCROW[97], whose selectors this repository recovered from deployed bytecode",
+        "detail": "verifyingContract 0xa206\u2026b0de is erc8183.JOB_ESCROW[97], whose selectors this repository recovered from deployed bytecode",
         "name": "the signature binds to the kernel we verified",
         "provenance": "packages/misquote/registry/erc8183.py::JOB_ESCROW",
         "status": "PASS"
       },
       {
-        "detail": "currency 0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565 is erc8183.PAYMENT_TOKEN[97], read from the kernel",
+        "detail": "currency 0xc70B\u20265565 is erc8183.PAYMENT_TOKEN[97], read from the kernel",
         "name": "the quote is denominated in the kernel's own token",
         "provenance": "packages/misquote/registry/erc8183.py::PAYMENT_TOKEN",
         "status": "PASS"
       },
       {
-        "detail": "signed for chain 97; identity 2102 is on 97",
+        "detail": "signed for chain 97, which is the chain the CLI registered the identity on",
         "name": "the chain matches the registered identity",
         "provenance": "the envelope, and vetting/identity/studio-local-run.json",
         "status": "PASS"
@@ -138,12 +138,12 @@
     "currency": "0xc70B8741B8B07A6d61E54fd4B20f22Fa648E5565",
     "estimated_completion_seconds": 600,
     "evaluator_type": "uma_oov3",
-    "negotiation_hash": "0x645fd0745a3275b222fa7c631888ff46101c58bb7f7624047b86f560a998d7f0",
+    "negotiation_hash": "0xf63e1624ac36176a62fe47653e6a13c2343c0ab19b8e370296b08ca8fc30f44e",
     "not_covered": "This is the negotiation half. `notify_funded` \u2014 verify a funded job on chain, deliver, and `submit` \u2014 has not been driven through this agent, and no job has been created against the quote below.",
     "price_wei": "100000000000000000",
-    "provider_sig": "0xcc9493a5a9ea3e5e4c4d72f6a26c05652866dd8bb37c10d7bd3698ebade578855d8a8d4dcd2f74cbb8fb9a262bc9d4ead86f63030b4288dd315a3d2913a2d1731b",
-    "quote_expires_at": 1788793316,
-    "read_at": "2026-09-07T14:46:56+00:00",
+    "provider_sig": "0x90ed941dba8e49f7c01b8085f7944c2f20ea641bb974e57dd1b4882033730cf206ac2bd6b05acc9c900d7de07e18d87e4bcabc570916d599e2ebba65aa9fa9441c",
+    "quote_expires_at": 1788794889,
+    "read_at": "2026-09-07T15:13:10+00:00",
     "record": "vetting/identity/studio-negotiation.json",
     "recovered_signer": "0xdEaF6a182ECfb667073a85f3f1C32499D5B53e29",
     "signed_over": "the negotiation hash as a hex string, EIP-191",

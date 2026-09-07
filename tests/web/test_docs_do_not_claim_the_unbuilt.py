@@ -85,6 +85,7 @@ def test_no_document_boasts_of_something_the_ledger_denies(document: str) -> Non
 #: renders and absent from the judges' document entirely.
 DISCLOSED_AS = {
     "Agent Studio deployment": "Agent Studio deployment",
+    "The Studio agent's x402 self-funding": "x402 self-funding",
     # Was "Releasing an escrowed job on mainnet" until `submit` mined on job
     # 56718. Release is half done and the entry says which half.
     "ERC-8183 escrow": "Settling an escrowed job on mainnet",

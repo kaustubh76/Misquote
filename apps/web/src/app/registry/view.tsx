@@ -854,6 +854,21 @@ export function RegistryView({
               testnet={d.third_party?.counts_testnet}
             />
             <NameCollisionsCard collisions={d.third_party?.name_collisions} />
+
+            {/* The fifth identity, which is not ours in the same sense and has
+                its own page. `register_identity.py` minted the four above; this
+                one was minted by the vendor's CLI, on a different chain, owned
+                by a different wallet, for an agent that runs somewhere else.
+                Folding it into the table above would have been the neatest lie
+                available — one row, five agents, one story — so it is a link
+                out instead. */}
+            <p className="mt-4 mb-0 text-sm text-dim">
+              A fifth identity is not in this table:{" "}
+              <Link href="/studio">
+                the one the BNB Agent Studio CLI registered
+              </Link>
+              , for an agent that signs its own ERC-8183 quotes.
+            </p>
           </Section>
 
           <Section id="hiring" title="Hiring an agent, end to end" className="mt-10" headingClassName="mb-2 text-lg font-semibold">

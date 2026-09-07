@@ -34,10 +34,17 @@
   "not_built": [
     {
       "category": "Yield",
-      "evidence": "packages/misquote/agents/router/ \u2014 no studio.py",
+      "evidence": "vetting/identity/ \u2014 no studio-deploy.json",
       "name": "Agent Studio deployment",
-      "what": "Router registered and deployed through the BNB Agent Studio CLI, as the native-citizenship proof \u2014 an ERC-8004 identity of its own, an ERC-8183 task interface, and x402 self-funding.",
-      "why": "Two of the three now exist: the agent is deployed at misquote-agent.onrender.com, and `bag erc8004 register` gave it identity 2102 on chapel, whose published endpoint resolves to it. The ERC-8183 interface and x402 self-funding do not, and `bag deploy` has not run \u2014 it takes bnb, aws or azure, and hosting the agent ourselves is not the same claim as the CLI deploying it."
+      "what": "The seller agent deployed **through the vendor's own CLI** \u2014 `bag deploy --provider bnb|aws|azure` \u2014 which is the native-citizenship claim the track is about.",
+      "why": "Everything except the deploy verb now exists. The agent runs at misquote-agent.onrender.com; `bag erc8004 register` gave it identity 2102 on chapel; and its ERC-8183 task interface is live and signs \u2014 `make studio-negotiate` gets a quote back whose signature recovers to the wallet owning that identity, and whose verifying contract is the kernel this repository verified from bytecode. What has not happened is `bag deploy`: it takes bnb, aws or azure, and running the agent on a host we already operate is not the same claim as the CLI deploying it. `/studio` renders all of it, this entry included."
+    },
+    {
+      "category": "Yield",
+      "evidence": "studio/misquoterouter/app/agent/src/ \u2014 no x402Buyer.ts",
+      "name": "The Studio agent's x402 self-funding",
+      "what": "The agent buying the paid data its work needs with its own wallet, per call, instead of only being paid through escrow.",
+      "why": "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one face. The scaffold's own comment in `unifiedMain.ts` names the file this would take \u2014 `bag x402 trust <merchant>` then `bag recipe code x402-buyer`, emitting the tools that spread into the work hook \u2014 and that file has never been generated. The LLM credit does top itself up from the Pieverse balance, which is a different mechanism and not this one."
     },
     {
       "category": "Activation",

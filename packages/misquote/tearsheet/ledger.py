@@ -46,23 +46,77 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
     #
     # What is still *not* built is the Agent Studio CLI deployment that entry
     # also mentioned. It is a separate claim and it has its own entry below.
+    # This entry has now been wrong in both directions, which is the same thing
+    # `Readme.md` §1 says about the sentence beside it.
+    #
+    # It claimed the deployment as done when nothing had been deployed. It was
+    # then corrected to "the ERC-8183 interface and x402 self-funding do not
+    # [exist]" — and the interface does exist. `app/agent/src/sellerCore.ts` is
+    # 507 lines of it and `signing.ts` another 300, both tracked, both deployed,
+    # and the agent has been serving `negotiate` and `notify_funded` the whole
+    # time. `make studio-negotiate` calls it: the quote comes back EIP-191
+    # signed, the signature recovers to the wallet that owns identity 2102, and
+    # the envelope binds to `erc8183.JOB_ESCROW[97]` and `PAYMENT_TOKEN[97]` —
+    # two constants this repository recovered from deployed bytecode before the
+    # scaffold existed.
+    #
+    # The reading was taken once, in the week the scaffold was empty, and quoted
+    # forward. That is the third work item here parked on a blocker that did not
+    # survive being checked, and the tell each time is prose describing code
+    # rather than a check executing against it.
+    #
+    # `evidence` moved with the claim, and had to. It pointed at
+    # `packages/misquote/agents/router/ — no studio.py`, which is still true and
+    # is about something else entirely: Router's own module, not the scaffold's
+    # interfaces. So `test_ledger_entries_still_describe_reality` could never
+    # have caught the error — it was verifying a fact nobody disputed while the
+    # sentence beside it went stale. An entry's evidence has to be the thing
+    # that goes false when the work gets done.
     NotBuilt(
         name="Agent Studio deployment",
         category="Yield",
         what=(
-            "Router registered and deployed through the BNB Agent Studio CLI, as the "
-            "native-citizenship proof — an ERC-8004 identity of its own, an ERC-8183 "
-            "task interface, and x402 self-funding."
+            "The seller agent deployed **through the vendor's own CLI** — "
+            "`bag deploy --provider bnb|aws|azure` — which is the "
+            "native-citizenship claim the track is about."
         ),
         why=(
-            "Two of the three now exist: the agent is deployed at "
-            "misquote-agent.onrender.com, and `bag erc8004 register` gave it "
-            "identity 2102 on chapel, whose published endpoint resolves to it. "
-            "The ERC-8183 interface and x402 self-funding do not, and `bag deploy` "
-            "has not run — it takes bnb, aws or azure, and hosting the agent "
-            "ourselves is not the same claim as the CLI deploying it."
+            "Everything except the deploy verb now exists. The agent runs at "
+            "misquote-agent.onrender.com; `bag erc8004 register` gave it "
+            "identity 2102 on chapel; and its ERC-8183 task interface is live "
+            "and signs — `make studio-negotiate` gets a quote back whose "
+            "signature recovers to the wallet owning that identity, and whose "
+            "verifying contract is the kernel this repository verified from "
+            "bytecode. What has not happened is `bag deploy`: it takes bnb, aws "
+            "or azure, and running the agent on a host we already operate is "
+            "not the same claim as the CLI deploying it. `/studio` renders all "
+            "of it, this entry included."
         ),
-        evidence="packages/misquote/agents/router/ — no studio.py",
+        evidence="vetting/identity/ — no studio-deploy.json",
+    ),
+    # Split out of the entry above rather than left inside it, and the reason is
+    # the one that made the old entry unfalsifiable: it bundled three claims
+    # under one piece of evidence, so two of them could come true without
+    # anything going red. x402 is a separate rail from the escrowed ERC-8183
+    # path, it is genuinely absent, and it now has evidence of its own that the
+    # scaffold's own template names.
+    NotBuilt(
+        name="The Studio agent's x402 self-funding",
+        category="Yield",
+        what=(
+            "The agent buying the paid data its work needs with its own wallet, "
+            "per call, instead of only being paid through escrow."
+        ),
+        why=(
+            "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one "
+            "face. The scaffold's own comment in `unifiedMain.ts` names the "
+            "file this would take — `bag x402 trust <merchant>` then "
+            "`bag recipe code x402-buyer`, emitting the tools that spread into "
+            "the work hook — and that file has never been generated. The LLM "
+            "credit does top itself up from the Pieverse balance, which is a "
+            "different mechanism and not this one."
+        ),
+        evidence="studio/misquoterouter/app/agent/src/ — no x402Buyer.ts",
     ),
     NotBuilt(
         name="Altana session keys: the caps",
