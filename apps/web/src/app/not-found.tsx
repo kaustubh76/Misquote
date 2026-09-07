@@ -28,6 +28,7 @@ const BLURB: Record<string, string> = {
   "/vectors": "the tick math, compared against Uniswap's own Solidity",
   "/assumptions": "every number here traces to one of these",
   "/registry": "ERC-8004 and ERC-8183, and what a hire costs",
+  "/studio": "A seller agent on the BNB Agent Studio, and the quote it signs",
   "/vetting": "the pools and addresses, read from chain",
   "/tape": "the swaps every quote here was replayed over, and the gaps in them",
   "/status": "the readiness gates, and what is not built",

@@ -63,6 +63,12 @@ RENDERED_AS_MARKDOWN: dict[str, str] = {
     "assumptions.json:sections.target_pool[].rows[][]": "components/Blocks.tsx",
     "index.json:not_built[].what": "components/Ledger.tsx",
     "index.json:not_built[].why": "components/Ledger.tsx",
+    # The Studio page's own not-done list, in the ledger's shape and rendered
+    # by the same call for the same reason.
+    "studio.json:not_done[].what": "app/studio/view.tsx",
+    "studio.json:not_done[].why": "app/studio/view.tsx",
+    "studio.json:agent.not_bag_deploy": "app/studio/view.tsx",
+    "studio.json:negotiation.not_covered": "app/studio/view.tsx",
     # Keyed by chain id rather than collapsed: `*` is reserved for the four
     # agent categories, and a wildcard here would hide a third chain appearing.
     "addresses.json:session_keys.56.not_verified[]": "app/activate/view.tsx",
@@ -118,6 +124,16 @@ PLAIN_BY_DESIGN: dict[str, str] = {
     # it as an oversight.
     "registry.json:third_party.categories.*.agents[].description": (
         "third-party text: theirs to write, ours to print verbatim"
+    ),
+    # An agent card's skill descriptions, fetched live from the running agent
+    # at `/.well-known/agent-card.json` rather than written here. Same rule as
+    # the registry listings above and for a sharper reason: the string is read
+    # over the network at call time, so `Prose` would let whatever the endpoint
+    # returns choose emphasis — and, through `[label](href)`, place a link — on
+    # our page. The scaffold is ours today; the endpoint is a live document and
+    # the guarantee has to hold for whatever it says tomorrow.
+    "studio.json:agent.skills[].description": (
+        "read live from an agent card: theirs to serve, ours to print verbatim"
     ),
     # Declared unrendered in `test_artifact_contract.REGISTRY_FIELDS`. A field
     # no view reads cannot be rendered wrong.

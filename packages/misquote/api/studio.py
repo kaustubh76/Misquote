@@ -32,10 +32,13 @@ agent's gas and its LLM credit to deliver. It is not something a visitor should
 be able to trigger by pressing a button on a marketing page, and no route here
 exposes it.
 
-The statuses follow `errors.py`: **503** when the agent did not answer — the host
-scales to zero and a cold start is transient, so retry is correct — and **502**
-when it answered with something that is not a signed envelope, which is a
-disagreement rather than an outage.
+The statuses follow `errors.py`, and the pair is chosen against what
+`lib/api.ts` does with each. **503** when the agent did not answer: the host
+scales to zero, a cold start is transient, and a 5xx is precisely what makes the
+page fall back to the recorded envelope — which is the right answer to "it is
+asleep". **409** when it answered with something that is not a signed envelope:
+a refusal is terminal there, no fallback is substituted, and the reader is told
+the seller disagreed rather than shown a recording labelled live.
 """
 
 from __future__ import annotations
@@ -140,8 +143,20 @@ def studio_negotiate() -> dict[str, Any]:
 
     envelope = _envelope(body)
     if not envelope:
+        # 409, not 502, and the difference is one the client acts on.
+        #
+        # `lib/api.ts` falls back to the recorded artifact on **any** 5xx and
+        # never on a refusal, because a server error is transient and a refusal
+        # is an answer. A seller that replies without a signed envelope is not a
+        # transient fault — retrying returns the same thing — so a 5xx here
+        # would render the recorded envelope as though the live call had merely
+        # been slow, which is exactly the substitution this site is named after.
+        #
+        # 409 is `errors.py`'s "the request is well-formed and the evidence
+        # cannot support it": the one status a client must never retry and never
+        # paper over with a cached value.
         raise refuse(
-            502,
+            409,
             error="the seller answered, but not with a signed envelope",
             remedy="check the agent card at /.well-known/agent-card.json for the negotiate skill",
             note="The reply is not being reshaped to look like one.",

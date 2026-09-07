@@ -35,6 +35,7 @@ const ROUTES = [
   ["Tick math", "/vectors"],
   ["Assumptions", "/assumptions"],
   ["Registry", "/registry"],
+  ["Studio", "/studio"],
   ["Vetting", "/vetting"],
   ["Tape", "/tape"],
   ["Status", "/status"],

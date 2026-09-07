@@ -72,7 +72,7 @@ PUBLISHED_COMMANDS = ("erc8004", "erc8183", "x402", "deploy")
 #: signs. What is actually missing is narrower and is these three.
 NOT_DONE: tuple[dict[str, str], ...] = (
     {
-        "name": "`bag deploy` itself",
+        "name": "Deployment through the CLI itself",
         "what": "The agent deployed through the vendor's CLI, which is the native-citizenship claim.",
         "why": (
             "It is running, on Render, on infrastructure we operate. `bag deploy` "
@@ -80,7 +80,7 @@ NOT_DONE: tuple[dict[str, str], ...] = (
             "agent is not the same claim as the CLI deploying it, and only the "
             "second one is the proof the track is about."
         ),
-        "evidence": "docs/DEPLOY_AWS.md — five CRITICAL items on `bag deploy prepare`",
+        "evidence": "docs/DEPLOY_AWS.md — five CRITICAL items on bag deploy prepare",
     },
     {
         "name": "The x402 or MPP payment face",
@@ -94,7 +94,7 @@ NOT_DONE: tuple[dict[str, str], ...] = (
     },
     {
         "name": "A delivery driven through this agent",
-        "what": "notify_funded: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
+        "what": "`notify_funded`: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
         "why": (
             "`negotiate` has been called and its signature checked four ways. "
             "The other half needs a job funded against the agent's own quote, "

@@ -51,6 +51,12 @@ export const ROUTES: readonly Route[] = [
   // the nav nowhere, on the tab that performs it.
   { href: "/activate", label: "Hire", group: "product" },
   { href: "/registry", label: "Registry", group: "product" },
+  // Last in the product band, and it earns the slot the way `/demo` earned
+  // second: the BNB Agent Studio work — a scaffolded seller agent, deployed,
+  // holding an ERC-8004 identity the vendor's own CLI minted — was reachable
+  // from one inline link in the hero and from nowhere else. A judge assessing
+  // the track this project's main entry answers had no page to land on.
+  { href: "/studio", label: "Studio", group: "product" },
   { href: "/advantage", label: "Advantage", group: "evidence" },
   { href: "/methods", label: "Methods", group: "evidence" },
   { href: "/assumptions", label: "Assumptions", group: "evidence" },

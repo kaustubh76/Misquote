@@ -739,6 +739,20 @@ def test_no_artifact_number_is_hardcoded_in_the_ui() -> None:
         # in an HTTP status. The rule is about what reaches a page.
         if "test" in path.relative_to(WEB_SRC).parts:
             continue
+        # The Open Graph card, for the same reason and a narrower one. It is a
+        # build-time image generator: it reads no artifact, its copy is fixed,
+        # and every number in it is a pixel dimension or a font size fed to
+        # `next/og`. `studio.json` publishing a 900-second quote TTL collided
+        # with its `maxWidth: 900`, which is a share card's text column and
+        # cannot be a restatement of anything.
+        #
+        # Excluded here rather than by adding 900 to `UNDISTINCTIVE`, because
+        # that set is global: 900 is a plausible figure for an artifact to
+        # publish and a page to smuggle, and silencing it everywhere to fix one
+        # layout constant is the move this test's own docstring warns about. One
+        # file that renders no data is the smaller hole.
+        if path.name == "opengraph-image.tsx":
+            continue
         # Comments are stripped first. The rule is about numbers that reach a
         # reader, and these files quote real figures when explaining which bug
         # they exist to prevent — that prose is the opposite of a smuggled

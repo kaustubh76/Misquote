@@ -49,6 +49,12 @@ const ROUTES = [
   ["demo", "/demo/"],
   ["quote", "/quote/"],
   ["activate", "/activate/"],
+  // The BNB Agent Studio surface. Worth a screenshot of its own rather than
+  // riding on /registry's: it is the only route that renders a signature, and
+  // the envelope's mono fields are the widest content on the site — a 132-
+  // character `provider_sig` is far wider than a 390px viewport on its own,
+  // which is precisely the overflow this pass exists to catch.
+  ["studio", "/studio/"],
   ["category", "/category/"],
   // One of the four, not all: they are one component over one artifact, and a
   // fifth screenshot of the same tree buys nothing. Rebalancing is the one with
@@ -470,6 +476,19 @@ const NO_JS = [
   // `/venue` whose P-1 link lands on a page needing JavaScript is a dead link.
   ["/assumptions/", 50000, "none filtered out"],
   ["/registry/", 2500, "JOB STATES"],
+  // The needle is the admission, not the achievement — the same choice
+  // `/activate/` made. This page's temptation is to render "deployed via the
+  // Agent Studio" and stop; the sentence that must survive any rewrite is the
+  // one distinguishing an agent we host from one the vendor's CLI deployed,
+  // because only the second is the claim the track is about. `bag deploy` is
+  // in that sentence and in no other on the page.
+  //
+  // The floor is low on purpose. Everything above the not-done list is
+  // prerendered, but the signed envelope is not: the recorded one comes from
+  // the artifact and renders, while the live one needs the button. A generous
+  // floor here would be asserting the presence of the half that correctly
+  // requires JavaScript.
+  ["/studio/", 2000, "bag deploy"],
   ["/vetting/", 3500, "factory resolves it"],
   // The only route here whose subject cannot be prerendered — what a database
   // holds right now is live by definition. So the needle is the recorded half:

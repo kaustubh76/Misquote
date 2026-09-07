@@ -23,9 +23,9 @@
   },
   "build": {
     "command": "make studio",
-    "generated_at": "2026-09-07T14:48:18+00:00",
+    "generated_at": "2026-09-07T14:58:02+00:00",
     "git_dirty": true,
-    "git_sha": "d189d32",
+    "git_sha": "7812ef6",
     "source": "recorded"
   },
   "cli": {
@@ -153,8 +153,8 @@
   },
   "not_done": [
     {
-      "evidence": "docs/DEPLOY_AWS.md \u2014 five CRITICAL items on `bag deploy prepare`",
-      "name": "`bag deploy` itself",
+      "evidence": "docs/DEPLOY_AWS.md \u2014 five CRITICAL items on bag deploy prepare",
+      "name": "Deployment through the CLI itself",
       "what": "The agent deployed through the vendor's CLI, which is the native-citizenship claim.",
       "why": "It is running, on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none of them has been used. Running the agent is not the same claim as the CLI deploying it, and only the second one is the proof the track is about."
     },
@@ -167,7 +167,7 @@
     {
       "evidence": "vetting/identity/studio-negotiation.json \u2014 not_covered",
       "name": "A delivery driven through this agent",
-      "what": "notify_funded: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
+      "what": "`notify_funded`: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
       "why": "`negotiate` has been called and its signature checked four ways. The other half needs a job funded against the agent's own quote, and the scaffold wallet holds no payment token on chapel. The escrow half is proven elsewhere in this repository, by our own signer rather than by this agent."
     }
   ]
