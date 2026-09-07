@@ -35,6 +35,7 @@ const GET_JOB = "0xbf22c457";
 const BALANCE_OF = "0x70a08231";
 const ALLOWANCE = "0xdd62ed3e";
 const DECIMALS = "0x313ce567";
+const DISPUTE_WINDOW = "0x117f5f92";
 
 const HOUR = 3600n;
 const now = () => BigInt(Math.floor(Date.now() / 1000));
@@ -46,9 +47,18 @@ function consoleWith(
     sendError?: Error;
     balance?: bigint;
     decimals?: bigint | null;
+    disputeWindow?: bigint;
   } = {},
 ) {
-  const { address, sendError, balance = 10n ** 18n, decimals = 18n } = extra;
+  const {
+    address,
+    sendError,
+    balance = 10n ** 18n,
+    decimals = 18n,
+    // What the mainnet policy actually answers, and the number the expiry
+    // warning is stated against.
+    disputeWindow = 604_800n,
+  } = extra;
   return withConnectedWallet({
     address,
     sendError,
@@ -58,6 +68,7 @@ function consoleWith(
       [ALLOWANCE]: asWord(0n),
       // `null` stands for a token that will not answer `decimals()`.
       ...(decimals === null ? {} : { [DECIMALS]: asWord(decimals) }),
+      [DISPUTE_WINDOW]: asWord(disputeWindow),
     },
   });
 }

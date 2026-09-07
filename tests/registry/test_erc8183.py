@@ -90,8 +90,8 @@ def test_the_order_is_the_one_the_state_machine_requires() -> None:
     assert calls == [
         "approve",
         "createJob",
-        "registerJob",
         "setBudget",
+        "registerJob",
         "fund",
         "submit",
         "settle",
@@ -100,6 +100,49 @@ def test_the_order_is_the_one_the_state_machine_requires() -> None:
     # budget has to be set before there is an amount to pull.
     assert calls.index("approve") < calls.index("fund")
     assert calls.index("setBudget") < calls.index("fund")
+
+
+#: The runs this order is answerable to. `hire-97.json` is deliberately not among
+#: them: that run sent `registerJob` before `setBudget` — the order this module
+#: used to publish — and its `fund` reverted `PolicyNotSet()`.
+SUCCESSFUL_RUNS = ("hire-mainnet-56.json", "hire-mainnet-56-submitted.json", "hire-fork-56.json")
+
+
+def test_the_published_order_is_one_that_has_actually_been_sent() -> None:
+    """The correction of 7 Sep, as a check rather than a memory.
+
+    This module published `registerJob` third and `setBudget` fourth, and no run
+    had ever sent them that way. A hand-typed list above cannot notice that; it
+    is the same list that was wrong. So the order is also held against the
+    records of the runs that mined, which are the only authority on what the
+    kernel accepts.
+    """
+    import json
+    from pathlib import Path
+
+    records = Path(__file__).resolve().parents[2] / "vetting/identity"
+    published = [s.call for s in steps()]
+    checked = 0
+
+    for name in SUCCESSFUL_RUNS:
+        path = records / name
+        if not path.exists():
+            continue
+        sent = [
+            entry.get("call")
+            for entry in json.loads(path.read_text()).get("transactions", [])
+        ]
+        # The fork run mints itself a balance first; that is not part of a hire.
+        sent = [call for call in sent if call in set(published)]
+        assert sent == published, (
+            f"{name} sent {sent}; steps() publishes {published}. The record is "
+            f"the authority — a sequence nobody has executed is not a sequence."
+        )
+        checked += 1
+
+    # A parity check that found no records to compare against would pass while
+    # proving nothing, which is the failure mode this repository keeps finding.
+    assert checked, f"no hire records found in {records} — nothing was compared"
 
 
 def test_only_the_evaluator_settles_and_only_the_provider_delivers() -> None:

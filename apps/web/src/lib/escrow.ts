@@ -192,6 +192,26 @@ export const ROUTER_ABI = [
   },
 ] as const;
 
+/**
+ * The one thing the policy is asked, and the reason it is asked rather than typed.
+ *
+ * `submit` is refused unless `expiredAt` is further away than this window —
+ * `hire.py`'s `SUBMIT_NEEDS_EXPIRY_BEYOND_DISPUTE_WINDOW`, measured over eight
+ * fork runs that put the boundary between 168h and 169h. The two deployments
+ * disagree about it (mainnet 604,800s, chapel 86,400s), so a console that
+ * hardcoded either would mislead on the other. `verify_erc8183.py:228` reads the
+ * same accessor, and it returns a `uint64`.
+ */
+export const POLICY_ABI = [
+  {
+    name: "disputeWindow",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint64" }],
+  },
+] as const;
+
 export const ERC20_ABI = [
   {
     name: "allowance",
@@ -323,4 +343,52 @@ export function countdown(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+/**
+ * Whether an expiry this many hours out can reach `submit`.
+ *
+ * Strictly greater, not >=: the 168h run was refused against a 604,800s window
+ * and 169h was accepted, so the boundary is exclusive.
+ */
+export function clearsDisputeWindow(hours: number, windowSeconds: bigint): boolean {
+  return hours * 3600 > Number(windowSeconds);
+}
+
+/**
+ * The five arguments to `createJob`, and the two the EIP will lead you to get wrong.
+ *
+ * They were built inline in the console, and one of them was wrong for as long
+ * as the console existed: the hook was passed as `address(0)`, which the EIP
+ * describes as the natural way to say *no hook* and which this deployment
+ * reverts — `0x55c45de1 HookRequired()`. `registry/hire.py:352` had defaulted it
+ * to the router and refused to build the call otherwise since the day that
+ * revert was isolated; the browser never learned. So `createJob` from this site
+ * could not succeed, and the console decoded its own bug out of
+ * `hire_flow.errors` and printed it as though the chain had surprised it.
+ *
+ * Both the evaluator and the hook are the EvaluatorRouter, and neither is a
+ * choice: naming a wallet as evaluator reverts `RouterNotEvaluator()` two
+ * transactions later, at `registerJob`.
+ *
+ * `expiredAt` is an absolute unix timestamp, not a duration — a past or zero
+ * value reverts `0xf7a0748c`.
+ */
+export function createJobArgs(input: {
+  provider: Address;
+  router: Address;
+  hours: number;
+  description: string;
+  nowMs: number;
+}): readonly [Address, Address, bigint, string, Address] {
+  const { provider, router, hours, description, nowMs } = input;
+  return [
+    provider,
+    // evaluator
+    router,
+    BigInt(Math.floor(nowMs / 1000) + Math.floor(hours * 3600)),
+    description,
+    // hook
+    router,
+  ] as const;
 }

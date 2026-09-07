@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 137,
+      "gap": 138,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 337423,
-      "ours_at_block": 120336618,
+      "ours": 338319,
+      "ours_at_block": 120494770,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 337286,
-      "total_pages": 16865,
+      "total": 338181,
+      "total_pages": 16910,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-06T16:44:10+00:00",
+    "generated_at": "2026-09-07T12:31:04+00:00",
     "git_dirty": true,
-    "git_sha": "67534cf",
+    "git_sha": "5cf5b62",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -444,18 +444,18 @@
         "why": "provider, evaluator, expiredAt, description, hook -> jobId"
       },
       {
-        "call": "registerJob",
-        "contract": "router",
-        "is_erc8183": true,
-        "sender": "client",
-        "why": "binds the dispute policy on the EvaluatorRouter \u2014 a second contract"
-      },
-      {
         "call": "setBudget",
         "contract": "kernel",
         "is_erc8183": true,
         "sender": "client",
         "why": "either party may set it, so a price can be agreed"
+      },
+      {
+        "call": "registerJob",
+        "contract": "router",
+        "is_erc8183": true,
+        "sender": "client",
+        "why": "binds the dispute policy on the EvaluatorRouter \u2014 a second contract"
       },
       {
         "call": "fund",
@@ -1461,7 +1461,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 84.2,
+    "age_hours": 0.1,
     "agents": [
       {
         "agent": "warden",
@@ -1534,7 +1534,7 @@
         "transfer_url": null
       }
     ],
-    "block": 119663399,
+    "block": 120493766,
     "chain_id": 56,
     "checks": [
       {
@@ -1674,7 +1674,7 @@
     },
     "implementation": "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
     "owner": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
-    "read_at": "2026-09-03T04:33:23+00:00",
+    "read_at": "2026-09-07T12:23:48+00:00",
     "reason": "",
     "record": "vetting/identity/56.json",
     "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",

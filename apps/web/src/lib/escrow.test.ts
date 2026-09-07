@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readArtifact } from "@/test/harness";
 import {
+  clearsDisputeWindow,
   countdown,
+  createJobArgs,
   decodeJob,
   encodeGetJob,
   secondsUntil,
@@ -172,5 +174,70 @@ describe("selectorFrom", () => {
 
   it("accepts a message that is only a selector", () => {
     expect(selectorFrom(`  ${WRONG_STATUS} `)).toBe(WRONG_STATUS);
+  });
+});
+
+describe("createJob's arguments", () => {
+  const ROUTER = "0x51895229E12F9876011789B04f8698af06cCD6DA" as const;
+  const PROVIDER = "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE" as const;
+  const args = (hours = 192) =>
+    createJobArgs({
+      provider: PROVIDER,
+      router: ROUTER,
+      hours,
+      description: "does hiring an agent beat doing it yourself",
+      nowMs: 1_757_000_000_000,
+    });
+
+  // The bug this file exists to prevent a second time. `address(0)` is what the
+  // EIP's "optional extension" wording invites, and it is the one value this
+  // deployment refuses: `0x55c45de1 HookRequired()`. The console passed it for
+  // its whole life, so `createJob` from the browser could never mine.
+  it("passes the router as the hook, never the zero address", () => {
+    expect(args()[4]).toBe(ROUTER);
+    expect(args()[4]).not.toBe("0x0000000000000000000000000000000000000000");
+  });
+
+  // Naming a wallet here does not fail here. It fails two transactions later at
+  // `registerJob`, with `RouterNotEvaluator()` — which is why it is not a field.
+  it("names the router as the evaluator, not a person", () => {
+    expect(args()[1]).toBe(ROUTER);
+    expect(args()[1]).not.toBe(PROVIDER);
+  });
+
+  it("sends expiredAt as an absolute timestamp, not a duration", () => {
+    expect(args(192)[2]).toBe(BigInt(1_757_000_000 + 192 * 3600));
+  });
+
+  it("keeps the provider in the first position", () => {
+    expect(args()[0]).toBe(PROVIDER);
+  });
+});
+
+describe("the expiry that lets submit through", () => {
+  // Eight fork runs identical but for the expiry put the boundary between 168h
+  // and 169h against a 604,800s window, so the comparison is strict.
+  const MAINNET_WINDOW = 604_800n;
+
+  it("refuses exactly the window, and accepts an hour past it", () => {
+    expect(clearsDisputeWindow(168, MAINNET_WINDOW)).toBe(false);
+    expect(clearsDisputeWindow(169, MAINNET_WINDOW)).toBe(true);
+  });
+
+  it("clears the mainnet window at the default this console opens on", () => {
+    expect(clearsDisputeWindow(192, MAINNET_WINDOW)).toBe(true);
+  });
+
+  // The console used to open on twelve hours and then report the resulting
+  // `SubmissionTooLate()` as a fact about mainnet.
+  it("would not have cleared it at twelve hours", () => {
+    expect(clearsDisputeWindow(12, MAINNET_WINDOW)).toBe(false);
+  });
+
+  // Chapel's window is a day, not a week; a console that hardcoded either
+  // number would mislead on the other chain.
+  it("reads differently on the testnet deployment", () => {
+    expect(clearsDisputeWindow(12, 86_400n)).toBe(false);
+    expect(clearsDisputeWindow(25, 86_400n)).toBe(true);
   });
 });

@@ -323,6 +323,18 @@ def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
 
     P-18's conclusion stands: `TermixEscrow` implements none of this. What
     changes is that the sequence below now describes a contract that exists.
+
+    ## `setBudget` before `registerJob`, corrected 7 Sep 2026
+
+    This published `registerJob` third and `setBudget` fourth. **No run has ever
+    sent them in that order.** All three scripts that drive the flow send
+    `setBudget` first — `hire_mainnet.py:207-208`, `hire_agent.py:224-229`,
+    `prove_escrow_fund.py:222-227` — and between them they have mined jobs 746 on
+    chapel, 56681 and 56718 on mainnet, and every fork rehearsal.
+
+    So `/registry` rendered a lifecycle table in one order while the console
+    directly beneath it offered the buttons in the other, and the table was the
+    half nobody had executed. The order here is now the order that has run.
     """
     if not provider_known_at_creation:
         raise ValueError(
@@ -345,16 +357,16 @@ def steps(*, provider_known_at_creation: bool = True) -> tuple[Step, ...]:
             "provider, evaluator, expiredAt, description, hook -> jobId",
         ),
         Step(
-            "registerJob",
-            "client",
-            "router",
-            "binds the dispute policy on the EvaluatorRouter — a second contract",
-        ),
-        Step(
             "setBudget",
             "client",
             "kernel",
             "either party may set it, so a price can be agreed",
+        ),
+        Step(
+            "registerJob",
+            "client",
+            "router",
+            "binds the dispute policy on the EvaluatorRouter — a second contract",
         ),
         Step("fund", "client", "kernel", "Open -> Funded; the money is now escrowed"),
         Step(

@@ -42,8 +42,11 @@ import { Pill } from "@/components/Pill";
 import {
   ERC20_ABI,
   KERNEL_ABI,
+  POLICY_ABI,
   ROUTER_ABI,
+  clearsDisputeWindow,
   countdown,
+  createJobArgs,
   decodeJob,
   encodeGetJob,
   secondsUntil,
@@ -61,6 +64,16 @@ import {
  * flight or refused, and says "assumed" on screen when it is doing that.
  */
 const ASSUMED_DECIMALS = 18;
+
+/**
+ * Hours of expiry to open on, and it is not a round number for comfort.
+ *
+ * `submit` is refused unless `expiredAt` is further away than the policy's
+ * dispute window — 604,800s on mainnet. `make hire-mainnet` carries the same
+ * 192 for the same reason, a day clear of the boundary. This console opened on
+ * twelve, which is what job 56681 asked for and why its submit reverted.
+ */
+const DEFAULT_HOURS = 192;
 
 interface Props {
   /** `hire_flow.deployments` — keyed by chain id as a string, as JSON has it. */
@@ -144,22 +157,43 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
   // Seeded from what the recorded mainnet run actually escrowed, so the
   // console opens on a figure this repository has spent rather than a round
   // number typed into a component.
-  const [budget, setBudget] = useState(
-    defaultBudget ? formatUnits(BigInt(defaultBudget), ASSUMED_DECIMALS) : "",
-  );
-  const [hours, setHours] = useState("12");
+  // `null` means "the reader has not typed a budget", which is not the same as
+  // an empty one. It matters because the seed is a *token amount* and the scale
+  // it is rendered at arrives later: `decimals()` is a chain read, so the first
+  // paint has only ASSUMED_DECIMALS. Seeding a string once, at eighteen, left a
+  // six-decimal token showing a figure twelve orders of magnitude out and — via
+  // `amount` below — sending it. Holding the raw smallest-unit value and
+  // formatting on render means the field corrects itself when the token answers.
+  const [typedBudget, setTypedBudget] = useState<string | null>(null);
+  const budget =
+    typedBudget ?? (defaultBudget ? formatUnits(BigInt(defaultBudget), units) : "");
+  // 192, the same default `make hire-mainnet` carries, and for the same
+  // reason: `submit` is refused unless `expiredAt` is further away than the
+  // policy's dispute window. Eight fork runs identical but for the expiry put
+  // the boundary between 168h and 169h against a 604,800s window. Twelve hours
+  // was job 56681, whose submit reverted `SubmissionTooLate()` — and this
+  // console reported that revert as a fact about mainnet rather than as a
+  // consequence of its own default.
+  const [hours, setHours] = useState(String(DEFAULT_HOURS));
   const [deliverable, setDeliverable] = useState("deliverable");
   const [lastCall, setLastCall] = useState<StepName | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const job = BigInt(/^\d+$/.test(jobId) ? jobId : "0");
+  // A job id that is not a number is not job zero, and the difference used to
+  // be invisible: the field accepted anything and the reads silently asked
+  // about an id that never exists.
+  const jobIdIsNumeric = /^\d+$/.test(jobId.trim());
+  const job = BigInt(jobIdIsNumeric ? jobId.trim() : "0");
+  // `units` belongs in this list. Without it the amount stayed at whatever
+  // scale the first render assumed, so a token that answered `decimals()` late
+  // was approved, budgeted and funded at the wrong magnitude.
   const amount = useMemo(() => {
     try {
       return parseUnits(budget || "0", units);
     } catch {
       return 0n;
     }
-  }, [budget]);
+  }, [budget, units]);
 
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
@@ -186,6 +220,19 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
     address: kernel,
     functionName: "jobCounter",
     query: { enabled: Boolean(deployment) },
+  });
+
+  // Read rather than assumed: the two deployments disagree (604,800s on
+  // mainnet, 86,400s on chapel) and the expiry rule below is stated in terms of
+  // whichever one this chain actually carries.
+  const disputeWindow = useReadContract({
+    abi: POLICY_ABI,
+    address: policy,
+    functionName: "disputeWindow",
+    // No retry. This is a constant on a deployed contract: an answer that does
+    // not decode once will not decode on the fourth attempt, and the backoff
+    // buys nothing but a component that keeps re-rendering while it waits.
+    query: { enabled: Boolean(deployment), retry: false },
   });
 
   const allowance = useReadContract({
@@ -223,11 +270,15 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
 
   const state = reading.data ?? null;
   const expiresIn = state ? secondsUntil(state.expiredAt, now) : null;
+  // Depending on `expiresIn` tore the interval down and rebuilt it on every
+  // tick, because ticking is what changes it. The condition is what the effect
+  // actually cares about: whether there is a countdown on screen at all.
+  const counting = expiresIn !== null && expiresIn > 0;
   useEffect(() => {
-    if (expiresIn === null || expiresIn <= 0) return;
+    if (!counting) return;
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
-  }, [expiresIn]);
+  }, [counting]);
 
   const isClient =
     Boolean(state && address) && state!.client.toLowerCase() === address!.toLowerCase();
@@ -264,20 +315,24 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
         },
         {
           name: "createJob",
-          call: "createJob(provider, router, expiredAt, description, 0x0)",
-          hint: "The evaluator is the EvaluatorRouter, not a person. Naming a wallet reverts RouterNotEvaluator().",
+          call: "createJob(provider, router, expiredAt, description, router)",
+          hint: "Evaluator and hook are both the EvaluatorRouter. Naming a wallet reverts RouterNotEvaluator(); a zero hook reverts HookRequired().",
           run: () =>
             write.writeContract({
               abi: KERNEL_ABI,
               address: kernel,
               functionName: "createJob",
-              args: [
-                (provider || address) as Address,
+              // The evaluator, the hook and the timestamp rule all live in
+              // `createJobArgs`, with the reverts each of them earns. They were
+              // five literals here, and one of them — the hook — was wrong for
+              // the whole life of this component.
+              args: createJobArgs({
+                provider: (provider || address) as Address,
                 router,
-                BigInt(Math.floor(Date.now() / 1000) + Number(hours || "12") * 3600),
-                "Misquote: does hiring an agent beat doing it yourself",
-                "0x0000000000000000000000000000000000000000" as Address,
-              ],
+                hours: Number(hours || DEFAULT_HOURS),
+                description: "Misquote: does hiring an agent beat doing it yourself",
+                nowMs: Date.now(),
+              }),
             }),
         },
         {
@@ -323,7 +378,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
         {
           name: "submit",
           call: "submit(jobId, deliverable, 0x)",
-          hint: "Three arguments, not the two the EIP describes. Reverts 0x15e5dd74 on mainnet today.",
+          hint: "Three arguments, not the two the EIP describes. Accepted only when the expiry clears the dispute window.",
           run: () =>
             write.writeContract({
               abi: KERNEL_ABI,
@@ -365,6 +420,16 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
       ]
     : [];
 
+  const windowSeconds = disputeWindow.data as bigint | undefined;
+  const submitWindow =
+    windowSeconds === undefined || !/^\d+(\.\d+)?$/.test(hours.trim())
+      ? null
+      : {
+          seconds: windowSeconds.toString(),
+          hours: Math.round(Number(windowSeconds) / 3600),
+          clears: clearsDisputeWindow(Number(hours), windowSeconds),
+        };
+
   const revert = write.error?.message ?? "";
   const selector = selectorFrom(write.error);
   const meaning = selector && errors ? errors[selector] : undefined;
@@ -397,7 +462,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
         <>
           <div className="mt-4 flex flex-wrap items-end gap-4">
             <Field label="Job id" value={jobId} onChange={setJobId} width="w-28" />
-            <Field label="Budget (token)" value={budget} onChange={setBudget} width="w-28" />
+            <Field label="Budget (token)" value={budget} onChange={setTypedBudget} width="w-28" />
             <Field label="Expiry (hours)" value={hours} onChange={setHours} width="w-24" />
             <Field
               label="Provider (blank = you)"
@@ -413,6 +478,30 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
               width="w-40"
             />
           </div>
+
+          {jobId.trim() !== "" && !jobIdIsNumeric && (
+            <p className="mt-3 mb-0 text-xs text-bad">
+              &ldquo;{jobId}&rdquo; is not a job id. Every read and every call
+              below acts on job 0, which never exists.
+            </p>
+          )}
+
+          {/* Stated before the signature rather than after the revert. The
+              console used to let a twelve-hour job through and then report
+              `SubmissionTooLate()` as though the chain had surprised it. */}
+          {submitWindow !== null && !submitWindow.clears && (
+            <p className="mt-3 mb-0 text-xs text-dim">
+              <strong className="text-ink">
+                {hours || "0"}h will not reach submit.
+              </strong>{" "}
+              This policy&rsquo;s dispute window reads{" "}
+              <span className="font-mono">{submitWindow.seconds}s</span> (
+              {submitWindow.hours}h), and <span className="font-mono">submit</span>{" "}
+              is refused unless the expiry is further out than that &mdash; it
+              reverts <span className="font-mono">0x15e5dd74</span>. Steps 1&ndash;5
+              still work; only the delivery does not.
+            </p>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4 text-xs">
             <Pill tone={state?.exists ? "pass" : "none"}>
