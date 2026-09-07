@@ -2,15 +2,15 @@
   "badge_dir": "vetting/badges",
   "build": {
     "command": "python scripts/vetting_report.py --chain 56",
-    "generated_at": "2026-08-31T05:59:05+00:00",
+    "generated_at": "2026-09-07T12:31:52+00:00",
     "git_dirty": true,
-    "git_sha": "c71dad9",
+    "git_sha": "5cf5b62",
     "source": "chain-read badges on disk"
   },
   "chain_id": 56,
   "pools": [
     {
-      "age_hours": 46.2,
+      "age_hours": 0.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -43,21 +43,21 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -65337",
+          "detail": "tick -66142",
           "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=40, [-65380, -65300]",
+          "detail": "w_min=40, [-66190, -66110]",
           "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "3,204,628,323,273,655,231,437,309 \u2014 a 1% share is 32,046,283,232,736,553,467,904",
+          "detail": "3,062,142,638,122,778,436,539,191 \u2014 a 1% share is 30,621,426,381,227,783,356,416",
           "id": "liquidity-depth",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
@@ -132,12 +132,12 @@
         "ran": true,
         "record": "vetting/runs/proof-0x36696169c63e42cd08ce11f5deebbcebae652050.json"
       },
-      "read_at": "2026-08-29T07:46:26+00:00",
+      "read_at": "2026-09-07T12:18:51+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 46.2,
+      "age_hours": 0.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -170,21 +170,21 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -65331",
+          "detail": "tick -66162",
           "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-65550, -65150]",
+          "detail": "w_min=200, [-66400, -66000]",
           "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
           "status": "PASS"
         },
         {
-          "detail": "13,070,861,288,116,040,224,573 \u2014 a 1% share is 130,708,612,881,160,388,608",
+          "detail": "31,335,742,174,525,428,413,441 \u2014 a 1% share is 313,357,421,745,254,301,696",
           "id": "liquidity-depth",
           "name": "liquidity supports a position",
           "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
@@ -230,12 +230,12 @@
         "ran": false,
         "reason": "no proof has been executed \u2014 `make vet-prove` writes one"
       },
-      "read_at": "2026-08-29T07:46:43+00:00",
+      "read_at": "2026-09-07T12:18:58+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     },
     {
-      "age_hours": 46.2,
+      "age_hours": 0.2,
       "badged": true,
       "chain_id": 56,
       "checks": [
@@ -268,14 +268,14 @@
           "status": "PASS"
         },
         {
-          "detail": "tick -58703",
+          "detail": "tick -59026",
           "id": "initialised",
           "name": "initialised and not pinned",
           "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
           "status": "PASS"
         },
         {
-          "detail": "w_min=200, [-58950, -58550]",
+          "detail": "w_min=200, [-59250, -58850]",
           "id": "mintable-range",
           "name": "a mintable range exists",
           "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
@@ -328,7 +328,7 @@
         "ran": false,
         "reason": "no proof has been executed \u2014 `make vet-prove` writes one"
       },
-      "read_at": "2026-08-29T07:47:01+00:00",
+      "read_at": "2026-09-07T12:19:06+00:00",
       "safe_to_provide": true,
       "verdict": "PASS"
     }

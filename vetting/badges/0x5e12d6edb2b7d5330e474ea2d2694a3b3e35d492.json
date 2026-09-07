@@ -30,14 +30,14 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -58703",
+      "detail": "tick -59026",
       "id": "initialised",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=200, [-58950, -58550]",
+      "detail": "w_min=200, [-59250, -58850]",
       "id": "mintable-range",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",

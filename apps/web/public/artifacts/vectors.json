@@ -1,9 +1,9 @@
 {
   "build": {
     "command": "python scripts/vectors_report.py",
-    "generated_at": "2026-08-25T09:42:36+00:00",
-    "git_dirty": false,
-    "git_sha": "99a32f6",
+    "generated_at": "2026-09-07T12:31:28+00:00",
+    "git_dirty": true,
+    "git_sha": "5cf5b62",
     "source": "vector files on disk"
   },
   "corpus": {

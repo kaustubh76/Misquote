@@ -30,21 +30,21 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -65331",
+      "detail": "tick -66162",
       "id": "initialised",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
       "status": "PASS"
     },
     {
-      "detail": "w_min=200, [-65550, -65150]",
+      "detail": "w_min=200, [-66400, -66000]",
       "id": "mintable-range",
       "name": "a mintable range exists",
       "provenance": "V-10: MIN_TICK % 10 == 2, so clamping yields ticks the pool rejects",
       "status": "PASS"
     },
     {
-      "detail": "13,070,861,288,116,040,224,573 \u2014 a 1% share is 130,708,612,881,160,388,608",
+      "detail": "31,335,742,174,525,428,413,441 \u2014 a 1% share is 313,357,421,745,254,301,696",
       "id": "liquidity-depth",
       "name": "liquidity supports a position",
       "provenance": "A1: a position big enough to move the price it is replayed against is fiction",

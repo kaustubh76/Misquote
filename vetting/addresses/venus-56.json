@@ -1,5 +1,5 @@
 {
-  "block": 117187851,
+  "block": 120493474,
   "chain_id": 56,
   "checks": [
     {
@@ -9,7 +9,7 @@
       "status": "PASS"
     },
     {
-      "detail": "getAllMarkets() returns 52 markets",
+      "detail": "getAllMarkets() returns 55 markets",
       "name": "comptroller lists its markets",
       "provenance": "V-14",
       "status": "PASS"
@@ -51,13 +51,13 @@
       "status": "PASS"
     },
     {
-      "detail": "borrowIndex() is 1,501,211,336,155,601,162",
+      "detail": "borrowIndex() is 1,504,285,518,221,877,156",
       "name": "vUSDT has accrued interest",
       "provenance": "V-17",
       "status": "PASS"
     },
     {
-      "detail": "getCash() is 80,226,884 USDT",
+      "detail": "getCash() is 59,963,928 USDT",
       "name": "vUSDT has cash to supply into",
       "provenance": "V-17",
       "status": "PASS"
@@ -99,13 +99,13 @@
       "status": "PASS"
     },
     {
-      "detail": "borrowIndex() is 1,515,551,898,793,208,835",
+      "detail": "borrowIndex() is 1,518,416,270,386,580,737",
       "name": "vUSDC has accrued interest",
       "provenance": "V-17",
       "status": "PASS"
     },
     {
-      "detail": "getCash() is 23,477,100 USDC",
+      "detail": "getCash() is 20,506,138 USDC",
       "name": "vUSDC has cash to supply into",
       "provenance": "V-17",
       "status": "PASS"

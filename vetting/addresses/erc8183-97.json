@@ -1,5 +1,5 @@
 {
-  "block": 127861451,
+  "block": 129638203,
   "chain_id": 97,
   "checks": [
     {
@@ -39,7 +39,7 @@
       "status": "PASS"
     },
     {
-      "detail": "returns 744",
+      "detail": "returns 1090",
       "name": "commerce.jobCounter() answers",
       "provenance": "P-24",
       "status": "PASS"
@@ -69,7 +69,7 @@
       "status": "PASS"
     },
     {
-      "detail": "jobCounter() is 744",
+      "detail": "jobCounter() is 1,090",
       "name": "jobs created on this deployment",
       "provenance": "P-24",
       "status": "PASS"

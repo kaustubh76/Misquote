@@ -1,11 +1,11 @@
 {
-  "age_hours": 370.5,
-  "block": 116328079,
+  "age_hours": 0.2,
+  "block": 120493336,
   "build": {
     "command": "python scripts/addresses_report.py --chain 56",
-    "generated_at": "2026-09-01T05:56:53+00:00",
+    "generated_at": "2026-09-07T12:31:29+00:00",
     "git_dirty": true,
-    "git_sha": "1720a35",
+    "git_sha": "5cf5b62",
     "source": "chain reads recorded on disk"
   },
   "chain_id": 56,
@@ -79,8 +79,8 @@
   ],
   "erc8183": {
     "56": {
-      "age_hours": 0.0,
-      "block": 118717822,
+      "age_hours": 0.2,
+      "block": 120493492,
       "chain_id": 56,
       "checks": [
         {
@@ -120,7 +120,7 @@
           "status": "PASS"
         },
         {
-          "detail": "returns 56665",
+          "detail": "returns 56719",
           "name": "commerce.jobCounter() answers",
           "provenance": "P-24",
           "status": "PASS"
@@ -150,13 +150,13 @@
           "status": "PASS"
         },
         {
-          "detail": "jobCounter() is 56,665",
+          "detail": "jobCounter() is 56,719",
           "name": "jobs created on this deployment",
           "provenance": "P-24",
           "status": "PASS"
         }
       ],
-      "read_at": "2026-09-01T05:56:52+00:00",
+      "read_at": "2026-09-07T12:21:44+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-56.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
@@ -201,8 +201,8 @@
       "verdict": "PASS"
     },
     "97": {
-      "age_hours": 0.0,
-      "block": 127861451,
+      "age_hours": 0.2,
+      "block": 129638203,
       "chain_id": 97,
       "checks": [
         {
@@ -242,7 +242,7 @@
           "status": "PASS"
         },
         {
-          "detail": "returns 744",
+          "detail": "returns 1090",
           "name": "commerce.jobCounter() answers",
           "provenance": "P-24",
           "status": "PASS"
@@ -272,13 +272,13 @@
           "status": "PASS"
         },
         {
-          "detail": "jobCounter() is 744",
+          "detail": "jobCounter() is 1,090",
           "name": "jobs created on this deployment",
           "provenance": "P-24",
           "status": "PASS"
         }
       ],
-      "read_at": "2026-09-01T05:56:52+00:00",
+      "read_at": "2026-09-07T12:21:57+00:00",
       "reason": "",
       "record": "vetting/addresses/erc8183-97.json",
       "source": "@altananetwork/sdk@0.8.0 ERC8183_ADDRESSES",
@@ -291,11 +291,11 @@
       "verdict": "PASS"
     }
   },
-  "read_at": "2026-08-16T19:26:01+00:00",
+  "read_at": "2026-09-07T12:20:17+00:00",
   "reason": "",
   "record": "vetting/addresses/56.json",
   "session_key_proof": {
-    "age_hours": 1.5,
+    "age_hours": 152.0,
     "caps_enforced": false,
     "caps_note": "The keystore enforces the expiry. The allowlist and spend cap are not enforced here: they belong to the validator module's metadata and to the per-wallet Altana account, and this grant carries validator=0x0 and empty metadata \u2014 the same shape every other grant observed on this deployment uses.",
     "chain_id": 97,
@@ -347,7 +347,7 @@
   },
   "session_keys": {
     "56": {
-      "age_hours": 0.5,
+      "age_hours": 149.5,
       "block": 118718463,
       "chain_id": 56,
       "checks": [
@@ -411,7 +411,7 @@
         "NOT VERIFIED: the write path. Every reading here is a call, never a send \u2014 a contract that answers and one that will accept *our* grant are different claims.",
         "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler, not plain EOA sends. Whether a direct send is accepted is unread here."
       ],
-      "read_at": "2026-09-01T05:29:20+00:00",
+      "read_at": "2026-09-01T07:02:36+00:00",
       "reason": "",
       "record": "vetting/addresses/session-keys-56.json",
       "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
@@ -424,7 +424,7 @@
       "verdict": "PASS"
     },
     "97": {
-      "age_hours": 0.5,
+      "age_hours": 149.5,
       "block": 127862150,
       "chain_id": 97,
       "checks": [
@@ -488,7 +488,7 @@
         "NOT VERIFIED: the write path. Every reading here is a call, never a send \u2014 a contract that answers and one that will accept *our* grant are different claims.",
         "NOT VERIFIED: the relay. Altana's own SDK grants through ERC-4337 userOps via a bundler, not plain EOA sends. Whether a direct send is accepted is unread here."
       ],
-      "read_at": "2026-09-01T05:29:20+00:00",
+      "read_at": "2026-09-01T07:02:36+00:00",
       "reason": "",
       "record": "vetting/addresses/session-keys-97.json",
       "source": "@altananetwork/sdk@0.8.0 dist/config.js + dist/internal/keystore.js",
@@ -508,8 +508,8 @@
   },
   "surveyed": true,
   "venus": {
-    "age_hours": 0.0,
-    "block": 117187851,
+    "age_hours": 0.2,
+    "block": 120493474,
     "chain_id": 56,
     "checks": [
       {
@@ -519,7 +519,7 @@
         "status": "PASS"
       },
       {
-        "detail": "getAllMarkets() returns 52 markets",
+        "detail": "getAllMarkets() returns 55 markets",
         "name": "comptroller lists its markets",
         "provenance": "V-14",
         "status": "PASS"
@@ -561,13 +561,13 @@
         "status": "PASS"
       },
       {
-        "detail": "borrowIndex() is 1,501,211,336,155,601,162",
+        "detail": "borrowIndex() is 1,504,285,518,221,877,156",
         "name": "vUSDT has accrued interest",
         "provenance": "V-17",
         "status": "PASS"
       },
       {
-        "detail": "getCash() is 80,226,884 USDT",
+        "detail": "getCash() is 59,963,928 USDT",
         "name": "vUSDT has cash to supply into",
         "provenance": "V-17",
         "status": "PASS"
@@ -609,20 +609,20 @@
         "status": "PASS"
       },
       {
-        "detail": "borrowIndex() is 1,515,551,898,793,208,835",
+        "detail": "borrowIndex() is 1,518,416,270,386,580,737",
         "name": "vUSDC has accrued interest",
         "provenance": "V-17",
         "status": "PASS"
       },
       {
-        "detail": "getCash() is 23,477,100 USDC",
+        "detail": "getCash() is 20,506,138 USDC",
         "name": "vUSDC has cash to supply into",
         "provenance": "V-17",
         "status": "PASS"
       }
     ],
     "markets_passing": 2,
-    "read_at": "2026-09-01T05:56:52+00:00",
+    "read_at": "2026-09-07T12:21:20+00:00",
     "reason": "",
     "record": "vetting/addresses/venus-56.json",
     "summary": {
