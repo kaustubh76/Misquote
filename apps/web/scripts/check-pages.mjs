@@ -60,6 +60,7 @@ const ROUTES = [
   // fifth screenshot of the same tree buys nothing. Rebalancing is the one with
   // an advantage task, so it exercises the branch the others do not.
   ["category-rebalancing", "/category/rebalancing/"],
+  ["simulate", "/simulate/"],
   ["venue", "/venue/"],
   ["advantage", "/advantage/"],
   ["agent-warden", "/agent/warden/"],

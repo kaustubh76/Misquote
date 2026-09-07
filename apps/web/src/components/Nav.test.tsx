@@ -29,6 +29,7 @@ const ROUTES = [
   ["Agents", "/category"],
   ["Quote", "/quote"],
   ["Hire", "/activate"],
+  ["Simulate", "/simulate"],
   ["Venue", "/venue"],
   ["Advantage", "/advantage"],
   ["Methods", "/methods"],

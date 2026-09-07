@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: studio studio-negotiate probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools simulate
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -576,6 +576,18 @@ pools:  ## which Pancake pool, at what width, as P25-P75 bands. reads the tape.
 	# swaps a window. Shortening the windows would buy speed by breaking A5's
 	# floor, which is the one trade this file will not make.
 	$(UV) run python scripts/pools_report.py
+
+simulate:  ## what a position of a given size would have earned. reads the tape.
+	# The same sweep `make pools` runs, keeping what it throws away. `pools.json`
+	# reduces twenty windows per width to three percentiles; this publishes the
+	# windows — fees and adverse selection in the quote token, the range the
+	# accountant used, and the price path the position sat through — so /simulate
+	# can answer "what would have happened to my money" by selecting rather than
+	# by interpolating.
+	#
+	# Same cost as `make pools` and for the same reason, so it is not in
+	# `make artifacts` either.
+	$(UV) run python scripts/simulate_report.py
 
 # `assumptions` runs late, and the order is load-bearing. The sheet's
 # `cited_by` is built by globbing every *other* artifact in the output

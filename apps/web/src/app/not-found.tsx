@@ -22,6 +22,7 @@ const BLURB: Record<string, string> = {
   "/quote": "your own positions, checked against the tape before anything is queued",
   "/activate": "what hiring an agent would cost you, and why there is no button",
   "/category": "the four jobs you can hire for, and what each is judged on",
+  "/simulate": "what a PancakeSwap position of your size would have earned, on swaps that happened",
   "/venue": "where PancakeSwap is not Uniswap, and what each difference cost",
   "/advantage": "hiring an agent against doing the job yourself",
   "/methods": "how a quote is made, and what stops it being made",

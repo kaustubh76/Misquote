@@ -96,6 +96,21 @@ class PoolAprFit:
     #: about a market it has not observed.
     depth_quote: float = 0.0
 
+    #: The range this fit is about, in ticks, as the accountant received it.
+    #:
+    #: `_compute` snaps the window's opening tick to the spacing and takes
+    #: `centre +/- width`, and until now that range existed only inside the
+    #: method. Anything wanting to *draw* the position — `/simulate` does — had
+    #: to redo the snap from the same events, which is a second implementation
+    #: of the one thing that decides which swaps paid this position at all. A
+    #: drawn range one tick from the accounted range is a picture of a different
+    #: position than the figures beside it.
+    #:
+    #: Both zero when the fit is not ready, and the pair is meaningless then:
+    #: a refused fit accounted over nothing.
+    tick_lower: int = 0
+    tick_upper: int = 0
+
     @property
     def net_apr(self) -> float:
         """Fee APR minus the convexity-cost upper bound.
@@ -249,6 +264,8 @@ class PoolAprEstimator(TrailingEstimator):
             hours=hours,
             is_ready=len(events) >= MIN_SWAPS,
             depth_quote=self._depth_quote(sqrt_price, lower, upper),
+            tick_lower=lower,
+            tick_upper=upper,
         )
 
     def _depth_quote(self, sqrt_price: int, lower: int, upper: int) -> float:

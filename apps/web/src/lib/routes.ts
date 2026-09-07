@@ -46,6 +46,13 @@ export const ROUTES: readonly Route[] = [
   { href: "/demo", label: "Demo", group: "product" },
   { href: "/category", label: "Agents", group: "product" },
   { href: "/quote", label: "Quote", group: "product" },
+  // Beside `/quote` rather than in the evidence band, and that placement is the
+  // argument. The PancakeSwap deliverable lived entirely inside `/venue`, which
+  // is a document about `slot0` layout and init-code hashes — correct, and not
+  // where somebody asking "should I provide liquidity here" arrives. This is
+  // the same kind of thing `/quote` is: an answer about money, for a person who
+  // has some.
+  { href: "/simulate", label: "Simulate", group: "product" },
   // "Activate" is what the page does to a key. "Hire" is what a visitor came
   // to do, and it is the verb the whole site is built around — it appeared in
   // the nav nowhere, on the tab that performs it.

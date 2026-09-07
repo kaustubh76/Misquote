@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from misquote.core.types import Event, PoolMeta
-from misquote.estimators.pool_apr import MIN_SWAPS, PoolAprEstimator
+from misquote.estimators.pool_apr import MIN_SWAPS, PoolAprEstimator, PoolAprFit
 from misquote.replay.ranges import (
     MIN_SAMPLES,
     MIN_WINDOW_HOURS,
@@ -84,39 +84,62 @@ class WidthBand:
         }
 
 
-def band_for_width(
+@dataclass(frozen=True, slots=True)
+class WindowFit:
+    """One rolling window at one width, and everything the estimator found there.
+
+    `band_for_width` used to build this and keep one field of it. It collected
+    `fit.net_apr` into a list, took three percentiles, and dropped the fee APR,
+    the convexity cost, the money figures, the depth, the swap count, the hours
+    and the window's own dates — every quantity an LP asking *what would have
+    happened to my capital* actually wants, computed and discarded twenty times
+    per width.
+
+    So the loop yields these now and the band is a reduction over them. The two
+    surfaces cannot disagree, because there is one traversal: `/venue`'s ladder
+    is `percentile([f.net_apr for f in window_fits(...)])` and `/simulate` is
+    the same fits, published.
+    """
+
+    #: Position in `rolling_windows`' output, so a reader can be pointed at one.
+    window: int
+    start_ts: int
+    end_ts: int
+    fit: PoolAprFit
+
+
+def window_fits(
     events: list[Event],
     meta: PoolMeta,
     width_ticks: int,
     *,
     capital_quote: float = 1.0,
     windows: int = MIN_SAMPLES,
-) -> WidthBand:
-    """Net APR at one width, as a range over rolling windows.
+) -> list[WindowFit]:
+    """Every rolling window at one width, for the windows that cleared the floor.
 
-    Net of the protocol's cut and net of the realized convexity cost — the two
-    subtractions that separate what an LP keeps from what a pool pays out.
+    A window is absent rather than present-and-empty when it is too short, too
+    thin, or the estimator refused: `MIN_WINDOW_HOURS` and `MIN_SWAPS` are the
+    same floors a quote is held to, and a fit that is not `is_ready` is the
+    estimator declining to speak rather than reporting zero.
+
+    Returns a list, not a generator. Two callers consume it twice — the band
+    takes percentiles and the simulation publishes cells — and re-running a
+    seven-width sweep over 250,000 events to get the same answer is the class of
+    waste `PoolAprEstimator` has its own note about.
     """
     swaps = [e for e in events if e.kind == "swap"]
     if len(swaps) < MIN_SWAPS:
-        return WidthBand(
-            width_ticks,
-            0.0,
-            0.0,
-            0.0,
-            0,
-            False,
-            f"{len(swaps)} swaps on this pool, need {MIN_SWAPS}",
-        )
+        return []
 
     spans = rolling_windows(swaps[0].ts, swaps[-1].ts, windows)
-    returns: list[float] = []
+    found: list[WindowFit] = []
     # Windows are sorted and overlapping, so bisect the shared list rather than
     # filtering it once per window: `rolling_windows` makes each window half the
     # tape, and a linear scan per window is 140 passes over 250,000 events for a
     # seven-width ladder.
     stamps = [e.ts for e in swaps]
-    for start, end in spans:
+    for index, (start, end) in enumerate(spans):
         if (end - start) / 3600.0 < MIN_WINDOW_HOURS:
             continue
         lo = bisect_left(stamps, start)
@@ -135,7 +158,48 @@ def band_for_width(
             est.ingest(event)
         fit = est.fit()
         if fit.is_ready:
-            returns.append(fit.net_apr)
+            found.append(WindowFit(index, start, end, fit))
+
+    return found
+
+
+def band_for_width(
+    events: list[Event],
+    meta: PoolMeta,
+    width_ticks: int,
+    *,
+    capital_quote: float = 1.0,
+    windows: int = MIN_SAMPLES,
+    fits: list[WindowFit] | None = None,
+) -> WidthBand:
+    """Net APR at one width, as a range over rolling windows.
+
+    Net of the protocol's cut and net of the realized convexity cost — the two
+    subtractions that separate what an LP keeps from what a pool pays out.
+
+    `fits` lets a caller that has already traversed the windows hand them in
+    rather than pay for the sweep twice. `scripts/simulate_report.py` needs both
+    the cells and the band they reduce to, and computing the band from a
+    *second* traversal would be two answers to one question that happen to
+    agree.
+    """
+    swaps = [e for e in events if e.kind == "swap"]
+    if len(swaps) < MIN_SWAPS:
+        return WidthBand(
+            width_ticks,
+            0.0,
+            0.0,
+            0.0,
+            0,
+            False,
+            f"{len(swaps)} swaps on this pool, need {MIN_SWAPS}",
+        )
+
+    if fits is None:
+        fits = window_fits(
+            events, meta, width_ticks, capital_quote=capital_quote, windows=windows
+        )
+    returns = [f.fit.net_apr for f in fits]
 
     if len(returns) < MIN_SAMPLES:
         return WidthBand(
