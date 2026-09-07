@@ -77,6 +77,26 @@ export interface SimulationArtifact {
   pools: SimPool[];
 }
 
+/**
+ * Decimal places the dilution figure is printed at, and therefore the precision
+ * below which there is nothing to say.
+ *
+ * The suppression threshold used to be the literal `0.01`, which
+ * `test_no_artifact_number_is_hardcoded_in_the_ui` flagged — correctly, and for
+ * a better reason than the one it states. `0.01` is also `a1_share` in the
+ * artifact, so a reader meeting a bare `>= 0.01` a few lines from the A1
+ * refusal has every reason to think the two are the same constant. They are
+ * unrelated.
+ *
+ * Derived rather than allowlisted, which is the choice `strip_motion_easing`
+ * argues for at length: an entry in `UNDISTINCTIVE` would blind that guard to a
+ * real 0.01 on every page forever to settle one collision. The threshold is not
+ * really a number anyway — it is "a difference that rounds to zero at the
+ * precision it would be printed at", and printing `0.00pp less` is a claim of a
+ * difference the page is simultaneously showing to be absent.
+ */
+const DILUTION_DP = 2;
+
 function day(ts: number): string {
   return new Date(ts * 1000).toLocaleDateString("en-US", {
     month: "short",
@@ -209,6 +229,9 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
     cell && smallest && smallest.capital_quote < cell.capital_quote
       ? (smallest.net_apr - cell.net_apr) * 100
       : null;
+  // Shown only when it survives being printed. See `DILUTION_DP`.
+  const showsDilution =
+    dilutionPp !== null && Number(Math.abs(dilutionPp).toFixed(DILUTION_DP)) > 0;
 
   const band = pool?.bands.find((b) => b.width_ticks === chosenWidth) ?? null;
   const unit = pool?.quote_symbol ?? "";
@@ -398,7 +421,7 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
                 Rendered only when it is a real difference: below a hundredth of
                 a percentage point the two sizes are the same answer, and a line
                 claiming otherwise would be noise dressed as a finding. */}
-            {dilutionPp !== null && smallest && Math.abs(dilutionPp) >= 0.01 && (
+            {showsDilution && dilutionPp !== null && smallest && (
               <p className="mt-4 mb-0 max-w-[70ch] border-t border-line pt-3 text-sm text-dim">
                 The same window at{" "}
                 <span className="tabular text-ink">
@@ -412,7 +435,7 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
                 </span>{" "}
                 the size and earns{" "}
                 <span className="tabular text-warn">
-                  {fixed(Math.abs(dilutionPp), 2)}pp
+                  {fixed(Math.abs(dilutionPp), DILUTION_DP)}pp
                 </span>{" "}
                 {dilutionPp > 0 ? "less" : "more"} on every unit of it — a bigger
                 position takes a smaller share of each swap&rsquo;s fee, because the

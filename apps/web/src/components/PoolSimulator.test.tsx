@@ -166,9 +166,11 @@ describe("scaling up costs something, and the page says what", () => {
     expect(document.body.textContent).not.toContain("The same window at");
   });
 
-  it("stays quiet when two sizes came out the same", async () => {
-    // Below a hundredth of a percentage point the two sizes are one answer, and
-    // a line claiming a difference would be noise dressed as a finding.
+  it("stays quiet when the difference would print as zero", async () => {
+    // The threshold is the precision the figure is shown at, not a number: a
+    // line reading "0.00pp less" claims a difference while displaying its
+    // absence. On the real flagship this fires at ±800, where the dilution is
+    // 0.0079pp and genuinely nothing.
     const flat = {
       ...flagship,
       cells: [

@@ -196,9 +196,7 @@ def band_for_width(
         )
 
     if fits is None:
-        fits = window_fits(
-            events, meta, width_ticks, capital_quote=capital_quote, windows=windows
-        )
+        fits = window_fits(events, meta, width_ticks, capital_quote=capital_quote, windows=windows)
     returns = [f.fit.net_apr for f in fits]
 
     if len(returns) < MIN_SAMPLES:
