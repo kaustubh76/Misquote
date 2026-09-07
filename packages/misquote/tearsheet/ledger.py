@@ -108,7 +108,7 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "per call, instead of only being paid through escrow."
         ),
         why=(
-            "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one "
+            '`studio.toml` declares `protocols = ["A2A"]` and publishes one '
             "face. The scaffold's own comment in `unifiedMain.ts` names the "
             "file this would take — `bag x402 trust <merchant>` then "
             "`bag recipe code x402-buyer`, emitting the tools that spread into "
