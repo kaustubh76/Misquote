@@ -238,14 +238,19 @@ Four of them, each correct:
 
 ## 5. What this does not prove
 
-Carried in the ledger's shape, because the honest half is the half a judge
-checks.
+Two of these three come **from** `tearsheet/ledger.py` rather than being
+restated beside it. An earlier draft of `studio_report.py` wrote its own copy of
+their wording, which is the drift this report is about, reintroduced by the fix:
+the ledger has a test holding it to a checkable claim and a copy in an emitter
+has none, so the copy is the one that goes stale while the reader sees both.
+`_not_done()` now looks them up by name and exits rather than silently dropping
+one. The third is this agent's alone and stays local.
 
 | | |
 |---|---|
-| **`bag deploy` itself** | The agent runs on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none has been used. Running the agent is not the claim; the CLI deploying it is. Five CRITICAL items in `docs/DEPLOY_AWS.md`. |
-| **x402 self-funding** | `protocols = ["A2A"]`, one face published. `x402Buyer.ts` has never been generated. The Pieverse LLM credit does top itself up, which is a different mechanism. |
-| **A delivery driven through this agent** | `negotiate` has been called and checked four ways. `notify_funded` needs a job funded against the agent's own quote, and the obstacle is **not the money** — an earlier draft of this row said the scaffold wallet holds no payment token on chapel, as though chapel were merely unfunded. Chapel is the harder chain: no faucet for the token and no market to buy it on. On mainnet it costs about twenty cents and a recorded PancakeSwap swap already bought some. What actually stops it is that the agent's identity is on chapel and its envelope binds to chapel's kernel — the two agreeing is what the four checks verify — so pointing it at mainnet means a second registration and a signing key on a chain with real money. That is a decision about capital, not a line of code. *(Correction owed to `misquote-59`, which was reading the same records.)* |
+| **Agent Studio deployment** *(ledger)* | The agent runs on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none has been used. Running the agent is not the claim; the CLI deploying it is. Five CRITICAL items in `docs/DEPLOY_AWS.md`. |
+| **The Studio agent's x402 self-funding** *(ledger)* | `protocols = ["A2A"]`, one face published. `x402Buyer.ts` has never been generated. The Pieverse LLM credit does top itself up, which is a different mechanism. |
+| **A delivery driven through this agent** *(local)* | `negotiate` has been called and checked four ways. `notify_funded` needs a job funded against the agent's own quote, and the obstacle is **not the money** — an earlier draft of this row said the scaffold wallet holds no payment token on chapel, as though chapel were merely unfunded. Chapel is the harder chain: no faucet for the token and no market to buy it on. On mainnet it costs about twenty cents and a recorded PancakeSwap swap already bought some. What actually stops it is that the agent's identity is on chapel and its envelope binds to chapel's kernel — the two agreeing is what the four checks verify — so pointing it at mainnet means a second registration and a signing key on a chain with real money. That is a decision about capital, not a line of code. *(Correction owed to `misquote-59`, which was reading the same records.)* |
 
 ---
 
