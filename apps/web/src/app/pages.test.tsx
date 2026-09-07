@@ -39,6 +39,7 @@ import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
 import StatusPage from "./status/page";
+import SimulatePage from "./simulate/page";
 import VenuePage from "./venue/page";
 import { VenueView, type VenueArtifact } from "./venue/view";
 import VettingPage from "./vetting/page";
@@ -1455,6 +1456,88 @@ describe("Venue: which pool, and how wide", () => {
     expect(
       screen.getByRole("heading", { name: "The pools we actually read" })
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * `/simulate`, which is the PancakeSwap deliverable a judge can operate.
+ *
+ * Asserted from the artifact, so it holds whichever pools and sizes were swept.
+ * The two things pinned here are the two a rewrite would lose first: that a
+ * refused pool shows the engine's sentence rather than a small number, and that
+ * the amounts offered are amounts the engine replayed rather than a box.
+ */
+describe("Simulate: a position, on swaps that happened", () => {
+  interface Sim {
+    capital_ladder: number[];
+    a1_share: number;
+    summary: { cells: number; simulable: number; refused: number };
+    pools: {
+      label: string;
+      quote_symbol: string;
+      cells: { capital_quote: number; width_ticks: number }[];
+      verdict: string;
+    }[];
+  }
+
+  it("opens on a pool it can answer for, with figures in the first paint", async () => {
+    const sim = readArtifact<Sim>("simulation.json");
+    const answerable = sim.pools.filter((p) => p.cells.length > 0);
+    expect(answerable.length, "nothing to simulate — run `make simulate`").toBeGreaterThan(0);
+
+    render(<SimulatePage />);
+    await screen.findByRole("heading", { name: "Set up a position" });
+
+    // The sentence the no-JS floor also pins: an annualised rate is not a
+    // return anybody realized, and a simulator that drops that clause is the
+    // brochure this project is named against.
+    expect(document.body.textContent).toContain("a rate, not a return anybody realized");
+  });
+
+  it("offers only sizes the engine replayed, never a free amount", async () => {
+    const sim = readArtifact<Sim>("simulation.json");
+    const first = sim.pools.find((p) => p.cells.length > 0)!;
+
+    render(<SimulatePage />);
+    await screen.findByRole("heading", { name: "Set up a position" });
+
+    // A number box would let a reader ask for a size nothing measured, and the
+    // only way to answer would be to multiply — which deletes the dilution a
+    // bigger position actually suffers.
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+
+    const offered = [...new Set(first.cells.map((c) => c.capital_quote))];
+    expect(offered.length).toBeGreaterThan(0);
+    for (const size of offered) {
+      expect(
+        screen.getAllByRole("button", { name: String(size.toFixed(2)) }).length,
+        `${size} was replayed and is not offered`
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("says a pool it cannot answer for has no answer, not a small number", async () => {
+    const sim = readArtifact<Sim>("simulation.json");
+    const silent = sim.pools.filter((p) => p.cells.length === 0);
+    if (silent.length === 0) return;
+
+    render(<SimulatePage />);
+    await screen.findByRole("heading", { name: "Set up a position" });
+
+    for (const pool of silent) {
+      expect(
+        screen.getByRole("option", { name: new RegExp(`${pool.label}.*not simulable`) })
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("counts what it holds rather than claiming a catalogue", async () => {
+    const sim = readArtifact<Sim>("simulation.json");
+    render(<SimulatePage />);
+    await screen.findByRole("heading", { name: "What this is, and what it is not" });
+
+    const text = document.body.textContent ?? "";
+    expect(text).toContain(sim.summary.cells.toLocaleString("en-US"));
   });
 });
 

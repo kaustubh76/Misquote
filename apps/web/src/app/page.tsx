@@ -52,6 +52,7 @@ function evidence(): Record<string, EvidenceEntry | null> {
   const assumptions = readArtifact<{ entries?: unknown[] }>("assumptions.json");
   const vectors = readArtifact<{ corpus?: { cases?: number } }>("vectors.json");
   const venue = readArtifact<{ divergences?: unknown[] }>("venue.json");
+  const simulation = readArtifact<{ summary?: { cells?: number } }>("simulation.json");
   const vetting = readArtifact<{ summary?: { checks?: number } }>("vetting.json");
   const status = readArtifact<{ summary?: { pass?: number; total?: number } }>("status.json");
   const warden = readArtifact<{ floors?: Record<string, unknown> }>("warden.json");
@@ -64,6 +65,11 @@ function evidence(): Record<string, EvidenceEntry | null> {
     ),
     "/assumptions": entryOf(assumptions?.entries?.length, "assumptions, each citable"),
     "/vectors": entryOf(vectors?.corpus?.cases, "cases against the real Solidity"),
+    // The count is windows, not pools, because the count is what a reader gets
+    // to choose between. "Three pools" is a catalogue; "1,120 replayed
+    // positions" is the number of answers this page can give without
+    // computing one.
+    "/simulate": entryOf(simulation?.summary?.cells, "positions replayed on real swaps"),
     "/venue": entryOf(venue?.divergences?.length, "places this is not Uniswap"),
     "/vetting": entryOf(vetting?.summary?.checks, "checks read from chain"),
     "/status": entryOf(

@@ -31,6 +31,7 @@ import AssumptionsPage from "./assumptions/page";
 import MethodsPage from "./methods/page";
 import OverviewPage from "./page";
 import RegistryPage from "./registry/page";
+import SimulatePage from "./simulate/page";
 import StatusPage from "./status/page";
 import VectorsPage from "./vectors/page";
 import VenuePage from "./venue/page";
@@ -62,6 +63,7 @@ const VIEWS = [
   // one page whose heading outline nothing checked.
   ["Vetting", <VettingPage key="v" />],
   ["Vectors", <VectorsPage key="vec" />],
+  ["Simulate", <SimulatePage key="sim" />],
   ["Venue", <VenuePage key="ven" />],
   ["Agent detail", <AgentDetail key="ad" slug="warden" />],
   // The other half of `/agent/[slug]`, and it was missing for the same reason

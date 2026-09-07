@@ -626,6 +626,16 @@ export function VenueView({
             title="Which pool, and how wide"
             intro="Measured over the indexed tape, as ranges rather than a ranking — two widths whose bands overlap have not been shown to differ."
           >
+            {/* The question this section answers is which width. The question a
+                reader arrives with is what it would have paid them, and that is
+                a different page — same windows, same engine, an amount instead
+                of a percentile. It is linked here because this is where someone
+                has just finished choosing a width. */}
+            <p className="mt-0 mb-4 max-w-[70ch] text-sm text-dim">
+              These are rates. To see what one of them would have paid on an
+              amount you pick, over a window you pick,{" "}
+              <Link href="/simulate">simulate the position &rarr;</Link>
+            </p>
             {!pools && (
               <Card>
                 <p className="mt-0 mb-0 max-w-[72ch] text-sm text-dim">

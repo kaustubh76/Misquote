@@ -467,6 +467,15 @@ const NO_JS = [
   // classification is ours and is labelled as such.
   ["/category/", 1200, "reading of their words"],
   ["/category/rebalancing/", 1800, "our reading of their free text"],
+  // The needle is the refusal, not the figure — the same choice `/activate/`
+  // and `/studio/` made. This page's temptation is to render an amount and
+  // stop; the sentence that must survive any rewrite is the one saying the
+  // amount is a rate rather than a return anybody realized, because a
+  // simulator without it is the brochure this project is named against.
+  //
+  // The floor is modest: the page is a frame plus one cell, and the cell is
+  // where the words are.
+  ["/simulate/", 1800, "a rate, not a return anybody realized"],
   ["/venue/", 3000, "PancakeV3PoolDeployer"],
   ["/advantage/", 2500, "COUNTERFACTUAL"],
   // 2,509 characters before the conversion against 2,746 after — the floor here
