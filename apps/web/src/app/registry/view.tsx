@@ -152,9 +152,14 @@ export interface OwnIdentity {
   agent_id: number;
   token_uri_bytes: number;
   register_tx: string;
-  transfer_tx: string;
+  // Nullable, and typed as such because it is: a registration whose signer was
+  // already the operator has no transfer, and `transfer_skipped` carries the
+  // reason. These were typed `string`, which is how a `null` reached
+  // `shortAddress` and an `href`.
+  transfer_tx: string | null;
   register_url: string;
-  transfer_url: string;
+  transfer_url: string | null;
+  transfer_skipped?: string | null;
   agent_url: string;
   gas_used: number;
 }
@@ -865,7 +870,7 @@ export function RegistryView({
             <p className="mt-4 mb-0 text-sm text-dim">
               A fifth identity is not in this table:{" "}
               <Link href="/studio">
-                the one the BNB Agent Studio CLI registered
+                the one the BNB Agent Studio CLI minted
               </Link>
               , for an agent that signs its own ERC-8183 quotes.
             </p>
@@ -2349,9 +2354,28 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
                 <a href={agent.register_url} target="_blank" rel="noreferrer">
                   register {shortAddress(agent.register_tx)}
                 </a>
-                <a href={agent.transfer_url} target="_blank" rel="noreferrer">
-                  transfer {shortAddress(agent.transfer_tx)}
-                </a>
+                {/* Only when there was one.
+                    Four of the five rows here have `transfer_tx: null` —
+                    `transfer_skipped` says why, and it is not a gap: the signer
+                    that minted them is already the operator, so there was
+                    nothing to hand over. Rendered unconditionally, this drew an
+                    anchor with `href={null}` and the single word "transfer"
+                    beside it: a dead link on four of five rows, on the page
+                    whose subject is registrations that resolve.
+
+                    The reason is shown rather than the row falling silent. A
+                    registration that skipped the transfer and one whose
+                    transfer was never recorded look identical when both render
+                    nothing, and only one of them is a complete story. */}
+                {agent.transfer_tx ? (
+                  <a href={agent.transfer_url ?? undefined} target="_blank" rel="noreferrer">
+                    transfer {shortAddress(agent.transfer_tx)}
+                  </a>
+                ) : (
+                  <span className="text-faint">
+                    no transfer &mdash; {agent.transfer_skipped ?? "not recorded"}
+                  </span>
+                )}
               </p>
             </div>
           ))}
