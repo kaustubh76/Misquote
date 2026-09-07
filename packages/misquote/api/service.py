@@ -500,6 +500,10 @@ def index() -> dict[str, Any]:
             "/quote/eligibility/{address}": "what one wallet holds, and which of it is quotable",
             "/sessions/capability": "what activation consists of, and which caps the chain enforces",
             "/sessions/{owner}": "the grants an address holds, read off the verified keystore",
+            "/studio/negotiate": (
+                "a signed ERC-8183 quote from the Agent Studio seller, and the "
+                "address its signature recovers to"
+            ),
             "POST /quote": "enqueue a replay, or refuse before anyone waits",
             "/quote/job/{job_id}": "where a queued replay got to",
             "/quote/job/{job_id}/stream": "the same, as server-sent events",
