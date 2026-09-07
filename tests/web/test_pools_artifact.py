@@ -110,6 +110,42 @@ def test_a_leader_is_only_named_when_its_band_clears_the_runner_up(report: dict)
             assert "does not overlap" in row["verdict"], row["verdict"]
 
 
+def test_the_published_ties_agree_with_the_published_quartiles(report: dict) -> None:
+    """The join `/venue` renders, checked against the numbers beside it.
+
+    `components/WidthLadder.tsx` draws "not separated from ±40, ±130" out of
+    `indistinguishable_from` and never recomputes it — that is the whole reason
+    the field exists rather than four lines of TypeScript. Which means nothing
+    in the browser can notice the day the field stops describing the quartiles
+    it is published next to. This is the thing that notices.
+
+    A missing field is a failure and not a skip: the page degrades to a ladder
+    with no comparison, quietly, and a fixture that skipped here would report
+    that silence as a pass.
+    """
+    for row in published(report):
+        usable = [b for b in row["ladder"] if b["sufficient"]]
+        for band in usable:
+            assert "indistinguishable_from" in band, (
+                f"{row['label']} +/-{band['width_ticks']} carries no ties — run `make pools`"
+            )
+            expected = sorted(
+                other["width_ticks"]
+                for other in usable
+                if other["width_ticks"] != band["width_ticks"]
+                and not (band["p75"] < other["p25"] or other["p75"] < band["p25"])
+            )
+            assert sorted(band["indistinguishable_from"]) == expected, (
+                f"{row['label']} +/-{band['width_ticks']}: ties {band['indistinguishable_from']} "
+                f"do not match its own P25-P75 against the rest of the ladder"
+            )
+        for band in row["ladder"]:
+            if not band["sufficient"]:
+                assert "indistinguishable_from" not in band, (
+                    "a refused band with an empty tie list reads as separated from everything"
+                )
+
+
 def test_the_summary_counts_agree_with_the_rows(report: dict) -> None:
     """The header a reader trusts before scrolling has to match what follows."""
     summary = report["summary"]

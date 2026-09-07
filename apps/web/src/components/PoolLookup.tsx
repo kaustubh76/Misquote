@@ -27,6 +27,25 @@ interface PoolReport {
 }
 
 /**
+ * A pool this deployment can actually answer about.
+ *
+ * The control shipped as a bare address field, and `/pools/{address}` resolves
+ * through `pool_by_address` before it opens the artifact — so every address a
+ * reader could plausibly paste, including every real PancakeSwap pool, comes
+ * back 404. The refusal is the right one and it was the *only* outcome anyone
+ * without the source could reach: an input whose entire answerable domain was
+ * three strings printed nowhere near it.
+ *
+ * Passed in rather than hardcoded. Which pools are answerable is `pools.json`'s
+ * to say, and a component asserting three addresses of its own would be a
+ * fourth place they are written down.
+ */
+export interface KnownPool {
+  label: string;
+  address: string;
+}
+
+/**
  * Asking about one pool, and getting an answer shaped like the question.
  *
  * `/venue` renders every pool `make pools` measured. What that cannot do is
@@ -54,7 +73,7 @@ interface PoolReport {
  * it verified and could not rank, and the second is the one that says the gap is
  * ours. Both arrive here in the service's own words.
  */
-export function PoolLookup() {
+export function PoolLookup({ known = [] }: { known?: KnownPool[] }) {
   const [address, setAddress] = useState("");
   const [state, setState] = useState<
     | { phase: "idle" }
@@ -107,6 +126,26 @@ export function PoolLookup() {
         </Button>
       </form>
 
+      {/* The answerable set, as buttons rather than as a sentence naming three
+          addresses nobody will retype. Filling the field rather than submitting
+          it: the reader still presses Check, so what the control does stays
+          visible, and a mistaken tap is one keystroke from being corrected. */}
+      {known.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-faint">Answerable here:</span>
+          {known.map((pool) => (
+            <button
+              key={pool.address}
+              type="button"
+              onClick={() => setAddress(pool.address)}
+              className="rounded-sm border border-glass-line bg-panel-2/50 px-2 py-0.5 text-xs text-dim transition-colors hover:border-brand-line hover:text-ink"
+            >
+              {pool.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-4" aria-busy={state.phase === "reading"}>
         {state.phase === "refused" && (
           <Refusal
@@ -123,7 +162,7 @@ export function PoolLookup() {
         {state.phase === "unavailable" && (
           <Refusal
             title="No live service answered"
-            reason="Asking about a single pool needs a running API. The ladders below are what this export carries."
+            reason="Asking about a single pool needs a running API. The ladders above are what this export carries, and they are the same measurement — this route only narrows it to one pool."
             floor="Start one with `make api` and publish its address with `make api-config`."
           />
         )}

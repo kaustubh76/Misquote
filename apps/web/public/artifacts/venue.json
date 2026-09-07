@@ -1,9 +1,9 @@
 {
   "build": {
     "command": "python scripts/venue_report.py",
-    "generated_at": "2026-08-25T09:42:35+00:00",
-    "git_dirty": false,
-    "git_sha": "99a32f6",
+    "generated_at": "2026-09-07T12:25:04+00:00",
+    "git_dirty": true,
+    "git_sha": "5cf5b62",
     "source": "offline"
   },
   "divergences": [
@@ -134,6 +134,15 @@
   "shared_math": {
     "cases": 19546,
     "groups": 9,
+    "parity": {
+      "checked_at": "2026-09-07T12:20:12+00:00",
+      "commit": "986847948755cba528324d41be19480731c36c2a",
+      "identical": 6,
+      "libraries": 6,
+      "outcome": "PASS",
+      "pinned": "2026-05-14",
+      "repo": "pancakeswap/pancake-v3-contracts"
+    },
     "pins": [
       {
         "commit": "467ffd422ca01fed5797a4c766a1e4e3a5327902",

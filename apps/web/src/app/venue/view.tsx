@@ -11,6 +11,7 @@ import { Loadable } from "@/components/LoadingStatus";
 import { PoolLookup } from "@/components/PoolLookup";
 import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
+import { WidthLadder, type LadderBand } from "@/components/WidthLadder";
 import { load, type Loaded } from "@/lib/artifacts";
 import { count, fixed, fraction, isNum, shortAddress } from "@/lib/format";
 
@@ -41,6 +42,23 @@ export interface VenueArtifact {
     cases: number;
     groups: number;
     pins: { name: string; commit: string; pinned: string }[];
+    /**
+     * Whether the fork actually left the libraries alone.
+     *
+     * Null until `make fork-parity` has run, and that is the honest state for a
+     * clean checkout: the check reads GitHub, the emitter reads no network, so
+     * the artifact carries whatever was last recorded and nothing when nothing
+     * was. Rendered as an absence, never as a pass.
+     */
+    parity: {
+      outcome: string;
+      libraries: number;
+      identical: number;
+      commit: string;
+      pinned: string;
+      repo: string;
+      checked_at: string;
+    } | null;
   };
   fee_tiers: { fee_pips: number; tick_spacing: number }[];
   uniswap_only_tier: number;
@@ -79,16 +97,14 @@ export interface VenueArtifact {
  * delivered, and this is the page it belongs on: everything else here is about
  * the venue, and this is the only thing here an LP can act on.
  */
-export interface WidthBand {
-  width_ticks: number;
-  p25: number;
-  p50: number;
-  p75: number;
-  observations: number;
-  sufficient: boolean;
-  note: string;
-}
-
+/**
+ * One rung is `LadderBand`, declared beside the component that draws it.
+ *
+ * This file used to redeclare the seven fields itself. Two declarations of one
+ * emitter's shape is one too many — `indistinguishable_from` was added to the
+ * artifact and to `components/WidthLadder.tsx`, and a second copy here would
+ * have typechecked all the way to a ladder that silently offered no comparison.
+ */
 export interface PoolLadder {
   address: string;
   label: string;
@@ -99,7 +115,7 @@ export interface PoolLadder {
   best_width_ticks: number | null;
   /** The engine's own sentence, rendered verbatim. Never re-derived here. */
   verdict: string;
-  ladder: WidthBand[];
+  ladder: LadderBand[];
   demand: {
     swaps: number;
     volume_quote: number;
@@ -279,6 +295,61 @@ export function VenueView({
                   What was recorded, and whether it still holds →
                 </Link>
               </p>
+
+              {/* The step every one of those cases depends on, and which this
+                  page asserted for months.
+
+                  The corpus is generated against the table above — *Uniswap's*
+                  Solidity, at Uniswap's commits. It says nothing about
+                  PancakeSwap unless the fork left those libraries alone, and
+                  that clause was carried by a comment in `ops/forge_deps.txt`
+                  and another in `scripts/venue_report.py`. Both were right.
+                  Neither was checked, on the page whose entire argument is that
+                  a plausible sentence is not a reading.
+
+                  `make fork-parity` reads PancakeSwap's own copies at a pinned
+                  commit and compares the token streams, so a reflowed ternary
+                  and a different licence header pass and a changed constant
+                  does not. */}
+              {d.shared_math.parity ? (
+                <p className="mt-3 mb-0 border-t border-line pt-3 text-xs text-faint">
+                  And the step that makes any of it a claim about this venue:{" "}
+                  <strong
+                    className={
+                      d.shared_math.parity.outcome === "PASS"
+                        ? "text-good"
+                        : "text-warn"
+                    }
+                  >
+                    {count(d.shared_math.parity.identical)} of{" "}
+                    {count(d.shared_math.parity.libraries)}
+                  </strong>{" "}
+                  of those libraries are token-identical to{" "}
+                  {d.venue.name}&rsquo;s own copies —{" "}
+                  <a
+                    href={`https://github.com/${d.shared_math.parity.repo}/tree/${d.shared_math.parity.commit}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {d.shared_math.parity.repo}
+                  </a>{" "}
+                  at{" "}
+                  <code className="font-mono">
+                    {d.shared_math.parity.commit.slice(0, 12)}
+                  </code>
+                  , pinned {d.shared_math.parity.pinned}. Same licence header
+                  changed, same lines rewrapped, same arithmetic.
+                </p>
+              ) : (
+                <p className="mt-3 mb-0 border-t border-line pt-3 text-xs text-faint">
+                  Whether the fork left those libraries alone has not been
+                  checked here. Run{" "}
+                  <code className="font-mono">make fork-parity</code> — it reads{" "}
+                  {d.venue.name}&rsquo;s repository and compares the token
+                  streams. Until it has, the corpus above is a comparison
+                  against {d.venue.fork_of} and nothing more.
+                </p>
+              )}
             </Card>
           </Section>
 
@@ -626,24 +697,17 @@ export function VenueView({
 
                   {usable.length > 0 ? (
                     <>
-                      <DataTable
+                      {/* `WidthLadder` rather than `DataTable`, and the rows
+                          are the same rows: same widths, same figures, same
+                          order. What the table could not do is the comparison
+                          this section is about. Seven ranges printed as text
+                          leave "is ±80 actually better than ±200" to a reader
+                          holding fourteen numbers in their head, which is the
+                          arithmetic this project keeps saying nobody does. */}
+                      <WidthLadder
                         caption={`Fee APR by width, net of the convexity cost, per unit of capital in ${pool.quote_symbol}`}
-                        hideCaption={false}
-                        columns={["Width", "P25 – P75", "Median · windows"]}
-                        rows={usable.map((band) => ({
-                          label: `±${count(band.width_ticks)} ticks`,
-                          value: `${fraction(band.p25)} – ${fraction(
-                            band.p75
-                          )}`,
-                          note: `${fraction(band.p50)} · ${count(
-                            band.observations
-                          )} windows${
-                            band.width_ticks === pool.best_width_ticks
-                              ? " · leads"
-                              : ""
-                          }`,
-                        }))}
-                        notes="prose"
+                        bands={usable}
+                        bestWidth={pool.best_width_ticks}
                       />
                       {/* Why a P25 can sit far below −100%.
 
@@ -752,7 +816,15 @@ export function VenueView({
                 Hold a position in a pool that is not listed? Ask directly — the
                 answer tells you whether it was unverified or simply unrankable.
               </p>
-              <PoolLookup />
+              {/* The set the route can answer, handed to the control that asks.
+                  `pools.json`'s own rows, so the chips cannot name a pool the
+                  published report does not carry. */}
+              <PoolLookup
+                known={(pools?.pools ?? []).map((pool) => ({
+                  label: pool.label,
+                  address: pool.address,
+                }))}
+              />
             </Card>
           </Section>
         </>

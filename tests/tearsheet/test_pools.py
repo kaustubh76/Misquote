@@ -10,7 +10,13 @@ from __future__ import annotations
 import pytest
 
 from misquote.replay.ranges import MIN_SAMPLES
-from misquote.tearsheet.pools import WIDTH_LADDER, WidthBand, best_width
+from misquote.tearsheet.pools import (
+    WIDTH_LADDER,
+    WidthBand,
+    best_width,
+    ladder_payload,
+    separation,
+)
 
 
 def band(width: int, p25: float, p50: float, p75: float, *, obs: int = MIN_SAMPLES) -> WidthBand:
@@ -98,6 +104,66 @@ def test_a_refused_band_carries_its_reason_not_a_zero() -> None:
     assert not thin.sufficient
     assert "need 20" in thin.note
     assert thin.to_dict()["sufficient"] is False
+
+
+# --- who ties with whom, which only the emitter may decide -----------------
+
+
+def test_every_pair_the_verdict_never_reached_gets_an_answer() -> None:
+    """`best_width` compares the top two. A reader compares whichever two they like.
+
+    The artifact carried seven bands and one sentence about two of them, so the
+    question `/venue` exists to answer — is this width actually better than that
+    one — had a published answer for exactly one pair.
+    """
+    bands = [
+        band(40, 0.10, 0.15, 0.30),
+        band(80, 0.13, 0.17, 0.28),
+        band(800, 0.07, 0.11, 0.12),
+    ]
+
+    ties = separation(bands)
+
+    assert ties[40] == [80, 800], "40 spans both of the others"
+    assert ties[80] == [40], "80 clears 800 — its P25 sits above that band's P75"
+    assert ties[800] == [40]
+
+
+def test_a_tie_is_symmetric_because_overlapping_is() -> None:
+    """The one property a hand-written table of ties would get wrong first."""
+    bands = [band(40, 0.10, 0.15, 0.30), band(80, 0.13, 0.17, 0.28), band(800, 0.07, 0.11, 0.12)]
+
+    ties = separation(bands)
+    for width, others in ties.items():
+        for other in others:
+            assert width in ties[other], f"±{width} ties ±{other} and not the reverse"
+
+
+def test_a_refused_band_is_absent_from_the_ties_rather_than_tied_with_nothing() -> None:
+    """An empty list would read as "separated from everything".
+
+    A refused band's quartiles are the `0.0` placeholders `band_for_width` writes
+    for "no evidence". Overlapping a placeholder means nothing, and the inversion
+    is the dangerous direction: a width nobody could measure would render as the
+    one width demonstrably unlike all the others.
+    """
+    bands = [band(40, 0.10, 0.15, 0.30), refused(80), band(800, 0.07, 0.11, 0.12)]
+
+    ties = separation(bands)
+
+    assert 80 not in ties
+    assert set(ties) == {40, 800}
+
+
+def test_the_payload_carries_the_ties_only_where_the_band_cleared_the_floor() -> None:
+    bands = [band(40, 0.10, 0.15, 0.30), refused(80, "3 usable windows, need 20")]
+
+    rows = ladder_payload(bands)
+
+    assert rows[0]["indistinguishable_from"] == []
+    assert "indistinguishable_from" not in rows[1]
+    # The refusal survives the join, which is what the row is for.
+    assert rows[1]["note"] == "3 usable windows, need 20"
 
 
 # --- demand: busy is not the same as underserved ---------------------------

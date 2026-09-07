@@ -115,7 +115,15 @@ data — which looks like nothing at all. Check the selector, not the docs.
 ```
 make vet                      # nine checks per pool, read from chain
 make venue                    # the divergence table above, regenerated
+make fork-parity              # the half that is *not* a divergence
 ```
+
+That last one is the counterpart to this list. Six libraries — `TickMath`,
+`SqrtPriceMath`, `FullMath`, `FixedPoint128`, `Tick`, `LiquidityAmounts` — are
+token-identical between your v3 and Uniswap's: the SPDX header changes, prettier
+rewraps a few ternaries, one import path is rewritten, and the arithmetic is the
+same program. That is worth stating as loudly as the six divergences, because it
+is what makes them a short list rather than a rewrite.
 
 The per-pool badges are in `vetting/badges/`, the constants in
 `packages/misquote/chain/addresses.py`, and check 9 —

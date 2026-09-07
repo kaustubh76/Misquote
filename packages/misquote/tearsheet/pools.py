@@ -166,6 +166,53 @@ def ladder_for_pool(
     return [band_for_width(events, meta, w, capital_quote=capital_quote) for w in WIDTH_LADDER]
 
 
+def separation(bands: list[WidthBand]) -> dict[int, list[int]]:
+    """For each width that cleared the floor, the widths it is *not* separated from.
+
+    `best_width` answers this for exactly one pair — the leader and the runner-up
+    — because that is the pair a verdict sentence is about. A reader choosing a
+    width is asking it about a different pair every time they look at a different
+    row, and the answer for those pairs existed nowhere: the artifact carried
+    seven bands and one sentence about two of them.
+
+    Emitted rather than derived in the browser, and that is the whole reason this
+    function exists rather than four lines of TypeScript. `components/Band.tsx`
+    states the rule it follows — recomputing `Comparison.ranges_overlap` one
+    screen-inch from the verdict Python wrote means two implementations that
+    agree today and cannot be *made* to disagree tomorrow. `WidthBand.overlaps`
+    is the one implementation, and this is how it reaches a page.
+
+    Insufficient bands are absent from the mapping entirely rather than mapped to
+    an empty list. Their quartiles are the `0.0` placeholders `band_for_width`
+    writes for "no evidence", and overlapping a placeholder means nothing — an
+    empty list would read as "separated from everything", which is the exact
+    inversion of what a refused band knows.
+    """
+    usable = [b for b in bands if b.sufficient]
+    return {
+        band.width_ticks: [
+            other.width_ticks for other in usable if other is not band and band.overlaps(other)
+        ]
+        for band in usable
+    }
+
+
+def ladder_payload(bands: list[WidthBand]) -> list[dict[str, Any]]:
+    """The ladder as the artifact carries it: every band, plus who it ties with.
+
+    Joined here rather than in `scripts/pools_report.py` so the pairwise rule and
+    the band that implements it stay in one file. `to_dict` cannot do it — a band
+    does not know its siblings.
+    """
+    ties = separation(bands)
+    return [
+        {**band.to_dict(), "indistinguishable_from": ties[band.width_ticks]}
+        if band.width_ticks in ties
+        else band.to_dict()
+        for band in bands
+    ]
+
+
 def best_width(bands: list[WidthBand]) -> tuple[WidthBand | None, str]:
     """The width that earned most — and whether that is a claim or a coincidence.
 

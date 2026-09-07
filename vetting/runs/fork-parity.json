@@ -1,0 +1,70 @@
+{
+  "build": {
+    "command": "python scripts/verify_fork_parity.py",
+    "generated_at": "2026-09-07T12:20:12+00:00",
+    "git_dirty": true,
+    "git_sha": "5cf5b62",
+    "source": "upstream"
+  },
+  "checks": [
+    {
+      "detail": "1,666 tokens, identical",
+      "library": "TickMath",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/TickMath.sol",
+      "status": "PASS",
+      "tokens": 1666,
+      "uniswap": "vetting/forge/lib/v3-core/contracts/libraries/TickMath.sol"
+    },
+    {
+      "detail": "817 tokens, identical",
+      "library": "SqrtPriceMath",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/SqrtPriceMath.sol",
+      "status": "PASS",
+      "tokens": 817,
+      "uniswap": "vetting/forge/lib/v3-core/contracts/libraries/SqrtPriceMath.sol"
+    },
+    {
+      "detail": "372 tokens, identical",
+      "library": "FullMath",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/FullMath.sol",
+      "status": "PASS",
+      "tokens": 372,
+      "uniswap": "vetting/forge/lib/v3-core/contracts/libraries/FullMath.sol"
+    },
+    {
+      "detail": "21 tokens, identical",
+      "library": "FixedPoint128",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/FixedPoint128.sol",
+      "status": "PASS",
+      "tokens": 21,
+      "uniswap": "vetting/forge/lib/v3-core/contracts/libraries/FixedPoint128.sol"
+    },
+    {
+      "detail": "672 tokens, identical",
+      "library": "Tick",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-core/contracts/libraries/Tick.sol",
+      "status": "PASS",
+      "tokens": 672,
+      "uniswap": "vetting/forge/lib/v3-core/contracts/libraries/Tick.sol"
+    },
+    {
+      "detail": "560 tokens, identical",
+      "library": "LiquidityAmounts",
+      "pancakeswap": "https://raw.githubusercontent.com/pancakeswap/pancake-v3-contracts/986847948755cba528324d41be19480731c36c2a/projects/v3-periphery/contracts/libraries/LiquidityAmounts.sol",
+      "status": "PASS",
+      "tokens": 560,
+      "uniswap": "vetting/forge/lib/v3-periphery/contracts/libraries/LiquidityAmounts.sol"
+    }
+  ],
+  "fork_of": "Uniswap v3",
+  "identical": 6,
+  "libraries": 6,
+  "outcome": "PASS",
+  "pancakeswap": {
+    "commit": "986847948755cba528324d41be19480731c36c2a",
+    "pinned": "2026-05-14",
+    "repo": "pancakeswap/pancake-v3-contracts"
+  },
+  "summary_line": "6 of 6 libraries token-identical to PancakeSwap's own copies at 986847948755",
+  "venue": "PancakeSwap v3"
+}

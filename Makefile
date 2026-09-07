@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -534,6 +534,16 @@ registry-survey:  ## read the ERC-8004 registry and record a sample. usage: make
 	# once, and it buys an interval worth publishing — at n=40 a 30% share spans
 	# 18-46%, which is a different claim from "30%".
 	$(UV) run python -u scripts/registry_report.py --sample $(SAMPLE)
+
+fork-parity:  ## check PancakeSwap's core math really is Uniswap's. Reads GitHub, no chain.
+	# The bridge under the whole differential corpus. `make vectors` proves our
+	# Python against *Uniswap's* Solidity; this is what makes that a statement
+	# about PancakeSwap, and until it existed the step was two comments.
+	#
+	# Records vetting/runs/fork-parity.json, which `make venue` then projects
+	# into the artifact — so the page reads a recorded run and touches no
+	# network itself.
+	$(UV) run python scripts/verify_fork_parity.py
 
 venue:  ## PancakeSwap as an integration: where the fork is not the original (offline)
 	$(UV) run python scripts/venue_report.py

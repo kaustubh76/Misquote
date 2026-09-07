@@ -43,6 +43,7 @@ from misquote.tearsheet.pools import (
     best_width,
     demand_for_pool,
     ladder_for_pool,
+    ladder_payload,
 )
 from misquote.vetting.badge import cleared_to_provide
 
@@ -99,7 +100,10 @@ def row_for(conn: Any, pool: PoolRef, *, capital: float) -> dict[str, Any]:
 
     bands = ladder_for_pool(events, meta, capital_quote=capital)
     leader, sentence = best_width(bands)
-    row["ladder"] = [b.to_dict() for b in bands]
+    # `ladder_payload` rather than `to_dict` per band: each row also carries the
+    # widths it is not separated from, and that is a fact about a band's
+    # siblings which no band can serialise on its own.
+    row["ladder"] = ladder_payload(bands)
     row["best_width_ticks"] = leader.width_ticks if leader else None
     row["verdict"] = sentence
     return row

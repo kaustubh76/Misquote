@@ -231,6 +231,36 @@ def divergences() -> list[dict[str, Any]]:
     ]
 
 
+#: What `make fork-parity` leaves behind, if it has been run.
+FORK_PARITY = REPO / "vetting" / "runs" / "fork-parity.json"
+
+
+def parity(path: Path = FORK_PARITY) -> dict[str, Any] | None:
+    """The recorded fork-parity run, trimmed to what the page states.
+
+    Only the fields a reader is shown, for the reason `lib/artifacts.ts` gives
+    about declaring shapes: the run also carries a per-library breakdown and the
+    raw GitHub urls, and the page's claim is the aggregate — *these six
+    libraries are the same program*. Publishing the breakdown here would put a
+    second copy of `vetting/runs/fork-parity.json` inside `venue.json`.
+
+    `None` when the check has never run, which the page renders as an absence
+    rather than as a pass.
+    """
+    if not path.is_file():
+        return None
+    recorded = json.loads(path.read_text())
+    return {
+        "outcome": recorded["outcome"],
+        "libraries": recorded["libraries"],
+        "identical": recorded["identical"],
+        "commit": recorded["pancakeswap"]["commit"],
+        "pinned": recorded["pancakeswap"]["pinned"],
+        "repo": recorded["pancakeswap"]["repo"],
+        "checked_at": recorded["build"]["generated_at"],
+    }
+
+
 def build_payload() -> dict[str, Any]:
     corpus = vectors.corpus()
     return {
@@ -246,6 +276,19 @@ def build_payload() -> dict[str, Any]:
             "cases": corpus["cases"],
             "groups": len(corpus["groups"]),
             "pins": corpus["pins"],
+            # The bridge, and until `make fork-parity` existed it was a comment.
+            #
+            # Everything in `corpus` is a comparison against *Uniswap's*
+            # Solidity. It becomes a statement about PancakeSwap only if the
+            # fork left these libraries alone, and this file used to assert
+            # that three lines above — "the core math is byte-identical
+            # upstream" — with nothing behind it. Now it is a recorded run.
+            #
+            # Read from disk rather than fetched: this emitter reads no network,
+            # so what reaches the artifact is whatever `make fork-parity` last
+            # recorded, and `None` when it has never been run. A page cannot
+            # then show a parity claim that nothing produced.
+            "parity": parity(),
         },
         # A list, not a dict. `sort_keys=True` orders JSON object keys as
         # strings, which puts 10000 before 2500 — a fee-tier table out of
