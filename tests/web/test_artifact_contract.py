@@ -1600,11 +1600,28 @@ def test_every_contracted_registry_field_is_read_by_the_named_view() -> None:
 #: the wrong one.
 #: `amount` is `ours.funding.amount` — carried, all-null, never rendered — and
 #: also `tasks[].hire_cost.amount` in `advantage.json`, which `readHireTerms`
-#: reads to put a fee on an agent card. The second artifact has no field map at
-#: all (`flatten` stops at a list, so `tasks[]` has no paths), so the guard sees
-#: one `.amount` in a file it now scans and can only attribute it to the map it
-#: knows. Both statements are true, and it is the third collision in this list
-#: to involve `ours.funding.*`.
+#: reads to put a fee on an agent card. Both statements are true, and it is the
+#: third collision in this list to involve `ours.funding.*`.
+#:
+#: The cause is structural and worth naming, because it will happen again. The
+#: check assumes **a renderer file corresponds to one artifact** — reasonable
+#: for a component, which draws one card. `lib/build-artifact.ts` is not a view
+#: at all; it is the shared build-time reader, and `readHireTerms` joins
+#: `registry.json` and `advantage.json` in one function because the two halves
+#: of a price live in different files. A leaf found there is not evidence about
+#: either artifact on its own.
+#:
+#: Not fixed by renaming the field: the ambiguity is between two artifacts, not
+#: between two things a reader of one file could confuse, so there is nothing to
+#: disambiguate at the call site. And not fixed by destructuring around the
+#: regex, which would be quieting the guard rather than answering it.
+#:
+#: There is a second one already, found while arguing about the first:
+#: `app/venue/page.tsx` reads `venue.json`, `vetting.json` and `pools.json` and
+#: joins all three. It has not fired only because no leaf has collided there
+#: yet. So if anyone teaches this check that a multi-artifact reader is not
+#: evidence — which is the real fix and is a change to the check rather than to
+#: any caller — those two files are its test cases.
 LEAF_COLLISIONS = frozenset({"x402_supported", "tx", "amount"})
 
 
