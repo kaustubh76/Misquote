@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-06T17:24:43+00:00",
+  "generated_at": "2026-09-07T13:33:10+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --mainnet --json",
     "source": "mainnet",
-    "generated_at": "2026-09-06T17:24:43+00:00",
-    "git_sha": "60108f1",
+    "generated_at": "2026-09-07T13:33:10+00:00",
+    "git_sha": "3882fcc",
     "git_dirty": true
   },
   "mainnet": true,
@@ -14,28 +14,28 @@
     {
       "name": "offline test suite",
       "status": "PASS",
-      "detail": "2390 passed, 26 skipped, 53 deselected, 26 warnings in 440.48s (0:07:20)",
+      "detail": "2433 passed, 26 skipped, 53 deselected, 26 warnings in 446.50s (0:07:26)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "T1-T4 and L1",
       "status": "PASS",
-      "detail": "14 passed, 9 deselected, 1 warning in 10.35s",
+      "detail": "14 passed, 9 deselected, 1 warning in 10.66s",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "lint",
       "status": "PASS",
-      "detail": "270 files already formatted",
+      "detail": "273 files already formatted",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "web component suite",
       "status": "PASS",
-      "detail": "Tests  470 passed (470)",
+      "detail": "Tests  498 passed (498)",
       "remedy": "",
       "blocking": false
     },
@@ -49,14 +49,14 @@
     {
       "name": "chain and fork suite",
       "status": "PASS",
-      "detail": "53 passed, 2416 deselected, 2 warnings in 257.24s (0:04:17)",
+      "detail": "53 passed, 2459 deselected, 2 warnings in 223.63s (0:03:43)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 210 deselected, 1 warning in 2.91s",
+      "detail": "7 passed, 210 deselected, 1 warning in 2.89s",
       "remedy": "",
       "blocking": false
     },
@@ -122,6 +122,13 @@
       "detail": "5 tasks on a chain tape, all quotable",
       "remedy": "",
       "blocking": false
+    },
+    {
+      "name": "erc-8183 escrow",
+      "status": "UNVERIFIED",
+      "detail": "job 56681 escrowed 100000000000000000 on chain 56 and was reclaimed; settle has run on a fork only, and opens 2026-09-13 08:01 UTC",
+      "remedy": "make hire-mainnet ARGS='--settle 56718'",
+      "blocking": true
     },
     {
       "name": "artifacts match the engine",
@@ -215,7 +222,7 @@
     {
       "name": "24h unattended burn-in",
       "status": "UNVERIFIED",
-      "detail": "warden longest unbroken run 1.4h on BSC mainnet, signing refused \u2014 across 2 run(s), 1,208 rows (file spans 537.2h \u2014 the gate is the run, not the span). Also: warden 1.4h, sentinel 0.2h, grid 0.1h",
+      "detail": "warden longest unbroken run 21.5h on BSC mainnet, signing refused \u2014 across 2 run(s), 16,179 rows (file spans 557.3h \u2014 the gate is the run, not the span). Also: warden 21.5h, sentinel 0.2h, grid 0.1h",
       "remedy": "the gate is 24h unattended",
       "blocking": true
     },
@@ -245,8 +252,8 @@
   "summary": {
     "pass": 20,
     "fail": 0,
-    "unverified": 1,
-    "total": 21
+    "unverified": 2,
+    "total": 22
   },
   "outcome": "NOT YET",
   "exit_code": 2
