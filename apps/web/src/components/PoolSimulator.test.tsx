@@ -145,6 +145,44 @@ describe("the amount is chosen from sizes that were replayed", () => {
   });
 });
 
+describe("scaling up costs something, and the page says what", () => {
+  it("compares two replayed sizes rather than one scaled", async () => {
+    // The finding the sweep exists for. Without this line a reader pressing the
+    // rungs watches the rate move and has no reason not to read it as noise.
+    draw();
+    await userEvent.click(screen.getByRole("button", { name: "0.50" }));
+
+    const said = document.body.textContent ?? "";
+    expect(said).toContain("The same window at");
+    expect(said).toContain("0.10 WBNB");
+    // 17.0% at the small size against 16.9% at the large one: 0.10pp.
+    expect(said).toContain("0.10pp");
+    expect(said).toContain("less");
+    expect(said).toContain("Both figures are replayed");
+  });
+
+  it("says nothing at the smallest size, because there is nothing to compare", () => {
+    draw();
+    expect(document.body.textContent).not.toContain("The same window at");
+  });
+
+  it("stays quiet when two sizes came out the same", async () => {
+    // Below a hundredth of a percentage point the two sizes are one answer, and
+    // a line claiming a difference would be noise dressed as a finding.
+    const flat = {
+      ...flagship,
+      cells: [
+        cell(),
+        cell({ capital_quote: 0.5, fees_quote: 0.0497, net_apr: 0.17 }),
+      ],
+    };
+    draw(artifact([flat]));
+    await userEvent.click(screen.getByRole("button", { name: "0.50" }));
+
+    expect(document.body.textContent).not.toContain("The same window at");
+  });
+});
+
 describe("A1 refuses rather than clamps", () => {
   it("will not quote a position bigger than its share of the venue", () => {
     // 2 WBNB against a ceiling of 0.026 — the 0.25% pool's real shape.

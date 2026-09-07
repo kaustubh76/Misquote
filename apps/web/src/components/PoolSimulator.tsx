@@ -5,7 +5,7 @@ import { Band } from "@/components/Band";
 import { CostBars } from "@/components/CostBars";
 import { Card } from "@/components/Card";
 import { Refusal } from "@/components/Refusal";
-import { amount, count, fraction, money } from "@/lib/format";
+import { amount, count, fixed, fraction, money } from "@/lib/format";
 
 /** One rolling window at one width, as `simulation.json` records it. */
 export interface SimCell {
@@ -186,6 +186,29 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
   // A1, read off the cell rather than recomputed. The ceiling is a property of
   // the depth this window sat in, so it moves with the window and the width.
   const overCeiling = cell !== null && cell.capital_quote > cell.a1_ceiling_quote;
+
+  // The smallest size replayed in this same window, so the page can say what
+  // scaling up actually did to the rate.
+  //
+  // This is the finding the whole design turns on and until now it was only in
+  // the code: the sizes are swept *because* fees are sublinear in capital, and
+  // a reader pressing the rungs could see the rate move without being told why
+  // — which leaves them to assume it is noise. Both figures are replayed cells
+  // at the same width and window, so the comparison is between two
+  // measurements and not between a measurement and an extrapolation of it.
+  const smallest = useMemo(() => {
+    if (!cell) return null;
+    const sameWindow = cellsAt.filter((c) => c.window === cell.window);
+    return sameWindow.reduce<SimCell | null>(
+      (best, c) => (best === null || c.capital_quote < best.capital_quote ? c : best),
+      null
+    );
+  }, [cellsAt, cell]);
+  // Percentage points, which is the unit a difference between two rates is in.
+  const dilutionPp =
+    cell && smallest && smallest.capital_quote < cell.capital_quote
+      ? (smallest.net_apr - cell.net_apr) * 100
+      : null;
 
   const band = pool?.bands.find((b) => b.width_ticks === chosenWidth) ?? null;
   const unit = pool?.quote_symbol ?? "";
@@ -370,6 +393,34 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
               ]}
               net={cell.fees_quote - cell.convexity_cost_quote}
             />
+
+            {/* What scaling up cost, in the rate, between two replayed sizes.
+                Rendered only when it is a real difference: below a hundredth of
+                a percentage point the two sizes are the same answer, and a line
+                claiming otherwise would be noise dressed as a finding. */}
+            {dilutionPp !== null && smallest && Math.abs(dilutionPp) >= 0.01 && (
+              <p className="mt-4 mb-0 max-w-[70ch] border-t border-line pt-3 text-sm text-dim">
+                The same window at{" "}
+                <span className="tabular text-ink">
+                  {amount(smallest.capital_quote, 2)} {unit}
+                </span>{" "}
+                earned{" "}
+                <span className="tabular text-ink">{fraction(smallest.net_apr)}</span>.
+                This position is{" "}
+                <span className="tabular text-ink">
+                  {fixed(cell.capital_quote / smallest.capital_quote, 0)}&times;
+                </span>{" "}
+                the size and earns{" "}
+                <span className="tabular text-warn">
+                  {fixed(Math.abs(dilutionPp), 2)}pp
+                </span>{" "}
+                {dilutionPp > 0 ? "less" : "more"} on every unit of it — a bigger
+                position takes a smaller share of each swap&rsquo;s fee, because the
+                share is <code className="font-mono text-xs">L / (L_pool + L)</code>{" "}
+                and it is in the denominator. Both figures are replayed; neither
+                is the other one scaled.
+              </p>
+            )}
 
             <p className="mt-4 mb-0 border-t border-line pt-3 text-xs text-faint">
               Ticks {count(cell.tick_lower)} to {count(cell.tick_upper)} — the
