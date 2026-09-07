@@ -268,6 +268,18 @@ def row_for(conn: Any, pool: PoolRef, *, capital: float) -> dict[str, Any]:
     row["bands"] = [b.to_dict() for b in bands]
     row["best_width_ticks"] = leader.width_ticks if leader else None
     row["verdict"] = sentence
+
+    # Badged and unrankable is a third state, and it is TSLAx/USDT: nine checks
+    # passed, 85 swaps, no width with enough windows to say anything. The
+    # `not cleared` branch above clears the path for a pool the vetting layer
+    # refused; this clears it for one the *evidence* refuses, which is a
+    # different refusal and was leaving a chart behind for a pool with nothing
+    # to draw on it.
+    #
+    # Keyed on cells rather than on the verdict's wording, because the verdict
+    # is a sentence and a sentence is not a condition.
+    if not cells:
+        row["price_path"] = []
     return row
 
 

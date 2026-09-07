@@ -11,7 +11,7 @@ import { amount, count, fraction, money } from "@/lib/format";
 export interface SimCell {
   width_ticks: number;
   window: number;
-  /** The size this cell was replayed at. Four sizes share a (width, window). */
+  /** The size this cell was replayed at. The ladder shares a (width, window). */
   capital_quote: number;
   /** A1's ceiling for this cell: 1% of the depth the position sat in. */
   a1_ceiling_quote: number;
@@ -130,9 +130,12 @@ function day(ts: number): string {
  * A replayed position may occupy at most `a1_share` of the venue it sits in —
  * 1%, `Params.eps_liquidity_share` — because a position large enough to move
  * the price it is being paid at is not one history can answer for. The ceiling
- * is on every cell, computed where the depth was measured. On the 0.25% pool it
- * is 0.026 WBNB, which refuses three of the four sizes, and saying so is the
- * most useful thing this page does for that venue.
+ * is on every cell, computed where the depth was measured. On the 0.25% pool at
+ * its narrowest rung it is 0.026 WBNB, which refuses most of the ladder — and
+ * saying so, with the depth it came from, is the most useful thing this page
+ * does for that venue. Depth grows with width, so the same amount that is
+ * refused narrow is often accepted wide, which is a capacity finding an LP
+ * cannot get anywhere else here.
  */
 export function PoolSimulator({ data }: { data: SimulationArtifact }) {
   const simulable = data.pools.filter((p) => p.cells.length > 0);

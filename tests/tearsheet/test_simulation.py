@@ -187,8 +187,9 @@ def test_a_bigger_position_earns_less_than_its_share_and_that_is_the_measurement
 def test_every_cell_carries_the_size_it_was_replayed_at() -> None:
     """A cell without its capital is a money figure with no unit.
 
-    Four sizes share a (width, window) key, so the size is the field that tells
-    them apart. Omitting it would leave four cells looking like four windows.
+    Every size on the ladder shares a (width, window) key, so the size is the
+    field that tells them apart. Omitting it would leave one window's ladder
+    looking like a run of separate windows.
     """
     found = window_fits(tape(4_000), META, 80, capital_quote=0.5)[0]
     row = emitter.cell(80, found)

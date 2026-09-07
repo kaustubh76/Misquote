@@ -14,7 +14,7 @@ import type {
   AgentArtifact,
   IndexArtifact,
 } from "@/lib/artifacts";
-import { money } from "@/lib/format";
+import { amount, money } from "@/lib/format";
 
 /**
  * `/registry` mounts an on-chain console, and wagmi's hooks throw outside a
@@ -1506,11 +1506,15 @@ describe("Simulate: a position, on swaps that happened", () => {
     // bigger position actually suffers.
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
 
+    // Formatted through `amount`, which is what the control renders with.
+    // `toFixed(2)` here would be a second formatter, and the assertion would
+    // fail on the difference between two ways of writing the same size rather
+    // than on a size that is missing.
     const offered = [...new Set(first.cells.map((c) => c.capital_quote))];
     expect(offered.length).toBeGreaterThan(0);
     for (const size of offered) {
       expect(
-        screen.getAllByRole("button", { name: String(size.toFixed(2)) }).length,
+        screen.getAllByRole("button", { name: amount(size, 2) }).length,
         `${size} was replayed and is not offered`
       ).toBeGreaterThan(0);
     }
