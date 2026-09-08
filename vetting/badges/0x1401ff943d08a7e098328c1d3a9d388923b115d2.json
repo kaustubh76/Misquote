@@ -30,7 +30,7 @@
       "status": "PASS"
     },
     {
-      "detail": "tick -66162",
+      "detail": "tick -66196",
       "id": "initialised",
       "name": "initialised and not pinned",
       "provenance": "chapel's WBNB/USDT: real address, initialised at MAX_TICK, never seeded",
@@ -44,7 +44,7 @@
       "status": "PASS"
     },
     {
-      "detail": "31,335,742,174,525,428,413,441 \u2014 a 1% share is 313,357,421,745,254,301,696",
+      "detail": "36,380,997,691,992,619,974,957 \u2014 a 1% share is 363,809,976,919,926,177,792",
       "id": "liquidity-depth",
       "name": "liquidity supports a position",
       "provenance": "A1: a position big enough to move the price it is replayed against is fiction",
