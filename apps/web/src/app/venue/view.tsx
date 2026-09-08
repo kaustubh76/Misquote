@@ -21,6 +21,9 @@ interface Divergence {
   pancake: string;
   costs: string;
   provenance: string;
+  /** The module the divergence is handled in, and the test that holds it. */
+  where: string;
+  caught_by: string;
 }
 
 interface VenuePool {
@@ -425,11 +428,31 @@ export function VenueView({
                       summarised because the amount is the point. */}
                   <p className="mt-3 mb-0 max-w-[72ch] text-sm">{row.costs}</p>
 
-                  {/* `where` and `caught_by` are both file paths — the test and
-                      the module that caught the divergence. The provenance
-                      carries the P- and V- ids a reader can actually follow, and
-                      `WithCitations` linkifies them out of the artifact string. */}
+                  {/* The section above promises "the last column is what
+                      catches it now", and for the life of this page the last
+                      column was the assumption ids.
+                      `where` and `caught_by` have been on every row of
+                      `venue.json` since it was written — the module that
+                      handles the divergence and the test that holds it — and
+                      the comment that used to sit here described rendering
+                      them while the markup rendered neither. A claim that six
+                      defects are each caught by something that runs is worth
+                      exactly the name of the thing that runs, and a reader had
+                      to take it on faith.
+
+                      `caught_by` is rendered verbatim rather than parsed: two
+                      of the six carry a clause naming the check inside the
+                      module — "badge.py — check 'factory resolves it'" — and
+                      the file alone would drop the half that says which of the
+                      nine. */}
                   <p className="mt-3 mb-0 border-t border-line pt-2 text-xs text-faint">
+                    <span className="text-dim">caught by</span>{" "}
+                    <code className="font-mono">{row.caught_by}</code>
+                    <br />
+                    <span className="text-dim">handled in</span>{" "}
+                    <code className="font-mono">{row.where}</code>
+                  </p>
+                  <p className="mt-1 mb-0 text-xs text-faint">
                     <WithCitations text={row.provenance} />
                   </p>
                 </Card>
