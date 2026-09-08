@@ -57,7 +57,7 @@ from pathlib import Path
 from typing import Any
 
 from misquote.chain.addresses import BSC_MAINNET, PoolRef, known_pools_on
-from misquote.core.tickmath import tick_to_price
+from misquote.core.tickmath import MAX_TICK, MIN_TICK, tick_to_price
 from misquote.core.types import Event, Params, PoolMeta
 from misquote.indexer import store
 from misquote.tearsheet import provenance
@@ -161,7 +161,48 @@ def price_path(
     ]
 
 
-def cell(width_ticks: int, found: WindowFit) -> dict[str, Any]:
+#: The multiple of the tick spacing below which a position is dust.
+#:
+#: Spec section 3.2's anti-dust floor, and `vetting/badge.py::_check_mintable`
+#: applies exactly this. Imported as a number rather than re-derived because the
+#: badge check owns the rule; if that ever stops being `4 * spacing` this is one
+#: of the two places that has to move, and the test pins them together.
+W_MIN_MULT = 4
+
+
+def mintability(tick_lower: int, tick_upper: int, tick_spacing: int) -> tuple[bool, str]:
+    """Whether PancakeSwap would have accepted this range, and why not.
+
+    The same three conditions `_check_mintable` applies to a pool's own w_min
+    range: both bounds inside the tick extremes, both on the spacing grid, and
+    the half-width at or above `4 * spacing`.
+
+    This matters here because `PoolAprEstimator` snaps the *centre* to the
+    spacing and then takes `centre +/- width` **without** snapping the width. So
+    a rung is on the grid only when `width % spacing == 0`, and the ladder is
+    shared across pools with different spacings — which means /simulate was
+    offering, on the 0.25% pool, four widths that pool would reject. The
+    measurement is a sound comparison between band widths either way; the claim
+    that you could have taken the position is what needed qualifying.
+
+    Returns the engine's own sentence rather than a code, for the same reason
+    every refusal here does: the page renders it verbatim and cannot soften it.
+    """
+    half = (tick_upper - tick_lower) // 2
+    w_min = W_MIN_MULT * tick_spacing
+    faults = []
+    if tick_lower <= MIN_TICK or tick_upper >= MAX_TICK:
+        faults.append(f"[{tick_lower}, {tick_upper}] reaches the tick extreme")
+    if tick_lower % tick_spacing or tick_upper % tick_spacing:
+        faults.append(f"its bounds are off this pool's {tick_spacing}-tick grid")
+    if half < w_min:
+        faults.append(f"+/-{half} is below this pool's {w_min}-tick anti-dust floor")
+    if not faults:
+        return True, ""
+    return False, "A position here could not be minted: " + ", and ".join(faults) + "."
+
+
+def cell(width_ticks: int, found: WindowFit, tick_spacing: int) -> dict[str, Any]:
     """One window at one width, as the artifact carries it.
 
     Every field is the fit's own. Nothing is recomputed here — in particular not
@@ -170,6 +211,7 @@ def cell(width_ticks: int, found: WindowFit) -> dict[str, Any]:
     now publishes for the same reason.
     """
     fit = found.fit
+    mintable, why = mintability(fit.tick_lower, fit.tick_upper, tick_spacing)
     return {
         "width_ticks": width_ticks,
         "window": found.window,
@@ -193,6 +235,8 @@ def cell(width_ticks: int, found: WindowFit) -> dict[str, Any]:
         "depth_quote": fit.depth_quote,
         "tick_lower": fit.tick_lower,
         "tick_upper": fit.tick_upper,
+        "mintable": mintable,
+        "not_mintable_why": why,
     }
 
 
@@ -255,12 +299,13 @@ def row_for(conn: Any, pool: PoolRef, *, capital: float) -> dict[str, Any]:
         # to keep apart, arrived at by the back door. The band's floor is the
         # floor, and a width that did not clear it offers nothing to choose.
         if got.sufficient:
-            cells.extend(cell(width, f) for f in found)
+            cells.extend(cell(width, f, meta.tick_spacing) for f in found)
             for size in CAPITAL_LADDER:
                 if size == capital:
                     continue
                 cells.extend(
-                    cell(width, f) for f in window_fits(events, meta, width, capital_quote=size)
+                    cell(width, f, meta.tick_spacing)
+                    for f in window_fits(events, meta, width, capital_quote=size)
                 )
 
     leader, sentence = best_width(bands)

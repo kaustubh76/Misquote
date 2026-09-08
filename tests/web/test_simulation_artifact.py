@@ -136,6 +136,59 @@ def test_money_is_not_a_scaling_of_the_reference_size(report: dict) -> None:
         pytest.skip("only one size per window in this report")
 
 
+def test_mintability_agrees_with_the_tick_grid_it_is_about(report: dict) -> None:
+    """The page marks rungs off this number, so it may not drift from the bounds.
+
+    `PoolAprEstimator` snaps the *centre* to the spacing and then takes
+    `centre +/- width` without snapping the width, so a range sits on the pool's
+    grid only when `width % tick_spacing == 0`. The ladder is shared across
+    pools whose spacings differ, which is how `/simulate` came to offer four
+    widths the 0.25% pool would reject — the revert `/venue` documents as
+    divergence five, on the page next door.
+
+    Re-derived here from the bounds rather than trusted, because a `mintable`
+    that stopped describing `tick_lower`/`tick_upper` would mark the wrong rungs
+    and nothing in the browser could tell.
+    """
+    for pool in report["pools"]:
+        spacing = pool["tick_spacing"]
+        for c in pool["cells"]:
+            on_grid = c["tick_lower"] % spacing == 0 and c["tick_upper"] % spacing == 0
+            above_floor = (c["tick_upper"] - c["tick_lower"]) // 2 >= 4 * spacing
+            assert c["mintable"] is (on_grid and above_floor), (
+                f"{pool['label']} +/-{c['width_ticks']}: mintable={c['mintable']} but "
+                f"[{c['tick_lower']}, {c['tick_upper']}] on a {spacing}-tick grid is "
+                f"on_grid={on_grid}, above_floor={above_floor}"
+            )
+
+
+def test_an_unmintable_cell_says_why_and_a_mintable_one_does_not(report: dict) -> None:
+    """A refusal with no reason is indistinguishable from an oversight, and a
+    reason attached to something that was not refused is noise on the page."""
+    for pool in report["pools"]:
+        for c in pool["cells"]:
+            if c["mintable"]:
+                assert c["not_mintable_why"] == "", (
+                    f"{pool['label']} +/-{c['width_ticks']} is mintable and carries a reason"
+                )
+            else:
+                assert "could not be minted" in c["not_mintable_why"], c["not_mintable_why"]
+
+
+def test_at_least_one_width_is_unmintable_somewhere(report: dict) -> None:
+    """Both bounds on the finding, so this stops covering nothing silently.
+
+    If every rung became mintable the marking is unreachable and this file has
+    stopped testing it; if none were, the ladder would be entirely hypothetical
+    and the page should say something much stronger than it does.
+    """
+    cells = [c for pool in report["pools"] for c in pool["cells"]]
+    refused = [c for c in cells if not c["mintable"]]
+
+    assert refused, "no width is unmintable — the marking on /simulate is unreachable"
+    assert len(refused) < len(cells), "every width is unmintable — retarget this page"
+
+
 def test_the_a1_ceiling_is_on_every_cell_and_is_the_published_share(report: dict) -> None:
     """The page refuses on this number, so it may not be a number the page invented."""
     share = report["a1_share"]

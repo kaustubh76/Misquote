@@ -31,6 +31,10 @@ export interface SimCell {
   /** The range the accountant actually used, published by the estimator. */
   tick_lower: number;
   tick_upper: number;
+  /** Whether PancakeSwap would have accepted a position at these bounds. */
+  mintable: boolean;
+  /** The emitter's sentence when it would not. Empty when it would. */
+  not_mintable_why: string;
 }
 
 export interface SimBand {
@@ -47,11 +51,10 @@ export interface SimPool {
   address: string;
   label: string;
   quote_symbol: string;
-  fee_pips: number;
+  /** Rendered beside the rungs: the spacing is *why* a width is mintable. */
   tick_spacing: number;
   lp_fee_share: number;
-  badged: boolean;
-  tape: { swaps: number; first_ts: number; last_ts: number };
+  tape: { swaps: number };
   price_path: { ts: number; tick: number; price: number }[];
   cells: SimCell[];
   bands: SimBand[];
@@ -60,15 +63,11 @@ export interface SimPool {
 }
 
 export interface SimulationArtifact {
-  chain_id: number;
   /** The size the published bands were measured at. */
   capital_quote: number;
   width_ladder: number[];
-  /** Every size swept. The page offers these and nothing between them. */
-  capital_ladder: number[];
   /** A1's share of a venue a position may occupy, as the emitter read it. */
   a1_share: number;
-  path_points: number;
   summary: {
     pools: number;
     badged: number;
@@ -182,7 +181,7 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
     [pool, chosenWidth]
   );
   // Sizes this pool has cells for at this width, ascending. Derived rather than
-  // read off `data.capital_ladder`, for the same reason the widths are: a rung
+  // read off the artifact's own ladder, for the same reason the widths are: a rung
   // offered and then refusing is a control that lies about what it does.
   const sizes = useMemo(
     () => [...new Set(cellsAt.map((c) => c.capital_quote))].sort((a, b) => a - b),
@@ -377,11 +376,20 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {widths.map((w) => {
                 const on = w === chosenWidth;
+                // Whether this pool would accept a position at this width. A
+                // property of the rung, not of the selection, so it is read off
+                // any cell at that width.
+                const ok = cellsAt.find((c) => c.width_ticks === w)?.mintable ?? true;
                 return (
                   <button
                     key={w}
                     type="button"
                     aria-pressed={on}
+                    aria-label={
+                      ok
+                        ? `±${count(w)} ticks`
+                        : `±${count(w)} ticks — not mintable on this pool`
+                    }
                     onClick={() => {
                       setWidth(w);
                       setWindowIndex(0);
@@ -390,7 +398,7 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
                       on
                         ? "border-brand-line bg-brand-bg font-medium text-brand"
                         : "border-glass-line bg-panel-2/50 text-dim hover:text-ink"
-                    }`}
+                    } ${ok ? "" : "hatched border-dashed [--hatch-tone:var(--hatch-warn)]"}`}
                   >
                     ±{count(w)}
                     {w === pool.best_width_ticks && " · leads"}
@@ -398,6 +406,20 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
                 );
               })}
             </div>
+            {/* Hatched is this site's texture for "there is deliberately
+                nothing here" — the withheld band, the absent fee tier — and an
+                unmintable rung is the same claim: a measurement with no
+                position behind it. Said in words as well, because a texture is
+                not a sentence and half the ladder carries it on this pool. */}
+            {widths.some((w) => cellsAt.find((c) => c.width_ticks === w)?.mintable === false) && (
+              <p className="mt-2 mb-0 max-w-[70ch] text-xs text-faint">
+                Hatched widths are measurable and <strong>not mintable</strong> on
+                this pool — its tick spacing is{" "}
+                <span className="tabular">{count(pool.tick_spacing)}</span>, and a
+                range is only accepted on that grid.{" "}
+                <Link href="/venue">Why a mint reverts on the wrong tick &rarr;</Link>
+              </p>
+            )}
           </fieldset>
         )}
 
@@ -423,6 +445,31 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
       </Card>
 
       {/* --------------------------------------------------- the answer -- */}
+
+      {/* Above the branch, not inside the result.
+          It lived in the result card and was therefore invisible in exactly the
+          case it matters most: on the 0.25% pool every unmintable rung is also
+          far under A1's ceiling, so the size refusal returned early and the
+          reader never learned the range does not exist on that pool. Two true
+          refusals, and the one about whether the position is *possible* has to
+          outrank the one about whether it is too big — a ceiling on a range
+          this pool would reject is a curiosity.
+          The figures that follow stay either way. They are a sound measurement
+          of a band of that width, and the ladder is only a like-for-like
+          comparison across pools because every pool is measured at the same
+          widths. What is not sound is the implication a reader could have taken
+          it, and that is what this says. */}
+      {cell && !cell.mintable && (
+        <p className="hatched mt-0 mb-0 max-w-[70ch] rounded-sm border border-dashed border-warn-line px-3 py-2 text-sm text-warn [--hatch-tone:var(--hatch-warn)]">
+          <strong>{cell.not_mintable_why}</strong>{" "}
+          <span className="text-dim">
+            &plusmn;{count(cell.width_ticks)} ticks is measurable on this pool and
+            not a position {pool.label} would have accepted. Everything below is
+            the measurement.
+          </span>
+        </p>
+      )}
+
       {!cell ? (
         <Refusal
           title="No position can be simulated on this pool"
@@ -494,6 +541,38 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
                 What recentring adds, measured against this exact policy &rarr;
               </Link>
             </p>
+
+            {/* The pair `estimators/pool_apr.py` requires, and this page
+                rendered neither half of.
+                Its docstring is explicit: "`fit()` returns fees **and** the
+                realized convexity cost from the same window, and every caller
+                in this repository is expected to render the pair." /simulate
+                emitted `fee_apr` and `convexity_cost_apr` on all 1,400 cells
+                and showed only the net — which is the subtraction's *answer*
+                with neither of its terms. A10's whole argument is that a fee
+                APR published without its adverse-selection cost is the
+                overstatement every other venue quotes; showing only the net
+                hides the same thing from the other side, because a reader
+                cannot see how much was taken out. */}
+            <div className="mt-0 mb-4 flex flex-wrap gap-x-6 gap-y-1 border-y border-line py-2 text-sm">
+              <span className="text-dim">
+                fees{" "}
+                <span className="tabular text-good">{fraction(cell.fee_apr)}</span>
+              </span>
+              <span className="text-dim">
+                &minus; adverse selection{" "}
+                <span className="tabular text-warn">
+                  {fraction(cell.convexity_cost_apr)}
+                </span>
+              </span>
+              <span className="text-dim">
+                ={" "}
+                <span className="tabular font-semibold text-ink">
+                  {fraction(cell.net_apr)}
+                </span>{" "}
+                net
+              </span>
+            </div>
 
             {/* Reused rather than redrawn: this is the same three-part split
                 `CostBars` was built for on the agent cards — earned, spent, and

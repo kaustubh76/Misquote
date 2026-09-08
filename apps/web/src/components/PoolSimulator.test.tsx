@@ -31,6 +31,8 @@ const cell = (over: Partial<SimCell> = {}): SimCell => ({
   depth_quote: 421,
   tick_lower: -65380,
   tick_upper: -65220,
+  mintable: true,
+  not_mintable_why: "",
   ...over,
 });
 
@@ -38,11 +40,9 @@ const flagship = {
   address: "0x3669",
   label: "PancakeSwap v3 WBNB/USDT 0.05%",
   quote_symbol: "WBNB",
-  fee_pips: 500,
   tick_spacing: 10,
   lp_fee_share: 0.66,
-  badged: true,
-  tape: { swaps: 252923, first_ts: 1_755_000_000, last_ts: 1_758_000_000 },
+  tape: { swaps: 252923 },
   price_path: [
     { ts: 1_756_000_000, tick: -65340, price: 0.0012 },
     { ts: 1_756_500_000, tick: -65300, price: 0.00121 },
@@ -87,7 +87,7 @@ const equity = {
   address: "0x5E12",
   label: "PancakeSwap v3 TSLAx/USDT 0.25%",
   quote_symbol: "TSLAx",
-  tape: { swaps: 85, first_ts: 1_755_000_000, last_ts: 1_758_000_000 },
+  tape: { swaps: 85 },
   price_path: [],
   cells: [],
   bands: [],
@@ -96,12 +96,9 @@ const equity = {
 };
 
 const artifact = (pools = [flagship, equity]): SimulationArtifact => ({
-  chain_id: 56,
   capital_quote: 0.1,
   width_ladder: [40, 80, 130, 200, 244, 400, 800],
-  capital_ladder: [0.01, 0.1, 0.5, 2.0],
   a1_share: 0.01,
-  path_points: 240,
   summary: { pools: pools.length, badged: 3, simulable: 1, refused: 1, cells: 3 },
   pools,
 });
@@ -241,6 +238,61 @@ describe("it says nobody is managing the position", () => {
     expect(
       screen.getByRole("link", { name: /That gap is what an agent is for/ })
     ).toHaveAttribute("href", "/advantage");
+  });
+});
+
+describe("a width this pool would refuse is marked as one", () => {
+  // The estimator snaps the centre to the spacing and takes `centre ± width`
+  // without snapping the width, so a rung is on the grid only when
+  // `width % spacing == 0`. The ladder is shared across pools with different
+  // spacings, so /simulate was offering four widths the 0.25% pool rejects —
+  // on a site whose /venue documents that revert as divergence five.
+  const refused = "A position here could not be minted: its bounds are off this pool's 50-tick grid.";
+  const offGrid = {
+    ...flagship,
+    tick_spacing: 50,
+    cells: [
+      cell({ width_ticks: 40, mintable: false, not_mintable_why: refused }),
+      cell({ width_ticks: 200 }),
+    ],
+  };
+
+  it("renders the emitter's reason rather than one written here", () => {
+    draw(artifact([offGrid]));
+    expect(screen.getByText(refused)).toBeInTheDocument();
+  });
+
+  it("keeps the measurement and qualifies only the claim about taking it", () => {
+    draw(artifact([offGrid]));
+    // The figures stay — the ladder is only a like-for-like comparison because
+    // every pool is measured at the same widths.
+    expect(document.body.textContent).toContain("0.00550");
+    expect(document.body.textContent).toContain("not a position");
+  });
+
+  it("marks the rung itself, in its accessible name and not only its texture", () => {
+    draw(artifact([offGrid]));
+    expect(
+      screen.getByRole("button", { name: /±40 ticks — not mintable on this pool/ })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "±200 ticks" })).toBeInTheDocument();
+  });
+
+  it("says nothing when every width on the ladder is mintable", () => {
+    draw();
+    expect(screen.queryByText(/not mintable/)).not.toBeInTheDocument();
+  });
+});
+
+describe("the rate pair the estimator requires", () => {
+  it("shows both terms of the subtraction, not only its answer", () => {
+    // `estimators/pool_apr.py`: "every caller in this repository is expected to
+    // render the pair". This page emitted both and rendered neither.
+    draw();
+    const said = document.body.textContent ?? "";
+    expect(said).toContain("31.0%"); // fee_apr
+    expect(said).toContain("14.0%"); // convexity_cost_apr
+    expect(said).toContain("17.0%"); // net
   });
 });
 
