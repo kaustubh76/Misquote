@@ -1,11 +1,18 @@
 """The provider is somebody else, and a test that says so.
 
-Every hire this repository has recorded — chapel 746, mainnet 56681 and 56718,
-and every fork rehearsal — puts **one address in both the client and the provider
-column**. Not because that is the product: `hire_mainnet.py` hardcoded
-`provider=signer.address` with the comment "client and provider, so settle
-returns it", and `BscSigner` could only reach `MISQUOTE_PRIVATE_KEY`, so the one
-wallet whose key lives in a keystore could not sign at all.
+**On mainnet**, every hire this repository has recorded puts one address in both
+the client and the provider column — 56681 and 56718 both. Not because that is
+the product: `hire_mainnet.py` hardcoded `provider=signer.address` with the
+comment "client and provider, so settle returns it", and `BscSigner` could only
+reach `MISQUOTE_PRIVATE_KEY`, so the one wallet whose key lives in a keystore
+could not sign at all.
+
+The first version of this docstring said "and every fork rehearsal", and that was
+wrong in the flattering direction — the correction belongs here rather than in a
+git message nobody reads twice. `prove_escrow_fund.py` has driven two genuinely
+distinct parties since it was written: anvil's account 0 funds, account 1 submits,
+and `settled` is true. So the *mechanism* is proven and only the mainnet record
+is not, which is a narrower and more useful claim than the one I made.
 
 A marketplace whose only proven delivery is the buyer delivering to themselves is
 the misquote this project is named after, applied to its own escrow. So the
@@ -27,7 +34,15 @@ RECORDS = REPO / "vetting" / "identity"
 
 #: Records that are hires. A file that stops being one should fail loudly here
 #: rather than be skipped into silence.
-HIRES = ("hire-mainnet-56.json", "hire-mainnet-56-submitted.json", "hire-97.json")
+HIRES = (
+    "hire-mainnet-56.json",
+    "hire-mainnet-56-submitted.json",
+    "hire-97.json",
+    # The one that already has two parties, included so the suite has a positive
+    # case and not only an absence. It is a fork and says so; what it proves is
+    # the mechanism, not that money moved between strangers.
+    "hire-fork-56.json",
+)
 
 
 def _load(name: str) -> dict | None:
@@ -69,30 +84,78 @@ def test_every_hire_record_names_both_parties(name: str) -> None:
         )
 
 
-def test_a_two_party_record_really_has_two_parties() -> None:
-    """`two_party: true` has to mean the addresses differ.
+def _two_parties(record: dict) -> bool:
+    """Two distinct addresses, judged by the addresses and not by a label.
+
+    The flag is only written by today's `hire_mainnet.py`; `hire-fork-56.json`
+    predates it and has had two genuinely distinct parties since it was written.
+    Keying off the label would have made this suite skip past its only positive
+    case while reporting "no two-party hire on record" — a guard declaring the
+    absence of the very thing sitting next to it.
+    """
+    client, provider = record.get("client"), record.get("provider")
+    return bool(client and provider and client.lower() != provider.lower())
+
+
+def test_the_two_party_flag_agrees_with_the_addresses() -> None:
+    """A record claiming `two_party` must name two, and vice versa.
 
     Asserted rather than displayed. `hire_flow` renders five proof blocks and a
     reader comparing two 42-character strings across them will not notice that
     they are the same one — which is exactly how a self-hire came to be published
-    for weeks as evidence of hiring.
+    as evidence of hiring.
     """
-    claimed = {
-        name: record
-        for name in HIRES
-        if (record := _load(name)) is not None and record.get("two_party")
-    }
-    for name, record in claimed.items():
-        assert record["client"].lower() != record["provider"].lower(), (
-            f"{name} claims two_party and names one address twice: {record['client']}"
+    for name in HIRES:
+        record = _load(name)
+        if record is None or "two_party" not in record:
+            continue
+        assert record["two_party"] == _two_parties(record), (
+            f"{name} says two_party={record['two_party']} while naming "
+            f"client={record.get('client')} and provider={record.get('provider')}"
         )
 
-    # Not a bare `assert claimed` — no two-party hire has been run yet, and a
-    # test that fails until one is would be red for a reason unrelated to the
-    # code. What it must not do is pass while a record claims the property and
-    # contradicts it, which is what the loop above catches.
-    if not claimed:
-        pytest.skip("no two-party hire on record yet")
+
+def test_the_flow_has_been_driven_by_two_distinct_parties() -> None:
+    """Somewhere, a provider that is not the buyer has submitted.
+
+    `prove_escrow_fund.py` does this on every run — anvil's account 0 funds and
+    account 1 submits — so the mechanism is proven even though no *mainnet*
+    record has ever shown it. That distinction is the honest one, and it is the
+    one the first version of this file got wrong in the flattering direction.
+    """
+    two_party = {name: r for name in HIRES if (r := _load(name)) and _two_parties(r)}
+    assert two_party, (
+        "no record anywhere names a client and a provider that differ, so nothing "
+        "here demonstrates hiring somebody else. `make prove-escrow` writes one."
+    )
+
+    # And at least one of them got the money to the other end.
+    settled = [name for name, r in two_party.items() if r.get("settled")]
+    assert settled, (
+        f"two parties appear in {sorted(two_party)} and none of those runs settled, "
+        f"so the provider was named but never paid"
+    )
+
+
+def test_no_mainnet_hire_has_two_parties_yet() -> None:
+    """The gap, asserted so it cannot close silently.
+
+    This is the one that should start failing. When a mainnet run finally names a
+    provider that is not the buyer, this test breaks and has to be deleted — which
+    is the right direction for a test whose whole subject is an absence, and the
+    opposite of the ledger entry that stayed true three times while describing the
+    wrong floor.
+    """
+    mainnet = {
+        name: r
+        for name in ("hire-mainnet-56.json", "hire-mainnet-56-submitted.json")
+        if (r := _load(name)) is not None
+    }
+    for name, record in mainnet.items():
+        assert not _two_parties(record), (
+            f"{name} now names two distinct parties on mainnet. That is the thing "
+            f"this repository wanted; delete this test and say so on /registry."
+        )
 
 
 def test_a_deliverable_that_claims_a_file_commits_to_that_file() -> None:
