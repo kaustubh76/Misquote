@@ -271,6 +271,39 @@ class TermixSession:
         response.raise_for_status()
         return response.json()
 
+    def post(self, path: str, body: dict[str, Any]) -> Any:
+        """One **authenticated** POST, which `_post` is not.
+
+        `_post` exists for `/auth/nonce` and `/auth/wallet`, which are reached
+        before there is a token and deliberately send no `Authorization` header.
+        Reusing it for a seller write sends the body to an endpoint that answers
+        `401` and reads, from the caller's side, exactly like a rejected
+        signature — so the two are separate methods rather than one with a flag.
+
+        A `400` is returned rather than raised. TermiX validates one field at a
+        time and names it (`title: Required`), which makes the error the useful
+        half of the response: it is how `WALLET_FIELDS` was discovered, and it
+        is how a caller learns a schema it was never handed. `AuthFailed` on a
+        `401` still raises, because that one is not information about a body.
+        """
+        import httpx
+
+        url = api_base(self.chain_id) + path
+        _assert_fetchable(url)
+        response = httpx.post(
+            url,
+            json=body,
+            headers=self.session.header,
+            timeout=self._timeout,
+            follow_redirects=False,
+        )
+        if response.status_code == 401:
+            raise AuthFailed(f"{path} refused the token; it may have expired")
+        try:
+            return response.json()
+        except ValueError:
+            raise AuthFailed(f"{path} returned {response.status_code} and no JSON") from None
+
     # --- internals ----------------------------------------------------------
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
