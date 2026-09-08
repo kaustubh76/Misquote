@@ -20,7 +20,13 @@ export const metadata: Metadata = { title: "No such page" };
 const BLURB: Record<string, string> = {
   "/": "every agent that exists, and everything advertised that does not",
   "/quote": "your own positions, checked against the tape before anything is queued",
-  "/activate": "what hiring an agent would cost you, and why there is no button",
+  /* This read "why there is no button" for as long as there was not one.
+     There is: `/activate` grants a session key, escrows a budget to the agent
+     that delivers, and shows the 32 bytes `submit` commits to before they are
+     signed. `AgentDetail.tsx` corrected the same sentence where it appeared as
+     a link label; this copy of it was the one nobody re-read, because a 404 is
+     the page you only see when something else has already gone wrong. */
+  "/activate": "hire an agent: the budget in escrow, and what delivery commits to",
   "/category": "the four jobs you can hire for, and what each is judged on",
   "/simulate": "what a PancakeSwap position of your size would have earned, on swaps that happened",
   "/venue": "where PancakeSwap is not Uniswap, and what each difference cost",

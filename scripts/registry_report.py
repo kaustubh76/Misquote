@@ -366,14 +366,38 @@ def _published_record(
                 **skeleton,
                 "reason": f"{path.name} could not be read: {error}",
             }
-        return {
-            **skeleton,
-            **record,
-            "ran": True,
-            "reason": None,
-            "record": str(path.relative_to(REPO)),
-        }
+        return _keep_sub_skeletons(
+            skeleton,
+            {
+                **skeleton,
+                **record,
+                "ran": True,
+                "reason": None,
+                "record": str(path.relative_to(REPO)),
+            },
+        )
     return {**skeleton, "reason": absent}
+
+
+def _keep_sub_skeletons(skeleton: dict[str, Any], merged: dict[str, Any]) -> dict[str, Any]:
+    """A null in the record must not collapse a sub-object the contract declares.
+
+    The merge above is shallow, which is right for scalars and wrong for the
+    keys whose skeleton value is itself a shape. `hire_mainnet.py` writes
+    `"deliverable": null` on every run that commits to no file — and a null
+    there is one leaf where the contract declares four, so a run with no
+    `--deliverable-file` would fail
+    `test_the_registry_emitter_writes_exactly_the_contracted_fields` in both
+    directions at once.
+
+    Nulling the *fields* rather than the object says the same thing and keeps
+    the shape a renderer can rely on. `addresses` has the same exposure and has
+    simply never been written null yet.
+    """
+    for key, shape in skeleton.items():
+        if isinstance(shape, dict) and not isinstance(merged.get(key), dict):
+            merged[key] = dict(shape)
+    return merged
 
 
 #: What a record looks like when there is not one. Derived from the records
@@ -403,6 +427,14 @@ ABSENT_MAINNET = {
     "budget": None,
     "chain_id": None,
     "client": None,
+    #: What `submit`'s 32 bytes commit to, when a run committed to anything.
+    #:
+    #: `hire.py` is blunt that the argument is opaque — "nothing on chain
+    #: interprets it, so this does not pretend to" — which makes the commitment
+    #: worth exactly as much as the record tying it to a fetchable file. Both
+    #: mainnet runs so far sent `keccak256("job-<id>")`, a hash of the job's own
+    #: id, so these are null and the page says which.
+    "deliverable": {"bytes": None, "file": None, "keccak256": None, "url": None},
     "escrowed": None,
     "escrowed_on_mainnet": None,
     "evaluator": None,
@@ -418,6 +450,11 @@ ABSENT_MAINNET = {
     "settled": None,
     "success_criterion": None,
     "transactions": [],
+    #: `hire_mainnet.py`'s own label. Emitted so the contract knows the field
+    #: exists; the page judges distinctness from `client` and `provider`
+    #: directly, for the reason `_two_parties` gives — keying off a label makes
+    #: a record that predates the label read as a self-hire.
+    "two_party": None,
 }
 
 ABSENT_FORK = {
@@ -484,6 +521,14 @@ ABSENT_SUBMIT: dict[str, Any] = {
     "budget": None,
     "chain_id": None,
     "client": None,
+    #: What `submit`'s 32 bytes commit to, when a run committed to anything.
+    #:
+    #: `hire.py` is blunt that the argument is opaque — "nothing on chain
+    #: interprets it, so this does not pretend to" — which makes the commitment
+    #: worth exactly as much as the record tying it to a fetchable file. Both
+    #: mainnet runs so far sent `keccak256("job-<id>")`, a hash of the job's own
+    #: id, so these are null and the page says which.
+    "deliverable": {"bytes": None, "file": None, "keccak256": None, "url": None},
     "dispute_window_s": None,
     "escrowed": None,
     "escrowed_on_mainnet": None,
@@ -504,6 +549,11 @@ ABSENT_SUBMIT: dict[str, Any] = {
     "submitted": None,
     "success_criterion": None,
     "transactions": [],
+    #: `hire_mainnet.py`'s own label. Emitted so the contract knows the field
+    #: exists; the page judges distinctness from `client` and `provider`
+    #: directly, for the reason `_two_parties` gives — keying off a label makes
+    #: a record that predates the label read as a self-hire.
+    "two_party": None,
     "what_this_run_changes": None,
     "why_settle_reverted": None,
 }

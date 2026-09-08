@@ -27,7 +27,12 @@ export function EscrowField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
       />
-      {note && <span className="mt-1 block text-faint">{note}</span>}
+      {/* `break-all` because the only note this takes today is a 32-byte
+          hash, and a 66-character string with no break opportunity sets its
+          container's min-content width — the row was 462px wide inside a 390px
+          viewport when `/registry` did the same thing with a transaction
+          hash. */}
+      {note && <span className="mt-1 block font-mono break-all text-faint">{note}</span>}
     </label>
   );
 }

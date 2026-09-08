@@ -49,6 +49,17 @@
 const BASE = "/artifacts";
 
 /**
+ * The one place the prefix is written, because getting it wrong 404s silently.
+ *
+ * Exported so a caller that needs the *bytes* rather than the parsed JSON —
+ * `HireEscrow` hashes an agent's artifact to commit to it — cannot reintroduce
+ * the relative path this file's opening comment describes at length.
+ */
+export function artifactUrl(name: string): string {
+  return `${BASE}/${name}`.replace(/\/{2,}/g, "/");
+}
+
+/**
  * There is no `status` field, and the HTTP code is not lost by dropping it.
  *
  * One existed, carried the response code, and was read nowhere. The thing that
@@ -92,7 +103,7 @@ export class ArtifactError extends Error {
  * six-line original at the top of this file, reintroduced one route at a time.
  */
 async function getJSON<T>(name: string): Promise<T> {
-  const url = `${BASE}/${name}`.replace(/\/{2,}/g, "/");
+  const url = artifactUrl(name);
   let res: Response;
 
   try {

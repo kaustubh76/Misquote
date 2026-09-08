@@ -426,3 +426,31 @@ export function paymentTokenMarket(
     url: `https://pancakeswap.finance/swap?chain=bsc&outputCurrency=${deployment.erc20}`,
   };
 }
+
+/**
+ * Did the money go to somebody else, judged by the addresses.
+ *
+ * A marketplace whose only proven delivery is the buyer delivering to
+ * themselves is the misquote this project is named after, applied to its own
+ * escrow — so this is the one fact every recorded hire should be read for, and
+ * `/registry` showed neither address for any of five proofs.
+ *
+ * By the addresses and never by a label. `hire_mainnet.py` writes a `two_party`
+ * flag, and `hire-fork-56.json` predates it: keying off the flag would make the
+ * one record that *does* have two distinct parties render as a self-hire.
+ * `tests/registry/test_two_party_hire.py::_two_parties` decides it the same
+ * way, and its sibling asserts the flag agrees with the addresses rather than
+ * standing in for them.
+ *
+ * Null, not false, when either side is unknown. `hire_agent.py` records no
+ * provider at all, so the chapel run can say who paid and cannot say who was
+ * hired — which is a third state and reads as a self-hire if it is flattened
+ * into one of the other two.
+ */
+export function partiesDiffer(
+  client: string | null | undefined,
+  provider: string | null | undefined,
+): boolean | null {
+  if (!client || !provider) return null;
+  return client.toLowerCase() !== provider.toLowerCase();
+}

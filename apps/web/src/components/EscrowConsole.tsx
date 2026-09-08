@@ -65,6 +65,7 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
     submitWindow,
     deliverable,
     setDeliverable,
+    deliverableHash,
     state,
     expiresIn,
     isClient,
@@ -130,6 +131,11 @@ export function EscrowConsole({ deployments, defaultJob, defaultBudget, errors }
               value={deliverable}
               onChange={setDeliverable}
               width="w-40"
+              // The field took a string and sent its keccak, and the console
+              // showed neither what it would send nor that it was hashing at
+              // all. An auditor checking `submit` against a transaction on
+              // BscScan had no way to know what to compare it to.
+              note={deliverableHash}
             />
           </div>
 

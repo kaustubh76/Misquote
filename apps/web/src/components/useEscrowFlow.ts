@@ -17,7 +17,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { formatUnits, keccak256, parseUnits, toHex, type Address } from "viem";
+import { formatUnits, keccak256, parseUnits, toHex, type Address, type Hex } from "viem";
 import {
   useAccount,
   useChainId,
@@ -92,6 +92,30 @@ export type Stage =
   | { kind: "locked"; why: string }
   | { kind: "theirs"; who: string };
 
+/**
+ * What `submit`'s 32 bytes commit to, when they commit to something fetchable.
+ *
+ * The argument is opaque — `registry/hire.py` says so: "nothing on chain
+ * interprets it, so this does not pretend to". That makes the hash worth
+ * exactly as much as the thing a reader can fetch and re-derive it from, and
+ * worth nothing without one. Both recorded mainnet runs sent
+ * `keccak256("job-<id>")`, a hash of the job's own id, which is a receipt for
+ * the transaction rather than a commitment to work; this console sent
+ * `keccak256("deliverable")`, a hash of the literal word, and showed neither.
+ *
+ * `hire_mainnet.py --deliverable-file` already hashes real file bytes. This is
+ * the same commitment from the browser.
+ */
+export interface Commitment {
+  /** The 32 bytes `submit` sends. */
+  hex: Hex;
+  /** What was hashed, named the way a reader would ask for it. */
+  label: string;
+  /** Where those exact bytes can be fetched and re-hashed. */
+  url: string;
+  bytes: number;
+}
+
 export interface FlowStep {
   name: StepName;
   call: string;
@@ -164,6 +188,12 @@ export function useEscrowFlow({
     typedBudget ?? (defaultBudget ? formatUnits(BigInt(defaultBudget), units) : "");
   const [hours, setHours] = useState(String(DEFAULT_HOURS));
   const [deliverable, setDeliverable] = useState("deliverable");
+  // Set by whichever surface can name a fetchable file. `EscrowConsole` never
+  // does — an auditor is testing the call, not delivering — so it keeps hashing
+  // the text field and this stays null there.
+  const [commitment, setCommitment] = useState<Commitment | null>(null);
+  /** The exact 32 bytes `submit` will send, so a surface can show them first. */
+  const deliverableHash: Hex = commitment?.hex ?? keccak256(toHex(deliverable));
   const [lastCall, setLastCall] = useState<StepName | null>(null);
   const [mined, setMined] = useState<Partial<Record<StepName, string>>>({});
   const [now, setNow] = useState(() => Date.now());
@@ -405,7 +435,7 @@ export function useEscrowFlow({
               abi: KERNEL_ABI,
               address: kernel,
               functionName: "submit",
-              args: [job, keccak256(toHex(deliverable)), "0x"],
+              args: [job, deliverableHash, "0x"],
             }),
         },
         {
@@ -495,6 +525,9 @@ export function useEscrowFlow({
     submitWindow,
     deliverable,
     setDeliverable,
+    commitment,
+    setCommitment,
+    deliverableHash,
     state,
     expiresIn,
     isClient,

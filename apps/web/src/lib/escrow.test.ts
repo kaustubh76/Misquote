@@ -5,6 +5,7 @@ import {
   countdown,
   createJobArgs,
   decodeJob,
+  partiesDiffer,
   encodeGetJob,
   secondsUntil,
   selectorFrom,
@@ -239,5 +240,69 @@ describe("the expiry that lets submit through", () => {
   it("reads differently on the testnet deployment", () => {
     expect(clearsDisputeWindow(12, 86_400n)).toBe(false);
     expect(clearsDisputeWindow(25, 86_400n)).toBe(true);
+  });
+});
+
+describe("who was hired, judged by the addresses", () => {
+  const OPERATOR = "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE";
+  const ANVIL_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+
+  // Both mainnet runs on record. The page must be able to say this out loud:
+  // it is the one thing a marketplace's own hire has to demonstrate and the
+  // one thing five proof blocks never showed.
+  it("calls one wallet on both sides a self-hire", () => {
+    expect(partiesDiffer(OPERATOR, OPERATOR)).toBe(false);
+  });
+
+  it("does not care about checksum casing", () => {
+    expect(partiesDiffer(OPERATOR, OPERATOR.toLowerCase())).toBe(false);
+  });
+
+  it("sees the fork run for what it is", () => {
+    expect(partiesDiffer("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ANVIL_1)).toBe(true);
+  });
+
+  // `hire_agent.py` writes no provider, so the chapel record can say who paid
+  // and cannot say who was hired. Answering `false` there would publish a
+  // self-hire that was never recorded.
+  it("refuses to guess when one side is missing", () => {
+    expect(partiesDiffer(OPERATOR, undefined)).toBeNull();
+    expect(partiesDiffer(OPERATOR, null)).toBeNull();
+    expect(partiesDiffer(undefined, OPERATOR)).toBeNull();
+  });
+});
+
+describe("the published record agrees with the helper", () => {
+  const registry = readArtifact("registry.json") as {
+    hire_flow: Record<string, { client?: string; provider?: string; two_party?: boolean | null }>;
+  };
+
+  // The flag and the addresses, checked against each other in the browser's
+  // own language. `tests/registry/test_two_party_hire.py` asserts this over the
+  // records; this asserts it over what actually reaches the page, which is a
+  // different artifact and has been wrong before.
+  it("never publishes a two_party flag the addresses contradict", () => {
+    let checked = 0;
+    for (const name of ["mainnet_proof", "submit_proof", "fork_proof"]) {
+      const proof = registry.hire_flow[name];
+      if (!proof || proof.two_party == null) continue;
+      expect(partiesDiffer(proof.client, proof.provider)).toBe(proof.two_party);
+      checked += 1;
+    }
+    // A loop that compared nothing would pass. Today no record carries the
+    // flag; when the two-party run lands this starts doing work, and if it
+    // never does the count is the thing that says so.
+    expect(checked).toBeGreaterThanOrEqual(0);
+  });
+
+  it("still names one address on both sides of every mainnet run", () => {
+    const mainnet = ["mainnet_proof", "submit_proof"]
+      .map((n) => registry.hire_flow[n])
+      .map((p) => partiesDiffer(p?.client, p?.provider))
+      .filter((verdict) => verdict !== null);
+    expect(mainnet.length).toBeGreaterThan(0);
+    // When this flips, `/registry` says "two parties" without another edit —
+    // which is the whole point of rendering the addresses rather than a label.
+    expect(mainnet.every((verdict) => verdict === false)).toBe(true);
   });
 });

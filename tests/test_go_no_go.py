@@ -1026,6 +1026,56 @@ def test_the_escrow_gate_will_not_call_a_fork_run_a_mainnet_one() -> None:
     assert "settle" in gate, "the one call never run outside a fork is not mentioned"
 
 
+def test_the_escrow_gate_says_who_the_money_moved_between() -> None:
+    """A job id and an amount, with nobody named, is not a hire.
+
+    The detail string reached `/status` saying "job 56681 escrowed 1e17 on chain
+    56 and was reclaimed" — every fact except the one a marketplace has to
+    demonstrate. `/registry` had the same hole and the addresses were in the
+    artifact for both of them the whole time.
+    """
+    same = {"client": "0x0c501EE1", "provider": "0x0c501ee1"}
+    both = {"client": "0x0c501EE1924bfb91", "provider": "0xdEaF6a182ECfb667"}
+
+    # Casing is not identity. Checksummed and lower-case spellings of one wallet
+    # are one wallet, and reading them as two would report a self-hire as the
+    # thing this project is still waiting for.
+    assert "hires nobody" in gng._parties(same)
+    assert "Two parties" in gng._parties(both)
+
+    # Silence rather than a guess: `hire_agent.py` records no provider, and
+    # answering "one wallet" there would publish a self-hire nobody recorded.
+    assert gng._parties({"client": "0x0c501EE1"}) == ""
+    assert gng._parties({}) == ""
+
+
+def test_the_parties_clause_changes_the_words_and_not_the_verdict(monkeypatch) -> None:
+    """A missing demonstration is not a broken mechanism, and it is appended.
+
+    Two properties in one, because they failed together on the first attempt.
+
+    `fund` and `claimRefund` both mined on mainnet whoever signed them, so
+    turning this gate amber because one wallet stood on both sides would report
+    a working escrow as a failing one. The distinctness belongs in the detail,
+    where a reader can weigh it; `tests/registry/test_two_party_hire.py` is what
+    actually asserts the gap.
+
+    And it goes on the end. Spliced into `escrowed` it landed mid-sentence —
+    "escrowed 1e17 on chain 56, with one wallet as both client and provider and
+    was reclaimed" — which is how a true clause becomes an unreadable one.
+    """
+    before = gng.check_escrow_flow()
+    monkeypatch.setattr(gng, "_parties", lambda proof: "")
+    after = gng.check_escrow_flow()
+
+    assert before.status == after.status, "naming the parties changed the verdict"
+    assert before.detail != after.detail, "the gate computes the clause and never prints it"
+    assert before.detail.startswith(after.detail), (
+        "the parties clause is spliced into the middle of the sentence rather "
+        "than appended to it"
+    )
+
+
 def test_the_escrow_gate_is_in_the_run() -> None:
     """A gate nothing calls is a gate that cannot fail."""
     source = SOURCE.read_text()

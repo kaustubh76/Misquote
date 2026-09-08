@@ -1421,6 +1421,34 @@ def _recorded_sha(payload: dict) -> str | None:
     return str(payload["git_sha"]) if payload.get("git_sha") else None
 
 
+def _parties(proof: dict[str, Any]) -> str:
+    """Who the money moved between, judged by the addresses.
+
+    The gate reported a job id, an amount and a chain, and never said whether
+    the buyer and the seller were the same wallet — which is the one thing a
+    marketplace's own hire has to demonstrate. `/status` renders this string, so
+    the omission was on the readiness page as well as on `/registry`.
+
+    By the addresses and not by `two_party`, for the reason
+    `tests/registry/test_two_party_hire.py::_two_parties` gives: the fork record
+    predates that flag and has had two distinct parties since it was written, so
+    reading the label would report this project's one settled two-party run as a
+    self-hire. `lib/escrow.ts::partiesDiffer` decides it the same way in the
+    browser.
+
+    Deliberately not a verdict. A self-hire is not a failure of the escrow — the
+    mechanism works either way — and turning this amber would report a missing
+    *demonstration* as a broken *gate*, which is the confusion this file's own
+    UNVERIFIED tier exists to avoid.
+    """
+    client, provider = proof.get("client"), proof.get("provider")
+    if not client or not provider:
+        return ""
+    if client.lower() == provider.lower():
+        return " One wallet was both client and provider, so this proves the escrow and hires nobody."
+    return f" Two parties: {client[:10]} paid, {provider[:10]} delivered."
+
+
 def check_escrow_flow() -> Check:
     """The hire itself, which no gate covered.
 
@@ -1484,12 +1512,15 @@ def check_escrow_flow() -> Check:
     job = mainnet.get("job_id")
     budget = mainnet.get("budget")
     escrowed = f"job {job} escrowed {budget} on chain {mainnet.get('chain_id')}"
+    # Appended to whichever branch fires rather than spliced into `escrowed`,
+    # which put it in the middle of "escrowed X ... and was reclaimed".
+    parties = _parties(mainnet)
 
     if not refund.get("refunded"):
         return Check(
             "erc-8183 escrow",
             UNVERIFIED,
-            f"{escrowed}; nothing has been reclaimed, so the way out is unproven",
+            f"{escrowed}; nothing has been reclaimed, so the way out is unproven.{parties}",
             "make claim-refund",
         )
 
@@ -1501,13 +1532,14 @@ def check_escrow_flow() -> Check:
             "erc-8183 escrow",
             UNVERIFIED,
             f"{escrowed} and was reclaimed; settle has run on a fork only"
-            + (f", and opens {due}" if due else ""),
+            + (f", and opens {due}" if due else "")
+            + f".{parties}",
             f"make hire-mainnet ARGS='--settle {submitted.get('job_id')}'"
             if submitted.get("job_id")
             else "settle after the dispute window",
         )
 
-    return Check("erc-8183 escrow", PASS, f"{escrowed}, reclaimed, and settled")
+    return Check("erc-8183 escrow", PASS, f"{escrowed}, reclaimed, and settled.{parties}")
 
 
 def check_artifact_freshness() -> Check:

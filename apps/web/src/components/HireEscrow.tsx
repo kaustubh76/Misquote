@@ -34,11 +34,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatUnits } from "viem";
+import { formatUnits, keccak256 } from "viem";
 import { bsc } from "wagmi/chains";
 import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { EscrowField } from "@/components/EscrowField";
+import { artifactUrl } from "@/lib/artifacts";
 import { Pill } from "@/components/Pill";
 import { useEscrowFlow, type Stage } from "@/components/useEscrowFlow";
 import {
@@ -143,6 +144,9 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
     provider,
     setProvider,
     youDeliver,
+    setCommitment,
+    commitment,
+    deliverableHash,
     budget,
     setTypedBudget,
     hours,
@@ -166,6 +170,51 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
     // `setProvider` is stable; re-running on the choice is the whole intent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, owner]);
+
+  /**
+   * Hash the hired agent's own published artifact, in the browser.
+   *
+   * `submit`'s third argument is 32 opaque bytes and this page was sending
+   * `keccak256("deliverable")` — a hash of the literal word — without showing
+   * it. `hire_mainnet.py --deliverable-file` has hashed real file bytes since
+   * the two-party work landed; the browser had not caught up, so the surface a
+   * judge presses made the weaker commitment of the two.
+   *
+   * The agent's artifact is the right file because it is the thing being sold:
+   * `/agent/{slug}/` renders it, `/artifacts/{slug}.json` serves the same bytes,
+   * and a reader can fetch and re-hash without this site's cooperation.
+   *
+   * Failure clears the commitment rather than leaving a stale one. A hash that
+   * belongs to the previously selected agent would be worse than the word.
+   */
+  useEffect(() => {
+    if (selected === SELF) {
+      setCommitment(null);
+      return;
+    }
+    let live = true;
+    (async () => {
+      try {
+        const url = artifactUrl(`${selected}.json`);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(String(response.status));
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (!live) return;
+        setCommitment({
+          hex: keccak256(bytes),
+          label: `${selected}.json`,
+          url,
+          bytes: bytes.byteLength,
+        });
+      } catch {
+        if (live) setCommitment(null);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   const revert = write.error?.message ?? "";
   const selector = selectorFrom(write.error);
@@ -342,6 +391,56 @@ export function HireEscrow({ deployments, defaultBudget, errors, agents = [], ow
           )}
         </div>
       )}
+
+      {/* What the delivery step actually commits to, before it is signed.
+
+          `submit` takes 32 bytes and nothing on chain interprets them, which
+          makes the hash worth exactly as much as the file a reader can fetch
+          and re-derive it from. This page sent `keccak256("deliverable")` and
+          displayed neither the word nor the hash, so the one step that says
+          "the work was delivered" committed to a placeholder invisibly. */}
+      <div className="mt-4 border-t border-line pt-4">
+        <p className="m-0 text-xs text-faint">
+          What <span className="font-mono">submit</span> will commit to
+        </p>
+        {commitment ? (
+          <>
+            <p className="mt-1 mb-0 text-sm text-ink">
+              <a
+                className="underline"
+                href={commitment.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {commitment.label}
+              </a>{" "}
+              <span className="text-dim">
+                · {commitment.bytes.toLocaleString()} bytes
+              </span>
+            </p>
+            <code className="mt-1 block font-mono text-xs break-all text-dim">
+              {deliverableHash}
+            </code>
+            <p className="mt-1 mb-0 max-w-[70ch] text-xs text-faint">
+              keccak256 of {agent?.name}&rsquo;s published artifact — the same
+              bytes <Link href={`/agent/${selected}/`}>its page</Link> renders.
+              Fetch the file and re-hash it; nothing here has to be trusted for
+              that.
+            </p>
+          </>
+        ) : (
+          <>
+            <code className="mt-1 block font-mono text-xs break-all text-dim">
+              {deliverableHash}
+            </code>
+            <p className="mt-1 mb-0 max-w-[70ch] text-xs text-faint">
+              {selected === SELF
+                ? "A hash of the word “deliverable”. Hiring yourself delivers nothing, so this commits to nothing fetchable — which is the honest 32 bytes for a demonstration and the reason the recorded mainnet runs are not evidence of delivery."
+                : "The agent’s artifact could not be fetched, so this falls back to a hash of the word “deliverable” and commits to nothing fetchable."}
+            </p>
+          </>
+        )}
+      </div>
 
       <ol className="mt-4 mb-0 grid list-none gap-2 p-0">
         {steps

@@ -1238,22 +1238,45 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.fork_proof.why_not_on_mainnet_was": "",
     "hire_flow.proof.not_escrowed_because_was": "",
     "hire_flow.fork_proof.transactions": "registry/view.tsx",
+    # ── what stays unrendered under hire_flow, and why ──────────────────────
+    #
+    # 74 of this block's 145 fields were `""` — half of everything the hire
+    # flow emits, including both parties to every hire, on the page a
+    # marketplace is judged from. `HireParties.tsx` took 21 of them. What is
+    # left is not a backlog; it falls into four groups, each of which is
+    # *better* unrendered:
+    #
+    #   `addresses.*` (16) — the kernel, router, policy and token, repeated on
+    #       every proof. `deployments` publishes the same four per chain and the
+    #       page renders those. A second copy is a second thing to be wrong, and
+    #       the wrong one would be the one people send money to.
+    #   `job_words` (4) — the raw 32-byte words `getJob` returned. The reading
+    #       is what a reader wants; the ABI encoding behind it is what
+    #       `lib/escrow.ts` and its tests are for.
+    #   `*_was` (2), `record` (5) — superseded prose kept as history, and paths
+    #       to files under `vetting/` that the static export does not serve. A
+    #       link a reader cannot follow is worse than no link.
+    #   redundant siblings — `expires_at` beside the rendered `expires_at_utc`,
+    #       `job_exists` beside the job id it echoes, `dispute_window_s` beside
+    #       the settle date computed from it, `balance_before`/`balance_after`
+    #       beside the `recovered` difference that is the actual claim.
+    #
     # The fork's own bookkeeping, carried and not rendered for the same reason
     # the chapel run's is.
     "hire_flow.fork_proof.forked_from": "",
     "hire_flow.fork_proof.forked_at_block": "",
-    "hire_flow.fork_proof.chain_id": "",
-    "hire_flow.fork_proof.client": "",
-    "hire_flow.fork_proof.provider": "",
+    "hire_flow.fork_proof.chain_id": "registry/view.tsx",
+    "hire_flow.fork_proof.client": "HireParties.tsx",
+    "hire_flow.fork_proof.provider": "HireParties.tsx",
     "hire_flow.fork_proof.evaluator": "",
     "hire_flow.fork_proof.token_owner": "",
     "hire_flow.fork_proof.minted_to_client": "",
-    "hire_flow.fork_proof.budget": "",
+    "hire_flow.fork_proof.budget": "HireParties.tsx",
     "hire_flow.fork_proof.dispute_window_s": "",
-    "hire_flow.fork_proof.gas_spent_wei": "",
+    "hire_flow.fork_proof.gas_spent_wei": "HireParties.tsx",
     "hire_flow.fork_proof.job_words": "",
     "hire_flow.fork_proof.record": "",
-    "hire_flow.fork_proof.success_criterion": "",
+    "hire_flow.fork_proof.success_criterion": "HireParties.tsx",
     "hire_flow.fork_proof.addresses.kernel": "",
     "hire_flow.fork_proof.addresses.router": "",
     "hire_flow.fork_proof.addresses.policy": "",
@@ -1275,20 +1298,37 @@ REGISTRY_FIELDS: dict[str, str] = {
     # is not unique across the maps, and leaning on that blind spot is how a
     # contract stops describing the code.
     "hire_flow.mainnet_proof.chain_id": "lib/build-artifact.ts",
-    "hire_flow.mainnet_proof.client": "",
+    "hire_flow.mainnet_proof.client": "HireParties.tsx",
     "hire_flow.mainnet_proof.escrowed": "registry/view.tsx",
     "hire_flow.mainnet_proof.escrowed_on_mainnet": "",
     "hire_flow.mainnet_proof.evaluator": "",
-    "hire_flow.mainnet_proof.gas_spent_wei": "",
+    "hire_flow.mainnet_proof.gas_spent_wei": "HireParties.tsx",
     "hire_flow.mainnet_proof.job_exists": "",
     "hire_flow.mainnet_proof.job_id": "registry/view.tsx",
     "hire_flow.mainnet_proof.job_words": "",
     "hire_flow.mainnet_proof.network": "registry/view.tsx",
-    "hire_flow.mainnet_proof.provider": "",
+    "hire_flow.mainnet_proof.provider": "HireParties.tsx",
     "hire_flow.mainnet_proof.ran": "registry/view.tsx",
     "hire_flow.mainnet_proof.record": "",
     "hire_flow.mainnet_proof.settled": "registry/view.tsx",
-    "hire_flow.mainnet_proof.success_criterion": "",
+    "hire_flow.mainnet_proof.success_criterion": "HireParties.tsx",
+    #: What `submit`'s 32 bytes commit to, and null on every record so far.
+    #: Job 56681's `submit` reverted `SubmissionTooLate()` and never sent any,
+    #: which is why `HireParties` is told whether the call mined rather than
+    #: guessing from the absence — the same distinction the block draws on
+    #: screen.
+    "hire_flow.mainnet_proof.deliverable.file": "HireParties.tsx",
+    "hire_flow.mainnet_proof.deliverable.bytes": "HireParties.tsx",
+    "hire_flow.mainnet_proof.deliverable.keccak256": "HireParties.tsx",
+    "hire_flow.mainnet_proof.deliverable.url": "HireParties.tsx",
+    #: `hire_mainnet.py`'s own label, contracted so the field cannot appear
+    #: undeclared the first time a two-party run writes one. Deliberately
+    #: unrendered: `HireParties` decides distinctness from the two addresses,
+    #: because `hire-fork-56.json` has had two of them since before this flag
+    #: existed and a page reading the label would call that run a self-hire.
+    #: `tests/registry/test_two_party_hire.py` is where the label is held to
+    #: the addresses, which is the right place for a claim about a fact.
+    "hire_flow.mainnet_proof.two_party": "",
     "hire_flow.mainnet_proof.transactions": "registry/view.tsx",
     # The refund. A fourth record and the only one about money coming back,
     # rendered under the fork block because it is one until the mainnet clock
@@ -1320,18 +1360,35 @@ REGISTRY_FIELDS: dict[str, str] = {
     # Its own bookkeeping, carried for the same reason its siblings' is.
     "hire_flow.submit_proof.reason": "",
     "hire_flow.submit_proof.record": "",
-    "hire_flow.submit_proof.budget": "",
-    "hire_flow.submit_proof.chain_id": "",
-    "hire_flow.submit_proof.client": "",
-    "hire_flow.submit_proof.provider": "",
+    "hire_flow.submit_proof.budget": "HireParties.tsx",
+    "hire_flow.submit_proof.chain_id": "registry/view.tsx",
+    "hire_flow.submit_proof.client": "HireParties.tsx",
+    "hire_flow.submit_proof.provider": "HireParties.tsx",
     "hire_flow.submit_proof.evaluator": "",
     "hire_flow.submit_proof.expires_at": "",
     "hire_flow.submit_proof.dispute_window_s": "",
     "hire_flow.submit_proof.escrowed_on_mainnet": "",
-    "hire_flow.submit_proof.gas_spent_wei": "",
+    "hire_flow.submit_proof.gas_spent_wei": "HireParties.tsx",
     "hire_flow.submit_proof.job_exists": "",
     "hire_flow.submit_proof.job_words": "",
-    "hire_flow.submit_proof.success_criterion": "",
+    "hire_flow.submit_proof.success_criterion": "HireParties.tsx",
+    #: What `submit`'s 32 bytes commit to. Job 56718 is the one run whose
+    #: `submit` mined, and it sent `keccak256("job-56718")` — a hash of the
+    #: job's own id, which commits to no file. `--deliverable-file` writes these
+    #: fields, and `HireParties` renders the hash beside the file it names so a
+    #: reader can fetch and re-derive it.
+    "hire_flow.submit_proof.deliverable.file": "HireParties.tsx",
+    "hire_flow.submit_proof.deliverable.bytes": "HireParties.tsx",
+    "hire_flow.submit_proof.deliverable.keccak256": "HireParties.tsx",
+    "hire_flow.submit_proof.deliverable.url": "HireParties.tsx",
+    #: `hire_mainnet.py`'s own label, contracted so the field cannot appear
+    #: undeclared the first time a two-party run writes one. Deliberately
+    #: unrendered: `HireParties` decides distinctness from the two addresses,
+    #: because `hire-fork-56.json` has had two of them since before this flag
+    #: existed and a page reading the label would call that run a self-hire.
+    #: `tests/registry/test_two_party_hire.py` is where the label is held to
+    #: the addresses, which is the right place for a claim about a fact.
+    "hire_flow.submit_proof.two_party": "",
     "hire_flow.submit_proof.addresses.kernel": "",
     "hire_flow.submit_proof.addresses.router": "",
     "hire_flow.submit_proof.addresses.policy": "",
@@ -1390,14 +1447,14 @@ REGISTRY_FIELDS: dict[str, str] = {
     # the record path; putting fifteen undecoded 32-byte words on the page would
     # be publishing bytes as though they were findings, which is the thing
     # `JOB_STRUCT_IS_UNDECODED` exists to refuse.
-    "hire_flow.proof.chain_id": "",
-    "hire_flow.proof.client": "",
-    "hire_flow.proof.budget": "",
+    "hire_flow.proof.chain_id": "registry/view.tsx",
+    "hire_flow.proof.client": "HireParties.tsx",
+    "hire_flow.proof.budget": "HireParties.tsx",
     "hire_flow.proof.record": "",
-    "hire_flow.proof.gas_spent_wei": "",
+    "hire_flow.proof.gas_spent_wei": "HireParties.tsx",
     "hire_flow.proof.job_exists": "",
     "hire_flow.proof.job_words": "",
-    "hire_flow.proof.success_criterion": "",
+    "hire_flow.proof.success_criterion": "HireParties.tsx",
     "hire_flow.proof.addresses.kernel": "",
     "hire_flow.proof.addresses.router": "",
     "hire_flow.proof.addresses.policy": "",
@@ -2055,3 +2112,162 @@ def test_the_journal_artifact_stays_small_enough_to_fetch(journal_artifact: dict
         f"journal.json is {size:,} bytes. It is fetched by every agent page — if the "
         "decisions are being published again, bound them first."
     )
+
+
+# ── simulation.json: the position a reader sets up, and what it may claim ─────
+#
+# The last artifact on the site with no contract, and it showed. An audit found
+# ten fields declared in `components/PoolSimulator.tsx` and read by nothing —
+# `chain_id`, `path_points`, `capital_ladder`, `pools[].fee_pips`,
+# `pools[].badged`, `tape.first_ts`, `tape.last_ts`, and, worst of the set,
+# `cells[].fee_apr` and `cells[].convexity_cost_apr`.
+#
+# That last pair is why this contract exists rather than being tidy.
+# `estimators/pool_apr.py` says in as many words that "every caller in this
+# repository is expected to render the pair", because a fee APR without its
+# adverse-selection cost is the overstatement A10 exists to prevent. The page
+# emitted both on all 1,400 cells and rendered neither, showing the net alone —
+# the answer to a subtraction with neither of its terms. Nothing caught it,
+# because nothing was looking at this file.
+#
+# Three sets, the shape `JOURNAL_FIELDS` uses: `flatten` stops at a list, so the
+# per-pool and per-cell keys need asserting separately or the contract would
+# cover eight leaves and miss four hundred.
+
+SIMULATION_FIELDS: dict[str, str] = {
+    "capital_quote": "components/PoolSimulator.tsx",
+    "width_ladder": "app/simulate/view.tsx",
+    "a1_share": "components/PoolSimulator.tsx",
+    "summary.pools": "app/simulate/view.tsx",
+    "summary.badged": "app/simulate/view.tsx",
+    "summary.simulable": "app/simulate/view.tsx",
+    "summary.refused": "",
+    "summary.cells": "app/simulate/view.tsx",
+    "pools": "components/PoolSimulator.tsx",
+    # Read by tests rather than by a view, which is a real answer and not an
+    # oversight. `capital_ladder` is the emitter's declaration of what it swept
+    # and `test_the_capital_ladder_is_offered_and_not_interpolated` holds the
+    # page's offered sizes against it; `path_points` is the cap
+    # `test_the_price_path_is_thinned_rather_than_published_whole` enforces.
+    # Declaring them unrendered is what stops them being quietly rendered as a
+    # figure nobody checked.
+    "capital_ladder": "",
+    "path_points": "",
+    "chain_id": "",
+    "build.command": "",
+    "build.source": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
+}
+
+#: Every key on a pool row. `fee_pips` is emitted and not rendered on purpose —
+#: the tier is already in `label` ("… 0.05%"), and a second copy on the page
+#: would be the same number in two places with one emitter behind it.
+SIMULATION_POOL_FIELDS = frozenset(
+    {
+        "address",
+        "label",
+        "quote_symbol",
+        "fee_pips",
+        "tick_spacing",
+        "lp_fee_share",
+        "badged",
+        "tape",
+        "price_path",
+        "cells",
+        "bands",
+        "best_width_ticks",
+        "verdict",
+    }
+)
+
+#: Every key on a cell. `mintable` and `not_mintable_why` are the pair that
+#: stops the page implying a reader could have taken a position PancakeSwap
+#: would reject: the estimator snaps the centre to the spacing and not the
+#: width, so a rung is on the grid only when `width % spacing == 0`.
+SIMULATION_CELL_FIELDS = frozenset(
+    {
+        "width_ticks",
+        "window",
+        "capital_quote",
+        "a1_ceiling_quote",
+        "start_ts",
+        "end_ts",
+        "hours",
+        "swaps",
+        "fee_apr",
+        "convexity_cost_apr",
+        "net_apr",
+        "fees_quote",
+        "convexity_cost_quote",
+        "depth_quote",
+        "tick_lower",
+        "tick_upper",
+        "mintable",
+        "not_mintable_why",
+    }
+)
+
+
+@pytest.fixture(scope="module")
+def simulation_artifact() -> dict:
+    path = ARTIFACTS / "simulation.json"
+    if not path.exists():
+        pytest.skip("no simulation; run `make simulate`")
+    return json.loads(path.read_text())
+
+
+def test_the_simulation_emitter_writes_exactly_the_contracted_fields(
+    simulation_artifact: dict,
+) -> None:
+    actual = flatten(simulation_artifact)
+    declared = set(SIMULATION_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the simulation emitter writes fields the contract does not declare — add "
+        f"them to SIMULATION_FIELDS: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        f"the contract declares simulation fields the emitter no longer writes: "
+        f"{sorted(undelivered)}"
+    )
+
+
+def test_every_pool_and_cell_carries_the_contracted_keys(simulation_artifact: dict) -> None:
+    """The four hundred leaves `flatten` cannot see, because it stops at a list."""
+    pools = simulation_artifact.get("pools") or []
+    assert pools, "no pools in the simulation"
+
+    for pool in pools:
+        assert set(pool) == SIMULATION_POOL_FIELDS, (
+            f"{pool.get('label')} does not carry the contracted pool keys: {sorted(pool)}"
+        )
+        for c in pool["cells"]:
+            assert set(c) == SIMULATION_CELL_FIELDS, (
+                f"{pool.get('label')} +/-{c.get('width_ticks')} does not carry the "
+                f"contracted cell keys: {sorted(c)}"
+            )
+
+
+def test_every_contracted_simulation_field_is_read_by_the_named_view() -> None:
+    """A field with a renderer named must be read by that file.
+
+    The other half of the audit that produced this contract: a leaf can be
+    emitted, declared, typed, and reach no reader at all, which is how the fee
+    and convexity-cost rates sat on 1,400 cells while the page showed only their
+    difference.
+    """
+    missing = []
+    for field, view in SIMULATION_FIELDS.items():
+        if not view:
+            continue
+        leaf = field.rsplit(".", 1)[-1]
+        source = (WEB_SRC / view).read_text()
+        if leaf not in source:
+            missing.append(f"{field} -> {view}")
+
+    assert not missing, f"contracted simulation fields no view reads: {sorted(missing)}"

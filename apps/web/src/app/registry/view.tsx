@@ -17,6 +17,7 @@ import { ShareIntervals, type ShareInterval } from "@/components/ShareIntervals"
 import { TallyStrip } from "@/components/TallyStrip";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { EscrowConsole } from "@/components/EscrowConsole";
+import { HireParties, type HireProofParties } from "@/components/HireParties";
 import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
@@ -222,8 +223,9 @@ export interface RegistryArtifact {
      *  name; the rest say "unresolved" rather than guessing one. */
     errors?: Record<string, string>;
     /** What happened when the flow was actually sent, as opposed to priced. */
-    proof?: {
+    proof?: HireProofParties & {
       ran: boolean;
+      chain_id?: number;
       reason?: string;
       job_id?: number;
       escrowed?: boolean;
@@ -242,8 +244,9 @@ export interface RegistryArtifact {
      * beside `escrowed` for that reason: the two records disagree, and the only
      * thing that makes the disagreement legible is saying which is which.
      */
-    fork_proof?: {
+    fork_proof?: HireProofParties & {
       ran: boolean;
+      chain_id?: number;
       reason?: string;
       network?: string;
       job_id?: number;
@@ -261,14 +264,14 @@ export interface RegistryArtifact {
      * by moving the clock seven days — which is the whole reason these are
      * three records and not one averaged claim.
      */
-    mainnet_proof?: {
+    mainnet_proof?: HireProofParties & {
       ran: boolean;
+      chain_id?: number;
       reason?: string;
       network?: string;
       job_id?: number;
       escrowed?: boolean;
       settled?: boolean;
-      budget?: number;
       transactions?: { call: string; ok?: boolean; reverted?: string; explorer?: string }[];
     };
     /**
@@ -281,8 +284,9 @@ export interface RegistryArtifact {
      * was, and a fork hash is deliberately not a link: it was never on a chain
      * anyone can look it up on.
      */
-    submit_proof?: {
+    submit_proof?: HireProofParties & {
       ran: boolean;
+      chain_id?: number;
       reason?: string;
       network?: string;
       job_id?: number;
@@ -321,6 +325,9 @@ export interface RegistryArtifact {
         chain_id: number;
         name: string;
         explorer: string;
+        /** Read from `decimals()`, because BSC's USDT is 18 where Ethereum's
+         *  is 6 and assuming wrong misprices by twelve orders of magnitude. */
+        decimals: number;
         kernel: string;
         router: string;
         policy: string;
@@ -687,6 +694,29 @@ export function RegistryView({
 
   const d = state?.ok ? state.value : null;
 
+  /**
+   * Did this run's `submit` mine? Read from the transaction list rather than
+   * from a flag, because only `submit_proof` carries one and the question is
+   * asked of all four. `ok` is the mainnet and fork shape; the chapel record
+   * records a `tx_hash` and no `ok`.
+   */
+  const didSubmit = (
+    txs?: { call: string; ok?: boolean; tx_hash?: string }[],
+  ): boolean => (txs ?? []).some((t) => t.call === "submit" && (t.ok ?? Boolean(t.tx_hash)));
+
+  /**
+   * The explorer and token decimals a proof's own chain publishes.
+   *
+   * By the proof's `chain_id`, never by which block it is rendered in: chapel
+   * and mainnet runs sit in the same card and link to different explorers, and
+   * `decimals` is read from `decimals()` rather than assumed for the reason
+   * `chain/addresses.py` refuses to assume it.
+   */
+  const chainMeta = (chain?: number) => {
+    const dep = chain === undefined ? undefined : d?.hire_flow.deployments?.[String(chain)];
+    return { explorer: dep?.explorer, decimals: dep?.decimals };
+  };
+
   // Found by name. `go_no_go.py` orders its checks and that order is not a
   // contract, so a positional read would quietly start reporting a different
   // gate the day one is inserted above it.
@@ -1037,6 +1067,16 @@ export function RegistryView({
                   </Pill>
                 </div>
 
+                {/* `hire_agent.py` records no provider at all, so this block
+                    says who paid and cannot say who was hired. That third state
+                    is rendered rather than flattened into "self-hire", which is
+                    what a page reading a `two_party` flag would have shown. */}
+                <HireParties
+                  proof={d.hire_flow.proof}
+                  submitted={didSubmit(d.hire_flow.proof.transactions)}
+                  {...chainMeta(d.hire_flow.proof.chain_id)}
+                />
+
                 {d.hire_flow.proof.not_escrowed_because && (
                   <p className="mt-4 mb-0 max-w-[70ch] text-sm text-dim">
                     <strong className="text-ink">Why no escrow.</strong>{" "}
@@ -1110,6 +1150,11 @@ export function RegistryView({
                         </li>
                       ))}
                     </ul>
+                    <HireParties
+                      proof={d.hire_flow.mainnet_proof}
+                      submitted={didSubmit(d.hire_flow.mainnet_proof.transactions)}
+                      {...chainMeta(d.hire_flow.mainnet_proof.chain_id)}
+                    />
                   </div>
                 )}
 
@@ -1143,6 +1188,21 @@ export function RegistryView({
                       {d.hire_flow.fork_proof.escrowed_on_mainnet === false &&
                         d.hire_flow.fork_proof.why_not_on_mainnet}
                     </p>
+                    {/* The one record with two genuinely distinct parties, and
+                        the reason `partiesDiffer` judges by addresses: this run
+                        predates the `two_party` flag, so a page reading the
+                        flag would render this project's only settled two-party
+                        hire as a self-hire.
+
+                        No explorer. These are anvil accounts and the chain they
+                        ran on does not exist any more; linking them to BscScan
+                        would point at an unrelated mainnet address, which is
+                        the failure the `network` badge above exists to stop. */}
+                    <HireParties
+                      proof={d.hire_flow.fork_proof}
+                      submitted={didSubmit(d.hire_flow.fork_proof.transactions)}
+                      decimals={chainMeta(d.hire_flow.fork_proof.chain_id).decimals}
+                    />
                   </div>
                 )}
 
@@ -1204,6 +1264,11 @@ export function RegistryView({
                       </strong>
                       .
                     </p>
+                    <HireParties
+                      proof={d.hire_flow.submit_proof}
+                      submitted={didSubmit(d.hire_flow.submit_proof.transactions)}
+                      {...chainMeta(d.hire_flow.submit_proof.chain_id)}
+                    />
                   </div>
                 )}
 
@@ -1433,7 +1498,7 @@ export function RegistryView({
             <EscrowConsole
               deployments={d.hire_flow.deployments}
               defaultJob={d.hire_flow.mainnet_proof?.job_id}
-              defaultBudget={d.hire_flow.mainnet_proof?.budget}
+              defaultBudget={d.hire_flow.mainnet_proof?.budget ?? undefined}
               errors={d.hire_flow.errors}
             />
           </Section>

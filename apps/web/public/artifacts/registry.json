@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 338672,
-      "ours_at_block": 120539860,
+      "ours": 340948,
+      "ours_at_block": 120659617,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 338535,
-      "total_pages": 16927,
+      "total": 340811,
+      "total_pages": 17041,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -47,9 +47,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-07T18:09:29+00:00",
+    "generated_at": "2026-09-08T09:08:09+00:00",
     "git_dirty": true,
-    "git_sha": "4a7850e",
+    "git_sha": "f2a7ebd",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -223,6 +223,12 @@
       "budget": 100000000000000000,
       "chain_id": 56,
       "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "deliverable": {
+        "bytes": null,
+        "file": null,
+        "keccak256": null,
+        "url": null
+      },
       "escrowed": true,
       "escrowed_on_mainnet": true,
       "evaluator": "0x51895229E12F9876011789B04f8698af06cCD6DA",
@@ -304,7 +310,8 @@
           "ok": false,
           "reverted": "0x17be5b7b"
         }
-      ]
+      ],
+      "two_party": null
     },
     "proof": {
       "addresses": {
@@ -491,6 +498,12 @@
       "budget": 100000000000000000,
       "chain_id": 56,
       "client": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
+      "deliverable": {
+        "bytes": null,
+        "file": null,
+        "keccak256": null,
+        "url": null
+      },
       "dispute_window_s": 604800,
       "escrowed": true,
       "escrowed_on_mainnet": true,
@@ -582,6 +595,7 @@
           "reverted": "0x17be5b7b"
         }
       ],
+      "two_party": null,
       "what_this_run_changes": "Job 56681 asked for a twelve-hour expiry and `submit` reverted SubmissionTooLate(): the deployment refuses a submission that cannot clear the dispute window before the job expires. This one asked for 192h and submit mined. The release half of ERC-8183 is reachable on mainnet, and what stood between the two runs was one argument.",
       "why_settle_reverted": "NotDecided() (0x17be5b7b), and it is a wait rather than a failure. The OptimisticPolicy has no decision to enforce until its 168h dispute window has run; settling before then is the call arriving early, not being refused."
     },
@@ -1463,7 +1477,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 5.8,
+    "age_hours": 20.7,
     "agents": [
       {
         "agent": "warden",
