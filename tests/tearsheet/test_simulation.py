@@ -149,7 +149,7 @@ def test_the_emitter_drops_the_cells_whose_band_refused() -> None:
             fits = window_fits(events, META, width)
             band = band_for_width(events, META, width, fits=fits)
             if band.sufficient:
-                published.extend(emitter.cell(width, f) for f in fits)
+                published.extend(emitter.cell(width, f, META.tick_spacing) for f in fits)
         assert bool(published) is expect_cells
 
 
@@ -192,7 +192,7 @@ def test_every_cell_carries_the_size_it_was_replayed_at() -> None:
     looking like a run of separate windows.
     """
     found = window_fits(tape(4_000), META, 80, capital_quote=0.5)[0]
-    row = emitter.cell(80, found)
+    row = emitter.cell(80, found, META.tick_spacing)
 
     assert row["capital_quote"] == 0.5
     assert row["a1_ceiling_quote"] == found.fit.depth_quote * emitter.A1_SHARE
@@ -234,7 +234,7 @@ def test_a_cell_copies_the_fit_rather_than_recomputing_it() -> None:
     """`net_apr` is a property so it cannot drift from the two figures it
     subtracts. A cell that recomputed it would put the drift back."""
     found = window_fits(tape(4_000), META, 80)[0]
-    row = emitter.cell(80, found)
+    row = emitter.cell(80, found, META.tick_spacing)
 
     assert row["net_apr"] == found.fit.net_apr
     assert row["net_apr"] == row["fee_apr"] - row["convexity_cost_apr"]

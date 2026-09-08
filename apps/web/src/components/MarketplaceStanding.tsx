@@ -127,13 +127,28 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
       {listings.length > 0 && (
         <ul className="mt-4 mb-0 grid list-none gap-1.5 p-0">
           {listings.map((row) => (
-            <li key={row.listing_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+            /* `min-w-0` on the row, and it is the half that mattered. The
+               `ul` above is a grid, so each `li` is a grid item with an implicit
+               `min-width: auto` — it refuses to shrink below its own min-content
+               width, and the `truncate` span below makes that min-content the
+               full unwrapped title. Constraining only the span left the row at
+               436px inside a 300px parent and the page 91px too wide at 390. */
+            <li
+              key={row.listing_id}
+              className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
+            >
               <span className="font-mono text-ink">{row.agent}</span>
               <Pill tone={row.status === "PUBLISHED" ? "pass" : "none"}>
                 {row.status?.toLowerCase()}
               </Pill>
               <span className="tabular font-mono text-dim">${row.price_usdc}</span>
-              <span className="min-w-0 truncate text-faint">{row.title}</span>
+              {/* `flex-1` matters as much as `min-w-0`. `truncate` sets
+                  `white-space: nowrap`, so on a wrapped row this span goes onto
+                  a line of its own and then sizes to its full unwrapped text —
+                  436px inside a 300px parent, and 91px of horizontal overflow
+                  on the whole document at 390px. A flex basis of 0 makes it
+                  take the line it is on rather than the width it wants. */}
+              <span className="min-w-0 flex-1 truncate text-faint">{row.title}</span>
             </li>
           ))}
         </ul>

@@ -320,22 +320,11 @@ def create_campaign(session, body: dict[str, Any]) -> Any:
     return session.post("/api/v1/campaigns/prepare", body)
 
 
-def confirm_funded(session, campaign_id: str, body: dict[str, Any]) -> Any:
-    """Tell the platform the funding transaction mined, and open the campaign."""
-    return session.post(f"/api/v1/campaigns/{campaign_id}/confirm-funded", body)
-
-
-def instant_buy(session, listing_id: str, body: dict[str, Any]) -> Any:
-    """One-call purchase, for a listing the marketplace marks `instantBuyable`."""
-    return session.post(f"/api/v1/listings/{listing_id}/instant-buy", body)
-
-
 __all__ = [
     "OUR_OFFER_ID",
     "OUR_CHECKOUT_ID",
     "OUR_CAMPAIGN_ID",
     "INBOUND_OFFER_ID",
-    "confirm_funded",
     "create_campaign",
     "CAMPAIGN_TITLE",
     "CAMPAIGN_SUMMARY",
@@ -359,7 +348,6 @@ __all__ = [
     "confirm_checkout",
     "create_brief",
     "dashboard",
-    "instant_buy",
     "quote_on_brief",
     "recover_checkout",
     "save_listing",

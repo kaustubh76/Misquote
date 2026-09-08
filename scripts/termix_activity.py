@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--bounty",
         action="store_true",
-        help="sponsor a campaign. Creates it as a draft; funding is --fund-bounty.",
+        help="sponsor a campaign. Creates it as a DRAFT; funding it is not implemented.",
     )
     ap.add_argument(
         "--pay",
@@ -316,6 +316,12 @@ def main(argv: list[str] | None = None) -> int:
             did["accepted_offer"] = {"accept": agreed, "checkout": reply}
 
     if args.bounty:
+        # Creates the campaign and leaves it `DRAFT`. Funding is a second step
+        # this does not do: `campaigns/prepare` both creates *and* returns the
+        # on-chain intent, so re-calling it to recover that intent would mint a
+        # second campaign. Doing it properly means keeping the intent from the
+        # create response, and there is no point writing that against a path
+        # nothing here has been able to execute.
         print("\nsponsoring a bounty:")
         # Sponsored by Warden: the file under scrutiny is `warden.json`, and the
         # claim being checked — "fetch it and re-hash it, nothing here has to be

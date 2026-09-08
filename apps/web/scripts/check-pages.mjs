@@ -929,42 +929,34 @@ for (const [name, path] of ROUTES) {
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(SETTLE);
 
-  // Two samples two frames apart, and only what is in both.
+  // Filtered by **duration**, which makes this deterministic instead of likely.
   //
-  // A CSS transition is `running` until the next frame *whatever its duration*,
-  // and `globals.css` collapses every transition to 0.01ms under this
-  // preference — so a single sample reports anything that happened to start in
-  // the frame it read, which is a violation of nothing. That is not
-  // hypothetical: this reported `vetting under reduced-motion: 2 animation(s)
-  // still running — CSSTransition` once in five runs and passed the other four,
-  // on a page whose transitions are all `transition-colors`.
+  // A CSS transition is `running` until the next frame whatever its duration,
+  // so any sample catches whatever happened to start in the frame it read —
+  // a violation of nothing. This used to take two samples two frames apart and
+  // keep the intersection, and that was not enough: it reported `vetting under
+  // reduced-motion: 2 animation(s) still running — CSSTransition` about once in
+  // five runs, and then did the same on `registry` once two more transition-
+  // carrying elements were added to that page. Sampling harder makes a flake
+  // rarer; it does not make it wrong less often.
   //
-  // An animation that is genuinely still going is in both readings. A
-  // one-frame artefact is in neither, or in one.
-  const running = await page.evaluate(async () => {
-    const sample = () =>
-      document
-        .getAnimations()
-        .filter((a) => a.playState === "running")
-        .map((a) => a.animationName ?? a.constructor.name);
-
-    const first = sample();
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
-    const second = sample();
-
-    const counts = new Map();
-    for (const name of second) counts.set(name, (counts.get(name) ?? 0) + 1);
-    // Intersected as a multiset: two `rise`s in both readings is two, and one
-    // in the first with two in the second is one.
-    return first.filter((name) => {
-      const left = counts.get(name) ?? 0;
-      if (!left) return false;
-      counts.set(name, left - 1);
-      return true;
-    });
-  });
+  // The reliable discriminator is in `globals.css`, which under this preference
+  // sets `animation-duration` *and* `transition-duration` to `0.01ms
+  // !important` on every element. So a compliant animation has a computed
+  // duration of 0.01ms and a violating one — a JS-driven animation, or CSS that
+  // escaped the collapse — has a real one. One sample, filtered above a
+  // millisecond, reports exactly the violations and none of the artefacts.
+  const running = await page.evaluate(() =>
+    document
+      .getAnimations()
+      .filter((a) => a.playState === "running")
+      .filter((a) => {
+        const timing = a.effect?.getComputedTiming?.();
+        const duration = typeof timing?.duration === "number" ? timing.duration : 0;
+        return duration > 1;
+      })
+      .map((a) => a.animationName ?? a.constructor.name),
+  );
   if (running.length) {
     // Named, so the next miss identifies itself instead of needing the same
     // half-hour in a console.
