@@ -76,6 +76,31 @@ def main() -> int:
         "margin over the window, which is what job 56718 used.",
     )
     ap.add_argument(
+        "--provider-keystore",
+        metavar="PATH",
+        help="the wallet that delivers, as a v3 keystore. Every recorded hire here "
+        "has one address in both columns — not because that is the product, but "
+        "because `MISQUOTE_PRIVATE_KEY` was the only key the signer could reach. "
+        "Naming a separate provider is the marketplace's actual claim, and it means "
+        "`submit` is signed by them and not by the buyer. The password comes from "
+        "WALLET_PASSWORD in the environment, never from an argument.",
+    )
+    ap.add_argument(
+        "--deliverable-file",
+        type=pathlib.Path,
+        metavar="PATH",
+        help="commit to this file's bytes instead of keccak(f'job-{id}'). The "
+        "on-chain deliverable is 32 bytes and nothing decodes it, so a hash of the "
+        "job's own id commits to nothing a reader can check. A hash of a published "
+        "artifact is one anybody can re-derive by fetching it.",
+    )
+    ap.add_argument(
+        "--deliverable-url",
+        metavar="URL",
+        help="where that file is published, recorded beside the hash so the "
+        "commitment is followable.",
+    )
+    ap.add_argument(
         "--settle",
         type=int,
         metavar="JOB",
@@ -106,7 +131,60 @@ def main() -> int:
     # the wrong wallet. The operator bought the token and owns job 56681.
     signer = BscSigner(w3, operator_key(), peer_rpcs=ENDPOINTS[1:])
     writer = JobWriter(signer, CHAIN)
+
+    # Who delivers.
+    #
+    # The two wallets here keep their keys in different places: the operator's is
+    # an environment variable, and the Agent Studio seller's is a scrypt v3 file
+    # under a gitignored directory. Until `chain/keystore.py` there was no way to
+    # sign as the second at all — which is the whole reason every recorded hire
+    # has one address in both columns, and why the site could show a marketplace
+    # where the only proven delivery was the buyer delivering to themselves.
+    #
+    # Defaulting to the client preserves what 56681 and 56718 did, so those
+    # records stay reproducible from this script.
+    provider_key: str | None = None
+    if args.provider_keystore:
+        from misquote.chain.keystore import address_of, unlock
+
+        provider = address_of(args.provider_keystore)
+        provider_key = unlock(args.provider_keystore)
+        print(f"provider {provider} (keystore)")
+    else:
+        provider = signer.address
     token = w3.eth.contract(address=Web3.to_checksum_address(addresses["erc20"]), abi=ERC20)
+
+    # A provider that cannot pay for its own `submit`, caught before anything is
+    # sent. Discovering it at the submission leaves the budget already escrowed
+    # and the only exit the 192-hour expiry — the expensive shape of this
+    # mistake, and the one job 56681 taught by reverting after four successful
+    # transactions.
+    if provider != signer.address:
+        gas_held = w3.eth.get_balance(provider)
+        if gas_held == 0:
+            print(
+                f"refusing: provider {provider} holds no BNB, so it cannot sign "
+                f"`submit`. Fund it first — one submission is about 150,000 gas, "
+                f"which at {w3.eth.gas_price / 1e9:.3f} gwei is "
+                f"{150_000 * w3.eth.gas_price / 1e18:.8f} BNB."
+            )
+            return 1
+
+    # What the 32 bytes commit to.
+    #
+    # `keccak(f"job-{id}")` is a hash of the job's own id: it proves a submission
+    # happened and commits to nothing a reader can check. A hash over a published
+    # file is one anybody can re-derive by fetching it, which is the difference
+    # between a deliverable and a receipt for one.
+    deliverable_note: dict[str, Any] | None = None
+    if args.deliverable_file:
+        blob = args.deliverable_file.read_bytes()
+        deliverable_note = {
+            "file": str(args.deliverable_file),
+            "bytes": len(blob),
+            "keccak256": Web3.keccak(blob).hex(),
+            "url": args.deliverable_url,
+        }
 
     steps: list[dict[str, Any]] = []
 
@@ -193,7 +271,7 @@ def main() -> int:
         "createJob",
         "client",
         lambda: writer.create_job(
-            provider=signer.address,  # client and provider, so settle returns it
+            provider=provider,
             evaluator=addresses["router"],  # RouterNotEvaluator() for anything else
             expired_at=int(time.time() + args.hours * 3600),
             description="Misquote: does hiring an agent beat doing it yourself",
@@ -208,15 +286,42 @@ def main() -> int:
     send("registerJob", "client", lambda: writer.register_job(job_id, addresses["policy"]))
 
     before = int(token.functions.balanceOf(signer.address).call())
+    provider_before = int(token.functions.balanceOf(provider).call())
     send("fund", "client", lambda: writer.fund(job_id, budget))
     after = int(token.functions.balanceOf(signer.address).call())
     escrowed = before - after == budget
 
     settled = False
     if escrowed:
-        send("submit", "provider", lambda: writer.submit(job_id, Web3.keccak(text=f"job-{job_id}")))
+        # `submit` is the **provider's** call, and until now that was the same
+        # wallet as the client so one writer served both. With two parties it is
+        # not: signing the submission as the client would revert. The bad outcome
+        # is not that revert — it is a marketplace whose only proof of delivery
+        # is the buyer delivering to themselves.
+        #
+        # Only the operator's key is available to this process besides the
+        # client's, so a provider that is neither is refused here. That is after
+        # the money is escrowed, which is late; the same check runs before
+        # anything is sent, and this one is the belt to that pair of braces.
+        if provider_key is None:
+            provider_writer = writer
+        else:
+            provider_writer = JobWriter(BscSigner(w3, provider_key, peer_rpcs=ENDPOINTS[1:]), CHAIN)
+
+        deliverable = (
+            Web3.to_bytes(hexstr=deliverable_note["keccak256"])
+            if deliverable_note
+            else Web3.keccak(text=f"job-{job_id}")
+        )
+        send("submit", "provider", lambda: provider_writer.submit(job_id, deliverable))
         send("settle", "evaluator", lambda: writer.settle(job_id))
-        settled = int(token.functions.balanceOf(signer.address).call()) >= before
+        # Measured on whoever the escrow would pay. With one address in both
+        # columns that was the client; with two it is the provider, and reading
+        # the client's balance would report every settlement as a failure.
+        if provider == signer.address:
+            settled = int(token.functions.balanceOf(signer.address).call()) >= before
+        else:
+            settled = int(token.functions.balanceOf(provider).call()) >= provider_before
 
     record = {
         "ran": True,
@@ -224,7 +329,12 @@ def main() -> int:
         "chain_id": CHAIN,
         "addresses": addresses,
         "client": signer.address,
-        "provider": signer.address,
+        "provider": provider,
+        # The distinctness is the claim. Every record before this one has the
+        # same address in both fields, so a reader comparing two 42-character
+        # strings on different screens should not have to.
+        "two_party": provider != signer.address,
+        "deliverable": deliverable_note,
         "evaluator": addresses["router"],
         "job_id": job_id,
         "budget": budget,
