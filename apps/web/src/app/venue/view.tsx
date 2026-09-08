@@ -13,7 +13,7 @@ import { ErrorNotice } from "@/components/Refusal";
 import { CardSkeleton } from "@/components/Skeleton";
 import { WidthLadder, type LadderBand } from "@/components/WidthLadder";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, fixed, fraction, isNum, shortAddress } from "@/lib/format";
+import { count, fixed, fraction, isNum, money, shortAddress } from "@/lib/format";
 
 interface Divergence {
   what: string;
@@ -521,10 +521,19 @@ export function VenueView({
               <DataTable
                 caption="Every pool this project has read, and where they differ"
                 hideCaption={false}
-                columns={["Pool", "Fee tier · spacing", "LPs keep · checked"]}
+                columns={["Pool", "Fee · spacing · smallest range", "LPs keep · checked"]}
                 rows={d.pools.map((pool) => ({
                   label: pool.label,
-                  value: `${pool.fee_pips} · ${pool.tick_spacing}`,
+                  // `w_min_ticks` was emitted on every one of these rows and
+                  // rendered on no page. It is the anti-dust floor — the
+                  // smallest half-width the pool will accept — and it is the
+                  // reason `/simulate` refuses +/-40, +/-80 and +/-130 on the
+                  // 0.25% pool while allowing all three on the flagship. So the
+                  // number lived here, was shown nowhere, and was re-derived in
+                  // Python for the other page. This table already carried the
+                  // spacing and stopped one column short of what the spacing
+                  // costs.
+                  value: `${pool.fee_pips} · ${pool.tick_spacing} · ±${pool.w_min_ticks}`,
                   // The badge verdict sits with the constants it vouches for.
                   // `feeProtocol 3400` and "nobody has checked that on chain"
                   // are one fact, and this page's argument does not survive
@@ -551,6 +560,10 @@ export function VenueView({
               />
 
               <p className="mt-4 mb-0 text-xs text-faint">
+                {/* What the floor above costs, on the page that enforces it. */}
+                A range narrower than a pool&rsquo;s floor cannot be minted there
+                &mdash; <Link href="/simulate">which widths that rules out →</Link>
+                <br />
                 {d.pools.map((pool) => shortAddress(pool.address)).join(" · ")}{" "}
                 ·{" "}
                 {/* Counted, not claimed. This read "The nine checks each of them
@@ -683,9 +696,14 @@ export function VenueView({
                     {
                       label: "Widths measured",
                       value: count(pools.width_ladder.length),
+                      // The size, not "per unit of capital". `capital_quote`
+                      // was in the artifact and read by nothing while both
+                      // places that needed it said "unit" — the same sentence
+                      // with the number left out, on the page whose argument is
+                      // that a figure names what it is denominated in.
                       note: `±${count(pools.width_ladder[0])} to ±${count(
                         pools.width_ladder[pools.width_ladder.length - 1]
-                      )} ticks, per unit of capital`,
+                      )} ticks, per ${money(pools.capital_quote, pools.pools[0]?.quote_symbol)}`,
                     },
                   ]}
                   notes="prose"
@@ -715,7 +733,10 @@ export function VenueView({
                           holding fourteen numbers in their head, which is the
                           arithmetic this project keeps saying nobody does. */}
                       <WidthLadder
-                        caption={`Fee APR by width, net of the convexity cost, per unit of capital in ${pool.quote_symbol}`}
+                        caption={`Fee APR by width, net of the convexity cost, per ${money(
+                          pools.capital_quote,
+                          pool.quote_symbol
+                        )}`}
                         bands={usable}
                         bestWidth={pool.best_width_ticks}
                       />

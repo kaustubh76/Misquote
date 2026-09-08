@@ -1321,6 +1321,53 @@ describe("Venue: what has been checked, and what has not", () => {
     expect(link).toHaveAttribute("href", "/vetting");
   });
 
+  it("shows the smallest range each pool will accept, beside its spacing", async () => {
+    // `w_min_ticks` was emitted on every pool row here and rendered on no page,
+    // while `/simulate` re-derived the same floor in Python to refuse rungs.
+    // The table already carried the spacing and stopped one column short of
+    // what the spacing costs.
+    interface WithFloor {
+      pools: { label: string; fee_pips: number; tick_spacing: number; w_min_ticks: number }[];
+    }
+    const venue = readArtifact<WithFloor>("venue.json");
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "The pools we actually read" });
+
+    const rows = [...document.querySelectorAll("tr")].map((r) => r.textContent ?? "");
+    for (const pool of venue.pools) {
+      const row = rows.find((t) => t.includes(pool.label));
+      expect(row, `${pool.label} is not in the table`).toBeTruthy();
+      expect(
+        row,
+        `${pool.label} shows its spacing and not the floor that spacing implies`
+      ).toContain(`±${pool.w_min_ticks}`);
+    }
+    // Two different floors across the listed pools, or this asserts nothing.
+    expect(new Set(venue.pools.map((p) => p.w_min_ticks)).size).toBeGreaterThan(1);
+  });
+
+  it("states the size the ladder is per, rather than saying `per unit`", async () => {
+    // `capital_quote` was declared in `PoolsArtifact` and read by nothing while
+    // the caption said "per unit of capital in WBNB" — the same sentence with
+    // the number left out, on a page whose argument is that every figure names
+    // what it is denominated in.
+    interface Pools {
+      capital_quote: number;
+      pools: { quote_symbol: string; ladder: { sufficient: boolean }[] }[];
+    }
+    const measured = readArtifact<Pools>("pools.json");
+    const quotable = measured.pools.find((p) => p.ladder.some((b) => b.sufficient));
+    if (!quotable) return;
+
+    render(<VenuePage />);
+    await screen.findByRole("heading", { name: "Which pool, and how wide" });
+
+    expect(document.body.textContent).toContain(
+      money(measured.capital_quote, quotable.quote_symbol)
+    );
+    expect(document.body.textContent).not.toContain("per unit of capital");
+  });
+
   it("marks the unchecked pool as unchecked, beside its constants", async () => {
     const unchecked = pools.filter((p) => !badged.has(p.address.toLowerCase()));
     render(<VenuePage />);

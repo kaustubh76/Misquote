@@ -2271,3 +2271,156 @@ def test_every_contracted_simulation_field_is_read_by_the_named_view() -> None:
             missing.append(f"{field} -> {view}")
 
     assert not missing, f"contracted simulation fields no view reads: {sorted(missing)}"
+
+
+# ── pools.json: the width ladder, and the fields the ladder's page reads ──────
+#
+# The artifact behind `/venue`'s "which pool, and how wide", and the twelfth to
+# get a contract. It went without one through the change that added
+# `indistinguishable_from` to every band — so for that whole period nothing
+# checked that what `pools_report.py` writes is what the page reads, which is
+# the hole that let ten fields go dead on `simulation.json`.
+#
+# Two renderers, not one. `app/venue/view.tsx` draws the pool rows and the
+# demand table; `components/WidthLadder.tsx` owns `LadderBand` and draws the
+# rungs. Naming them separately is what makes the second test mean anything: a
+# band field attributed to the view would pass by being read in the wrong file.
+
+POOLS_FIELDS: dict[str, str] = {
+    "chain_id": "app/venue/view.tsx",
+    "capital_quote": "app/venue/view.tsx",
+    "width_ladder": "app/venue/view.tsx",
+    "summary.pools": "app/venue/view.tsx",
+    "summary.badged": "app/venue/view.tsx",
+    "summary.quotable": "app/venue/view.tsx",
+    "summary.refused": "app/venue/view.tsx",
+    "pools": "app/venue/view.tsx",
+    "build.command": "",
+    "build.source": "",
+    "build.generated_at": "",
+    "build.git_sha": "",
+    "build.git_dirty": "",
+}
+
+#: Every key on a pool row. `lp_fee_share` and `tick_spacing` are emitted and
+#: read on `/venue` from `venue.json` instead — the same two facts arrive from
+#: two emitters, and the page reads the one whose artifact it is projecting.
+#: Declared here so that stays a decision rather than an accident.
+POOLS_POOL_FIELDS = frozenset(
+    {
+        "address",
+        "label",
+        "fee_pips",
+        "tick_spacing",
+        "lp_fee_share",
+        "quote_symbol",
+        "badged",
+        "best_width_ticks",
+        "verdict",
+        "ladder",
+        "demand",
+    }
+)
+
+#: A rung. `indistinguishable_from` is absent on a refused band and present on
+#: every band that cleared — an empty list would read as "separated from
+#: everything", which is the inversion `pools.separation()` documents.
+POOLS_BAND_FIELDS = frozenset(
+    {
+        "width_ticks",
+        "p25",
+        "p50",
+        "p75",
+        "observations",
+        "sufficient",
+        "note",
+    }
+)
+
+POOLS_DEMAND_FIELDS = frozenset(
+    {
+        "swaps",
+        "volume_quote",
+        "tick_crossings",
+        "median_liquidity",
+        "fee_per_unit_liquidity",
+    }
+)
+
+
+@pytest.fixture(scope="module")
+def pools_artifact() -> dict:
+    path = ARTIFACTS / "pools.json"
+    if not path.exists():
+        pytest.skip("no pool report; run `make pools`")
+    return json.loads(path.read_text())
+
+
+def test_the_pools_emitter_writes_exactly_the_contracted_fields(pools_artifact: dict) -> None:
+    actual = flatten(pools_artifact)
+    declared = set(POOLS_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the pools emitter writes fields the contract does not declare — add them "
+        f"to POOLS_FIELDS: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        f"the contract declares pools fields the emitter no longer writes: {sorted(undelivered)}"
+    )
+
+
+def test_every_pool_row_band_and_demand_carries_the_contracted_keys(
+    pools_artifact: dict,
+) -> None:
+    """The leaves `flatten` cannot see, because it stops at a list."""
+    rows = pools_artifact.get("pools") or []
+    assert rows, "no pools in the report"
+
+    for row in rows:
+        assert set(row) <= POOLS_POOL_FIELDS, (
+            f"{row.get('label')} carries undeclared pool keys: "
+            f"{sorted(set(row) - POOLS_POOL_FIELDS)}"
+        )
+        assert set(row["demand"]) == POOLS_DEMAND_FIELDS, (
+            f"{row.get('label')} demand block: {sorted(row['demand'])}"
+        )
+        for band in row["ladder"]:
+            extra = set(band) - POOLS_BAND_FIELDS - {"indistinguishable_from"}
+            assert not extra, f"{row.get('label')} band carries undeclared keys: {sorted(extra)}"
+            assert POOLS_BAND_FIELDS <= set(band), (
+                f"{row.get('label')} band is missing contracted keys: "
+                f"{sorted(POOLS_BAND_FIELDS - set(band))}"
+            )
+            # The join `/venue` renders, and the asymmetry that makes it honest.
+            assert ("indistinguishable_from" in band) is bool(band["sufficient"]), (
+                f"{row.get('label')} +/-{band['width_ticks']}: ties present="
+                f"{'indistinguishable_from' in band} but sufficient={band['sufficient']}"
+            )
+
+
+def test_every_contracted_pools_field_is_read_by_the_named_view() -> None:
+    missing = []
+    for field, view in POOLS_FIELDS.items():
+        if not view:
+            continue
+        leaf = field.rsplit(".", 1)[-1]
+        if leaf not in (WEB_SRC / view).read_text():
+            missing.append(f"{field} -> {view}")
+
+    assert not missing, f"contracted pools fields no view reads: {sorted(missing)}"
+
+
+def test_the_band_keys_are_read_where_the_ladder_is_drawn() -> None:
+    """`LadderBand` lives in the component, not the view.
+
+    Attributing these to `app/venue/view.tsx` would pass — the view imports the
+    type — while the rungs are actually drawn one file over. This asserts the
+    file that reads them.
+    """
+    source = (WEB_SRC / "components/WidthLadder.tsx").read_text()
+    unread = sorted(f for f in POOLS_BAND_FIELDS | {"indistinguishable_from"} if f not in source)
+
+    assert not unread, f"band fields WidthLadder.tsx does not read: {unread}"
