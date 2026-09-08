@@ -491,6 +491,23 @@ function TaskCard({
             Without an agent
           </dt>
           <dd className="m-0 mt-1 break-all text-dim">{task.without_agent}</dd>
+          {/* The baseline is the one arm a reader can now drive themselves.
+              `/simulate` replays exactly this policy — one range, opened once,
+              never recentred — over a pool, a width and a size they choose. It
+              links here; until now nothing linked back, so the page making the
+              comparison never mentioned that half of it was operable.
+
+              Keyed on `passive_policy`, which the emitter writes as a code
+              identifier rather than as prose. If that ever stops being the
+              baseline the link disappears, which is the right failure: a
+              "drive this" pointing at a different policy would be worse than
+              no link at all. */}
+          {task.without_agent?.includes("passive_policy") && (
+            <p className="mt-2 mb-0 text-xs text-faint">
+              <Link href="/simulate/">Drive this arm yourself →</Link> — the same
+              position, on a pool and width you pick.
+            </p>
+          )}
         </div>
         <div className="min-w-0 rounded-sm border border-glass-line bg-panel-2/50 p-3">
           <dt className="text-xs tracking-wide text-faint uppercase">
