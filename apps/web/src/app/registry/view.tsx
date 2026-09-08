@@ -18,6 +18,7 @@ import { TallyStrip } from "@/components/TallyStrip";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { EscrowConsole } from "@/components/EscrowConsole";
 import { HireParties, type HireProofParties } from "@/components/HireParties";
+import { MarketplaceStanding, type Participation } from "@/components/MarketplaceStanding";
 import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
@@ -389,6 +390,8 @@ export interface RegistryArtifact {
     seed?: number;
   };
   aacp: {
+    /** What we are on that marketplace, not only what we read off it. */
+    participation?: Participation;
     available: boolean;
     chain_id?: number;
     shares_our_identity_registry?: boolean;
@@ -1855,7 +1858,15 @@ export function RegistryView({
                       {d.aacp.escrow_selectors.note}
                     </p>
                   </div>
-                )}              </Card>
+                )}
+                {/* Everything above is a reading of their protocol. This is
+                    whether these agents can actually be hired on it, which is
+                    a different question and was answered "no" for longer than
+                    this page admitted. */}
+                {d.aacp.participation && (
+                  <MarketplaceStanding p={d.aacp.participation} />
+                )}
+              </Card>
             )}
           </Section>
         </>

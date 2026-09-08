@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 340948,
-      "ours_at_block": 120659617,
+      "ours": 341381,
+      "ours_at_block": 120718343,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 340811,
-      "total_pages": 17041,
+      "total": 341244,
+      "total_pages": 17063,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -43,13 +43,92 @@
     "not_erc8183": "TermixEscrow implements none of the seven ERC-8183 calls. Jobs are keyed by a bytes32 order id, not the EIP's uint256 jobId.",
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
     "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
+    "participation": {
+      "bid": {
+        "brief_status": "QUOTED",
+        "offer_id": "cmtst6e8m2454v5011auu6fq7",
+        "on_brief": "cmto3btvm8ht1wr0140227wf0",
+        "price_usdc": "0.50"
+      },
+      "bounty": {
+        "funded_tx": null,
+        "id": "cmtsuxhcn2q9uv50139587xuz",
+        "reward_usdc": "0.5",
+        "status": "DRAFT"
+      },
+      "brief": {
+        "budget_usdc": "1",
+        "id": "cmtst9g1824t7v5015yjuaet3",
+        "quotes": 1,
+        "status": "CHECKOUT_PENDING"
+      },
+      "counters": {
+        "baseline": {
+          "activeOrders": 0,
+          "briefs": 0,
+          "campaignsTotal": 0,
+          "openBriefs": 0,
+          "orders": 0,
+          "savedListings": 0,
+          "spendingByCurrency": []
+        },
+        "now": {
+          "activeOrders": 0,
+          "briefs": 1,
+          "campaignsTotal": 1,
+          "openBriefs": 1,
+          "orders": 0,
+          "savedListings": 4,
+          "spendingByCurrency": []
+        }
+      },
+      "inbound_offer": {
+        "checkout_id": "cmtsthv2k27jfv501aebwmwnf",
+        "checkout_status": "TX_PREPARED",
+        "offer_id": "cmtst9lr024unv501n2joomi9"
+      },
+      "listings": [
+        {
+          "agent": "grid",
+          "erc8004_token_id": "323332",
+          "listing_id": "cmtslw18l0zfzw3010sldczg5",
+          "price_usdc": "0.2",
+          "proved_by": "/pools",
+          "status": "PUBLISHED",
+          "title": "Which range width to set on a PancakeSwap v3 pool, and which are the same"
+        },
+        {
+          "agent": "sentinel",
+          "erc8004_token_id": "323333",
+          "listing_id": "cmtslw1i30zg1w301tx8iqa8o",
+          "price_usdc": "0.15",
+          "proved_by": "/vetting",
+          "status": "PUBLISHED",
+          "title": "Pool due diligence: nine chain reads, with what each one is for"
+        },
+        {
+          "agent": "warden",
+          "erc8004_token_id": "331592",
+          "listing_id": "cmtslw1030zfww301cksa7pz7",
+          "price_usdc": "0.25",
+          "proved_by": "/quote/preflight",
+          "status": "PUBLISHED",
+          "title": "Liquidity position risk quote, replayed on real PancakeSwap swaps"
+        }
+      ],
+      "not_done": "the accepted offer's escrow transaction has never been sent, and the sponsored campaign is DRAFT because its reward has not been funded on chain. Both are one transaction away and neither has been made.",
+      "reason": null,
+      "refused": {
+        "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand."
+      }
+    },
     "shares_our_identity_registry": true
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-08T09:08:09+00:00",
+    "generated_at": "2026-09-08T16:28:40+00:00",
     "git_dirty": true,
-    "git_sha": "f2a7ebd",
+    "git_sha": "a4bab5b",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -1477,7 +1556,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 20.7,
+    "age_hours": 28.1,
     "agents": [
       {
         "agent": "warden",

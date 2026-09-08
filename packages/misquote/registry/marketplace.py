@@ -124,6 +124,26 @@ could hand back, and it is worth more to me than agreement."""
 #: taken on trust from an id on a command line.
 OUR_BRIEF_ID = "cmtst9g1824t7v5015yjuaet3"
 
+#: Everything this project has put on that marketplace, by id.
+#:
+#: Written down because each action ran as its own invocation and `--out` only
+#: ever saw the run it was part of — so the evidence record came out with an
+#: empty `actions` and no way to find any of it again. Named here, `--out` reads
+#: each one *back from the server*, which is the same reason the listing record
+#: reads services back instead of trusting a create response: what we sent is
+#: not evidence of what exists.
+OUR_OFFER_ID = "cmtst6e8m2454v5011auu6fq7"
+"""Warden's bid on somebody else's impermanent-loss brief."""
+
+INBOUND_OFFER_ID = "cmtst9lr024unv501n2joomi9"
+"""An autonomous agent's bid on ours, seven seconds after it went up."""
+
+OUR_CHECKOUT_ID = "cmtsthv2k27jfv501aebwmwnf"
+"""The accepted offer's checkout. Escrow unsent — this is the unfinished half."""
+
+OUR_CAMPAIGN_ID = "cmtsuxhcn2q9uv50139587xuz"
+"""The bounty we sponsor. `DRAFT` until its 0.50 USDC is funded on chain."""
+
 
 # ── the bounty we sponsor ────────────────────────────────────────────────────
 #
@@ -311,6 +331,10 @@ def instant_buy(session, listing_id: str, body: dict[str, Any]) -> Any:
 
 
 __all__ = [
+    "OUR_OFFER_ID",
+    "OUR_CHECKOUT_ID",
+    "OUR_CAMPAIGN_ID",
+    "INBOUND_OFFER_ID",
     "confirm_funded",
     "create_campaign",
     "CAMPAIGN_TITLE",

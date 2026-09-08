@@ -45,6 +45,9 @@ class FakeEth:
     def get_block(self, _which):
         return {"timestamp": 1_700_000_000}
 
+    def estimate_gas(self, _tx) -> int:
+        return 21_000
+
 
 class FakeW3:
     def __init__(self, chain_id: int = 56) -> None:
@@ -432,3 +435,78 @@ def test_zero_disables_the_ceiling_and_is_a_choice_rather_than_a_parse_error(
     w3 = FakeW3()
     w3.eth.gas_price = 500_000_000_000
     assert BscSigner(w3, BURNER_KEY).build(_Call())["gasPrice"] == 500_000_000_000
+
+
+# --- building from a plain transaction dict --------------------------------
+#
+# `build` took only contract function calls: it called `.estimate_gas()` and
+# `.build_transaction()` on whatever it was handed. `scripts/send_bnb.py` has
+# passed a dict since the day it was written and would have raised
+# `'dict' object has no attribute 'estimate_gas'` on its first real run. It
+# never had one — its broadcast was refused when it was added — so the bug
+# shipped behind a gate and sat there. These are the tests that would have said
+# so without spending anything.
+
+
+def _signer_at_bsc_gas() -> BscSigner:
+    """A signer whose node quotes a price BSC actually charges.
+
+    `FakeW3` defaults to 3 gwei, which is above this signer's own ceiling — so
+    every `build` below would fail on the gas guard before reaching the thing
+    under test. Worth noticing rather than working around: no existing test in
+    this file calls `build` at all, which is why the dict path could be missing
+    and the suite stay green.
+    """
+    w3 = FakeW3(chain_id=56)
+    w3.eth.gas_price = 50_000_000  # 0.05 gwei, the live BSC price
+    return BscSigner(w3, BURNER_KEY)
+
+
+def test_a_plain_transfer_can_be_built_at_all() -> None:
+    """`send_bnb.py`'s exact shape, which had never been executed."""
+    signer = _signer_at_bsc_gas()
+    built = signer.build({"to": "0x" + "ab" * 20, "value": 12345})
+
+    assert built["to"] == "0x" + "ab" * 20
+    assert built["value"] == 12345
+    assert built["chainId"] == 56
+    assert built["nonce"] == 7
+    # Estimated and padded, not guessed: 21,000 * 1.25.
+    assert built["gas"] == 26_250
+
+
+def test_calldata_somebody_else_built_goes_through_unchanged() -> None:
+    """The escrow call TermiX prepares is bytes we do not reconstruct.
+
+    Rebuilding it from field names would be a valid transaction doing something
+    we never read — the same reason `authenticate.py` signs their SIWE message
+    verbatim rather than reassembling it.
+    """
+    signer = _signer_at_bsc_gas()
+    data = "0x61f9f106" + "00" * 32
+    built = signer.build({"to": "0x" + "cd" * 20, "data": data, "value": 0})
+
+    assert built["data"] == data, "the calldata was rewritten on its way through"
+
+
+def test_a_dict_still_gets_the_gas_price_ceiling() -> None:
+    """The reason this lives in `build` and not at each call site.
+
+    A caller assembling its own nonce and gas price is a caller that can forget
+    `assert_gas_price`. Whichever form is passed, the ceiling applies.
+    """
+    w3 = FakeW3(chain_id=56)
+    w3.eth.gas_price = 10**12  # far above any sane BSC price
+    signer = BscSigner(w3, BURNER_KEY, max_gas_price_wei=10**9)
+
+    # `GasPriceTooHigh`, and it is a RuntimeError rather than a ValueError —
+    # matched by type so this cannot pass on some other failure that happens to
+    # mention gas.
+    with pytest.raises(GasPriceTooHigh, match="Nothing was signed"):
+        signer.build({"to": "0x" + "ab" * 20, "value": 1})
+
+
+def test_an_explicit_gas_skips_estimation_for_both_forms() -> None:
+    signer = _signer_at_bsc_gas()
+    built = signer.build({"to": "0x" + "ab" * 20, "value": 1}, gas=99_999)
+    assert built["gas"] == 99_999

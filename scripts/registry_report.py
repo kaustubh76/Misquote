@@ -858,6 +858,125 @@ def _explorer_agents(aacp) -> dict[str, Any]:
     }
 
 
+#: The two records that say what this project *did* on that marketplace, as
+#: opposed to what it read about it.
+LISTING_LIVE_PATH = REPO / "vetting" / "identity" / "termix-listing-live-56.json"
+ACTIVITY_PATH = REPO / "vetting" / "identity" / "termix-activity-56.json"
+
+#: An absence in the same shape as a presence, for the reason `_published_record`
+#: gives at length: a two-key stub on a machine without the files fails the
+#: contract in both directions at once.
+ABSENT_PARTICIPATION: dict[str, Any] = {
+    "listings": [],
+    "counters": {"baseline": None, "now": None},
+    "brief": {"id": None, "status": None, "quotes": None, "budget_usdc": None},
+    "bid": {"offer_id": None, "on_brief": None, "brief_status": None, "price_usdc": None},
+    "bounty": {"id": None, "status": None, "reward_usdc": None, "funded_tx": None},
+    "inbound_offer": {"offer_id": None, "checkout_id": None, "checkout_status": None},
+    "not_done": None,
+    "refused": {},
+    "reason": None,
+}
+
+
+def participation() -> dict[str, Any]:
+    """What we are on TermiX, not just what we have read about it.
+
+    `aacp_overlap` reads their protocol — the contracts, the escrow's recovered
+    interface, how many of its selectors resolve. This is the other half: three
+    listings published, a bid on a stranger's brief, a brief of our own that an
+    autonomous agent answered, and a bounty we sponsor.
+
+    **The unfinished half is carried too, and that is the point.** `not_done`
+    says `activeOrders` is zero because the accepted offer's escrow has never
+    been sent and the campaign is unfunded. A block showing the other four
+    without it would read as a completed trade, which is the misquote this
+    project is named after applied to its own marketplace page.
+
+    Reads two files and no network. Everything in them was itself read back from
+    the server rather than copied from a create response.
+    """
+    listing = _read_json(LISTING_LIVE_PATH)
+    activity = _read_json(ACTIVITY_PATH)
+    if listing is None and activity is None:
+        return {**ABSENT_PARTICIPATION, "reason": "no marketplace record on disk"}
+
+    rows: list[dict[str, Any]] = []
+    for slug, entries in sorted((listing or {}).get("listings", {}).items()):
+        agent = ((listing or {}).get("agents") or {}).get(slug) or {}
+        for entry in entries:
+            rows.append(
+                {
+                    "agent": slug,
+                    "erc8004_token_id": agent.get("erc8004_token_id"),
+                    "listing_id": entry.get("listing_id"),
+                    "status": entry.get("status"),
+                    "price_usdc": entry.get("base_price"),
+                    "title": agent.get("title"),
+                    "proved_by": agent.get("proved_by"),
+                }
+            )
+
+    on_platform = (activity or {}).get("on_the_platform") or {}
+    baseline = (activity or {}).get("baseline") or {}
+    now = (activity or {}).get("after") or {}
+    brief = on_platform.get("brief") or {}
+    bid = on_platform.get("bid") or {}
+    bounty = on_platform.get("bounty") or {}
+    inbound = on_platform.get("inbound_offer") or {}
+
+    return {
+        "listings": rows,
+        # Two readings and nothing derived from them. The first draft also
+        # published `activeOrders` and three siblings at this level, copied out
+        # of `now` — two places holding one number, which is two places to
+        # disagree and no more information than one.
+        "counters": {"baseline": baseline or None, "now": now or None},
+        "brief": {
+            "id": brief.get("id"),
+            "status": brief.get("status"),
+            "quotes": brief.get("quotes"),
+            "budget_usdc": (brief.get("budget") or {}).get("min"),
+        },
+        "bid": {
+            "offer_id": bid.get("offer_id"),
+            "on_brief": bid.get("on_brief"),
+            "brief_status": bid.get("brief_status"),
+            "price_usdc": bid.get("price_usdc"),
+        },
+        "bounty": {
+            "id": bounty.get("id"),
+            "status": bounty.get("status"),
+            "reward_usdc": bounty.get("reward_per_slot"),
+            "funded_tx": bounty.get("funded_tx"),
+        },
+        "inbound_offer": {
+            "offer_id": inbound.get("offer_id"),
+            "checkout_id": inbound.get("checkout_id"),
+            "checkout_status": inbound.get("checkout_status"),
+        },
+        "not_done": ((activity or {}).get("not_done") or {}).get("why"),
+        # Only agents that genuinely are not for sale. The record's `refused`
+        # map also holds "already has 1 service(s)" for the three that *are*
+        # listed — an idempotency skip from re-running the script, not a
+        # refusal — and publishing those under "why these were not listed"
+        # would say three agents are absent while their listings are live.
+        "refused": {
+            slug: why
+            for slug, why in ((listing or {}).get("refused") or {}).items()
+            if slug not in {row["agent"] for row in rows}
+        },
+        "reason": None,
+    }
+
+
+def _read_json(path: Path) -> dict[str, Any] | None:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def aacp_overlap() -> dict[str, Any]:
     """What we already share with TermiX's protocol, if the module exists.
 
@@ -1739,7 +1858,7 @@ def main() -> int:
         "ours": ours(),
         "hire_flow_contracts": hire_flow_contracts(),
         "identity": identity,
-        "aacp": aacp_overlap(),
+        "aacp": {**aacp_overlap(), "participation": participation()},
         # A second, independent reading of the same registry. Alongside ours,
         # never instead of it — see `registry/scan8004.py`.
         "third_party": (

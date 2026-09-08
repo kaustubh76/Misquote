@@ -374,8 +374,12 @@ def main(argv: list[str] | None = None) -> int:
             # Exactly what this order costs, and not a token more. An unbounded
             # allowance to an escrow nobody here has audited is the standing
             # risk this project would refuse to accept on somebody else's page.
+            # The ContractFunction itself, not its `build_transaction(...)`
+            # output: `BscSigner.build` estimates gas off the call and builds the
+            # transaction itself, so handing it a finished dict skipped the
+            # estimate and lost the revert-before-signing it exists for.
             call = erc20.functions.approve(escrow, need)
-            sent = signer.send(signer.build(call.build_transaction({"from": signer.address})))
+            sent = signer.send(signer.build(call))
             print(f"  approve  {sent.tx_hash}")
 
         # Their calldata, sent as given. Rebuilding the call from field names
@@ -397,6 +401,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nafter     {json.dumps(after)}")
 
     if args.out:
+        # Read every id back from the server rather than reporting what we sent.
+        # A create response says what we asked for; only this says what exists,
+        # and the difference is the whole reason the listing record reads
+        # services back too.
+        live: dict[str, Any] = {}
+        for label, path in (
+            ("our_brief", f"/api/v1/prepayment-orders/{marketplace.OUR_BRIEF_ID}"),
+            ("our_bid", f"/api/v1/prepayment-orders/{marketplace.IL_BRIEF_ID}"),
+            ("checkout", f"/api/v1/checkout/{marketplace.OUR_CHECKOUT_ID}"),
+            ("campaign", f"/api/v1/campaigns/{marketplace.OUR_CAMPAIGN_ID}"),
+        ):
+            try:
+                live[label] = client.get(path)
+            except Exception as error:  # noqa: BLE001 - an absence is a reading
+                live[label] = {"unreadable": f"{type(error).__name__}: {str(error)[:120]}"}
+
         # The claim is "these went from zero", which is a claim about a change.
         # A record holding only this run's before/after cannot carry it: run
         # `--out` after `--save` and the before is already 4, which is exactly
@@ -418,6 +438,46 @@ def main(argv: list[str] | None = None) -> int:
             "before": before,
             "after": after,
             "actions": did,
+            "on_the_platform": {
+                "brief": {
+                    "id": marketplace.OUR_BRIEF_ID,
+                    "status": (live.get("our_brief") or {}).get("status"),
+                    "quotes": (live.get("our_brief") or {}).get("offers")
+                    and len(live["our_brief"]["offers"]),
+                    "budget": (live.get("our_brief") or {}).get("budget"),
+                },
+                "bid": {
+                    "offer_id": marketplace.OUR_OFFER_ID,
+                    "on_brief": marketplace.IL_BRIEF_ID,
+                    "brief_status": (live.get("our_bid") or {}).get("status"),
+                    "price_usdc": marketplace.IL_BID_USDC,
+                },
+                "inbound_offer": {
+                    "offer_id": marketplace.INBOUND_OFFER_ID,
+                    "checkout_id": marketplace.OUR_CHECKOUT_ID,
+                    "checkout_status": (live.get("checkout") or {}).get("status"),
+                    "amount": (live.get("checkout") or {}).get("amount"),
+                },
+                "bounty": {
+                    "id": marketplace.OUR_CAMPAIGN_ID,
+                    "status": (live.get("campaign") or {}).get("status"),
+                    "reward_per_slot": (live.get("campaign") or {}).get("rewardPerSlot"),
+                    "funded_tx": (live.get("campaign") or {}).get("fundedTxHash"),
+                    "escrow": (live.get("campaign") or {}).get("escrowContract"),
+                },
+            },
+            # The half that is not done, named rather than left to be inferred
+            # from a zero. A block showing three completed things and omitting
+            # this reads as a completed trade.
+            "not_done": {
+                "activeOrders": 0,
+                "why": (
+                    "the accepted offer's escrow transaction has never been sent, "
+                    "and the sponsored campaign is DRAFT because its reward has "
+                    "not been funded on chain. Both are one transaction away and "
+                    "neither has been made."
+                ),
+            },
             "usdc_at_read": usdc,
             # Recorded because it is a real absence and the reason is not
             # obvious from the zero: fifteen campaigns are DRAFT and five are

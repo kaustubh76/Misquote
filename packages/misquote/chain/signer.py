@@ -300,7 +300,27 @@ class BscSigner:
     # --- building and sending ---------------------------------------------
 
     def build(self, function_call, *, gas: int | None = None, value: int = 0) -> dict[str, Any]:
-        """A transaction dict with the nonce, gas and chain id filled in."""
+        """A transaction dict with the nonce, gas and chain id filled in.
+
+        Takes either a contract function call or a **plain transaction dict**
+        — `{"to": ..., "value": ...}`, or `{"to": ..., "data": ...}` for calldata
+        somebody else built. The two are told apart by whether the argument can
+        estimate its own gas, not by a flag, because that is the only difference
+        that matters here.
+
+        The dict form was missing and two callers needed it. `scripts/send_bnb.py`
+        has done `signer.build({"to": to, "value": wei})` since it was written and
+        would have raised `'dict' object has no attribute 'estimate_gas'` on its
+        first real run — it never had one, because its broadcast was refused the
+        day it was added. A bug behind a gate is still a bug, and this is the
+        second time on this project that a script written to be careful was never
+        executed and so was never right.
+
+        It belongs here rather than at each call site. A caller assembling its
+        own nonce, gas price and chain id is a caller that can forget
+        `assert_gas_price`, and every guard that matters runs in `send`, which
+        this does not touch.
+        """
         transaction: dict[str, Any] = {
             "from": self.address,
             "chainId": self.chain_id,
@@ -309,6 +329,18 @@ class BscSigner:
         }
         transaction["gasPrice"] = rpc_retry(lambda: self.w3.eth.gas_price)
         self.assert_gas_price(int(transaction["gasPrice"]))
+
+        if isinstance(function_call, dict):
+            transaction.update(function_call)
+            if gas is not None:
+                transaction["gas"] = gas
+            else:
+                # `w3.eth.estimate_gas` rather than the function's own, and the
+                # point is the same: a revert costs nothing if it is found here
+                # and costs a status-0 receipt if it is found after signing.
+                estimate = rpc_retry(lambda: self.w3.eth.estimate_gas(dict(transaction)))
+                transaction["gas"] = int(estimate * 1.25)
+            return transaction
 
         if gas is not None:
             transaction["gas"] = gas

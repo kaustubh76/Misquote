@@ -44,6 +44,11 @@ OPAQUE = frozenset(
         "third_party.feedback_graph.decode_failures",
         "third_party.feedback_graph.parse_status",
         "third_party.feedback_graph.failure_reasons",
+        # Keyed by agent slug, which is data: a fifth agent adds a key and a
+        # contract that enumerated them would fail on the day one is listed.
+        # The *reasons* are the point and they are rendered; the keys are not
+        # schema this repository declares.
+        "aacp.participation.refused",
         "third_party.census.protocols",
         "third_party.census.failure_reasons",
         "third_party.name_collisions.names",
@@ -1468,6 +1473,54 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow_contracts.56": "",
     "hire_flow_contracts.97": "",
     # TermiX's published table, recorded to be checked against.
+    # ── what this project is on that marketplace, not just what it read ──────
+    #
+    # `aacp` above is TermiX's protocol as we read it. This is the other half:
+    # three listings published, a bid on a stranger's brief, a brief of our own
+    # that an autonomous agent answered, and a bounty we sponsor.
+    "aacp.participation.listings": "MarketplaceStanding.tsx",
+    "aacp.participation.brief.id": "MarketplaceStanding.tsx",
+    "aacp.participation.brief.status": "MarketplaceStanding.tsx",
+    "aacp.participation.brief.quotes": "MarketplaceStanding.tsx",
+    "aacp.participation.brief.budget_usdc": "MarketplaceStanding.tsx",
+    "aacp.participation.bid.offer_id": "MarketplaceStanding.tsx",
+    "aacp.participation.bid.on_brief": "MarketplaceStanding.tsx",
+    "aacp.participation.bid.brief_status": "MarketplaceStanding.tsx",
+    "aacp.participation.bid.price_usdc": "MarketplaceStanding.tsx",
+    "aacp.participation.bounty.id": "MarketplaceStanding.tsx",
+    "aacp.participation.bounty.status": "MarketplaceStanding.tsx",
+    "aacp.participation.bounty.reward_usdc": "MarketplaceStanding.tsx",
+    "aacp.participation.bounty.funded_tx": "MarketplaceStanding.tsx",
+    "aacp.participation.inbound_offer.offer_id": "MarketplaceStanding.tsx",
+    "aacp.participation.inbound_offer.checkout_id": "MarketplaceStanding.tsx",
+    "aacp.participation.inbound_offer.checkout_status": "MarketplaceStanding.tsx",
+    "aacp.participation.refused": "MarketplaceStanding.tsx",
+    #: The sentence that keeps the block honest. Four things happened and a
+    #: fifth did not, and a page showing only the four reads as a completed
+    #: trade. Rendered, and asserted rendered.
+    "aacp.participation.not_done": "MarketplaceStanding.tsx",
+    "aacp.participation.reason": "MarketplaceStanding.tsx",
+    # The counters, before and after. Both halves rendered: "it is not zero" is
+    # a claim about a change, and the baseline is what makes it checkable.
+    "aacp.participation.counters.baseline.activeOrders": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.baseline.openBriefs": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.baseline.savedListings": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.baseline.campaignsTotal": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.activeOrders": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.openBriefs": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.savedListings": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.campaignsTotal": "MarketplaceStanding.tsx",
+    # `orders` and `briefs` are the lengths of the dashboard's own two arrays
+    # and say the same thing as `activeOrders` and `openBriefs`; `spending` is
+    # empty until an escrow is actually paid. Carried so a change in any of them
+    # is visible in the record, rendered nowhere because the page would be
+    # showing one number twice.
+    "aacp.participation.counters.baseline.orders": "",
+    "aacp.participation.counters.baseline.briefs": "",
+    "aacp.participation.counters.baseline.spendingByCurrency": "",
+    "aacp.participation.counters.now.orders": "",
+    "aacp.participation.counters.now.briefs": "",
+    "aacp.participation.counters.now.spendingByCurrency": "",
     "aacp.available": "registry/view.tsx",
     "aacp.contracts": "registry/view.tsx",
     # Emitted and not drawn. `escrow_selectors` carries the summary the page

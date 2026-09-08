@@ -16,6 +16,7 @@ from misquote.registry import listings, marketplace
 
 REPO = Path(__file__).resolve().parents[2]
 RECORD = REPO / "vetting" / "identity" / "termix-activity-56.json"
+ARTIFACT = REPO / "apps" / "web" / "public" / "artifacts" / "registry.json"
 
 
 def test_the_bid_says_what_it_will_not_do_before_it_says_the_price() -> None:
@@ -161,3 +162,39 @@ def test_the_record_carries_no_credential() -> None:
     blob = json.dumps(record).lower()
     for leak in ("bearer", "accesstoken", "access_token", "refreshtoken", "jwt"):
         assert leak not in blob
+
+
+def test_the_page_cannot_publish_the_good_news_without_the_bad() -> None:
+    """Four things happened on that marketplace and a fifth did not.
+
+    Three listings, a bid, a brief that an autonomous agent answered, a bounty
+    sponsored — and `activeOrders` still 0, because the accepted offer's escrow
+    has never been sent and the campaign is unfunded.
+
+    A block carrying the first four and omitting the fifth reads as a completed
+    trade. This asserts the artifact carries it, so removing the sentence breaks
+    a test rather than quietly improving the story.
+    """
+    if not ARTIFACT.is_file():
+        pytest.skip("no registry artifact has been generated")
+    part = (json.loads(ARTIFACT.read_text()).get("aacp") or {}).get("participation")
+    if not part:
+        pytest.skip("this artifact predates the participation block")
+
+    assert part.get("not_done"), "the block publishes what happened and not what did not"
+    assert "escrow" in part["not_done"].lower()
+
+    # The claim is a change, so both readings have to be there. A block showing
+    # only "now" cannot distinguish four bookmarks from four we always had.
+    counters = part.get("counters") or {}
+    assert counters.get("baseline") and counters.get("now")
+    assert counters["baseline"]["savedListings"] == 0
+    assert counters["now"]["savedListings"] > 0
+
+    # And the zero that is still zero stays visible rather than being dropped
+    # for looking bad.
+    assert counters["now"]["activeOrders"] == 0
+
+    # Router's refusal survives into what a reader sees: it has no live route,
+    # so it is not for sale, and the page says which agents were held back.
+    assert "router" in (part.get("refused") or {})
