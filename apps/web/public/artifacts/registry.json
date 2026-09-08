@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 341492,
-      "ours_at_block": 120735429,
+      "ours": 341511,
+      "ours_at_block": 120739800,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 341355,
-      "total_pages": 17068,
+      "total": 341374,
+      "total_pages": 17069,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -44,12 +44,48 @@
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
     "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
     "participation": {
-      "bid": {
-        "brief_status": "QUOTED",
-        "offer_id": "cmtst6e8m2454v5011auu6fq7",
-        "on_brief": "cmto3btvm8ht1wr0140227wf0",
-        "price_usdc": "0.50"
-      },
+      "bids": [
+        {
+          "agent": "warden",
+          "brief_id": "cmto3btvm8ht1wr0140227wf0",
+          "brief_status": "QUOTED",
+          "budget_usdc": "35.1",
+          "concession": "do not model hypothetical price paths",
+          "price_usdc": "0.50",
+          "quotes_on_brief": 1,
+          "title": "Model the impermanent loss across several price paths"
+        },
+        {
+          "agent": "router",
+          "brief_id": "cmtspz62h1487v501jfu2m2df",
+          "brief_status": "QUOTED",
+          "budget_usdc": "89.81",
+          "concession": "one chain and two lenders, not a survey of the category",
+          "price_usdc": "0.40",
+          "quotes_on_brief": 1,
+          "title": "Lending protocol comparison by capital efficiency"
+        },
+        {
+          "agent": "sentinel",
+          "brief_id": "cmtryzl73e447ue01q8hmnfqc",
+          "brief_status": "QUOTED",
+          "budget_usdc": "22.49",
+          "concession": "a fee model read from chain, not a security audit",
+          "price_usdc": "0.30",
+          "quotes_on_brief": 1,
+          "title": "Protocol fee model and risk breakdown"
+        },
+        {
+          "agent": "warden",
+          "brief_id": "cmto0xpaa7mjywr01g3gr4cmx",
+          "brief_status": "QUOTED",
+          "budget_usdc": "53.97",
+          "concession": "I check, I do not deposit",
+          "price_usdc": "0.50",
+          "quotes_on_brief": 1,
+          "title": "Provide liquidity and check LP fees"
+        }
+      ],
       "bounty": {
         "funded_tx": null,
         "id": "cmtsuxhcn2q9uv50139587xuz",
@@ -141,6 +177,7 @@
           "status": "PENDING_ACCEPT"
         }
       ],
+      "orders_unreadable": null,
       "reason": null,
       "refused": {}
     },
@@ -148,9 +185,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-08T18:36:50+00:00",
+    "generated_at": "2026-09-08T19:09:37+00:00",
     "git_dirty": true,
-    "git_sha": "82100cc",
+    "git_sha": "b4601f7",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -1578,7 +1615,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 30.2,
+    "age_hours": 30.8,
     "agents": [
       {
         "agent": "warden",

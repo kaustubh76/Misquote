@@ -237,22 +237,47 @@ def main(argv: list[str] | None = None) -> int:
         did["saved"] = saved
 
     if args.quote:
-        print("\nbidding on the impermanent-loss brief:")
-        # `providerAgentId` is required and it is the interesting field: a bid
-        # is made *by an agent*, not by an account, so the marketplace ties the
-        # offer to the ERC-8004 identity that would do the work. Warden's, because
-        # impermanent loss against holding is what its quote returns.
-        body = {
-            "providerAgentId": listings.SPECS["warden"].agent_id,
-            "price": marketplace.IL_BID_USDC,
-            "scope": marketplace.IL_SCOPE,
-            "currency": "USDC",
-            "deliveryDays": 1,
-            "message": marketplace.IL_OFFER,
-        }
-        reply = marketplace.quote_on_brief(client, marketplace.IL_BRIEF_ID, body)
-        if show("offer", reply):
-            did["offer"] = reply
+        print("\nbidding on open briefs:")
+        placed = []
+        for bid in marketplace.BIDS:
+            spec = listings.SPECS[bid.agent]
+            # Skip anything this agent has already bid on. Re-running the script
+            # must not stack a second offer on one brief — a seller quoting the
+            # same work twice at the same price reads as a bot, and is.
+            try:
+                brief = client.get(f"/api/v1/prepayment-orders/{bid.brief_id}")
+            except Exception as error:  # noqa: BLE001 - an unreadable brief is a skip
+                print(f"  {bid.agent:9} SKIP  {type(error).__name__}: {str(error)[:70]}")
+                continue
+            # Both spellings. This looked only at `offers[].providerAgent.id`
+            # and missed Warden's existing bid entirely — the server caught it
+            # with `CONFLICT: this agent already has an active quote`, which is
+            # the right answer arriving from the wrong side. A skip that depends
+            # on somebody else's idempotency is not a skip.
+            mine = [
+                o
+                for o in (brief.get("offers") or [])
+                if spec.agent_id
+                in {(o.get("providerAgent") or {}).get("id"), o.get("providerAgentId")}
+            ]
+            if mine:
+                print(f"  {bid.agent:9} already bid on {bid.title[:38]}")
+                continue
+            reply = marketplace.quote_on_brief(
+                client,
+                bid.brief_id,
+                {
+                    "providerAgentId": spec.agent_id,
+                    "price": bid.price_usdc,
+                    "scope": bid.scope,
+                    "currency": "USDC",
+                    "deliveryDays": spec.delivery_days,
+                    "message": bid.message,
+                },
+            )
+            if show(f"{bid.agent} -> {bid.title[:24]}", reply):
+                placed.append({"agent": bid.agent, "brief": bid.brief_id, "offer": reply.get("id")})
+        did["bids"] = placed
 
     if args.brief:
         print("\nposting our own brief:")
@@ -461,7 +486,10 @@ def main(argv: list[str] | None = None) -> int:
         live: dict[str, Any] = {}
         for label, path in (
             ("our_brief", f"/api/v1/prepayment-orders/{marketplace.OUR_BRIEF_ID}"),
-            ("our_bid", f"/api/v1/prepayment-orders/{marketplace.IL_BRIEF_ID}"),
+            *(
+                (f"bid:{b.brief_id}", f"/api/v1/prepayment-orders/{b.brief_id}")
+                for b in marketplace.BIDS
+            ),
             ("checkout", f"/api/v1/checkout/{marketplace.OUR_CHECKOUT_ID}"),
             ("campaign", f"/api/v1/campaigns/{marketplace.OUR_CAMPAIGN_ID}"),
             ("orders", "/api/v1/orders"),
@@ -500,12 +528,25 @@ def main(argv: list[str] | None = None) -> int:
                     and len(live["our_brief"]["offers"]),
                     "budget": (live.get("our_brief") or {}).get("budget"),
                 },
-                "bid": {
-                    "offer_id": marketplace.OUR_OFFER_ID,
-                    "on_brief": marketplace.IL_BRIEF_ID,
-                    "brief_status": (live.get("our_bid") or {}).get("status"),
-                    "price_usdc": marketplace.IL_BID_USDC,
-                },
+                # Every bid, each read back from its own brief rather than
+                # reported from what we sent. One entry was the shape here until
+                # there were four, and a record that carries the first of a set
+                # is the same defect as a status sentence that stops being true.
+                "bids": [
+                    {
+                        "agent": bid.agent,
+                        "brief_id": bid.brief_id,
+                        "title": bid.title,
+                        "price_usdc": bid.price_usdc,
+                        "budget_usdc": bid.budget_usdc,
+                        "concession": bid.concession,
+                        "brief_status": (live.get(f"bid:{bid.brief_id}") or {}).get("status"),
+                        "quotes_on_brief": len(
+                            (live.get(f"bid:{bid.brief_id}") or {}).get("offers") or []
+                        ),
+                    }
+                    for bid in marketplace.BIDS
+                ],
                 "inbound_offer": {
                     "offer_id": marketplace.INBOUND_OFFER_ID,
                     "checkout_id": marketplace.OUR_CHECKOUT_ID,
@@ -515,6 +556,14 @@ def main(argv: list[str] | None = None) -> int:
                 # The order the escrow produced, read from the server. Its
                 # `chainOrderId` is the one thing here anybody can check without
                 # this project's cooperation.
+                # `unreadable` is carried, not flattened to an empty list. A
+                # timeout on `/api/v1/orders` produced `orders: []` in this
+                # record once — an absence indistinguishable from "nobody has
+                # ordered anything", published while an escrowed order sat on
+                # the platform. That is the shape `guards that catch their own
+                # failure` names: a check reporting its own inability to run as
+                # a negative result.
+                "orders_unreadable": (live.get("orders") or {}).get("unreadable"),
                 "orders": [
                     {
                         "order_id": o.get("id"),

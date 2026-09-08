@@ -1483,10 +1483,6 @@ REGISTRY_FIELDS: dict[str, str] = {
     "aacp.participation.brief.status": "MarketplaceStanding.tsx",
     "aacp.participation.brief.quotes": "MarketplaceStanding.tsx",
     "aacp.participation.brief.budget_usdc": "MarketplaceStanding.tsx",
-    "aacp.participation.bid.offer_id": "MarketplaceStanding.tsx",
-    "aacp.participation.bid.on_brief": "MarketplaceStanding.tsx",
-    "aacp.participation.bid.brief_status": "MarketplaceStanding.tsx",
-    "aacp.participation.bid.price_usdc": "MarketplaceStanding.tsx",
     "aacp.participation.bounty.id": "MarketplaceStanding.tsx",
     "aacp.participation.bounty.status": "MarketplaceStanding.tsx",
     "aacp.participation.bounty.reward_usdc": "MarketplaceStanding.tsx",
@@ -1503,6 +1499,15 @@ REGISTRY_FIELDS: dict[str, str] = {
     #: are whatever the platform reports and a contract over them would be a
     #: contract over how many orders we happen to have.
     "aacp.participation.orders": "MarketplaceStanding.tsx",
+    #: Why the order list is empty, when it is empty for a reason other than
+    #: there being no orders. A timeout on `/api/v1/orders` published
+    #: `orders: []` once while an escrowed order sat on the platform — an
+    #: absence indistinguishable from a negative. Rendered, so a reader is never
+    #: shown "no orders" when the truth is "we could not look".
+    "aacp.participation.orders_unreadable": "MarketplaceStanding.tsx",
+    #: Every bid out on somebody else's request. A list, so the contract does
+    #: not become a contract over how many we happen to have.
+    "aacp.participation.bids": "MarketplaceStanding.tsx",
     "aacp.participation.reason": "MarketplaceStanding.tsx",
     # The counters, before and after. Both halves rendered: "it is not zero" is
     # a claim about a change, and the baseline is what makes it checkable.

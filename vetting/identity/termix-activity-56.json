@@ -40,12 +40,48 @@
     "order_delivery": "order is PENDING_ACCEPT: the money is escrowed and the provider has not accepted or delivered yet"
   },
   "on_the_platform": {
-    "bid": {
-      "brief_status": "QUOTED",
-      "offer_id": "cmtst6e8m2454v5011auu6fq7",
-      "on_brief": "cmto3btvm8ht1wr0140227wf0",
-      "price_usdc": "0.50"
-    },
+    "bids": [
+      {
+        "agent": "warden",
+        "brief_id": "cmto3btvm8ht1wr0140227wf0",
+        "brief_status": "QUOTED",
+        "budget_usdc": "35.1",
+        "concession": "do not model hypothetical price paths",
+        "price_usdc": "0.50",
+        "quotes_on_brief": 1,
+        "title": "Model the impermanent loss across several price paths"
+      },
+      {
+        "agent": "router",
+        "brief_id": "cmtspz62h1487v501jfu2m2df",
+        "brief_status": "QUOTED",
+        "budget_usdc": "89.81",
+        "concession": "one chain and two lenders, not a survey of the category",
+        "price_usdc": "0.40",
+        "quotes_on_brief": 1,
+        "title": "Lending protocol comparison by capital efficiency"
+      },
+      {
+        "agent": "sentinel",
+        "brief_id": "cmtryzl73e447ue01q8hmnfqc",
+        "brief_status": "QUOTED",
+        "budget_usdc": "22.49",
+        "concession": "a fee model read from chain, not a security audit",
+        "price_usdc": "0.30",
+        "quotes_on_brief": 1,
+        "title": "Protocol fee model and risk breakdown"
+      },
+      {
+        "agent": "warden",
+        "brief_id": "cmto0xpaa7mjywr01g3gr4cmx",
+        "brief_status": "QUOTED",
+        "budget_usdc": "53.97",
+        "concession": "I check, I do not deposit",
+        "price_usdc": "0.50",
+        "quotes_on_brief": 1,
+        "title": "Provide liquidity and check LP fees"
+      }
+    ],
     "bounty": {
       "escrow": "0x5BaE7834B32a4b357F65dd20248068993466D294",
       "funded_tx": null,
@@ -79,10 +115,11 @@
         "settlement": "escrow",
         "status": "PENDING_ACCEPT"
       }
-    ]
+    ],
+    "orders_unreadable": null
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788892594,
+  "read_at": 1788894563,
   "token_recorded": false,
   "usdc_at_read": "0.499961308195863051",
   "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"

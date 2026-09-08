@@ -19,29 +19,52 @@ RECORD = REPO / "vetting" / "identity" / "termix-activity-56.json"
 ARTIFACT = REPO / "apps" / "web" / "public" / "artifacts" / "registry.json"
 
 
-def test_the_bid_says_what_it_will_not_do_before_it_says_the_price() -> None:
-    """The buyer asked to *model* price paths; we replay recorded ones.
+def test_every_bid_concedes_something_before_it_names_a_price() -> None:
+    """Each of these briefs asks for something adjacent to what the agent does.
 
-    That is a different method, and a bid that let "model" stand would be
-    selling a simulation this project does not run. The correction is in the
-    offer text, near the top, and it is asserted because it is the sentence a
-    rewrite for brevity would cut.
+    Router's asks for a comparison *of lending protocols* and we have two, on
+    one chain. Sentinel's says "risk breakdown", which could mean a security
+    audit, and nine chain reads are not one. Warden's asks somebody to *provide*
+    liquidity and we only check it. In each case the gap goes in the message
+    before the price, because a bid that lets the buyer's wording stand is
+    selling their idea of the work rather than ours.
     """
-    text = marketplace.IL_OFFER
-    assert "do not model hypothetical price paths" in text
-    assert "replay" in text.lower()
-    # And it is said early, not buried under the sales pitch.
-    assert text.index("do not model") < len(text) // 2
-
-    # The bid is under the buyer's budget and equal to what our own listing
-    # charges for the same tier — quoting 35.10 for work we publish at 0.50
-    # would contradict our own price on the same marketplace.
     from decimal import Decimal
 
-    warden = listings.SPECS["warden"]
-    tier = next(p for p in warden.packages if p["id"] == "standard")
-    assert Decimal(marketplace.IL_BID_USDC) == Decimal(tier["price"])
-    assert Decimal(marketplace.IL_BID_USDC) < Decimal("35.1")
+    assert marketplace.BIDS, "no bids to check"
+    for bid in marketplace.BIDS:
+        assert bid.concession, f"{bid.agent}'s bid on {bid.title[:30]} concedes nothing"
+        # The concession is *in* the message, not merely recorded beside it.
+        assert bid.concession.split()[0].lower() in bid.message.lower(), (
+            f"{bid.agent} records a concession the buyer never reads"
+        )
+        # And early: before the halfway mark, not buried under the pitch.
+        assert bid.message.lower().index(bid.concession.split()[0].lower()) < len(bid.message) / 2
+
+        # Priced from our own catalogue, never from the buyer's budget. Quoting
+        # 89.81 for work we publish at 0.40 would contradict our own listing on
+        # the same marketplace.
+        assert Decimal(bid.price_usdc) < Decimal(bid.budget_usdc)
+        tiers = [Decimal(p["price"]) for p in listings.SPECS[bid.agent].packages]
+        assert Decimal(bid.price_usdc) in tiers, (
+            f"{bid.agent} bids {bid.price_usdc}, which is not a price it publishes"
+        )
+
+
+def test_no_bid_claims_work_its_agent_has_no_route_for() -> None:
+    """A bid is a promise, held to the same standard as a listing.
+
+    Every agent bidding must have a live probe — the thing that makes its
+    listing honest makes its bid honest. This is the guard that would have
+    stopped me bidding Sentinel on "Smart contract review by severity", which
+    matches on keywords and is work this project does not do.
+    """
+    for bid in marketplace.BIDS:
+        spec = listings.SPECS[bid.agent]
+        assert spec.probe_path, f"{bid.agent} bids on {bid.title[:30]} with no route behind it"
+    # One agent, one brief: two offers on one request at one price is a bot.
+    pairs = [(b.agent, b.brief_id) for b in marketplace.BIDS]
+    assert len(pairs) == len(set(pairs))
 
 
 def test_the_brief_we_post_asks_somebody_to_check_us() -> None:

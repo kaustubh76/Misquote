@@ -39,12 +39,19 @@ export interface Participation {
     now?: Counters | null;
   };
   brief?: { id?: string | null; status?: string | null; quotes?: number | null; budget_usdc?: string | null };
-  bid?: {
-    offer_id?: string | null;
-    on_brief?: string | null;
-    brief_status?: string | null;
+  bids?: {
+    agent?: string | null;
+    title?: string | null;
     price_usdc?: string | null;
-  };
+    budget_usdc?: string | null;
+    brief_status?: string | null;
+    concession?: string | null;
+  }[];
+  /** Why `orders` is empty, when it is empty for a reason other than there
+   *  being none. A timeout published `orders: []` once while an escrowed order
+   *  sat on the platform, and "no orders" is not the same claim as "we could
+   *  not look". */
+  orders_unreadable?: string | null;
   bounty?: {
     id?: string | null;
     status?: string | null;
@@ -166,13 +173,21 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
       )}
 
       <div className="mt-4 grid gap-2 border-t border-line pt-3">
-        {p.bid?.offer_id && (
-          <Row label="Bid on somebody else's request">
-            <span className="tabular font-mono">${p.bid.price_usdc}</span>{" "}
-            <span className="text-faint">· that request is now </span>
-            <span className="font-mono text-dim">{p.bid.brief_status?.toLowerCase()}</span>
+        {(p.bids ?? []).map((b) => (
+          <Row key={`${b.agent}-${b.title}`} label={`${b.agent} bid`}>
+            <span className="tabular font-mono">${b.price_usdc}</span>{" "}
+            <span className="text-faint">of ${b.budget_usdc} asked · </span>
+            <span className="font-mono text-dim">{b.brief_status?.toLowerCase()}</span>
+            {/* The concession, on the page. Each of these briefs asks for
+                something adjacent to what the agent does, and the gap is the
+                part a reader should see rather than the price. */}
+            {b.concession && (
+              <span className="mt-0.5 block max-w-[46ch] text-xs break-words text-faint">
+                {b.title} — {b.concession}
+              </span>
+            )}
           </Row>
-        )}
+        ))}
         {p.brief?.id && (
           <Row label="Our own request">
             <span className="tabular font-mono">${p.brief.budget_usdc}</span>{" "}
@@ -188,6 +203,12 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
             <span className="text-faint">· </span>
             <span className="font-mono text-dim">{p.bounty.status?.toLowerCase()}</span>
             {!p.bounty.funded_tx && <span className="text-faint"> · unfunded</span>}
+          </Row>
+        )}
+        {p.orders_unreadable && (
+          <Row label="Orders">
+            <span className="text-warn">could not be read</span>
+            <span className="mt-0.5 block text-xs text-faint">{p.orders_unreadable}</span>
           </Row>
         )}
         {(p.orders ?? []).map((o) => (

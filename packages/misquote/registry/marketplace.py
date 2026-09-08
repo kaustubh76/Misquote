@@ -31,6 +31,7 @@ it buys the one listing out of 571 whose subject overlaps ours.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 # ── the brief we bid on ──────────────────────────────────────────────────────
@@ -45,25 +46,11 @@ IL_BRIEF_ID = "cmto3btvm8ht1wr0140227wf0"
 #: contradict our own published price on the same marketplace.
 IL_BID_USDC = "0.50"
 
-#: The deliverable in one line. The API requires this *and* a message, and the
-#: split is a good one: `scope` is what is owed, `message` is why we are the
-#: ones to do it. The narrower claim — recorded swaps, not modelled paths — goes
-#: in the scope, so it sits in the binding half rather than only in the pitch.
-IL_SCOPE = (
-    "Impermanent loss for your position against simply holding, computed by "
-    "replaying the swaps that actually happened on BNB Smart Chain - not by "
-    "modelling hypothetical price paths. Twenty overlapping windows of real "
-    "history as a P25-P75 band, the fee income over the same windows, and the "
-    "per-window journal including the windows withheld. PancakeSwap v3 "
-    "WBNB/USDT pools; if your pool has no tape I will say so rather than "
-    "extrapolate."
-)
-
 #: The pitch, and the gap it concedes. They asked for *modelled price paths*; we
 #: replay recorded swaps. Said in the second sentence rather than discovered by
 #: the buyer afterwards, because a bid that quietly let "model" stand would be
 #: selling a simulation this project does not run.
-IL_OFFER = """I can answer this, and one thing differs from how you phrased it — worth
+IL_OFFER_TEXT = """I can answer this, and one thing differs from how you phrased it — worth
 saying before you pick a bid rather than after.
 
 I do not model hypothetical price paths. I replay the swaps that actually
@@ -86,6 +73,162 @@ Why the bid is well under your budget: the replay is automated against a tape
 that already exists, and this is what the same work costs on my listing. You can
 check the evidence before accepting - the pool coverage and the refusal rules
 are a public read on my service."""
+
+
+# ── every brief we bid on ────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class Bid:
+    """One offer on somebody else's request.
+
+    `concession` is not decoration and the test asserts it: every one of these
+    briefs asks for something adjacent to what the agent does rather than
+    identical to it, and the difference goes in the message **before** the price.
+    A bid that lets the buyer's wording stand is selling their idea of the work
+    rather than ours.
+
+    `price_usdc` comes from our own catalogue, never from `budget_usdc`. Quoting
+    a buyer's 89.81 for work we publish at 0.40 would contradict our own listing
+    on the same marketplace, and the number a seller names when nobody is
+    watching is the honest one.
+    """
+
+    brief_id: str
+    agent: str
+    price_usdc: str
+    budget_usdc: str
+    title: str
+    scope: str
+    concession: str
+    message: str
+
+
+#: *"Model the impermanent loss across several price paths"* — 35.10 USDC, no
+#: quotes. Its tags include `On-chain Analytics`, Warden's own skill tag.
+IL_BRIEF_ID = "cmto3btvm8ht1wr0140227wf0"
+IL_BID_USDC = "0.50"
+
+BIDS: tuple[Bid, ...] = (
+    Bid(
+        brief_id=IL_BRIEF_ID,
+        agent="warden",
+        price_usdc=IL_BID_USDC,
+        budget_usdc="35.1",
+        title="Model the impermanent loss across several price paths",
+        scope=(
+            "Impermanent loss for your position against simply holding, computed by "
+            "replaying the swaps that actually happened on BNB Smart Chain - not by "
+            "modelling hypothetical price paths. Twenty overlapping windows of real "
+            "history as a P25-P75 band, the fee income over the same windows, and the "
+            "per-window journal including the windows withheld. PancakeSwap v3 "
+            "WBNB/USDT pools; if your pool has no tape I will say so rather than "
+            "extrapolate."
+        ),
+        concession="do not model hypothetical price paths",
+        message=IL_OFFER_TEXT,
+    ),
+    Bid(
+        brief_id="cmtspz62h1487v501jfu2m2df",
+        agent="router",
+        price_usdc="0.40",
+        budget_usdc="89.81",
+        title="Lending protocol comparison by capital efficiency",
+        scope=(
+            "Venus Core Pool dollar markets compared on capital efficiency over "
+            "recorded BNB Smart Chain history: for each market the depth it could "
+            "actually absorb, not the rate it advertises, plus PancakeSwap v3 ranges "
+            "on the same capital so lending and providing are answerable against each "
+            "other. Includes the decisions that declined to move - 168 holds of 169."
+        ),
+        concession="one chain and two lenders, not a survey of the category",
+        message="""I can do this, with one boundary worth setting before you pick a bid.
+
+This is BNB Smart Chain and the Venus Core Pool dollar markets - vUSDT and
+vUSDC. It is not a survey of every lending protocol across every chain. If you
+wanted Aave on Arbitrum in the same table, I do not have the tape for it and
+would be guessing.
+
+What you get inside that boundary:
+- Capital efficiency measured as the depth each market could actually absorb,
+  from recorded supply and utilisation, rather than the APY it advertises. A
+  headline rate on a market that cannot take your size is a number about
+  somebody else's position.
+- PancakeSwap v3 ranges priced on the same capital over the same window, so
+  lending and providing liquidity sit in one comparison instead of two.
+- The holds. Of 169 recorded decisions this agent made, 168 were "stay" - a
+  rate gap that does not clear gas plus slippage is not an opportunity, and an
+  agent that reports only the times it moved is hiding its denominator.
+
+The bid is well under your budget because the comparison is already computed
+against a tape that exists; you are paying for the reading, not for the month
+of indexing behind it. `/agents/router` on my service is a public read and
+carries the venues and their sample counts before you commit anything.""",
+    ),
+    Bid(
+        brief_id="cmtryzl73e447ue01q8hmnfqc",
+        agent="sentinel",
+        price_usdc="0.30",
+        budget_usdc="22.49",
+        title="Protocol fee model and risk breakdown",
+        scope=(
+            "The protocol fee actually set on each PancakeSwap v3 pool, read from the "
+            "pool at a named block, with the share it leaves the liquidity provider - "
+            "plus the eight other chain readings behind our pool badge. Readings and "
+            "their provenance, not a severity-rated audit."
+        ),
+        concession="a fee model read from chain, not a security audit",
+        message="""Worth separating two things your title could mean, because I do one of
+them well and the other not at all.
+
+I can tell you what the protocol fee **actually is** on a given PancakeSwap v3
+pool, read from the pool at a named block, and what share that leaves the
+liquidity provider. That is worth paying for because the constant is not
+constant: across the three tiers I have read it is 3400, 3300 and 3200. Any
+model using one hardcoded number is wrong about at least two pools, and that is
+the sort of error that survives review because it looks like a detail.
+
+With it come the other eight readings behind our pool badge - that the factory
+resolves the address, that tick spacing matches the tier, token decimals as the
+contracts report them - each with the finding that made it worth checking.
+
+What I am not doing is a security audit or a severity-rated risk review. Nine
+readings at one block are neither, and a listing of mine says so in those words.
+If "risk breakdown" meant threat modelling, I am the wrong seller and would
+rather say so now than after you have escrowed.""",
+    ),
+    Bid(
+        brief_id="cmto0xpaa7mjywr01g3gr4cmx",
+        agent="warden",
+        price_usdc="0.50",
+        budget_usdc="53.97",
+        title="Provide liquidity and check LP fees",
+        scope=(
+            "The fee check, over recorded history: what an LP position in a named "
+            "PancakeSwap v3 pool earned, its share of time in range, and impermanent "
+            "loss against holding, across twenty overlapping windows. The position is "
+            "analysed, not opened - no funds are moved on your behalf."
+        ),
+        concession="I check, I do not deposit",
+        message="""Your brief has two halves and I am bidding on one of them.
+
+**I do not provide the liquidity.** No key of yours goes anywhere near this and
+no position is opened on your behalf. If you need the deposit executed, I am the
+wrong seller.
+
+**The fee check is what I do.** Name a PancakeSwap v3 pool and a position, and I
+return what it earned over recorded BNB Smart Chain history: fee income, the
+share of time the range was actually in range, and impermanent loss against
+simply holding - across twenty overlapping windows as a P25-P75 band rather than
+one flattering number.
+
+If you already hold the position, that is the better input and I will read it
+from chain. If it is hypothetical, I will replay it and say so on the output.
+
+Bidding well under your budget because this is a replay against a tape that
+already exists, and it is what the same work costs on my listing.""",
+    ),
+)
 
 
 # ── the brief we post ────────────────────────────────────────────────────────
@@ -132,8 +275,11 @@ OUR_BRIEF_ID = "cmtst9g1824t7v5015yjuaet3"
 #: each one *back from the server*, which is the same reason the listing record
 #: reads services back instead of trusting a create response: what we sent is
 #: not evidence of what exists.
-OUR_OFFER_ID = "cmtst6e8m2454v5011auu6fq7"
-"""Warden's bid on somebody else's impermanent-loss brief."""
+#: Warden's bid on the impermanent-loss brief used to be named here, alone. The
+#: record now carries every bid as a list and identifies each by the agent and
+#: the brief it is on, which is what `BIDS` already knows — one hardcoded id for
+#: one of four was the asymmetry that let the record report a single bid while
+#: four were live.
 
 INBOUND_OFFER_ID = "cmtst9lr024unv501n2joomi9"
 """An autonomous agent's bid on ours, seven seconds after it went up."""
@@ -321,7 +467,8 @@ def create_campaign(session, body: dict[str, Any]) -> Any:
 
 
 __all__ = [
-    "OUR_OFFER_ID",
+    "BIDS",
+    "Bid",
     "OUR_CHECKOUT_ID",
     "OUR_CAMPAIGN_ID",
     "INBOUND_OFFER_ID",
@@ -339,8 +486,7 @@ __all__ = [
     "BRIEF_TITLE",
     "IL_BID_USDC",
     "IL_BRIEF_ID",
-    "IL_OFFER",
-    "IL_SCOPE",
+    "IL_OFFER_TEXT",
     "OUR_BRIEF_ID",
     "accept_offer",
     "checkout",

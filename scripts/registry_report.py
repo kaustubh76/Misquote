@@ -870,10 +870,11 @@ ABSENT_PARTICIPATION: dict[str, Any] = {
     "listings": [],
     "counters": {"baseline": None, "now": None},
     "brief": {"id": None, "status": None, "quotes": None, "budget_usdc": None},
-    "bid": {"offer_id": None, "on_brief": None, "brief_status": None, "price_usdc": None},
+    "bids": [],
     "bounty": {"id": None, "status": None, "reward_usdc": None, "funded_tx": None},
     "inbound_offer": {"offer_id": None, "checkout_id": None, "checkout_status": None},
     "orders": [],
+    "orders_unreadable": None,
     "not_done": [],
     "refused": {},
     "reason": None,
@@ -922,7 +923,6 @@ def participation() -> dict[str, Any]:
     baseline = (activity or {}).get("baseline") or {}
     now = (activity or {}).get("after") or {}
     brief = on_platform.get("brief") or {}
-    bid = on_platform.get("bid") or {}
     bounty = on_platform.get("bounty") or {}
     inbound = on_platform.get("inbound_offer") or {}
 
@@ -939,12 +939,10 @@ def participation() -> dict[str, Any]:
             "quotes": brief.get("quotes"),
             "budget_usdc": (brief.get("budget") or {}).get("min"),
         },
-        "bid": {
-            "offer_id": bid.get("offer_id"),
-            "on_brief": bid.get("on_brief"),
-            "brief_status": bid.get("brief_status"),
-            "price_usdc": bid.get("price_usdc"),
-        },
+        # A list: there are four now, and `flatten` stops at lists so the
+        # contract does not become a contract over how many bids we happen to
+        # have out.
+        "bids": on_platform.get("bids") or [],
         "bounty": {
             "id": bounty.get("id"),
             "status": bounty.get("status"),
@@ -959,6 +957,9 @@ def participation() -> dict[str, Any]:
         # The order that escrow produced. `chain_order_id` is the one field here
         # anybody can check without this project's cooperation.
         "orders": on_platform.get("orders") or [],
+        # Why the list is empty, when it is empty for a reason other than there
+        # being no orders. Null when the read succeeded.
+        "orders_unreadable": on_platform.get("orders_unreadable"),
         # A **list**, because `flatten` stops at lists and the keys of the
         # activity record's own `not_done` are conditional — an entry appears
         # only while the thing it names is outstanding, so a contract that
