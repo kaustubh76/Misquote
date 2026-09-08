@@ -42,11 +42,24 @@ IL_BRIEF_ID = "cmto3btvm8ht1wr0140227wf0"
 #: contradict our own published price on the same marketplace.
 IL_BID_USDC = "0.50"
 
-#: The honest gap between what was asked for and what we do, said first rather
-#: than discovered by the buyer afterwards. They asked for *modelled price
-#: paths*; we replay recorded swaps. That is a different method and a narrower
-#: claim, and a bid that quietly let "model" stand would be selling a
-#: simulation we do not run.
+#: The deliverable in one line. The API requires this *and* a message, and the
+#: split is a good one: `scope` is what is owed, `message` is why we are the
+#: ones to do it. The narrower claim — recorded swaps, not modelled paths — goes
+#: in the scope, so it sits in the binding half rather than only in the pitch.
+IL_SCOPE = (
+    "Impermanent loss for your position against simply holding, computed by "
+    "replaying the swaps that actually happened on BNB Smart Chain - not by "
+    "modelling hypothetical price paths. Twenty overlapping windows of real "
+    "history as a P25-P75 band, the fee income over the same windows, and the "
+    "per-window journal including the windows withheld. PancakeSwap v3 "
+    "WBNB/USDT pools; if your pool has no tape I will say so rather than "
+    "extrapolate."
+)
+
+#: The pitch, and the gap it concedes. They asked for *modelled price paths*; we
+#: replay recorded swaps. Said in the second sentence rather than discovered by
+#: the buyer afterwards, because a bid that quietly let "model" stand would be
+#: selling a simulation this project does not run.
 IL_OFFER = """I can answer this, and one thing differs from how you phrased it — worth
 saying before you pick a bid rather than after.
 
@@ -104,6 +117,11 @@ readings disagree with ours, that disagreement is the most valuable thing you
 could hand back, and it is worth more to me than agreement."""
 
 
+#: The brief we posted, so an acceptance can be checked against it rather than
+#: taken on trust from an id on a command line.
+OUR_BRIEF_ID = "cmtst9g1824t7v5015yjuaet3"
+
+
 # ── reads ────────────────────────────────────────────────────────────────────
 
 
@@ -147,6 +165,18 @@ def create_brief(session, body: dict[str, Any]) -> Any:
     return session.post("/api/v1/prepayment-orders", body)
 
 
+def accept_offer(session, offer_id: str, body: dict[str, Any]) -> Any:
+    """Accept a quote. `POST /api/v1/offers/{id}/accept`.
+
+    A separate step from paying, and the server enforces the order: checkout
+    answers *"Quote must be accepted before checkout"* until this has run. Two
+    calls rather than one is the right shape — agreeing terms and moving money
+    are different decisions, and a single endpoint doing both would make the
+    second one invisible.
+    """
+    return session.post(f"/api/v1/offers/{offer_id}/accept", body)
+
+
 def checkout(session, body: dict[str, Any]) -> Any:
     """Start a purchase. The path a listing that is not `instantBuyable` takes."""
     return session.post("/api/v1/checkout/sessions", body)
@@ -165,6 +195,9 @@ __all__ = [
     "IL_BID_USDC",
     "IL_BRIEF_ID",
     "IL_OFFER",
+    "IL_SCOPE",
+    "OUR_BRIEF_ID",
+    "accept_offer",
     "checkout",
     "counters",
     "create_brief",

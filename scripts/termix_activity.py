@@ -29,6 +29,7 @@ one of our own agents.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -115,6 +116,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quote", action="store_true", help="bid on the open brief we can serve")
     ap.add_argument("--brief", action="store_true", help="post our own request. Commits us to pay.")
     ap.add_argument("--buy", metavar="LISTING_ID", help="purchase one third-party listing")
+    ap.add_argument(
+        "--accept",
+        metavar="OFFER_ID",
+        help="accept an offer somebody made on our brief. Escrows its price.",
+    )
     ap.add_argument("--out", nargs="?", const=str(RECORD), help="write the evidence record")
     args = ap.parse_args(argv)
 
@@ -140,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     for item in picks:
         print(f"  {str(item.get('basePrice')):>7} {item.get('currency')}  {str(item.get('title'))[:58]}")
 
-    if not (args.save or args.quote or args.brief or args.buy or args.out):
+    if not (args.save or args.quote or args.brief or args.buy or args.accept or args.out):
         print("\nNothing was sent. Each action has its own flag; three of them commit money.")
         return 0
 
@@ -156,8 +162,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.quote:
         print("\nbidding on the impermanent-loss brief:")
+        # `providerAgentId` is required and it is the interesting field: a bid
+        # is made *by an agent*, not by an account, so the marketplace ties the
+        # offer to the ERC-8004 identity that would do the work. Warden's, because
+        # impermanent loss against holding is what its quote returns.
         body = {
-            "amount": marketplace.IL_BID_USDC,
+            "providerAgentId": listings.SPECS["warden"].agent_id,
+            "price": marketplace.IL_BID_USDC,
+            "scope": marketplace.IL_SCOPE,
             "currency": "USDC",
             "deliveryDays": 1,
             "message": marketplace.IL_OFFER,
@@ -168,11 +180,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.brief:
         print("\nposting our own brief:")
+        # `clientAgentId` is required: a brief is posted *by an agent*, the same
+        # way an offer is made by one. Sentinel's, because the four values being
+        # re-read are the ones Sentinel's own listing publishes — the agent whose
+        # work is under audit is the right one to be commissioning the audit.
         body = {
+            "clientAgentId": listings.SPECS["sentinel"].agent_id,
             "title": marketplace.BRIEF_TITLE,
             "scope": marketplace.BRIEF_SCOPE,
-            "budget": marketplace.BRIEF_BUDGET_USDC,
-            "currency": "USDC",
+            # A range, not a figure. The discover feed shows every brief with a
+            # min and a max, and ours are the same number: the work is four
+            # `eth_call`s and there is no scope to negotiate up into.
+            "budgetMin": marketplace.BRIEF_BUDGET_USDC,
+            "budgetMax": marketplace.BRIEF_BUDGET_USDC,
+            # No `currency`: the endpoint refuses it as an unrecognised key.
+            # Briefs are USDC-only, which the discover feed already showed on
+            # every one of 822 of them.
             "proofMethod": "optimistic",
             "settlementType": "escrow",
         }
@@ -190,9 +213,72 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nbuying  {str(listing.get('title'))[:60]}")
         print(f"        {listing.get('basePrice')} {listing.get('currency')} from "
               f"{(listing.get('seller') or {}).get('displayName')}")
+        # `checkout/sessions` wants an `offerId`, not a `listingId`: on this
+        # marketplace a purchase is always the acceptance of an *offer*, and a
+        # listing is what gets a seller to make one. Buying a listing outright
+        # therefore needs a conversation first, which needs the seller to
+        # answer — so this reports rather than pretending it can force it.
         reply = marketplace.checkout(client, {"listingId": args.buy})
         if show("checkout", reply):
             did["checkout"] = reply
+
+    if args.accept:
+        brief = client.get(f"/api/v1/prepayment-orders/{marketplace.OUR_BRIEF_ID}")
+        offer = next((o for o in brief.get("offers") or [] if o.get("id") == args.accept), None)
+        if offer is None:
+            raise SystemExit(f"no offer {args.accept} on our brief")
+        if (offer.get("providerAgent") or {}).get("id") in ours():
+            raise SystemExit(
+                "refusing: that offer is from one of our own agents. Accepting it "
+                "would put an order on the public feed that nobody outside this "
+                "project took part in."
+            )
+        current = offer.get("current") or {}
+        print(f"\naccepting  {current.get('price')} {current.get('currency')} "
+              f"· {current.get('deliveryDays')}d · valid until {current.get('validUntil')}")
+        print(f"           {str(current.get('scope'))[:90]}")
+        # `revisionId` is required, and taken from the offer we just read rather
+        # than from a flag. Offers are versioned; accepting by id alone would
+        # bind us to whatever the seller last edited it to, which is not the
+        # thing we read the price and scope off two lines above.
+        revision = offer.get("currentRevisionId")
+        if not revision:
+            raise SystemExit("that offer has no current revision to accept")
+        # Derived from what is being bought, never random. That is the whole
+        # point of the field: this script has already been re-run four times
+        # while the body was being discovered, and a fresh key on each attempt
+        # is how a retry becomes a second escrowed order. Same offer and same
+        # revision means the same key, so the server can refuse the duplicate.
+        key = "misquote-" + hashlib.sha256(f"{args.accept}:{revision}".encode()).hexdigest()[:32]
+        # `expectedVersion` is optimistic concurrency and it is the guard worth
+        # having: if the seller edits the terms between our reading them and our
+        # accepting, this fails instead of binding us to a price and scope we
+        # never saw. Taken from the revision we printed two lines above.
+        agreed = marketplace.accept_offer(
+            client,
+            args.accept,
+            {
+                "revisionId": revision,
+                "expectedVersion": current.get("version"),
+                "clientAgentId": brief.get("clientAgentId"),
+            },
+        )
+        if not show("accept quote", agreed):
+            return 1
+        reply = marketplace.checkout(
+            client,
+            {
+                "offerId": args.accept,
+                "revisionId": revision,
+                "idempotencyKey": key,
+                # Read off the brief rather than named again here. The buyer of
+                # the work has to be the agent that asked for it, and two places
+                # naming it independently is two places to disagree.
+                "clientAgentId": brief.get("clientAgentId"),
+            },
+        )
+        if show("checkout", reply):
+            did["accepted_offer"] = {"accept": agreed, "checkout": reply}
 
     after = marketplace.counters(marketplace.dashboard(client))
     print(f"\nafter     {json.dumps(after)}")

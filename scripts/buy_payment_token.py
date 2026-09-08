@@ -67,6 +67,15 @@ ERC20_ABI = json.loads(
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--bnb", type=float, default=0.0003, help="how much BNB to spend")
+    ap.add_argument(
+        "--token",
+        default=None,
+        help=(
+            "which token to buy. Defaults to the ERC-8183 deployment's payment "
+            "token, so every run this script has ever made stays reproducible. "
+            "Named to buy USDC instead, which is what TermiX prices orders in."
+        ),
+    )
     ap.add_argument("--slippage", type=float, default=1.0, help="percent")
     ap.add_argument(
         "--rpc", default=os.environ.get("BSC_RPC_URL") or "https://bsc-dataseed.bnbchain.org"
@@ -81,7 +90,10 @@ def main() -> int:
     if len(w3.eth.get_code(router_address)) <= 2:
         raise SystemExit(f"no code at the router {ROUTER}; refusing to send BNB to it")
 
-    token = Web3.to_checksum_address(PAYMENT_TOKEN[56])
+    # Defaulting to today's behaviour rather than requiring the flag: the same
+    # shape `hire_mainnet.py --provider` uses, and for the same reason — a new
+    # argument must not silently change what an old command line does.
+    token = Web3.to_checksum_address(args.token or PAYMENT_TOKEN[56])
     path = [Web3.to_checksum_address(WBNB), token]
     router = w3.eth.contract(address=router_address, abi=ROUTER_ABI)
     erc20 = w3.eth.contract(address=token, abi=ERC20_ABI)

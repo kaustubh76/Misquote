@@ -2,9 +2,9 @@
   "actions": {},
   "after": {
     "activeOrders": 0,
-    "briefs": 0,
+    "briefs": 1,
     "campaignsTotal": 0,
-    "openBriefs": 0,
+    "openBriefs": 1,
     "orders": 0,
     "savedListings": 4,
     "spendingByCurrency": []
@@ -19,12 +19,11 @@
     "spendingByCurrency": []
   },
   "baseline_at": 1788877000,
-  "baseline_note": "The dashboard as first read this session, before any action was sent - the plan run of scripts/termix_activity.py, which prints the counters and posts nothing. Kept across later runs so the change stays checkable.",
   "before": {
     "activeOrders": 0,
-    "briefs": 0,
+    "briefs": 1,
     "campaignsTotal": 0,
-    "openBriefs": 0,
+    "openBriefs": 1,
     "orders": 0,
     "savedListings": 4,
     "spendingByCurrency": []
@@ -34,8 +33,8 @@
     "why": "20 campaigns on the platform: 15 DRAFT (unpublished) and 5 FILLED. None is open, so campaignsTotal cannot move."
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788878019,
+  "read_at": 1788881114,
   "token_recorded": false,
-  "usdc_at_read": "0",
+  "usdc_at_read": "1.499961308195863051",
   "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
 }
