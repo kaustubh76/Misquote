@@ -103,7 +103,7 @@ export interface StudioArtifact {
     endpoint: string | null;
     registered_by: string | null;
     verified: string | null;
-    explorer: string;
+    explorer: string | null;
     owner_url: string | null;
     audit: AuditRow[];
   };
@@ -685,14 +685,27 @@ export function StudioView({ initial }: { initial?: StudioArtifact }) {
                 {d.identity.owner && (
                   <p className="m-0 text-sm text-dim">
                     Owned by{" "}
-                    <a
-                      className="font-mono text-xs"
-                      href={d.identity.owner_url ?? undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {shortAddress(d.identity.owner)}
-                    </a>{" "}
+                    {/* Plain text when the emitter could not name an explorer
+                        for this chain, rather than an anchor with no href.
+                        `_explorer` returns nothing rather than guessing, for
+                        the reason this whole page is about: a link that looks
+                        right and resolves to nothing is worse than no link,
+                        and it is exactly the defect this file fixed in
+                        `OurAgents` two commits ago. */}
+                    {d.identity.owner_url ? (
+                      <a
+                        className="font-mono text-xs"
+                        href={d.identity.owner_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {shortAddress(d.identity.owner)}
+                      </a>
+                    ) : (
+                      <code className="font-mono text-xs">
+                        {shortAddress(d.identity.owner)}
+                      </code>
+                    )}{" "}
                     &mdash; the wallet the envelope above recovers to.
                   </p>
                 )}

@@ -23,9 +23,9 @@
   },
   "build": {
     "command": "make studio",
-    "generated_at": "2026-09-07T16:26:32+00:00",
+    "generated_at": "2026-09-08T05:56:09+00:00",
     "git_dirty": true,
-    "git_sha": "29d3d87",
+    "git_sha": "ec56c03",
     "source": "recorded"
   },
   "cli": {
@@ -165,10 +165,10 @@
       "why": "`studio.toml` declares `protocols = [\"A2A\"]` and publishes one face. The scaffold's own comment in `unifiedMain.ts` names the file this would take \u2014 `bag x402 trust <merchant>` then `bag recipe code x402-buyer`, emitting the tools that spread into the work hook \u2014 and that file has never been generated. The LLM credit does top itself up from the Pieverse balance, which is a different mechanism and not this one."
     },
     {
-      "evidence": "vetting/identity/studio-negotiation.json \u2014 not_covered",
+      "evidence": "studio/misquoterouter/.studio/ \u2014 no DELIVERABLE_S3_ACCESS_KEY_ID",
       "name": "A delivery driven through this agent",
       "what": "`notify_funded`: a funded job verified on chain, worked, and `submit` mined by the agent itself.",
-      "why": "`negotiate` has been called and its signature checked four ways. The other half needs a job funded against the agent's own quote, and the obstacle is not the money: chapel has no faucet and no market for the payment token, while on mainnet it costs about twenty cents and a recorded swap already bought some. What stops it is that the agent's identity is on chapel and its envelope binds to chapel's kernel \u2014 pointing it at mainnet means a second registration and a signing key on a chain with real money, which is a decision about capital rather than a line of code. The escrow half is proven elsewhere here, by our own signer rather than by this agent."
+      "why": "`negotiate` has been called and its signature checked four ways. The other half stops before the chain, and not for the reason recorded twice before it. It is not the money \u2014 chapel has no faucet and no market for the payment token, but on mainnet it costs about twenty cents. It is the **deliverable storage**: `submit` carries a `deliverable_url`, the agent is configured to write one to an S3 bucket, and no S3 credentials exist in its environment. A job funded against this agent today would never reach `submit` at all, and the budget would lock until the 192-hour expiry. The storage is the thing to fix first, before any registration."
     }
   ]
 }

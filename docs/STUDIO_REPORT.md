@@ -52,6 +52,11 @@ The entry is now two, and both point at what would actually change:
 | Agent Studio deployment | `vetting/identity/ — no studio-deploy.json` |
 | The Studio agent's x402 self-funding | `studio/…/app/agent/src/ — no x402Buyer.ts` |
 
+The same defect turned up a third time, in the one not-done row this page owns
+rather than takes from the ledger — twice wrong about what blocks a delivery,
+both times naming something one level above the actual floor, both times surviving
+because nothing executed against the sentence. It has a test now.
+
 `x402Buyer.ts` is the filename the scaffold's **own comment** in `unifiedMain.ts`
 names for that path. Splitting was the point rather than tidiness: one piece of
 evidence covering three claims let two of them come true silently, which is what
@@ -250,7 +255,7 @@ one. The third is this agent's alone and stays local.
 |---|---|
 | **Agent Studio deployment** *(ledger)* | The agent runs on Render, on infrastructure we operate. `bag deploy` takes bnb, aws or azure and none has been used. Running the agent is not the claim; the CLI deploying it is. Five CRITICAL items in `docs/DEPLOY_AWS.md`. |
 | **The Studio agent's x402 self-funding** *(ledger)* | `protocols = ["A2A"]`, one face published. `x402Buyer.ts` has never been generated. The Pieverse LLM credit does top itself up, which is a different mechanism. |
-| **A delivery driven through this agent** *(local)* | `negotiate` has been called and checked four ways. `notify_funded` needs a job funded against the agent's own quote, and the obstacle is **not the money** — an earlier draft of this row said the scaffold wallet holds no payment token on chapel, as though chapel were merely unfunded. Chapel is the harder chain: no faucet for the token and no market to buy it on. On mainnet it costs about twenty cents and a recorded PancakeSwap swap already bought some. What actually stops it is that the agent's identity is on chapel and its envelope binds to chapel's kernel — the two agreeing is what the four checks verify — so pointing it at mainnet means a second registration and a signing key on a chain with real money. That is a decision about capital, not a line of code. *(Correction owed to `misquote-59`, which was reading the same records.)* |
+| **A delivery driven through this agent** *(local)* | `negotiate` has been called and checked four ways. The other half stops **before the chain**, and this row has now been wrong twice in the same shape the rest of this report is about. It said the scaffold wallet holds no payment token on chapel; corrected, once chapel turned out to be the harder chain rather than the unfunded one, to say the obstacle was the registration. Both true, neither the floor. The floor is **deliverable storage**: `submit` carries a `deliverable_url`, `studio.toml` declares `[storage] kind = "s3"` with a bucket, and `.studio/.env.local` holds a wallet password and an LLM key and no S3 credentials at all. A job funded against this agent today would never reach `submit`, and its budget would lock for the full 192 hours — worse than either earlier wording described, and both would have sent somebody into it. Now checked by `test_the_studio_delivery_gap_still_names_a_real_absence`. *(Found by `misquote-59`; verified here.)* |
 
 ---
 

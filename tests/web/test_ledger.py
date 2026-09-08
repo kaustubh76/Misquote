@@ -305,3 +305,47 @@ def test_the_ledger_counts_the_checks_that_exist() -> None:
         f"badge.py defines {len(functions)} checks ({word}), and the ledger says "
         f"{wrong} — the site renders that sentence above a card listing every one."
     )
+
+
+def test_the_studio_delivery_gap_still_names_a_real_absence() -> None:
+    """The one not-done entry that is not a ledger entry, held to the same bar.
+
+    `scripts/studio_report.py::OWN_GAP` describes what stops a delivery running
+    through the Agent Studio seller. It has been wrong twice, in the same shape
+    both times — a blocker recorded one level above the thing that actually
+    blocks — and each wrong version survived because nothing executed against
+    it.
+
+    It said the scaffold wallet holds no payment token on chapel. Then, once
+    chapel turned out to be the harder chain rather than the unfunded one, that
+    the obstacle was the registration. Both were true statements and neither was
+    the floor: the agent is configured to write its deliverable to S3, no S3
+    credentials exist in its environment, and `submit` therefore never reaches
+    the chain at all. A job funded against it locks its budget for 192 hours.
+
+    So the third wording gets a check. If somebody provisions the bucket, this
+    goes red and the entry has to be rewritten — which is the direction that
+    matters, because the entry would otherwise keep warning people off a path
+    that had been opened.
+    """
+    import re
+
+    env = REPO / "studio" / "misquoterouter" / ".studio" / ".env.local"
+    if not env.exists():
+        pytest.skip("the scaffold's environment is not present in this checkout")
+
+    # Only assignments. The file's own comments name the variables in prose, and
+    # a substring scan would read the documentation as the value.
+    assigned = {
+        match.group(1)
+        for line in env.read_text().splitlines()
+        if (match := re.match(r"\s*([A-Z0-9_]+)\s*=", line))
+    }
+    present = sorted(name for name in assigned if name.startswith("DELIVERABLE_S3"))
+
+    assert not present, (
+        "the Studio seller now has deliverable storage configured "
+        f"({present}), so `OWN_GAP` in scripts/studio_report.py no longer "
+        "describes what blocks a delivery — rewrite it, and check whether the "
+        "bucket itself exists before calling the gap closed"
+    )

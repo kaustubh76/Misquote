@@ -54,10 +54,36 @@ SCAFFOLD = REPO / "studio" / "misquoterouter"
 STUDIO_TOML = SCAFFOLD / "app" / "agent" / "studio.toml"
 AUDIT_LOG = SCAFFOLD / ".studio" / "audit-log.jsonl"
 
-#: Where a chapel identity is looked up. Named here rather than in the view for
-#: the reason `OurAgents` learned the hard way: a mainnet id under a testnet
-#: explorer resolves to nothing, so the record carries its own explorer.
-EXPLORER = "https://testnet.bscscan.com"
+#: Where an identity is looked up, by the chain it is actually on.
+#:
+#: This was the single string `https://testnet.bscscan.com`, with a comment
+#: citing the exact bug it went on to reproduce: `OurAgents` had a hardcoded
+#: testnet explorer, the emitter started preferring `vetting/identity/56.json`,
+#: and every mainnet id rendered under a testnet explorer and resolved to
+#: nothing. Writing "the record carries its own explorer" and then hardcoding
+#: one is how that happens twice.
+#:
+#: It is chapel today because the identity the CLI minted is on chapel. The
+#: moment anything moves to 56 — and there is live work discussing exactly
+#: that — the link has to move with it, without anybody remembering to.
+#:
+#: Found by `misquote-59`, reading this file rather than the page.
+EXPLORERS = {
+    56: "https://bscscan.com",
+    97: "https://testnet.bscscan.com",
+}
+
+
+def _explorer(chain_id: int | None) -> str | None:
+    """The explorer for a chain, or nothing.
+
+    `None` rather than a default, and that is the point of the function. A
+    guessed explorer produces a link that looks right and resolves to nothing,
+    which is worse than no link — the view renders the id as plain text when
+    this is absent, and a reader who cannot click is not misled.
+    """
+    return EXPLORERS.get(chain_id) if chain_id is not None else None
+
 
 #: The subcommands worth publishing out of the probe's much larger help dump.
 #:
@@ -88,6 +114,29 @@ STUDIO_LEDGER_ENTRIES = (
     "The Studio agent's x402 self-funding",
 )
 
+#: The one gap this page owns, and the third wording it has had.
+#:
+#: It said the delivery half was blocked because the scaffold wallet holds no
+#: payment token on chapel. Corrected once, because chapel is the *harder*
+#: chain — no faucet, no market — while the mainnet token costs about twenty
+#: cents; the obstacle was therefore not the money but the registration.
+#:
+#: That was still one level too high, and this is the third time on this entry.
+#: `misquote-59`'s audit found the actual floor by reading the agent rather than
+#: the config: `submitWorkflow` throws when the SDK returns no
+#: `deliverable_url`, `studio.toml` declares `[storage] kind = "s3"` with
+#: `bucket = "misquote-agent-deliverables"`, and `.studio/.env.local` holds a
+#: wallet password and an LLM key and **no S3 credentials at all**. Verified
+#: here rather than taken on report.
+#:
+#: So funding a job against this agent today does not merely fail to deliver —
+#: `submit` never reaches the chain and the budget locks for the full 192 hours.
+#: That is a worse outcome than either earlier wording described, and both
+#: earlier wordings would have sent somebody into it.
+#:
+#: The pattern is the one `docs/STUDIO_REPORT.md` is about, found three times in
+#: one entry by three different readings: a blocker recorded one level above the
+#: thing that actually blocks.
 OWN_GAP: dict[str, str] = {
     "name": "A delivery driven through this agent",
     "what": (
@@ -96,17 +145,17 @@ OWN_GAP: dict[str, str] = {
     ),
     "why": (
         "`negotiate` has been called and its signature checked four ways. The "
-        "other half needs a job funded against the agent's own quote, and the "
-        "obstacle is not the money: chapel has no faucet and no market for the "
-        "payment token, while on mainnet it costs about twenty cents and a "
-        "recorded swap already bought some. What stops it is that the agent's "
-        "identity is on chapel and its envelope binds to chapel's kernel — "
-        "pointing it at mainnet means a second registration and a signing key "
-        "on a chain with real money, which is a decision about capital rather "
-        "than a line of code. The escrow half is proven elsewhere here, by our "
-        "own signer rather than by this agent."
+        "other half stops before the chain, and not for the reason recorded "
+        "twice before it. It is not the money — chapel has no faucet and no "
+        "market for the payment token, but on mainnet it costs about twenty "
+        "cents. It is the **deliverable storage**: `submit` carries a "
+        "`deliverable_url`, the agent is configured to write one to an S3 "
+        "bucket, and no S3 credentials exist in its environment. A job funded "
+        "against this agent today would never reach `submit` at all, and the "
+        "budget would lock until the 192-hour expiry. The storage is the thing "
+        "to fix first, before any registration."
     ),
-    "evidence": "vetting/identity/studio-negotiation.json — not_covered",
+    "evidence": "studio/misquoterouter/.studio/ — no DELIVERABLE_S3_ACCESS_KEY_ID",
 }
 
 
@@ -199,6 +248,7 @@ def _agent(local: dict[str, Any] | None, negotiation: dict[str, Any] | None) -> 
 def _identity(local: dict[str, Any] | None) -> dict[str, Any]:
     block = (local or {}).get("erc8004") or {}
     agent_id = block.get("agent_id")
+    explorer = _explorer(block.get("chain_id"))
     return {
         "agent_id": agent_id,
         "chain_id": block.get("chain_id"),
@@ -206,8 +256,10 @@ def _identity(local: dict[str, Any] | None) -> dict[str, Any]:
         "endpoint": block.get("endpoint"),
         "registered_by": block.get("registered_by"),
         "verified": block.get("verified"),
-        "explorer": EXPLORER,
-        "owner_url": f"{EXPLORER}/address/{block['owner']}" if block.get("owner") else None,
+        "explorer": explorer,
+        "owner_url": (
+            f"{explorer}/address/{block['owner']}" if explorer and block.get("owner") else None
+        ),
         "audit": _audit(),
     }
 
