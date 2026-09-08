@@ -465,6 +465,36 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
               {count(Math.round(cell.hours))} hours.
             </p>
 
+            {/* The sentence this page needed most and did not have.
+                `PoolAprEstimator` takes the window's opening tick as its centre
+                and accounts `centre +/- width` for the whole window; nothing
+                ages out, so the centre never moves. One range, opened once,
+                held to the end. Everything above is therefore an *unmanaged*
+                position.
+                This page sits in the product nav between Quote and Hire, on a
+                site that is an agent marketplace. Silence there does not read
+                as neutral — it reads as "this is what hiring gets you", which
+                is the one thing the figure is not. Said beside the number
+                rather than in the caveat list below, because a caveat a reader
+                scrolls past is a caveat that did not happen.
+                And it is not an apology. `/advantage`'s first task measures an
+                agent against exactly this policy — its baseline arm is "mint
+                once at the same width, never touch it" — so admitting what this
+                is turns the page into the honest half of that comparison rather
+                than a weaker version of it. No figure from that report is
+                repeated here: it is measured there and this page reads one
+                artifact. */}
+            <p className="mt-0 mb-4 max-w-[70ch] rounded-sm border border-glass-line bg-panel-2/50 px-3 py-2 text-sm text-dim">
+              <strong className="text-ink">Nobody is managing this position.</strong>{" "}
+              It is opened once at the width you picked and held to the end of
+              the window — never recentred, never widened, never pulled. That is
+              deliberate: it is what doing it yourself looks like, and it is the
+              baseline an agent has to beat.{" "}
+              <Link href="/advantage">
+                What recentring adds, measured against this exact policy &rarr;
+              </Link>
+            </p>
+
             {/* Reused rather than redrawn: this is the same three-part split
                 `CostBars` was built for on the agent cards — earned, spent, and
                 the identity between them. Every figure is this cell's own; not
@@ -601,16 +631,31 @@ function PricePath({ pool, cell }: { pool: SimPool; cell: SimCell }) {
 
   return (
     <Card>
+      {/* The share outside the range was printed here as a neutral observation
+          and it is not one — it is the entire case for recentring, sitting on
+          the page uninterpreted. An unmanaged range that the price walks out of
+          earns nothing for the rest of the window, and moving it back is what
+          the agent on this marketplace does.
+          Both directions are stated. A window where the price never left is a
+          window where doing nothing was the right answer, and a page that only
+          made the argument one way would be selling rather than measuring. */}
       <p className="mt-0 mb-3 max-w-[70ch] text-sm text-dim">
         Where the price went, and where the range was.{" "}
         {outside === 0 ? (
-          <>It never left the range — every swap in the window paid this position.</>
+          <>
+            It never left the range — every swap in the window paid this
+            position, and on this one an unmanaged range was the right answer.
+          </>
         ) : (
           <>
             <span className="tabular text-ink">
               {fraction(outside / path.length)}
             </span>{" "}
-            of the sampled path sat outside the range, earning nothing.
+            of the sampled path sat outside the range, earning nothing — and
+            nothing moved it back, because nothing here is managing it.{" "}
+            <Link href="/advantage">
+              That gap is what an agent is for &rarr;
+            </Link>
           </>
         )}
       </p>

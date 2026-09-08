@@ -89,6 +89,23 @@ export function SimulateView({ initial }: { initial?: SimulationArtifact }) {
           <Section title="What this is, and what it is not">
             <Card>
               <ul className="m-0 flex list-none flex-col gap-3 p-0 text-sm text-dim">
+                {/* First, because it is the caveat that changes what the
+                    number means rather than how much to trust it. The list
+                    opened on "not a forecast", which every replay on this site
+                    could say; the one specific to this page — that nothing is
+                    managing the position — was absent from it entirely. */}
+                <li>
+                  <strong className="text-ink">
+                    Nothing is managing the position.
+                  </strong>{" "}
+                  It is minted once at the width you chose and held to the end of
+                  the window. On a marketplace that sells agents, that is worth
+                  saying plainly: these figures are the do-it-yourself arm, and{" "}
+                  <Link href="/advantage">
+                    the report measures an agent against exactly this policy
+                  </Link>
+                  .
+                </li>
                 <li>
                   <strong className="text-ink">It is a replay, not a forecast.</strong>{" "}
                   Every number is what a position of that size, at that width,

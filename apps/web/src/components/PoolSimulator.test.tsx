@@ -185,6 +185,65 @@ describe("scaling up costs something, and the page says what", () => {
   });
 });
 
+describe("it says nobody is managing the position", () => {
+  // The defect this page shipped with. `PoolAprEstimator` opens one range at the
+  // window's start and holds it — nothing ages out, so the centre never moves —
+  // and the page sat in the product nav between Quote and Hire saying nothing
+  // about that. On an agent marketplace, silence reads as "this is what hiring
+  // gets you", which is the one thing the figure is not.
+  it("states it beside the figure, not only in the caveats", () => {
+    draw();
+    expect(screen.getByText(/Nobody is managing this position/)).toBeInTheDocument();
+    expect(document.body.textContent).toContain("never recentred");
+  });
+
+  it("frames it as the baseline an agent has to beat, and links to where that is measured", () => {
+    draw();
+    const link = screen.getByRole("link", { name: /What recentring adds/ });
+    expect(link).toHaveAttribute("href", "/advantage");
+    // Not an apology: the sentence has to say what the number is for.
+    expect(document.body.textContent).toContain("what doing it yourself looks like");
+  });
+
+  it("makes the agent case from the price path only when the price actually left", async () => {
+    // The share outside the range is the case for recentring. Stating it when
+    // the price never left would be selling rather than measuring — and a page
+    // that argued one way regardless is the thing this project is named
+    // against.
+    const inside = {
+      ...flagship,
+      // Every sampled point sits inside -65380..-65220.
+      price_path: [
+        { ts: 1_756_000_000, tick: -65300, price: 0.0012 },
+        { ts: 1_756_500_000, tick: -65290, price: 0.00121 },
+        { ts: 1_757_000_000, tick: -65310, price: 0.00119 },
+      ],
+    };
+    draw(artifact([inside]));
+
+    expect(screen.getByText(/an unmanaged range was the right answer/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /That gap is what an agent is for/ })).not.toBeInTheDocument();
+  });
+
+  it("makes it when the price did leave", () => {
+    // The committed fixture's path runs to -65340, outside -65220 at the top.
+    const outside = {
+      ...flagship,
+      price_path: [
+        { ts: 1_756_000_000, tick: -65900, price: 0.0011 },
+        { ts: 1_756_500_000, tick: -65950, price: 0.00109 },
+        { ts: 1_757_000_000, tick: -66000, price: 0.00108 },
+      ],
+    };
+    draw(artifact([outside]));
+
+    expect(document.body.textContent).toContain("nothing moved it back");
+    expect(
+      screen.getByRole("link", { name: /That gap is what an agent is for/ })
+    ).toHaveAttribute("href", "/advantage");
+  });
+});
+
 describe("how much each pool can take", () => {
   it("reads the ceilings off the cells rather than carrying its own", () => {
     // The finding /venue cannot state, because the ceilings are measured here.
