@@ -1,9 +1,10 @@
-"""Put Warden up for sale on TermiX, and record that it is.
+"""Put the agents up for sale on TermiX, and record which of them are.
 
-    uv run python scripts/termix_listing.py                   # plan it, send nothing
-    uv run python scripts/termix_listing.py --create          # one POST, a draft
-    uv run python scripts/termix_listing.py --publish <id>    # take the draft live
-    uv run python scripts/termix_listing.py --out             # record the state
+    uv run python scripts/termix_listing.py                     # plan all, send nothing
+    uv run python scripts/termix_listing.py --agent grid        # plan one
+    uv run python scripts/termix_listing.py --create            # one POST per listable agent
+    uv run python scripts/termix_listing.py --publish <id>      # take a draft live
+    uv run python scripts/termix_listing.py --out               # record the state
 
 ## Why a flag rather than MISQUOTE_DRY_RUN
 
@@ -15,11 +16,16 @@ that can be read back and deleted, publication is what a buyer can see.
 
 ## What it will not do
 
-Publish something the delivery path cannot serve. `--create` reads
-`/quote/preflight` on the live API first and refuses if no pool clears the
-evidence floor, because the listing's central claim is a list of pools it can
-answer for. A marketplace listing is a promise; this is the one check that keeps
-it from being a promise we already know is false.
+Offer work the deployed service cannot produce. Every spec in
+`registry/listings.py` names a live route, this reads that route first, and an
+agent whose route does not answer is refused by name with the reason printed.
+That is why `router` is in the registry and is never listed: nothing on the
+service produces a venue comparison, so a listing for one would be a promise we
+already know is false.
+
+It also refuses an agent that already has a service, rather than creating a
+second — a marketplace holding two of the same listing is the state this script
+exists to avoid producing.
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 from web3 import Web3
@@ -44,26 +51,28 @@ from misquote.registry import listings  # noqa: E402
 from misquote.registry.aacp import BSC_MAINNET, api_base  # noqa: E402
 
 RECORD = REPO / "vetting" / "identity" / "termix-listing-live-56.json"
-
-#: Where the deliverable actually comes from. Read, not assumed: a listing whose
-#: seller cannot serve a quote is the failure this whole script is arranged
-#: around.
 API_ARTIFACT = REPO / "apps" / "web" / "public" / "artifacts" / "api.json"
 
 
 def service_api_base() -> str:
+    """Where the deliverable comes from. Read, not assumed."""
     base = json.loads(API_ARTIFACT.read_text()).get("base")
     if not base:
         raise SystemExit("api.json records no live API base; nothing could deliver an order")
     return str(base).rstrip("/")
 
 
-def preflight() -> dict:
-    """The live service's own answer about what it can quote."""
-    url = service_api_base() + listings.PREFLIGHT_PATH
-    response = httpx.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+def probe(spec: listings.Listing) -> dict[str, Any] | None:
+    """The live reading behind one listing, or None if the route will not answer."""
+    if not spec.probe_path:
+        return None
+    try:
+        response = httpx.get(service_api_base() + spec.probe_path, timeout=90)
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPError, ValueError) as error:
+        print(f"  probe failed: {type(error).__name__}: {str(error)[:120]}")
+        return None
 
 
 def connect() -> Web3:
@@ -75,7 +84,8 @@ def connect() -> Web3:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--create", action="store_true", help="send one POST, creating a draft")
+    ap.add_argument("--agent", choices=sorted(listings.SPECS), help="just this one")
+    ap.add_argument("--create", action="store_true", help="send one POST per listable agent")
     ap.add_argument("--publish", metavar="LISTING_ID", help="take an existing draft live")
     ap.add_argument("--out", nargs="?", const=str(RECORD), help="write the evidence record")
     args = ap.parse_args(argv)
@@ -84,95 +94,106 @@ def main(argv: list[str] | None = None) -> int:
     if not key:
         raise SystemExit("MISQUOTE_OPERATOR_PRIVATE_KEY is not exported")
 
-    plan = preflight()
-    quotable = [p for p in plan.get("pools", []) if p.get("quotable")]
-    body = listings.service_body(plan)
-
+    chosen = [args.agent] if args.agent else list(listings.SPECS)
     print(f"platform  {api_base(BSC_MAINNET)}")
-    print(f"agent     {listings.WARDEN_AGENT_ID}  (ERC-8004 token {listings.WARDEN_TOKEN_ID})")
-    print(f"service   {service_api_base()}  — {len(quotable)} pool(s) quotable")
-    for line in listings.pool_lines(plan):
-        print(f"  {line}")
-    print(f"price     {listings.PRICE_USDC} USDC · {listings.DELIVERY_DAYS} day")
-    print(f"category  {listings.CATEGORY}")
-
-    if not quotable:
-        raise SystemExit(
-            "\nrefusing: no pool clears the evidence floor, so the listing's own "
-            "claim would be false on the day it went up."
-        )
+    print(f"service   {service_api_base()}")
 
     signer = BscSigner(connect(), key)
     client = auth.TermixSession(signer, BSC_MAINNET)
     client.authenticate()
-    print(f"wallet    {signer.address}  (authenticated)")
+    print(f"wallet    {signer.address}  (authenticated)\n")
 
-    before = listings.services(client)
-    print(f"before    {len(before.get('items') or [])} service(s) on this agent")
+    plans: list[tuple[listings.Listing, dict[str, Any], dict[str, Any]]] = []
+    refused: list[tuple[str, str]] = []
+
+    for slug in chosen:
+        spec = listings.SPECS[slug]
+        print(f"--- {slug} · {spec.name} · ERC-8004 token {spec.token_id} ---")
+
+        if not spec.probe_path:
+            print(f"  REFUSED: {spec.blocked}\n")
+            refused.append((slug, spec.blocked))
+            continue
+
+        existing = listings.services(client, spec.agent_id)
+        count = len(existing.get("items") or [])
+        reading = probe(spec)
+        if reading is None:
+            why = f"{spec.probe_path} did not answer, so delivery is unproven"
+            print(f"  REFUSED: {why}\n")
+            refused.append((slug, why))
+            continue
+
+        body = listings.service_body(spec, reading)
+        print(f"  probe     {spec.probe_path} answered")
+        print(f"  title     {spec.title}")
+        print(f"  price     {spec.price_usdc} USDC · {spec.delivery_days} day")
+        print(f"  category  {spec.category}")
+        print(f"  before    {count} service(s) on this agent")
+
+        if count:
+            why = f"already has {count} service(s); creating another would duplicate it"
+            print(f"  SKIPPED: {why}\n")
+            refused.append((slug, why))
+            continue
+        plans.append((spec, body, existing))
+        print()
+
+    print(f"listable: {len(plans)}   refused: {len(refused)}")
 
     if not (args.create or args.publish or args.out):
-        print("\n--- the body this would send ---")
-        print(json.dumps(body, indent=2)[:1200])
-        print("\nNothing was sent. `--create` posts it; `--publish <id>` takes a draft live.")
+        for spec, body, _ in plans:
+            print(f"\n--- body for {spec.slug} ---")
+            print(json.dumps(body, indent=2)[:900])
+        print("\nNothing was sent. `--create` posts them; `--publish <id>` takes a draft live.")
         return 0
 
-    created: dict | None = None
+    created: dict[str, Any] = {}
     if args.create:
-        reply = listings.create_service(client, body)
-        print("\ncreate ->", json.dumps(reply)[:600])
-        if isinstance(reply, dict) and reply.get("error"):
-            print("\nRefused. The message names what the body is missing; fix it and re-run.")
-            return 1
-        created = reply if isinstance(reply, dict) else None
+        for spec, body, _ in plans:
+            reply = listings.create_service(client, spec, body)
+            print(f"\ncreate {spec.slug} -> {json.dumps(reply)[:500]}")
+            if isinstance(reply, dict) and reply.get("error"):
+                print("  Refused. The message names what the body is missing.")
+                continue
+            created[spec.slug] = reply
 
     if args.publish:
         reply = listings.publish(client, args.publish)
-        print("\npublish ->", json.dumps(reply)[:600])
-        if isinstance(reply, dict) and reply.get("error"):
-            return 1
+        print(f"\npublish -> {json.dumps(reply)[:500]}")
 
-    after = listings.services(client)
-    print(f"\nafter     {len(after.get('items') or [])} service(s) on this agent")
+    after = {
+        slug: len(listings.services(client, listings.SPECS[slug].agent_id).get("items") or [])
+        for slug in chosen
+        if listings.SPECS[slug].probe_path
+    }
+    print(f"\nafter     {after}")
 
     if args.out:
         record = {
-            "agent": {
-                "platform_id": listings.WARDEN_AGENT_ID,
-                "erc8004_token_id": listings.WARDEN_TOKEN_ID,
-                "name": "Warden-3",
-            },
-            "wallet": signer.address,
             "platform": api_base(BSC_MAINNET),
-            "endpoints": {
-                "create": f"/api/v1/agents/{listings.WARDEN_AGENT_ID}/services",
-                "publish": "/api/v1/listings/{id}/publish",
-                "read_back": f"/api/v1/agents/{listings.WARDEN_AGENT_ID}/services",
+            "service": service_api_base(),
+            "wallet": signer.address,
+            "agents": {
+                slug: {
+                    "platform_id": spec.agent_id,
+                    "erc8004_token_id": spec.token_id,
+                    "name": spec.name,
+                    "title": spec.title,
+                    "price_usdc": spec.price_usdc,
+                    "delivery_days": spec.delivery_days,
+                    "category": spec.category,
+                    "proved_by": spec.probe_path,
+                }
+                for slug, spec in listings.SPECS.items()
+                if spec.probe_path
             },
-            "listing": {
-                "title": listings.TITLE,
-                "category": listings.CATEGORY,
-                "price_usdc": listings.PRICE_USDC,
-                "delivery_days": listings.DELIVERY_DAYS,
-            },
-            "delivery": {
-                "service": service_api_base(),
-                "route": "POST /quote",
-                "quotable_pools": [
-                    {
-                        "pool": p.get("pool"),
-                        "label": p.get("label"),
-                        "swaps": (p.get("tape") or {}).get("swaps"),
-                        "hours": (p.get("tape") or {}).get("hours"),
-                    }
-                    for p in quotable
-                ],
-            },
-            "before": {"services": len(before.get("items") or [])},
-            "after": {"services": len(after.get("items") or [])},
+            "refused": dict(refused),
+            "services_after": after,
             "created": created,
             "read_at": int(time.time()),
-            # The same rule `termix-auth.json` states: the bearer token is a
-            # credential and this file is evidence, not a way to repeat the run.
+            # The rule `termix-auth.json` sets: the bearer token is a credential
+            # and this file is evidence, not a way to repeat the run.
             "token_recorded": False,
         }
         Path(args.out).write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
