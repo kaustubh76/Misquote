@@ -62,7 +62,7 @@
     ]
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788870590,
+  "read_at": 1788871913,
   "refused": {
     "grid": "already has 1 service(s); creating another would duplicate it",
     "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand.",

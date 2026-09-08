@@ -278,6 +278,48 @@ def test_the_live_price_is_the_price_the_spec_asks_for() -> None:
     assert checked, "no live listing was compared, so this proved nothing"
 
 
+def test_every_sellable_listing_offers_tiers_a_buyer_can_pick_between() -> None:
+    """`packages: []` is why a listing cannot be bought instantly.
+
+    Measured over 571 listings: every one of the 18 buyable ones sampled in
+    detail carries at least one package, and not one listing with no packages
+    is buyable. Necessary, not sufficient — six non-buyable listings do have
+    packages and all six were under a fortnight old against a buyable median of
+    55 days — but the necessary half is the half we can set.
+    """
+    for slug in listings.SELLABLE:
+        spec = listings.SPECS[slug]
+        assert spec.packages, f"{slug} offers nothing to buy"
+        ids = [p["id"] for p in spec.packages]
+        assert len(ids) == len(set(ids)), f"{slug} repeats a package id"
+        for row in spec.packages:
+            for field in ("id", "name", "price", "delivery", "scope"):
+                assert row.get(field), f"{slug}'s {row.get('id')} tier has no {field}"
+
+
+def test_the_tiers_differ_in_what_is_delivered_and_not_only_in_price() -> None:
+    """Three prices for one job is a pricing trick, not a set of packages.
+
+    Scopes must be distinct, and the price must rise with them — a premium tier
+    that costs more and says the same thing is the shape this repository would
+    call a misquote if it found it on somebody else's page.
+    """
+    from decimal import Decimal
+
+    for slug in listings.SELLABLE:
+        spec = listings.SPECS[slug]
+        scopes = [p["scope"] for p in spec.packages]
+        assert len(set(scopes)) == len(scopes), f"{slug} sells one scope at several prices"
+        prices = [Decimal(p["price"]) for p in spec.packages]
+        assert prices == sorted(prices), f"{slug}'s tiers do not ascend: {prices}"
+        assert prices[0] == spec.price_usdc, (
+            f"{slug}'s cheapest tier is {prices[0]} and the listing advertises "
+            f"{spec.price_usdc}; the headline price must be one a buyer can pay"
+        )
+        # Everything stays under a dollar: these are demonstrations.
+        assert max(prices) < Decimal("1"), f"{slug} asks {max(prices)} for a tier"
+
+
 def test_prices_are_exact_decimals_and_never_floats() -> None:
     """0.15 is not representable in binary, and money is not a float.
 

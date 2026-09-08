@@ -84,6 +84,35 @@ class Listing:
     price_usdc: Decimal
     delivery_days: int
     tags: tuple[str, ...]
+    #: How the marketplace files this listing. Free text in practice — the 129
+    #: tags in use mix labels and slugs — so the constraint is honesty rather
+    #: than an enum, and each is chosen for what the agent does rather than for
+    #: what would attract the most buyers.
+    #:
+    #: **It is not what gates instant buying, and the first version of this
+    #: comment said it was.** The evidence looked strong — 371 of 377 listings
+    #: with a `skillTag` were `instantBuyable` and 0 of 3 without one were — but
+    #: a denominator of three carries no weight, and setting the tag on all
+    #: three of ours changed nothing. `packages` is the field that matters; see
+    #: below. Kept as a note because the shape of the error is the useful part:
+    #: a lopsided ratio reads as a finding right up until you look at how few
+    #: cases the interesting side actually had.
+    skill_tag: str
+    #: Alt text for the cover. The image is the same for all three, so the alt
+    #: is what distinguishes them to a screen reader.
+    cover_image_alt: str
+    #: Purchase tiers, and **required for `instantBuyable`**. Measured over 571
+    #: listings: every one of the 18 buyable ones sampled in detail carries at
+    #: least one package, and not one listing with `packages: []` is buyable.
+    #:
+    #: Necessary, and not sufficient — six non-buyable listings do have
+    #: packages, and all six were updated within 13 days against a buyable
+    #: median of 55, so something time-based gates it as well. That half is not
+    #: ours to set; this half is.
+    #:
+    #: Each tier must be a real difference in what is delivered, not the same
+    #: work at three prices. `delivery` is days, as a string, matching the wire.
+    packages: tuple[dict[str, str], ...]
     #: The live route whose reading both proves delivery and writes the copy.
     #: `None` means nothing on the deployed service produces this, and the
     #: script refuses rather than listing it.
@@ -257,6 +286,39 @@ SPECS: dict[str, Listing] = {
         price_usdc=Decimal("0.25"),
         delivery_days=1,
         tags=("DeFi", "Liquidity", "Risk Analysis"),
+        # It replays a position over recorded on-chain swaps. "Quant Strategy"
+        # was available and would have implied we run a strategy for you.
+        skill_tag="On-chain Analytics",
+        cover_image_alt="Misquote — a liquidity position replayed over recorded PancakeSwap swaps",
+        packages=(
+            {
+                "id": "basic",
+                "name": "One position",
+                "price": "0.25",
+                "delivery": "1",
+                "scope": (
+                    "One pool, one range, one size. In-range share, fees accrued and impermanent loss against holding, as a P25-P75 band across twenty overlapping windows."
+                ),
+            },
+            {
+                "id": "standard",
+                "name": "Position and journal",
+                "price": "0.50",
+                "delivery": "1",
+                "scope": (
+                    "Everything in Basic, plus the decision journal behind it: every window replayed, including the ones withheld and why, and the paired comparison against holding the same capital passively."
+                ),
+            },
+            {
+                "id": "premium",
+                "name": "Every verified pool",
+                "price": "0.75",
+                "delivery": "2",
+                "scope": (
+                    "The same position sized against all three verified pools side by side, with the refusals shown rather than dropped, so you can see where the tape stops supporting an answer."
+                ),
+            },
+        ),
         probe_path="/quote/preflight",
         describe=warden_description,
     ),
@@ -272,6 +334,40 @@ SPECS: dict[str, Listing] = {
         price_usdc=Decimal("0.20"),
         delivery_days=1,
         tags=("DeFi", "Market Making", "Liquidity"),
+        # Same tag as Warden, deliberately: the ladder comes from the same
+        # on-chain replay. "Market Research" matched the category better and
+        # described the work less accurately.
+        skill_tag="On-chain Analytics",
+        cover_image_alt="Misquote — a ladder of PancakeSwap v3 range widths ranked on replayed swaps",
+        packages=(
+            {
+                "id": "basic",
+                "name": "One ladder",
+                "price": "0.20",
+                "delivery": "1",
+                "scope": (
+                    "One pool's width ladder: every candidate width with the fee return it earned as a P25-P75 band across twenty windows, and the width that ranked best."
+                ),
+            },
+            {
+                "id": "standard",
+                "name": "Ladder and demand",
+                "price": "0.40",
+                "delivery": "1",
+                "scope": (
+                    "Everything in Basic, plus which widths are statistically indistinguishable from the best one, and the demand underneath: swap count, tick crossings and the LP's share of the fee read from the pool."
+                ),
+            },
+            {
+                "id": "premium",
+                "name": "All pools ranked",
+                "price": "0.60",
+                "delivery": "2",
+                "scope": (
+                    "Every verified pool ranked together, with the rungs that failed the observation floor named rather than hidden, so a thin pool cannot look like a confident one."
+                ),
+            },
+        ),
         probe_path="/pools",
         describe=grid_description,
     ),
@@ -288,6 +384,40 @@ SPECS: dict[str, Listing] = {
         price_usdc=Decimal("0.15"),
         delivery_days=1,
         tags=("DeFi", "Security", "Due Diligence"),
+        # "Smart Contract Audit" was the popular tag and would have been a lie:
+        # the listing's own text says this is neither an audit nor a live
+        # monitor. "Security Review" is what nine bounded chain reads are.
+        skill_tag="Security Review",
+        cover_image_alt="Misquote — nine chain reads on a PancakeSwap v3 pool, each with its provenance",
+        packages=(
+            {
+                "id": "basic",
+                "name": "Nine checks",
+                "price": "0.15",
+                "delivery": "1",
+                "scope": (
+                    "One pool: factory resolution, tick spacing against the fee tier, the protocol fee actually set, and token decimals as the contracts report them."
+                ),
+            },
+            {
+                "id": "standard",
+                "name": "Checks and provenance",
+                "price": "0.30",
+                "delivery": "1",
+                "scope": (
+                    "Everything in Basic, plus what each check is for - the finding that made it worth making - and the tape coverage behind the pool, including the gaps."
+                ),
+            },
+            {
+                "id": "premium",
+                "name": "Every examined pool",
+                "price": "0.45",
+                "delivery": "2",
+                "scope": (
+                    "All badged pools, and the part that matters most: an explicit list of what has not been examined, because an unbadged pool is an absence and not a clean bill of health."
+                ),
+            },
+        ),
         probe_path="/vetting",
         describe=sentinel_description,
     ),
@@ -301,6 +431,9 @@ SPECS: dict[str, Listing] = {
         price_usdc=Decimal("0"),
         delivery_days=0,
         tags=(),
+        skill_tag="",
+        cover_image_alt="",
+        packages=(),
         probe_path=None,
         describe=_router_blocked,
         blocked=(
@@ -343,6 +476,9 @@ def service_body(spec: Listing, reading: dict[str, Any]) -> dict[str, Any]:
         # places it must not stop being decimal are the wire and the source.
         "basePrice": str(spec.price_usdc),
         "coverImageUrl": COVER_IMAGE,
+        "coverImageAlt": spec.cover_image_alt,
+        "skillTag": spec.skill_tag,
+        "packages": [dict(p) for p in spec.packages],
         "currency": "USDC",
         "deliveryDays": spec.delivery_days,
         "tags": list(spec.tags),
@@ -363,6 +499,47 @@ def create_service(session, spec: Listing, body: dict[str, Any]) -> Any:
     ends up holding six draft listings nobody meant to create.
     """
     return session.post(f"/api/v1/agents/{spec.agent_id}/services", body)
+
+
+def drift(spec: Listing, live: dict[str, Any]) -> dict[str, Any]:
+    """What a live listing would have to change to match its spec.
+
+    Prices compare as `Decimal`, never as strings: we send `"0.20"` and the
+    server stores `"0.2"`. Those are the same amount, and a string comparison
+    would report a difference that is not one — then get "fixed" by loosening
+    the check that would have caught a real one.
+
+    Returns only what differs, so a `--sync` with nothing to do sends nothing
+    and `updatedAt` keeps meaning "when this last actually changed".
+    """
+    patch: dict[str, Any] = {}
+    if Decimal(str(live.get("basePrice") or 0)) != spec.price_usdc:
+        patch["basePrice"] = str(spec.price_usdc)
+    for field, want in (
+        ("skillTag", spec.skill_tag),
+        ("coverImageAlt", spec.cover_image_alt),
+        ("title", spec.title),
+    ):
+        if (live.get(field) or "") != want:
+            patch[field] = want
+    if int(live.get("deliveryDays") or 0) != spec.delivery_days:
+        patch["deliveryDays"] = spec.delivery_days
+    # Compared by content, not by identity: the server echoes packages back with
+    # its own ordering and may add keys of its own, so `!=` on the raw lists
+    # would rewrite them on every sync and move `updatedAt` for nothing.
+    want = [dict(p) for p in spec.packages]
+    have = live.get("packages") or []
+    if _package_key(have) != _package_key(want):
+        patch["packages"] = want
+    return patch
+
+
+def _package_key(rows: list[dict[str, Any]]) -> list[tuple[str, ...]]:
+    """The parts of a package this project sets, in a comparable order."""
+    return sorted(
+        tuple(str(row.get(field, "")) for field in ("id", "name", "price", "delivery", "scope"))
+        for row in rows
+    )
 
 
 def update_listing(session, listing_id: str, body: dict[str, Any]) -> Any:
@@ -391,6 +568,7 @@ __all__ = [
     "SPECS",
     "Listing",
     "create_service",
+    "drift",
     "grid_description",
     "pool_lines",
     "publish",

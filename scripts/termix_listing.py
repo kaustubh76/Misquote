@@ -88,9 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--create", action="store_true", help="send one POST per listable agent")
     ap.add_argument("--publish", metavar="LISTING_ID", help="take an existing draft live")
     ap.add_argument(
-        "--reprice",
+        "--sync",
         action="store_true",
-        help="PATCH every live listing's basePrice to the spec's, in place",
+        help="PATCH every live listing to match its spec, in place, field by field",
     )
     ap.add_argument("--out", nargs="?", const=str(RECORD), help="write the evidence record")
     args = ap.parse_args(argv)
@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"listable: {len(plans)}   refused: {len(refused)}")
 
-    if not (args.create or args.publish or args.reprice or args.out):
+    if not (args.create or args.publish or args.sync or args.out):
         for spec, body, _ in plans:
             print(f"\n--- body for {spec.slug} ---")
             print(json.dumps(body, indent=2)[:900])
@@ -167,24 +167,26 @@ def main(argv: list[str] | None = None) -> int:
         reply = listings.publish(client, args.publish)
         print(f"\npublish -> {json.dumps(reply)[:500]}")
 
-    if args.reprice:
-        # In place, by id. Deleting and recreating would mint a new id and
-        # falsify every record and link that already names the old one.
+    if args.sync:
+        # In place, by id. Deleting and recreating would mint a new id, and the
+        # id is what the evidence record and every link already name.
+        #
+        # Only the fields that actually differ are sent. A PATCH that rewrites
+        # everything every time makes `updatedAt` move for no reason, which is
+        # the field a reader uses to tell when the listing last really changed.
         for slug in chosen:
             spec = listings.SPECS[slug]
             if not spec.probe_path:
                 continue
             for item in listings.services(client, spec.agent_id).get("items") or []:
-                now = str(item.get("basePrice"))
-                want = str(spec.price_usdc)
-                if now == want:
-                    print(f"  {slug:9} already {want} USDC")
+                patch = listings.drift(spec, item)
+                if not patch:
+                    print(f"  {slug:9} already matches its spec")
                     continue
-                reply = listings.update_listing(
-                    client, item["id"], {"basePrice": want, "currency": "USDC"}
-                )
+                reply = listings.update_listing(client, item["id"], patch)
                 ok = not (isinstance(reply, dict) and reply.get("error"))
-                print(f"  {slug:9} {now} -> {want} USDC  {'ok' if ok else json.dumps(reply)[:200]}")
+                shown = ", ".join(f"{k}={v!r}" for k, v in patch.items())
+                print(f"  {slug:9} {shown[:110]}  {'ok' if ok else json.dumps(reply)[:200]}")
 
     # Read back rather than trusting the create response: the claim is that the
     # listing is *live*, and only the server can say that. `status` is what
