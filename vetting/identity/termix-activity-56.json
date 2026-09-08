@@ -3,7 +3,7 @@
   "after": {
     "activeOrders": 0,
     "briefs": 1,
-    "campaignsTotal": 0,
+    "campaignsTotal": 1,
     "openBriefs": 1,
     "orders": 0,
     "savedListings": 4,
@@ -22,18 +22,20 @@
   "before": {
     "activeOrders": 0,
     "briefs": 1,
-    "campaignsTotal": 0,
+    "campaignsTotal": 1,
     "openBriefs": 1,
     "orders": 0,
     "savedListings": 4,
     "spendingByCurrency": []
   },
   "campaigns": {
-    "claimable": 0,
-    "why": "20 campaigns on the platform: 15 DRAFT (unpublished) and 5 FILLED. None is open, so campaignsTotal cannot move."
+    "claimable_by_us": 0,
+    "sponsored_by_us": 1,
+    "why_none_claimable": "20 campaigns on the platform when this was read: 15 DRAFT (unpublished) and 5 FILLED. No slot was open to claim.",
+    "why_that_was_possible": "campaignsTotal is a *buying* metric \u2014 it counts campaigns sponsored, not slots claimed. The reward floor is 0.0001 USDC across 455 campaigns, so sponsoring one was available the whole time and the first reading here missed it by checking only the claiming side."
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788881114,
+  "read_at": 1788883523,
   "token_recorded": false,
   "usdc_at_read": "1.499961308195863051",
   "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"

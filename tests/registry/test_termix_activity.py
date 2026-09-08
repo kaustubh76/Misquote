@@ -59,6 +59,44 @@ def test_the_brief_we_post_asks_somebody_to_check_us() -> None:
     assert "block" in scope.lower()
 
 
+def test_the_bounty_asks_for_something_that_can_be_checked() -> None:
+    """A bounty whose approval is a matter of taste cannot be judged fairly.
+
+    Every proof requirement here is a value that either matches or does not: a
+    byte count, a hash, and the tool that produced it. That is the same standard
+    this project holds its own refusals to — name the threshold rather than say
+    "insufficient evidence".
+    """
+    assert marketplace.CAMPAIGN_PROOF, "the bounty demands no proof at all"
+    for req in marketplace.CAMPAIGN_PROOF:
+        for field in ("ordinal", "kind", "label", "required"):
+            assert field in req, f"a proof requirement has no {field}"
+        assert req["label"].strip()
+    labels = " ".join(r["label"].lower() for r in marketplace.CAMPAIGN_PROOF)
+    assert "keccak256" in labels and "bytes" in labels
+
+    # And it invites the answer we would least like, which is the one worth
+    # paying for: agreement we already believe.
+    body = " ".join(marketplace.CAMPAIGN_INSTRUCTIONS).lower()
+    assert "differs" in body or "disagree" in body
+    assert marketplace.CAMPAIGN_ARTIFACT in body
+
+
+def test_the_bounty_reward_is_a_real_offer_not_a_token_gesture() -> None:
+    """The platform's floor is 0.0001 USDC and this is not sitting on it.
+
+    A bounty priced at the minimum for work somebody has to actually do is a
+    counter dressed as an offer. This is small because the task is small, and
+    the test pins the relationship rather than the number.
+    """
+    from decimal import Decimal
+
+    reward = Decimal(marketplace.CAMPAIGN_REWARD_USDC)
+    assert reward >= Decimal("0.1"), "cheaper than the task deserves"
+    assert reward < Decimal("1"), "these are demonstrations, not commerce"
+    assert marketplace.CAMPAIGN_SLOTS >= 1
+
+
 def test_it_refuses_to_buy_from_itself() -> None:
     """The refusal is in the script, and it is the point of the script.
 
@@ -72,18 +110,24 @@ def test_it_refuses_to_buy_from_itself() -> None:
     assert "ours()" in source, "the guard exists and nothing computes what is ours"
 
 
-def test_the_counters_that_cannot_move_say_why() -> None:
-    """An absence with a reason is evidence; a zero on its own is not.
+def test_the_campaign_record_carries_both_halves_of_the_question() -> None:
+    """I answered "can we move this column" by checking one side of it.
 
-    Campaigns cannot move: fifteen are unpublished drafts and five are full.
-    Recorded the way `termix-listing-56.json` records warden's invisibility.
+    Nothing was claimable — true — and I recorded that as the reason the column
+    could not move. `campaignsTotal` counts campaigns *sponsored*, so it could,
+    and did. The record now carries both halves so the next reader does not
+    inherit the half-answer, and this asserts both are there.
     """
     if not RECORD.is_file():
         pytest.skip("no activity has been recorded yet")
-    record = json.loads(RECORD.read_text())
-    campaigns = record.get("campaigns") or {}
-    assert campaigns.get("claimable") == 0
-    assert "DRAFT" in campaigns.get("why", ""), "the zero is recorded without its reason"
+    campaigns = (json.loads(RECORD.read_text()).get("campaigns")) or {}
+
+    assert campaigns.get("claimable_by_us") == 0
+    assert "DRAFT" in campaigns.get("why_none_claimable", "")
+    assert campaigns.get("sponsored_by_us", 0) >= 1, (
+        "the record says nothing was sponsored, and the dashboard says otherwise"
+    )
+    assert "buying" in campaigns.get("why_that_was_possible", "").lower()
 
 
 def test_the_record_proves_a_change_and_not_just_a_state() -> None:

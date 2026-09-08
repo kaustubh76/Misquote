@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import time
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,19 @@ from misquote.registry import listings, marketplace  # noqa: E402
 from misquote.registry.aacp import BSC_MAINNET, api_base  # noqa: E402
 
 RECORD = REPO / "vetting" / "identity" / "termix-activity-56.json"
+
+#: What TermiX prices orders in on BSC. Not typed from a docs page: their own
+#: `/api/v1/me/wallet/balance` names this address under `usdc`.
+USDC = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
+
+ERC20_ABI = json.loads(
+    '[{"name":"decimals","type":"function","stateMutability":"view","inputs":[],'
+    '"outputs":[{"type":"uint8"}]},'
+    '{"name":"allowance","type":"function","stateMutability":"view",'
+    '"inputs":[{"type":"address"},{"type":"address"}],"outputs":[{"type":"uint256"}]},'
+    '{"name":"approve","type":"function","stateMutability":"nonpayable",'
+    '"inputs":[{"type":"address"},{"type":"uint256"}],"outputs":[{"type":"bool"}]}]'
+)
 
 #: What makes a third-party listing worth bookmarking: it is about the thing
 #: these agents are about. Matched on the listing's own words rather than a
@@ -103,6 +117,14 @@ def interesting(limit: int = 4) -> list[dict[str, Any]]:
     return found[:limit]
 
 
+def _iso(offset_seconds: int) -> str:
+    """An absolute UTC timestamp, the way the platform reports its own."""
+    from datetime import UTC, datetime, timedelta
+
+    when = datetime.now(UTC) + timedelta(seconds=offset_seconds)
+    return when.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
 def show(label: str, reply: Any) -> bool:
     """Print a reply and say whether it worked. A 400 names what is missing."""
     ok = not (isinstance(reply, dict) and reply.get("error"))
@@ -116,6 +138,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quote", action="store_true", help="bid on the open brief we can serve")
     ap.add_argument("--brief", action="store_true", help="post our own request. Commits us to pay.")
     ap.add_argument("--buy", metavar="LISTING_ID", help="purchase one third-party listing")
+    ap.add_argument(
+        "--bounty",
+        action="store_true",
+        help="sponsor a campaign. Creates it as a draft; funding is --fund-bounty.",
+    )
+    ap.add_argument(
+        "--pay",
+        metavar="CHECKOUT_ID",
+        help="send the escrow transaction for an accepted offer. SPENDS USDC.",
+    )
     ap.add_argument(
         "--accept",
         metavar="OFFER_ID",
@@ -146,7 +178,10 @@ def main(argv: list[str] | None = None) -> int:
     for item in picks:
         print(f"  {str(item.get('basePrice')):>7} {item.get('currency')}  {str(item.get('title'))[:58]}")
 
-    if not (args.save or args.quote or args.brief or args.buy or args.accept or args.out):
+    if not (
+        args.save or args.quote or args.brief or args.buy or args.accept or args.pay
+        or args.bounty or args.out
+    ):
         print("\nNothing was sent. Each action has its own flag; three of them commit money.")
         return 0
 
@@ -280,6 +315,84 @@ def main(argv: list[str] | None = None) -> int:
         if show("checkout", reply):
             did["accepted_offer"] = {"accept": agreed, "checkout": reply}
 
+    if args.bounty:
+        print("\nsponsoring a bounty:")
+        # Sponsored by Warden: the file under scrutiny is `warden.json`, and the
+        # claim being checked — "fetch it and re-hash it, nothing here has to be
+        # trusted" — is on Warden's own listing. The agent making the claim is
+        # the right one to be paying somebody to test it.
+        body = {
+            "clientAgentId": listings.SPECS["warden"].agent_id,
+            "title": marketplace.CAMPAIGN_TITLE,
+            "summary": marketplace.CAMPAIGN_SUMMARY,
+            "instructions": list(marketplace.CAMPAIGN_INSTRUCTIONS),
+            "proofRequirements": list(marketplace.CAMPAIGN_PROOF),
+            "category": "Data & Research",
+            "rewardPerSlot": marketplace.CAMPAIGN_REWARD_USDC,
+            "totalSlots": marketplace.CAMPAIGN_SLOTS,
+            "currency": "USDC",
+            # Open now, closed in a week. A campaign with no end is one nobody
+            # can plan around and one we could never reclaim the escrow from;
+            # `reclaim-expired/confirm` exists precisely because they end.
+            "opensAt": _iso(0),
+            "closesAt": _iso(7 * 24 * 3600),
+        }
+        reply = marketplace.create_campaign(client, body)
+        if show("campaign", reply):
+            did["campaign"] = reply
+
+    if args.pay:
+        w3 = connect()
+        row = client.get(f"/api/v1/checkout/{args.pay}")
+        print(
+            f"\nsession    {row.get('status')} · {row.get('amount')} "
+            f"{row.get('currency')} · expires {row.get('expiresAt')}"
+        )
+
+        intent = marketplace.tx_intent(client, args.pay)
+        if isinstance(intent, dict) and intent.get("error"):
+            # A session times out in thirty minutes and the *offer* does not, so
+            # an expiry costs a session and never the agreement. Reviving it is
+            # the repair; re-bidding would be redoing a deal that still stands.
+            print(f"  tx-intent refused: {intent['error'].get('message')}")
+            show("recover", marketplace.recover_checkout(client, args.pay))
+            intent = marketplace.tx_intent(client, args.pay)
+            if isinstance(intent, dict) and intent.get("error"):
+                show("tx-intent", intent)
+                return 1
+
+        escrow = Web3.to_checksum_address(intent["contract"])
+        print(f"  intent   {intent['action']} -> {escrow} (chain {intent['chainId']})")
+
+        erc20 = w3.eth.contract(address=Web3.to_checksum_address(USDC), abi=ERC20_ABI)
+        scale = 10 ** int(erc20.functions.decimals().call())
+        need = int(Decimal(str(row["amount"])) * scale)
+        allowance = int(erc20.functions.allowance(signer.address, escrow).call())
+        print(f"  allowance {allowance / scale:.6f} · need {need / scale:.6f}")
+
+        if allowance < need:
+            # Exactly what this order costs, and not a token more. An unbounded
+            # allowance to an escrow nobody here has audited is the standing
+            # risk this project would refuse to accept on somebody else's page.
+            call = erc20.functions.approve(escrow, need)
+            sent = signer.send(signer.build(call.build_transaction({"from": signer.address})))
+            print(f"  approve  {sent.tx_hash}")
+
+        # Their calldata, sent as given. Rebuilding the call from field names
+        # would be a valid transaction doing something we never read — the same
+        # reason `authenticate.py` signs their SIWE message verbatim.
+        sent = signer.send(
+            signer.build(
+                {"to": escrow, "data": intent["callData"], "value": int(intent["value"])}
+            )
+        )
+        print(f"  escrow   {sent.tx_hash}  gas {sent.gas_used:,}")
+        reply = marketplace.confirm_checkout(
+            client, args.pay, {"txIntentId": intent["id"], "txHash": sent.tx_hash}
+        )
+        if show("confirm", reply):
+            did["paid"] = {"tx": sent.tx_hash, "intent": intent["id"], "checkout": args.pay}
+
     after = marketplace.counters(marketplace.dashboard(client))
     print(f"\nafter     {json.dumps(after)}")
 
@@ -309,11 +422,21 @@ def main(argv: list[str] | None = None) -> int:
             # Recorded because it is a real absence and the reason is not
             # obvious from the zero: fifteen campaigns are DRAFT and five are
             # FILLED, so there is no slot anybody could claim today.
+            # Both halves, because I first recorded only one and called the
+            # column unreachable on the strength of it.
             "campaigns": {
-                "claimable": 0,
-                "why": (
-                    "20 campaigns on the platform: 15 DRAFT (unpublished) and 5 "
-                    "FILLED. None is open, so campaignsTotal cannot move."
+                "claimable_by_us": 0,
+                "why_none_claimable": (
+                    "20 campaigns on the platform when this was read: 15 DRAFT "
+                    "(unpublished) and 5 FILLED. No slot was open to claim."
+                ),
+                "sponsored_by_us": 1,
+                "why_that_was_possible": (
+                    "campaignsTotal is a *buying* metric — it counts campaigns "
+                    "sponsored, not slots claimed. The reward floor is 0.0001 "
+                    "USDC across 455 campaigns, so sponsoring one was available "
+                    "the whole time and the first reading here missed it by "
+                    "checking only the claiming side."
                 ),
             },
             "read_at": int(time.time()),

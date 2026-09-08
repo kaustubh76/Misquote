@@ -14,10 +14,13 @@ the honest way to make that number move is to **be the buyer** — real money to
 real seller for something we actually want — rather than to buy from ourselves
 and have the public feed read it as demand.
 
-Bounties are the one we cannot move: of twenty campaigns, fifteen are `DRAFT`
-and five are `FILLED`, so there is no slot to claim. That is recorded as an
-absence rather than worked around, which is the same treatment
-`termix-listing-56.json` gives warden's invisibility.
+Bounties I got wrong, and the correction is the useful part. I reported the
+column unreachable because nothing is claimable — of twenty campaigns fifteen
+are `DRAFT` and five are `FILLED` — which is true, and answers the wrong half of
+the question. `campaignsTotal` is a **buying** metric: it counts campaigns you
+*sponsor*, not slots you claim, and `/api/v1/campaigns/reward-range` puts the
+floor at 0.0001 USDC over 455 of them. It was available the whole time, and I
+called it impossible after checking only the side I happened to look at first.
 
 ## Why the amounts are so small
 
@@ -122,6 +125,79 @@ could hand back, and it is worth more to me than agreement."""
 OUR_BRIEF_ID = "cmtst9g1824t7v5015yjuaet3"
 
 
+# ── the bounty we sponsor ────────────────────────────────────────────────────
+#
+# I first reported that bounties were unreachable because nothing is claimable —
+# 15 campaigns DRAFT, 5 FILLED — which was true and was the wrong half of the
+# question. `campaignsTotal` sits under the dashboard's *buying* metrics: it is
+# the **sponsor's** side, and `/api/v1/campaigns/reward-range` reports a floor of
+# 0.0001 USDC over 455 campaigns. Sponsoring one was available the whole time.
+
+CAMPAIGN_TITLE = "Fetch our published agent artifact and tell us its hash"
+
+#: One slot at half a dollar. The task is a fetch and a hash — a couple of
+#: minutes — and the platform's own floor is 0.0001, so this is not the cheapest
+#: it could be. It is the least that is not insulting for work somebody has to
+#: actually do.
+CAMPAIGN_REWARD_USDC = "0.50"
+CAMPAIGN_SLOTS = 1
+
+#: The file we ask about. It is what `/agent/warden/` renders and what every one
+#: of our listings tells a buyer they can fetch and re-hash for themselves.
+CAMPAIGN_ARTIFACT = "https://misquote.vercel.app/artifacts/warden.json"
+
+CAMPAIGN_SUMMARY = (
+    "Download one published JSON file, report its keccak256 and its size in "
+    "bytes. Two minutes, and it independently checks a claim we make on every "
+    "listing we sell."
+)
+
+#: A list, not a paragraph: the API answers `instructions: Expected array,
+#: received string`, and the campaigns already on the platform carry one line
+#: per element. Splitting on blank lines would have been a guess; this is
+#: written as the shape it is sent in.
+CAMPAIGN_INSTRUCTIONS = (
+    "Every listing we sell says the same thing: fetch the file and re-hash it, "
+    "nothing here has to be trusted. This bounty pays somebody to actually do "
+    "that, because a claim only we have ever checked is a claim nobody has "
+    "checked.",
+    f"1. Download {CAMPAIGN_ARTIFACT}",
+    "2. Report its size in bytes.",
+    "3. Report the keccak256 of those exact bytes - the raw file as served, not "
+    "re-formatted, re-indented or re-serialised. Any keccak256 implementation "
+    "will do; the same one Ethereum uses.",
+    "Submit the byte count and the hash, and say what you used to compute it.",
+    "That is the whole task. If your hash differs from ours, say so plainly - a "
+    "disagreement is the useful outcome here and it is what the bounty is "
+    "really buying. Agreement is worth less, because we already believe it.",
+)
+
+
+#: What a submission has to contain for us to be able to judge it.
+#:
+#: Objects, not strings: the API answers `proofRequirements.0: Expected object`,
+#: and a campaign already on the platform carries
+#: `{ordinal, kind, label, required}`. Stated before anyone claims, so an
+#: approval is a matter of checking rather than of taste — the same reason every
+#: refusal on this project's own pages names its threshold instead of saying
+#: "insufficient evidence".
+CAMPAIGN_PROOF = (
+    {"ordinal": 1, "kind": "TEXT", "label": "The file's size in bytes, as served", "required": True},
+    {
+        "ordinal": 2,
+        "kind": "TEXT",
+        "label": "A 0x-prefixed 32-byte keccak256 of those exact bytes",
+        "required": True,
+    },
+    {
+        "ordinal": 3,
+        "kind": "TEXT",
+        "label": "The tool or library used to compute it",
+        "required": True,
+    },
+)
+
+
 # ── reads ────────────────────────────────────────────────────────────────────
 
 
@@ -182,12 +258,68 @@ def checkout(session, body: dict[str, Any]) -> Any:
     return session.post("/api/v1/checkout/sessions", body)
 
 
+def tx_intent(session, checkout_id: str, body: dict[str, Any] | None = None) -> Any:
+    """Ask what to send on chain. `POST /api/v1/checkout/{id}/tx-intent`.
+
+    The platform builds the calldata and we sign and broadcast it, which is why
+    paying is three calls rather than one. The bytes are theirs and go out as
+    given — the same choice `authenticate.py` makes in signing their SIWE
+    message verbatim instead of rebuilding it from its parts, and for the same
+    reason: a reconstruction that differs by one field is a valid transaction
+    doing something we did not read.
+    """
+    return session.post(f"/api/v1/checkout/{checkout_id}/tx-intent", body or {})
+
+
+def confirm_checkout(session, checkout_id: str, body: dict[str, Any]) -> Any:
+    """Tell the platform the transaction mined. `POST /checkout/{id}/confirm`."""
+    return session.post(f"/api/v1/checkout/{checkout_id}/confirm", body)
+
+
+def recover_checkout(session, checkout_id: str) -> Any:
+    """Revive a session that timed out. `POST /checkout/{id}/recover`.
+
+    Sessions expire in thirty minutes; the *offer* does not. So an expiry costs
+    a session and never the agreement, and re-bidding would be the wrong repair.
+    """
+    return session.post(f"/api/v1/checkout/{checkout_id}/recover", {})
+
+
+def create_campaign(session, body: dict[str, Any]) -> Any:
+    """Sponsor a bounty. `POST /api/v1/campaigns/prepare`.
+
+    Not `POST /api/v1/campaigns`, which is a 404 — that path only lists. The
+    write is `prepare`, and the name is accurate: it creates the campaign *and*
+    hands back what has to be sent on chain to fund it, in one answer.
+
+    A campaign therefore starts life unfunded, which is what the fifteen
+    `DRAFT` campaigns on the platform are. Only `confirm_funded` makes it a
+    thing anyone can claim, so writing the bounty and paying for it stay two
+    decisions.
+    """
+    return session.post("/api/v1/campaigns/prepare", body)
+
+
+def confirm_funded(session, campaign_id: str, body: dict[str, Any]) -> Any:
+    """Tell the platform the funding transaction mined, and open the campaign."""
+    return session.post(f"/api/v1/campaigns/{campaign_id}/confirm-funded", body)
+
+
 def instant_buy(session, listing_id: str, body: dict[str, Any]) -> Any:
     """One-call purchase, for a listing the marketplace marks `instantBuyable`."""
     return session.post(f"/api/v1/listings/{listing_id}/instant-buy", body)
 
 
 __all__ = [
+    "confirm_funded",
+    "create_campaign",
+    "CAMPAIGN_TITLE",
+    "CAMPAIGN_SUMMARY",
+    "CAMPAIGN_SLOTS",
+    "CAMPAIGN_REWARD_USDC",
+    "CAMPAIGN_PROOF",
+    "CAMPAIGN_INSTRUCTIONS",
+    "CAMPAIGN_ARTIFACT",
     "AUDIT_POOL",
     "BRIEF_BUDGET_USDC",
     "BRIEF_SCOPE",
@@ -200,9 +332,12 @@ __all__ = [
     "accept_offer",
     "checkout",
     "counters",
+    "confirm_checkout",
     "create_brief",
     "dashboard",
     "instant_buy",
     "quote_on_brief",
+    "recover_checkout",
     "save_listing",
+    "tx_intent",
 ]
