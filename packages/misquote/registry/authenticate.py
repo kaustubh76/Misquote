@@ -304,6 +304,32 @@ class TermixSession:
         except ValueError:
             raise AuthFailed(f"{path} returned {response.status_code} and no JSON") from None
 
+    def patch(self, path: str, body: dict[str, Any]) -> Any:
+        """One authenticated PATCH, for editing something already published.
+
+        Separate from `post` because the consequence is different: a POST that
+        goes wrong leaves a draft nobody has seen, and a PATCH that goes wrong
+        changes what a buyer is currently looking at. Same 400-is-information
+        handling, because the server validates the same way either way.
+        """
+        import httpx
+
+        url = api_base(self.chain_id) + path
+        _assert_fetchable(url)
+        response = httpx.patch(
+            url,
+            json=body,
+            headers=self.session.header,
+            timeout=self._timeout,
+            follow_redirects=False,
+        )
+        if response.status_code == 401:
+            raise AuthFailed(f"{path} refused the token; it may have expired")
+        try:
+            return response.json()
+        except ValueError:
+            raise AuthFailed(f"{path} returned {response.status_code} and no JSON") from None
+
     # --- internals ----------------------------------------------------------
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:

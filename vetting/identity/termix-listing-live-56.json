@@ -6,7 +6,7 @@
       "erc8004_token_id": "323332",
       "name": "Grid",
       "platform_id": "cmthhi6te3am8tr01mamogmpb",
-      "price_usdc": 20,
+      "price_usdc": "0.20",
       "proved_by": "/pools",
       "title": "Which range width to set on a PancakeSwap v3 pool, and which are the same"
     },
@@ -16,7 +16,7 @@
       "erc8004_token_id": "323333",
       "name": "Sentinel-323333",
       "platform_id": "cmthhibg73ap6tr01ie8puf1q",
-      "price_usdc": 15,
+      "price_usdc": "0.15",
       "proved_by": "/vetting",
       "title": "Pool due diligence: nine chain reads, with what each one is for"
     },
@@ -26,7 +26,7 @@
       "erc8004_token_id": "331592",
       "name": "Warden-3",
       "platform_id": "cmtl14z110cy8x901uxqdic1o",
-      "price_usdc": 25,
+      "price_usdc": "0.25",
       "proved_by": "/quote/preflight",
       "title": "Liquidity position risk quote, replayed on real PancakeSwap swaps"
     }
@@ -35,7 +35,7 @@
   "listings": {
     "grid": [
       {
-        "base_price": "20",
+        "base_price": "0.2",
         "currency": "USDC",
         "listing_id": "cmtslw18l0zfzw3010sldczg5",
         "published_at": null,
@@ -44,7 +44,7 @@
     ],
     "sentinel": [
       {
-        "base_price": "15",
+        "base_price": "0.15",
         "currency": "USDC",
         "listing_id": "cmtslw1i30zg1w301tx8iqa8o",
         "published_at": null,
@@ -53,7 +53,7 @@
     ],
     "warden": [
       {
-        "base_price": "25",
+        "base_price": "0.25",
         "currency": "USDC",
         "listing_id": "cmtslw1030zfww301cksa7pz7",
         "published_at": null,
@@ -62,7 +62,7 @@
     ]
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788868288,
+  "read_at": 1788870590,
   "refused": {
     "grid": "already has 1 service(s); creating another would duplicate it",
     "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand.",

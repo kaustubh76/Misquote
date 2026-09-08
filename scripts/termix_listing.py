@@ -87,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--agent", choices=sorted(listings.SPECS), help="just this one")
     ap.add_argument("--create", action="store_true", help="send one POST per listable agent")
     ap.add_argument("--publish", metavar="LISTING_ID", help="take an existing draft live")
+    ap.add_argument(
+        "--reprice",
+        action="store_true",
+        help="PATCH every live listing's basePrice to the spec's, in place",
+    )
     ap.add_argument("--out", nargs="?", const=str(RECORD), help="write the evidence record")
     args = ap.parse_args(argv)
 
@@ -141,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"listable: {len(plans)}   refused: {len(refused)}")
 
-    if not (args.create or args.publish or args.out):
+    if not (args.create or args.publish or args.reprice or args.out):
         for spec, body, _ in plans:
             print(f"\n--- body for {spec.slug} ---")
             print(json.dumps(body, indent=2)[:900])
@@ -161,6 +166,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.publish:
         reply = listings.publish(client, args.publish)
         print(f"\npublish -> {json.dumps(reply)[:500]}")
+
+    if args.reprice:
+        # In place, by id. Deleting and recreating would mint a new id and
+        # falsify every record and link that already names the old one.
+        for slug in chosen:
+            spec = listings.SPECS[slug]
+            if not spec.probe_path:
+                continue
+            for item in listings.services(client, spec.agent_id).get("items") or []:
+                now = str(item.get("basePrice"))
+                want = str(spec.price_usdc)
+                if now == want:
+                    print(f"  {slug:9} already {want} USDC")
+                    continue
+                reply = listings.update_listing(
+                    client, item["id"], {"basePrice": want, "currency": "USDC"}
+                )
+                ok = not (isinstance(reply, dict) and reply.get("error"))
+                print(f"  {slug:9} {now} -> {want} USDC  {'ok' if ok else json.dumps(reply)[:200]}")
 
     # Read back rather than trusting the create response: the claim is that the
     # listing is *live*, and only the server can say that. `status` is what
@@ -197,7 +221,10 @@ def main(argv: list[str] | None = None) -> int:
                     "erc8004_token_id": spec.token_id,
                     "name": spec.name,
                     "title": spec.title,
-                    "price_usdc": spec.price_usdc,
+                    # A string, for the same reason the wire wants one: a
+                    # Decimal is not JSON, and a float would put 0.15 into the
+                    # record as 0.15000000000000002.
+                    "price_usdc": str(spec.price_usdc),
                     "delivery_days": spec.delivery_days,
                     "category": spec.category,
                     "proved_by": spec.probe_path,

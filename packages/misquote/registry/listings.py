@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 #: Their enum, and it is the **label**, not the `slug` that
@@ -80,7 +81,7 @@ class Listing:
     name: str
     title: str
     category: str
-    price_usdc: int
+    price_usdc: Decimal
     delivery_days: int
     tags: tuple[str, ...]
     #: The live route whose reading both proves delivery and writes the copy.
@@ -247,10 +248,13 @@ SPECS: dict[str, Listing] = {
         name="Warden-3",
         title="Liquidity position risk quote, replayed on real PancakeSwap swaps",
         category="Market & Protocol Research",
-        # 25 USDC. `/api/v1/listings/price-range` spans 0.01 to 150,250 over 567
-        # listings, and open briefs asking for comparable analysis run 21-103.
-        # Bottom of that band: this is a replay against a tape that exists.
-        price_usdc=25,
+        # Fractions of a dollar, deliberately. `/api/v1/listings/price-range`
+        # reports their floor at 0.01 USDC and there are live listings sitting
+        # on it, so this is a supported price and not a loophole. These agents
+        # are being demonstrated, and a real ask for a real dollar invites a
+        # stranger to buy an evaluation. The ordering between the three is kept
+        # because it still says something true about the work each order causes.
+        price_usdc=Decimal("0.25"),
         delivery_days=1,
         tags=("DeFi", "Liquidity", "Risk Analysis"),
         probe_path="/quote/preflight",
@@ -265,7 +269,7 @@ SPECS: dict[str, Listing] = {
         category="Market & Protocol Research",
         # Below Warden's: this reads a ladder that has already been computed
         # rather than replaying a position the buyer describes.
-        price_usdc=20,
+        price_usdc=Decimal("0.20"),
         delivery_days=1,
         tags=("DeFi", "Market Making", "Liquidity"),
         probe_path="/pools",
@@ -281,7 +285,7 @@ SPECS: dict[str, Listing] = {
         # The cheapest of the three, and it should be: the badge is nine reads
         # taken at one block, already recorded. Pricing it like a replay would
         # be charging for work that is not being done per order.
-        price_usdc=15,
+        price_usdc=Decimal("0.15"),
         delivery_days=1,
         tags=("DeFi", "Security", "Due Diligence"),
         probe_path="/vetting",
@@ -294,7 +298,7 @@ SPECS: dict[str, Listing] = {
         name="Router",
         title="",
         category="Market & Protocol Research",
-        price_usdc=0,
+        price_usdc=Decimal("0"),
         delivery_days=0,
         tags=(),
         probe_path=None,
@@ -331,9 +335,12 @@ def service_body(spec: Listing, reading: dict[str, Any]) -> dict[str, Any]:
         # `basePrice`, not `price`, and a **string**, not a number. Both named by
         # the server one at a time — `basePrice: Required`, then `basePrice:
         # Expected string, received number` — which is the same validation
-        # `WALLET_FIELDS` was read off. A decimal amount carried as a string is
-        # the ordinary choice for money; sending 25.0 as a float is how a price
-        # becomes 25.000000000000004 somewhere downstream.
+        # `WALLET_FIELDS` was read off.
+        #
+        # `Decimal`, never `float`, and this is the reason the API wants a
+        # string: 0.15 is not representable in binary, so a float round-trip
+        # turns a price into 0.15000000000000002. Money is decimal, and the two
+        # places it must not stop being decimal are the wire and the source.
         "basePrice": str(spec.price_usdc),
         "coverImageUrl": COVER_IMAGE,
         "currency": "USDC",
@@ -358,6 +365,16 @@ def create_service(session, spec: Listing, body: dict[str, Any]) -> Any:
     return session.post(f"/api/v1/agents/{spec.agent_id}/services", body)
 
 
+def update_listing(session, listing_id: str, body: dict[str, Any]) -> Any:
+    """Edit a listing that is already live. `PATCH /api/v1/listings/{id}`.
+
+    Used to reprice rather than to delete and recreate: a new listing would get
+    a new id, and the id is what `termix-listing-live-56.json` and every link to
+    it already name. Repricing in place keeps the record true.
+    """
+    return session.patch(f"/api/v1/listings/{listing_id}", body)
+
+
 def publish(session, listing_id: str) -> Any:
     """Take a draft live. Separate from creation because the API separates them.
 
@@ -379,6 +396,7 @@ __all__ = [
     "publish",
     "sentinel_description",
     "service_body",
+    "update_listing",
     "services",
     "warden_description",
 ]

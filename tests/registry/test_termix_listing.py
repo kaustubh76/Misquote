@@ -15,6 +15,7 @@ sales text because no one reread it.
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -249,5 +250,44 @@ def test_the_record_names_the_ids_and_no_credential() -> None:
         "every recorded listing is a draft; nothing here is visible to a buyer"
     )
     for row in published:
-        assert row["listing_id"] and float(row["base_price"]) > 0
+        assert row["listing_id"] and Decimal(row["base_price"]) > 0
         assert row["currency"] == "USDC"
+
+
+def test_the_live_price_is_the_price_the_spec_asks_for() -> None:
+    """A spec edited without `--reprice` leaves the marketplace on the old price.
+
+    Compared as `Decimal`, not as strings, and that is the whole subtlety: we
+    send `"0.20"` and the server stores `"0.2"`. Those are the same amount, and
+    a string comparison would report a drift that is not one — then get
+    "fixed" by loosening the check that would have caught a real one.
+    """
+    if not RECORD.is_file():
+        pytest.skip("no live listing has been created yet")
+    record = json.loads(RECORD.read_text())
+
+    checked = 0
+    for slug, rows in record["listings"].items():
+        want = Decimal(record["agents"][slug]["price_usdc"])
+        for row in rows:
+            assert Decimal(row["base_price"]) == want, (
+                f"{slug} is listed at {row['base_price']} and the spec asks "
+                f"{want} — run `termix_listing.py --reprice`"
+            )
+            checked += 1
+    assert checked, "no live listing was compared, so this proved nothing"
+
+
+def test_prices_are_exact_decimals_and_never_floats() -> None:
+    """0.15 is not representable in binary, and money is not a float.
+
+    The API wants `basePrice` as a string for this reason. A spec holding
+    `0.15` as a float sends `"0.15000000000000002"`, which is both wrong and
+    the kind of wrong that survives review because it looks like a rounding
+    detail rather than a price.
+    """
+    for slug in listings.SELLABLE:
+        price = listings.SPECS[slug].price_usdc
+        assert isinstance(price, Decimal), f"{slug}'s price is a {type(price).__name__}"
+        body = listings.service_body(listings.SPECS[slug], PREFLIGHT)
+        assert "0000000" not in body["basePrice"], body["basePrice"]
