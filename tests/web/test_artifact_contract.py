@@ -152,6 +152,13 @@ AGENT_FIELDS: dict[str, str] = {
     "quote_detail.perturbation_fraction": "methods/view.tsx",
     "quote_detail.perturbations": "AgentDetail.tsx",
     "quote_detail.net_positive": "AgentDetail.tsx",
+    #: The quarter a P25-P75 band says nothing about by construction, and the
+    #: real denominator behind it. The card read "100% of 60" when 60 is twenty
+    #: windows times three perturbations that agree almost everywhere — about
+    #: twenty distinct outcomes, and no way for a reader to learn that.
+    "quote_detail.worst_return": "AgentCard.tsx",
+    "quote_detail.best_return": "AgentCard.tsx",
+    "quote_detail.distinct_returns": "AgentCard.tsx",
     "quote_detail.returns": "AgentCard.tsx",
     "quote_detail.in_range_p50": "methods/view.tsx",
     "quote_detail.rebalances_p50": "",
@@ -211,6 +218,11 @@ AGENT_FIELDS: dict[str, str] = {
     "provenance.journal_rows": "AgentDetail.tsx",
     "provenance.hours_covered": "",
     "provenance.every_number_derived": "",
+    #: Which window the replay actually covered. "30 days of tape" is a length;
+    #: these two are the dates, and a card claiming the first without the second
+    #: cannot be checked against the tape it names.
+    "replay.first_ts": "AgentCard.tsx",
+    "replay.last_ts": "AgentCard.tsx",
     "replay.samples": "AgentCard.tsx",
     "replay.hours": "AgentCard.tsx",
     "replay.mints": "AgentCard.tsx",
@@ -221,6 +233,35 @@ AGENT_FIELDS: dict[str, str] = {
     "replay.lvr_quote_upper_bound": "AgentCard.tsx",
     "replay.costs_quote": "AgentCard.tsx",
     "replay.net_quote": "AgentCard.tsx",
+    #: Windows the agent finished above the **baseline**, which is the number
+    #: somebody hiring is paying for. Beside it on the card sits "beats
+    #: holding", where all three LP agents read 100% because in a fee-earning
+    #: position that is nearly free — two rates that look alike and answer
+    #: different questions.
+    #:
+    #: `comparable` is load-bearing: `BeatRate` refuses two arms of different
+    #: lengths, and a win rate over windows that are not the same windows is
+    #: arithmetic on unrelated numbers.
+    "advantage.beat_rate.comparable": "AgentCard.tsx",
+    "advantage.beat_rate.windows": "AgentCard.tsx",
+    "advantage.beat_rate.wins": "AgentCard.tsx",
+    "advantage.beat_rate.losses": "AgentCard.tsx",
+    #: The card's pill reads "Beats doing it yourself: {wins} of {windows}" and
+    #: tones itself on wins vs losses. It never reads these two.
+    #:
+    #: `label` restates the pill ("beat doing it yourself on 56 of 60 windows
+    #: (93%)"), and `ties` is 0 on all three cards. `/advantage` renders both
+    #: off *its* task shape, which is a different object on a different
+    #: artifact — that is what made the wrong declaration look right.
+    #:
+    #: Worth naming, because the renderer check could not have caught the
+    #: `label` half: it greps the named source for `\blabel\b`, and
+    #: AgentCard.tsx contains ten unrelated ones — chart series, verdict rows,
+    #: breakdown rows. The declaration would have passed on a spurious match
+    #: and been certified as true. A leaf name is only as specific as the file
+    #: it is grepped in.
+    "advantage.beat_rate.label": "",
+    "advantage.beat_rate.ties": "",
     "advantage.delta_pp": "AgentCard.tsx",
     "advantage.material": "AgentDetail.tsx",
     "advantage.ranges_overlap": "AgentCard.tsx",
@@ -438,24 +479,19 @@ def test_every_contracted_router_field_is_read_by_the_named_view() -> None:
 def test_emitter_writes_exactly_the_contracted_fields(agent_artifact: dict) -> None:
     """Both directions. Neither side may move without the other noticing.
 
-    ## If this is failing on fields you have never seen
+    ## The six that landed with the rebuild
 
-    The emitters gained five on 8 Sep and the artifacts they write are a
-    multi-hour rebuild, so the two halves land at different times. After
-    `make artifacts` this will report them as undeclared; they are all real and
-    all rendered, and the map wants:
+    `quote_detail.worst_return`, `best_return`, `distinct_returns`,
+    `replay.first_ts`, `last_ts` and `advantage.beat_rate.*` were emitted on
+    8 Sep and are declared above only now that `make showcase` has rewritten
+    the cards carrying them. They were deliberately undeclared in between: this
+    assertion fails just as loudly for a field declared and *not* delivered, so
+    pre-declaring them would have left the suite red for everyone until somebody
+    found the hours to regenerate.
 
-        "quote_detail.worst_return":     "AgentCard.tsx"
-        "quote_detail.best_return":      "AgentCard.tsx"
-        "quote_detail.distinct_returns": "AgentCard.tsx"
-        "replay.first_ts":               "AgentCard.tsx"
-        "replay.last_ts":                "AgentCard.tsx"
-        "advantage.beat_rate.*":         "AgentCard.tsx"
-
-    They are not declared here yet on purpose: this assertion fails just as
-    loudly for a field declared and *not* delivered, and pre-declaring them
-    would have left the suite red for everyone until somebody found eleven
-    hours."""
+    The instruction that used to sit here has been carried out and removed. A
+    note saying "add these later" that outlives the adding is a false lead for
+    whoever reads it next."""
     actual = flatten(agent_artifact)
     declared = set(AGENT_FIELDS)
 
@@ -2315,6 +2351,37 @@ def test_every_pool_and_cell_carries_the_contracted_keys(simulation_artifact: di
             )
 
 
+def reads_the_path(source: str, field: str) -> bool:
+    """Whether a view reads this *path*, not merely a word that matches its leaf.
+
+    `test_every_contracted_field_is_read_by_the_named_view` greps the named
+    source for the bare leaf, and another session found what that costs: they
+    declared `advantage.beat_rate.label -> AgentCard.tsx`, which renders no such
+    thing, and the check passed because that file has ten unrelated `label`s —
+    chart series, verdict rows, breakdown rows. The sibling guard could not
+    catch it either; `test_a_field_declared_unrendered_is_not_rendered` skips
+    multi-path leaves by construction and says so in its own docstring. So a
+    common leaf name is invisible to both directions of the contract.
+
+    This is the strict form, and it is scoped to the two artifacts declared
+    below rather than imposed on the shared checker — the leaf-grep is load
+    bearing for maps this session does not own, and submission eve is not when
+    to change how they are read. Verified against every current declaration in
+    `SIMULATION_FIELDS` and `POOLS_FIELDS` before being asserted: all sixteen
+    pass, so this arrives green and tightens rather than fixing.
+
+    A path is read when the source accesses it as a member — `d.summary.pools`,
+    `data?.capital_quote`, `pools["width_ladder"]` — rather than merely
+    containing the word.
+    """
+    tail = field.split(".")
+    if len(tail) > 1:
+        pattern = rf"\.{re.escape(tail[-2])}\??\.{re.escape(tail[-1])}\b"
+    else:
+        pattern = rf"[.\[\"']{re.escape(tail[-1])}\b"
+    return re.search(pattern, source) is not None
+
+
 def test_every_contracted_simulation_field_is_read_by_the_named_view() -> None:
     """A field with a renderer named must be read by that file.
 
@@ -2327,12 +2394,13 @@ def test_every_contracted_simulation_field_is_read_by_the_named_view() -> None:
     for field, view in SIMULATION_FIELDS.items():
         if not view:
             continue
-        leaf = field.rsplit(".", 1)[-1]
-        source = (WEB_SRC / view).read_text()
-        if leaf not in source:
+        if not reads_the_path((WEB_SRC / view).read_text(), field):
             missing.append(f"{field} -> {view}")
 
-    assert not missing, f"contracted simulation fields no view reads: {sorted(missing)}"
+    assert not missing, (
+        f"contracted simulation fields no view reads: {sorted(missing)}. Checked as "
+        "a member access, not a bare leaf — see `reads_the_path`."
+    )
 
 
 # ── pools.json: the width ladder, and the fields the ladder's page reads ──────
@@ -2468,11 +2536,13 @@ def test_every_contracted_pools_field_is_read_by_the_named_view() -> None:
     for field, view in POOLS_FIELDS.items():
         if not view:
             continue
-        leaf = field.rsplit(".", 1)[-1]
-        if leaf not in (WEB_SRC / view).read_text():
+        if not reads_the_path((WEB_SRC / view).read_text(), field):
             missing.append(f"{field} -> {view}")
 
-    assert not missing, f"contracted pools fields no view reads: {sorted(missing)}"
+    assert not missing, (
+        f"contracted pools fields no view reads: {sorted(missing)}. Checked as a "
+        "member access, not a bare leaf — see `reads_the_path`."
+    )
 
 
 def test_the_band_keys_are_read_where_the_ladder_is_drawn() -> None:
