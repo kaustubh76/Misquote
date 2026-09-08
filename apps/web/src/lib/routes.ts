@@ -82,3 +82,24 @@ export const ROUTES: readonly Route[] = [
 export function routesIn(group: RouteGroup): readonly Route[] {
   return ROUTES.filter((route) => route.group === group);
 }
+
+/**
+ * Whether a path is one of the evidence routes, or sits under one.
+ *
+ * The evidence band is a *section* nav: it renders only once the reader is
+ * inside the section it belongs to. This is what decides that, and it lives
+ * here rather than in `Nav.tsx` for the same reason `ROUTES` does — the groups
+ * are the definition of the site's shape, and a second copy of "which routes
+ * are evidence" is how one of them comes to be missing a page.
+ *
+ * Trailing slashes are stripped because the export sets `trailingSlash: true`,
+ * so `usePathname()` returns `/venue/` and every href here is written `/venue`.
+ * Comparing them raw returns false on every evidence route, which is the whole
+ * of the band failing to appear where it is needed.
+ */
+export function isEvidenceRoute(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return routesIn("evidence").some(
+    (route) => path === route.href || path.startsWith(`${route.href}/`),
+  );
+}

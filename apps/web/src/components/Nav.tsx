@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ConnectButton } from "@/components/ConnectButton";
-import { type Route, routesIn } from "@/lib/routes";
+import { type Route, isEvidenceRoute, routesIn } from "@/lib/routes";
 
 
 
@@ -215,23 +215,58 @@ function Band({
 }
 
 /**
- * Two bands, because eleven routes fitted one strip and thirteen do not.
+ * The way into the evidence section from anywhere that is not already in it.
  *
- * The flat list was already a horizontal scroller with measured fades, and it
- * worked — but at 1280px the last label was cut mid-word, and a scroller is a
- * way to *survive* not fitting rather than a way to fit. The split is by what a
- * reader is doing: the top band is the product (look at the agents, get a
- * quote, hire one, browse the registry), the second is the evidence any of it
- * rests on.
+ * A `Route` rather than a hand-rolled `<Link>` so it goes through `Band` and
+ * inherits the whole of it — the pill styling, the scroller, the overflow fades
+ * and the scroll-into-view. A second pill built by hand beside the band is a
+ * second thing to keep in step with those, and it would sit *outside* the
+ * scroller at 390px, which is the width the scroller exists for.
  *
- * Every route stays a link in the document on every page. A disclosure that
- * unmounted the second band would be tidier and would break two things at once:
- * `check-pages.mjs` requires the current route's pill to be *visible*, and a
- * screen-reader user would lose seven routes behind a control they have to find
- * first. Nothing here is hidden; it is arranged.
+ * It targets the landing page's own rail rather than a hub page of its own:
+ * eight cards each already carrying a live figure out of its artifact, which is
+ * what somebody deciding whether to audit anything actually wants to see.
+ *
+ * `activeness()` can never mark it — no pathname equals `/#evidence` — and that
+ * is correct rather than a gap. It is a way *to* the section, not a page in it.
+ */
+const EVIDENCE_ENTRY: Route = { href: "/#evidence", label: "Evidence", group: "product" };
+
+/**
+ * One band, and a second that appears only inside the section it belongs to.
+ *
+ * Both bands used to render on every route, so the first thing a reader saw was
+ * sixteen tabs across two rows with nothing saying which of them was the
+ * product. A site whose argument is that its numbers can be checked still has
+ * to answer *what is this* before it answers *how do I check it*, and sixteen
+ * peers answer neither.
+ *
+ * So the product band is always present, and the evidence band is a section
+ * nav: it renders on the eight evidence routes and nowhere else. The entry
+ * point is the `Evidence` pill below, which goes to the landing page's own rail
+ * — eight cards already carrying a live figure each, which is a better index
+ * than eight labels.
+ *
+ * This is not the disclosure that was refused here before. That objection was
+ * that unmounting the band everywhere would hide seven routes behind a control
+ * a screen-reader user has to find first, and break `check-pages.mjs`, which
+ * requires the current route's pill to be *visible*. Neither applies: on an
+ * evidence route the whole band is in the document exactly as it was, the guard
+ * looks for `aria-current` across whichever band holds it, and `not-found.tsx`
+ * still enumerates all sixteen routes from `ROUTES`. Nothing is unreachable;
+ * the second row is simply not shown to someone who has not asked for it.
  */
 export function Nav() {
   const pathname = usePathname() ?? "/";
+  const inEvidence = isEvidenceRoute(pathname);
+
+  // Exactly one evidence affordance at a time. Off the section, that is the
+  // pill; inside it, the band itself — which sits directly below and names all
+  // eight, so keeping the pill as well would be a link to the index of the row
+  // underneath it.
+  const product = inEvidence
+    ? routesIn("product")
+    : [...routesIn("product"), EVIDENCE_ENTRY];
 
   return (
     <header className="sticky top-0 z-50 border-b border-glass-line bg-glass backdrop-blur">
@@ -248,7 +283,9 @@ export function Nav() {
           So below `sm` the band takes a row of its own at full width, and the
           logo shares the top row with the wallet and theme controls. Above
           `sm` the order and the layout are exactly what they were. */}
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-5 pt-3">
+      <div
+        className={`mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-5 pt-3 ${inEvidence ? "" : "pb-2"}`}
+      >
         {/* A mark, not just a word. The wordmark was one of nine grey items in
             a horizontal strip and did not read as the way home. The glyph is
             the same P25-P75 band the favicon draws — a range with a median
@@ -279,7 +316,7 @@ export function Nav() {
             wrapper is the flex item and carries the widths; inside a block
             parent the nav's own `flex-1` is inert. */}
         <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
-          <Band label="Primary" routes={routesIn("product")} pathname={pathname} />
+          <Band label="Primary" routes={product} pathname={pathname} />
         </div>
 
         {/* The connect button before the theme toggle, because it is the
@@ -292,17 +329,24 @@ export function Nav() {
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pb-2">
-        {/* Labelled "Evidence" rather than "Secondary": the distinction is what
-            the pages are for, not which one matters. A reader auditing the tick
-            math is not doing something secondary. */}
-        <Band
-          label="Evidence"
-          routes={routesIn("evidence")}
-          pathname={pathname}
-          className="text-sm"
-        />
-      </div>
+      {/* Labelled "Evidence" rather than "Secondary": the distinction is what
+          the pages are for, not which one matters. A reader auditing the tick
+          math is not doing something secondary.
+
+          Rendered only inside the section, and the padding moves with it — the
+          row carried the header's bottom padding, so dropping the row on the
+          other nine routes left the wordmark sitting flush against the border
+          until `pb-2` moved onto the row above. */}
+      {inEvidence && (
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 pb-2">
+          <Band
+            label="Evidence"
+            routes={routesIn("evidence")}
+            pathname={pathname}
+            className="text-sm"
+          />
+        </div>
+      )}
     </header>
   );
 }

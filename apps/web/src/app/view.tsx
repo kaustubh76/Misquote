@@ -468,6 +468,11 @@ export function OverviewView({
             moves it. */}
         <Section
           title="What there is to check"
+          // The nav's `Evidence` pill targets this. It is the section's entry
+          // point from every route that is not already in the section, so the
+          // id is load-bearing rather than decorative — `check-pages.mjs`
+          // resolves anchors and fails on one that lands nowhere.
+          id="evidence"
           className="mt-12"
           headingClassName="mb-4 text-lg font-semibold"
           intro={`${routesIn("evidence").length} pages, each generated from an artifact this repository can regenerate. The figures below are counted from those files, not typed.`}
