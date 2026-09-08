@@ -24,21 +24,55 @@ is waiting on a cold Render instance.
 
 *Do not scroll yet. Let the headline hold.*
 
-## Shot 2 · It runs, with no wallet — 0:18–0:55
+## Shot 2 · It runs, with no wallet — 0:18–0:46
 
 **Screen:** click **"Watch it run, no wallet"** → `/demo`, then click step 2.
 The quote page arrives with the answer already on screen.
 
 > "You don't need a wallet to check that. This is a recorded run against the
-> real tape — the page arrives with the answer already computed.
->
-> That's a P25 to P75 band, not a single number, because a single number would
-> be a claim about a future nobody has. The banner says 'simulated' because it
-> is: under this link no request is issued at all."
+> real tape — the page arrives with the answer already computed. That's a P25 to
+> P75 band, not a single number, because a single number would be a claim about
+> a future nobody has. The banner says 'simulated' because it is: under this
+> link no request is issued at all."
 
 *Point the cursor at the band and at the simulation banner.*
 
-## Shot 3 · The honest part — 0:55–1:30
+**This shot used to be nine seconds longer** and used them explaining why a band
+is not a point. Shot 3 makes that argument better by letting a viewer change one
+input and watch the number move, so the explanation moved there and the seconds
+went with it.
+
+## Shot 3 · What it would have paid you — 0:46–1:11
+
+**Screen:** `/simulate`, from the nav. The page arrives on the flagship pool at
+±40 ticks with a figure already on it.
+
+> "That's a quote about an agent. This is the same engine pointed at the
+> question an LP actually arrives with: what would this have paid *me*.
+>
+> Pick a pool, a width, and an amount. Fourteen hundred positions, all replayed
+> over two hundred and fifty thousand real swaps — so nothing here is signed,
+> nothing is held, and it cannot cost anybody anything."
+
+*Click **2.00**.*
+
+> "Twice the size. And notice the rate went **down** — nought point four seven
+> of a percentage point, on every unit. A bigger position takes a smaller share
+> of each swap's fee, and almost every yield page you will ever see multiplies
+> instead, which quietly flatters the larger position. We measured it rather
+> than scaled it, which is why there are five sizes and not a text box."
+
+*Switch the pool to **WBNB/USDT 0.25%** and click **2.00** again — it refuses.*
+
+> "And here it just says no. Two BNB is more than that range can absorb — it
+> holds 1.28 BNB of depth, so the ceiling is 0.0128. It refuses rather than
+> clamping, because a position big enough to move the price it is paid at can't
+> be quoted from history it would have changed. Go wider and the ceiling rises.
+> That's a capacity answer, and a fee APR cannot give you one."
+
+*Do not scroll past the refusal. It is the shot.*
+
+## Shot 4 · The honest part — 1:11–1:43
 
 **Screen:** `/advantage`.
 
@@ -55,7 +89,7 @@ The quote page arrives with the answer already on screen.
 
 *Scroll slowly through the verdict column. Do not skip the loss.*
 
-## Shot 4 · Real money, real chain — 1:30–2:00
+## Shot 5 · Real money, real chain — 1:43–2:07
 
 **Screen:** landing page → **"0.1 of a token escrowed on BSC mainnet and
 reclaimed"** → `/registry#escrow`.
@@ -91,7 +125,7 @@ other row saying what it is waiting for or who signs it.
 *Do not send a transaction here unless the wallet is funded and the run is
 rehearsed — `make prove-escrow` is the fork rehearsal.*
 
-## Shot 5 · The checklist that says no — 2:00–2:30
+## Shot 6 · The checklist that says no — 2:07–2:30
 
 **Screen:** `/status`.
 
@@ -119,14 +153,31 @@ either way, and it is what the shot ends on.
 
 ## If you have thirty seconds instead of two and a half
 
-Shot 1, then Shot 3, then the last two sentences of Shot 5.
+**The name**, then **the honest part**, then the last two sentences of **the
+checklist that says no**.
+
+By name and not by number, deliberately. This read "Shot 1, then Shot 3, then
+Shot 5" until a sixth shot was inserted in the middle and every number after the
+second one silently began pointing at the wrong thing — which is a footgun in a
+document somebody reads while recording.
+
+## If the thirty seconds are for the PancakeSwap track
+
+**The name**, then **what it would have paid you** — and in that shot, spend the
+time on the refusal rather than on the earnings. Any marketplace can show you a
+number. Being told that two BNB is more than the range can absorb, with the
+depth it was measured against, is the part nothing else does.
 
 ## What not to do
 
+- Don't demo `/simulate` against a cold Render instance expecting the pool
+  lookup on `/venue` to answer — that one is the only PancakeSwap control that
+  needs the API. `/simulate` itself reads a published artifact and needs nothing
+  running, which is why it is safe to click on camera.
 - Don't demo `/quote` against the live API on camera. It's a free Render
   instance that sleeps, and a real replay is ~75 minutes. The `/demo` path is
   recorded precisely so this never bites you.
-- Don't skip the loss in Shot 3. It is the most persuasive thing on the site,
+- Don't skip the loss in **the honest part**. It is the most persuasive thing on the site,
   and a judge who spots you skipping it discounts everything else.
 - Don't claim `bag deploy` ran. It didn't. The agent runs and the CLI registered
   its identity; that's the claim, and it is enough.

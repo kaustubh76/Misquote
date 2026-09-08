@@ -14,10 +14,12 @@ Kept short and kept accurate. An item is ticked only when the thing exists.
 |---|---|
 | Live site | https://misquote.vercel.app — static export, Vercel, built from `main` |
 | Guided run, no wallet | https://misquote.vercel.app/demo — one click to a P25–P75 range |
+| **The PancakeSwap deliverable** | https://misquote.vercel.app/simulate — pick a pool, a range width and an amount, and see what that position would have earned on swaps that already happened. 1,400 replayed positions; no wallet, no backend, nothing signed |
 | Live API | https://misquote-api.onrender.com — free plan, **sleeps when idle**, first request can take ~50s |
 | Live agent | https://misquote-agent.onrender.com — the BNB Agent Studio seller agent, A2A card at `/.well-known/agent-card.json` |
 | Repository | this one; `docs/FOR_JUDGES.md` is the entry point |
 | Twenty-second path | `/demo` → step 2 arrives with the answer on screen |
+| Twenty-second path, PancakeSwap | `/simulate` → press **2.00** and watch the rate fall, then switch to the 0.25% pool and watch it refuse the size |
 
 ## Deployed addresses
 

@@ -777,6 +777,22 @@ export function VenueView({
                       is where adding liquidity would improve the venue rather
                       than dilute it.
                     </p>
+                    {/* The other half of the answer, which is on the other
+                        page. Thin depth is why a pool pays well per unit and is
+                        also why it can absorb almost nothing, and a reader
+                        given only the ratio is given the opportunity without
+                        the constraint. No figure here on purpose: the ceilings
+                        are measured in `simulation.json`, this view already
+                        joins three artifacts, and a fourth would make it the
+                        worst offender for the collision `LEAF_COLLISIONS`
+                        exists to record. */}
+                    <p className="mt-0 mb-4 max-w-[72ch] text-sm text-dim">
+                      A ratio is half of it. The same thinness that pays each
+                      unit well is what caps how much can be put in —{" "}
+                      <Link href="/simulate">
+                        how much each pool can actually take &rarr;
+                      </Link>
+                    </p>
                     <DataTable
                       caption="Fee income per unit of liquidity, against the pool that saw the most volume"
                       hideCaption={false}

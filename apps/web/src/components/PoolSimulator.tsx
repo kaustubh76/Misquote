@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Band } from "@/components/Band";
 import { CostBars } from "@/components/CostBars";
 import { Card } from "@/components/Card";
+import { DataTable } from "@/components/DataTable";
 import { Refusal } from "@/components/Refusal";
 import { amount, count, fixed, fraction, money } from "@/lib/format";
 
@@ -236,10 +238,78 @@ export function PoolSimulator({ data }: { data: SimulationArtifact }) {
   const band = pool?.bands.find((b) => b.width_ticks === chosenWidth) ?? null;
   const unit = pool?.quote_symbol ?? "";
 
+  // How much each pool can take, narrowest rung to widest.
+  //
+  // The finding this page holds and nothing states. `/venue` measures that the
+  // 0.25% pool earns 3.4x the flagship per unit of liquidity — the criterion's
+  // "find demand where a pool could improve efficiency" — and the answer stops
+  // there, as if the only question were which pool pays best. It is not: that
+  // pool can absorb 0.0128 WBNB at its narrowest rung. The pool that pays most
+  // per unit is the one that can take almost nothing, and width is what buys
+  // the capacity.
+  //
+  // Read from `a1_ceiling_quote` on the cells, which is where the depth was
+  // measured, so this is a projection of the artifact rather than a second
+  // opinion about it. No pools.json here: that is where the 3.4x lives and
+  // `/venue` renders it, and joining the two artifacts on one page would make
+  // this the third multi-artifact reader in the codebase.
+  const capacity = useMemo(
+    () =>
+      data.pools
+        .filter((x) => x.cells.length > 0)
+        .map((x) => {
+          const byWidth = new Map<number, number>();
+          for (const c of x.cells) {
+            if (!byWidth.has(c.width_ticks)) byWidth.set(c.width_ticks, c.a1_ceiling_quote);
+          }
+          const widths = [...byWidth.keys()].sort((a, b) => a - b);
+          return {
+            address: x.address,
+            label: x.label,
+            unit: x.quote_symbol,
+            narrow: widths[0]!,
+            wide: widths[widths.length - 1]!,
+            atNarrow: byWidth.get(widths[0]!)!,
+            atWide: byWidth.get(widths[widths.length - 1]!)!,
+          };
+        }),
+    [data.pools]
+  );
+
   if (!pool) return null;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Before the controls, because it is what decides whether the amount a
+          reader is about to pick has an answer at all. */}
+      {capacity.length > 1 && (
+        <Card>
+          <p className="mt-0 mb-3 max-w-[72ch] text-sm text-dim">
+            How much each pool can actually take. A1 caps a replayed position at{" "}
+            <span className="tabular text-ink">{fraction(data.a1_share)}</span> of
+            the depth it sits in, and depth grows with width — so the range you
+            choose is also a capacity decision, not only a yield one.
+          </p>
+          <DataTable
+            caption="A1's ceiling per pool, at the narrowest and widest rungs swept"
+            hideCaption={false}
+            columns={["Pool", "At the narrowest", "At the widest"]}
+            rows={capacity.map((x) => ({
+              label: x.label,
+              value: `${amount(x.atNarrow, 4)} ${x.unit} · ±${count(x.narrow)}`,
+              note: `${amount(x.atWide, 4)} ${x.unit} · ±${count(x.wide)}`,
+            }))}
+            notes="figures"
+          />
+          <p className="mt-3 mb-0 max-w-[72ch] text-xs text-faint">
+            Worth reading against{" "}
+            <Link href="/venue">what each pool pays per unit of liquidity</Link>:
+            the thinner pool earns more on every unit and is the one that can
+            take least, which is the whole shape of the opportunity and is
+            invisible in a fee APR.
+          </p>
+        </Card>
+      )}
       {/* ------------------------------------------------- the controls -- */}
       <Card>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -185,6 +185,38 @@ describe("scaling up costs something, and the page says what", () => {
   });
 });
 
+describe("how much each pool can take", () => {
+  it("reads the ceilings off the cells rather than carrying its own", () => {
+    // The finding /venue cannot state, because the ceilings are measured here.
+    // Typed numbers would be a second opinion about the artifact, and would go
+    // stale the first time the tape moved.
+    const wide = { ...flagship, cells: [
+      cell({ width_ticks: 40, a1_ceiling_quote: 2.1071 }),
+      cell({ width_ticks: 800, a1_ceiling_quote: 41.3529 }),
+    ] };
+    const thin = { ...flagship, address: "0x1401", label: "PancakeSwap v3 WBNB/USDT 0.25%",
+      cells: [
+        cell({ width_ticks: 40, a1_ceiling_quote: 0.0128 }),
+        cell({ width_ticks: 800, a1_ceiling_quote: 0.2518 }),
+      ] };
+    draw(artifact([wide, thin]));
+
+    const said = document.body.textContent ?? "";
+    expect(said).toContain("2.1071");
+    expect(said).toContain("41.3529");
+    // The one that carries the finding: the thin pool takes almost nothing.
+    expect(said).toContain("0.0128");
+    expect(said).toContain("0.2518");
+  });
+
+  it("says nothing when there is only one pool to compare", () => {
+    // A capacity table of one row is a fact about a pool, not the comparison
+    // the section exists to draw.
+    draw(artifact([flagship]));
+    expect(screen.queryByText(/How much each pool can actually take/)).not.toBeInTheDocument();
+  });
+});
+
 describe("A1 refuses rather than clamps", () => {
   it("will not quote a position bigger than its share of the venue", () => {
     // 2 WBNB against a ceiling of 0.026 — the 0.25% pool's real shape.
