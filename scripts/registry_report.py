@@ -873,7 +873,8 @@ ABSENT_PARTICIPATION: dict[str, Any] = {
     "bid": {"offer_id": None, "on_brief": None, "brief_status": None, "price_usdc": None},
     "bounty": {"id": None, "status": None, "reward_usdc": None, "funded_tx": None},
     "inbound_offer": {"offer_id": None, "checkout_id": None, "checkout_status": None},
-    "not_done": None,
+    "orders": [],
+    "not_done": [],
     "refused": {},
     "reason": None,
 }
@@ -955,7 +956,15 @@ def participation() -> dict[str, Any]:
             "checkout_id": inbound.get("checkout_id"),
             "checkout_status": inbound.get("checkout_status"),
         },
-        "not_done": ((activity or {}).get("not_done") or {}).get("why"),
+        # The order that escrow produced. `chain_order_id` is the one field here
+        # anybody can check without this project's cooperation.
+        "orders": on_platform.get("orders") or [],
+        # A **list**, because `flatten` stops at lists and the keys of the
+        # activity record's own `not_done` are conditional — an entry appears
+        # only while the thing it names is outstanding, so a contract that
+        # enumerated them would fail the day one is finished. The sentences are
+        # what a reader needs; the keys are bookkeeping.
+        "not_done": sorted((activity or {}).get("not_done", {}).values()),
         # Only agents that genuinely are not for sale. The record's `refused`
         # map also holds "already has 1 service(s)" for the three that *are*
         # listed — an idempotency skip from re-running the script, not a

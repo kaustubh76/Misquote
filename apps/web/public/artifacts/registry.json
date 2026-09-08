@@ -25,14 +25,14 @@
     "explorer_agents": {
       "gap": 137,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 341381,
-      "ours_at_block": 120718343,
+      "ours": 341492,
+      "ours_at_block": 120735429,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 341244,
-      "total_pages": 17063,
+      "total": 341355,
+      "total_pages": 17068,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -60,7 +60,7 @@
         "budget_usdc": "1",
         "id": "cmtst9g1824t7v5015yjuaet3",
         "quotes": 1,
-        "status": "CHECKOUT_PENDING"
+        "status": "CHECKOUT_CONFIRMED"
       },
       "counters": {
         "baseline": {
@@ -76,15 +76,15 @@
           "activeOrders": 0,
           "briefs": 1,
           "campaignsTotal": 1,
-          "openBriefs": 1,
-          "orders": 0,
+          "openBriefs": 0,
+          "orders": 1,
           "savedListings": 4,
           "spendingByCurrency": []
         }
       },
       "inbound_offer": {
         "checkout_id": "cmtsthv2k27jfv501aebwmwnf",
-        "checkout_status": "TX_PREPARED",
+        "checkout_status": "CONFIRMED",
         "offer_id": "cmtst9lr024unv501n2joomi9"
       },
       "listings": [
@@ -96,6 +96,15 @@
           "proved_by": "/pools",
           "status": "PUBLISHED",
           "title": "Which range width to set on a PancakeSwap v3 pool, and which are the same"
+        },
+        {
+          "agent": "router",
+          "erc8004_token_id": "323334",
+          "listing_id": "cmtt0b3yo4rr7v501d7fyvygy",
+          "price_usdc": "0.2",
+          "proved_by": "/agents/router",
+          "status": "PUBLISHED",
+          "title": "Where a stablecoin balance should sit, and when not to move it"
         },
         {
           "agent": "sentinel",
@@ -116,19 +125,32 @@
           "title": "Liquidity position risk quote, replayed on real PancakeSwap swaps"
         }
       ],
-      "not_done": "the accepted offer's escrow transaction has never been sent, and the sponsored campaign is DRAFT because its reward has not been funded on chain. Both are one transaction away and neither has been made.",
+      "not_done": [
+        "campaign is DRAFT with no funding transaction, so no slot can be claimed",
+        "order is PENDING_ACCEPT: the money is escrowed and the provider has not accepted or delivered yet",
+        "still zero: it counts orders a provider has accepted, and ours is waiting on theirs"
+      ],
+      "orders": [
+        {
+          "budget": "1",
+          "chain_order_id": "0x9f74fc62dbce2bd916fa45f7db7ee522f40c2602d07f40c9d9070981975ba8d8",
+          "currency": "USDC",
+          "order_id": "cmtszv7j04lw3v501fv6ngxzi",
+          "proof_method": "optimistic",
+          "settlement": "escrow",
+          "status": "PENDING_ACCEPT"
+        }
+      ],
       "reason": null,
-      "refused": {
-        "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand."
-      }
+      "refused": {}
     },
     "shares_our_identity_registry": true
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-08T16:28:40+00:00",
+    "generated_at": "2026-09-08T18:36:50+00:00",
     "git_dirty": true,
-    "git_sha": "a4bab5b",
+    "git_sha": "82100cc",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -1556,7 +1578,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 28.1,
+    "age_hours": 30.2,
     "agents": [
       {
         "agent": "warden",

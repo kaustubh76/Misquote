@@ -18,6 +18,16 @@ const live = registry.aacp.participation;
 afterEach(cleanup);
 
 describe("against the real artifact", () => {
+  it("names the order the escrow produced, with its on-chain id", () => {
+    if (!live?.orders?.length) return;
+    render(<MarketplaceStanding p={live} />);
+    for (const o of live.orders) {
+      // The chain order id is the one field a reader can check without this
+      // project's cooperation, so it is rendered in full rather than shortened.
+      if (o.chain_order_id) expect(screen.getByText(o.chain_order_id)).toBeInTheDocument();
+    }
+  });
+
   it("shows the counter that is still zero", () => {
     if (!live) return;
     render(<MarketplaceStanding p={live} />);
@@ -30,7 +40,9 @@ describe("against the real artifact", () => {
     if (!live) return;
     const { container } = render(<MarketplaceStanding p={live} />);
     expect(screen.getByText("Not done.")).toBeInTheDocument();
-    expect(container.textContent).toContain(live.not_done);
+    // Every outstanding sentence, not just the first: the block exists to stop
+    // one of them being dropped for looking bad.
+    for (const why of live.not_done ?? []) expect(container.textContent).toContain(why);
   });
 
   it("names every published listing with its price", () => {
@@ -42,7 +54,18 @@ describe("against the real artifact", () => {
       // and failed on "grid" — which is how the emitter's own conflation of
       // "refused" with "already listed" was found.
       expect(screen.getAllByText(row.agent).length).toBeGreaterThan(0);
-      expect(screen.getByText(`$${row.price_usdc}`)).toBeInTheDocument();
+    }
+    // Counted per price, not looked up singly: Grid and Router both sell at
+    // $0.20, so `getByText` finds two and throws. Two agents at one price is
+    // the honest state — they cause comparable work — and a test that could not
+    // express it would push the prices apart to stay green.
+    const byPrice = new Map<string, number>();
+    for (const row of live.listings) {
+      const key = `$${row.price_usdc}`;
+      byPrice.set(key, (byPrice.get(key) ?? 0) + 1);
+    }
+    for (const [label, n] of byPrice) {
+      expect(screen.getAllByText(label)).toHaveLength(n);
     }
   });
 
@@ -62,7 +85,7 @@ describe("what it refuses to imply", () => {
       baseline: { activeOrders: 0, openBriefs: 0, savedListings: 0, campaignsTotal: 0 },
       now: { activeOrders: 0, openBriefs: 1, savedListings: 4, campaignsTotal: 1 },
     },
-    not_done: "the escrow transaction has never been sent",
+    not_done: ["the escrow transaction has never been sent"],
   };
 
   it("shows each counter against where it started, not just where it is", () => {

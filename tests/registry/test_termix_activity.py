@@ -181,8 +181,18 @@ def test_the_page_cannot_publish_the_good_news_without_the_bad() -> None:
     if not part:
         pytest.skip("this artifact predates the participation block")
 
-    assert part.get("not_done"), "the block publishes what happened and not what did not"
-    assert "escrow" in part["not_done"].lower()
+    outstanding = part.get("not_done") or []
+    assert outstanding, "the block publishes what happened and not what did not"
+    assert any("escrow" in why.lower() for why in outstanding)
+
+    # Derived, not written down. The first version was a fixed sentence saying
+    # the escrow had never been sent, and it stayed true on the page for the
+    # minutes between that transaction mining and somebody rereading the prose.
+    # A status that cannot go stale is one nobody has to remember to update.
+    assert any("PENDING_ACCEPT" in why or "DRAFT" in why for why in outstanding), (
+        "the outstanding list quotes no platform state, so it is a sentence "
+        "rather than a reading"
+    )
 
     # The claim is a change, so both readings have to be there. A block showing
     # only "now" cannot distinguish four bookmarks from four we always had.
@@ -191,10 +201,23 @@ def test_the_page_cannot_publish_the_good_news_without_the_bad() -> None:
     assert counters["baseline"]["savedListings"] == 0
     assert counters["now"]["savedListings"] > 0
 
-    # And the zero that is still zero stays visible rather than being dropped
-    # for looking bad.
-    assert counters["now"]["activeOrders"] == 0
+    # The order exists and is escrowed; `activeOrders` counts the ones a
+    # provider has accepted, which is theirs to do. Both facts are on the page.
+    orders = part.get("orders") or []
+    assert orders, "an order was paid for and the artifact carries none"
+    for order in orders:
+        assert order["chain_order_id"], "an order with no on-chain id cannot be checked"
+        assert order["status"]
 
-    # Router's refusal survives into what a reader sees: it has no live route,
-    # so it is not for sale, and the page says which agents were held back.
-    assert "router" in (part.get("refused") or {})
+    # Router used to be here, refused. It is listed now — the refusal was mine
+    # and wrong, and `/agents/router` had served its venue comparison all along.
+    # So the guard is no longer "the refusal reaches the page" but the thing
+    # that outlives it: whatever *is* refused must say why, and every agent the
+    # page advertises must carry the identity a reader can check it by.
+    for slug, why in (part.get("refused") or {}).items():
+        assert why and len(why) > 20, f"{slug} is held back with no reason a reader can weigh"
+    listed = part.get("listings") or []
+    assert listed, "the page advertises nothing"
+    for row in listed:
+        assert row.get("erc8004_token_id"), f"{row.get('agent')} is listed with no identity"
+        assert row.get("status") == "PUBLISHED", f"{row.get('agent')} is on the page as a draft"

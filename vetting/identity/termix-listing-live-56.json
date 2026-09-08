@@ -10,6 +10,16 @@
       "proved_by": "/pools",
       "title": "Which range width to set on a PancakeSwap v3 pool, and which are the same"
     },
+    "router": {
+      "category": "Market & Protocol Research",
+      "delivery_days": 1,
+      "erc8004_token_id": "323334",
+      "name": "Router",
+      "platform_id": "cmthhic0c3aphtr01csjp8qjm",
+      "price_usdc": "0.20",
+      "proved_by": "/agents/router",
+      "title": "Where a stablecoin balance should sit, and when not to move it"
+    },
     "sentinel": {
       "category": "Security & Verification",
       "delivery_days": 1,
@@ -42,6 +52,15 @@
         "status": "PUBLISHED"
       }
     ],
+    "router": [
+      {
+        "base_price": "0.2",
+        "currency": "USDC",
+        "listing_id": "cmtt0b3yo4rr7v501d7fyvygy",
+        "published_at": null,
+        "status": "PUBLISHED"
+      }
+    ],
     "sentinel": [
       {
         "base_price": "0.15",
@@ -62,16 +81,17 @@
     ]
   },
   "platform": "https://platform-backend.prod.termix.live",
-  "read_at": 1788871913,
+  "read_at": 1788892444,
   "refused": {
     "grid": "already has 1 service(s); creating another would duplicate it",
-    "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand.",
+    "router": "already has 1 service(s); creating another would duplicate it",
     "sentinel": "already has 1 service(s); creating another would duplicate it",
     "warden": "already has 1 service(s); creating another would duplicate it"
   },
   "service": "https://misquote-api.onrender.com",
   "services_after": {
     "grid": 1,
+    "router": 1,
     "sentinel": 1,
     "warden": 1
   },

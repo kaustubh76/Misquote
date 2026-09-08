@@ -86,23 +86,55 @@ def test_every_sellable_agent_names_the_route_that_proves_it() -> None:
         )
 
 
-def test_router_is_registered_and_refused_rather_than_omitted() -> None:
-    """The reason has to survive somewhere, and a missing entry carries none.
+def test_every_agent_is_sellable_and_none_is_refused_on_a_guess() -> None:
+    """All four, and the fourth is here because I refused it on a bad reading.
 
-    Nothing on the deployed service produces a venue comparison — `/venue`,
-    `/venus` and `/route` all answer 404. Dropping Router from the registry
-    would leave the next reader to rediscover that; keeping it with the reason
-    attached is what makes the absence legible.
+    Router carried no listing for hours because `/venue`, `/venus` and `/route`
+    all answer 404 — three spellings I invented — while `/agents/router` served
+    the venue comparison the whole time, in a `venues` block naming vUSDT, vUSDC
+    and two PancakeSwap v3 ranges. I searched for a route named after the thing
+    instead of a route that provides it, and the same session had already
+    produced that error on bounties: checked whether a campaign could be
+    *claimed*, found none, called the column unreachable without checking
+    whether one could be *sponsored*.
+
+    So a `blocked` spec is no longer allowed to mean "I did not find the route".
+    Anything refused must name the probe it was refused for, and that probe must
+    be a path this repository actually asked the service about.
     """
-    router = listings.SPECS["router"]
-    assert router.probe_path is None
-    assert "router" not in listings.SELLABLE
-    assert router.blocked, "router is refused and does not say why"
-    assert "404" in router.blocked
-    assert not router.title and not router.price_usdc, (
-        "a refused agent carries listing copy, which is how it gets listed by "
-        "somebody who trusts the fields instead of the probe"
+    assert set(listings.SELLABLE) == set(listings.SPECS), (
+        f"{sorted(set(listings.SPECS) - set(listings.SELLABLE))} carry no probe; "
+        f"before adding a `blocked` reason, check whether an existing route "
+        f"already serves the deliverable under a different name"
     )
+    for slug, spec in listings.SPECS.items():
+        if spec.probe_path:
+            assert spec.probe_path.startswith("/"), f"{slug}'s probe is not a path"
+        else:
+            assert spec.blocked, f"{slug} is refused and does not say why"
+
+
+def test_routers_copy_comes_from_the_route_that_serves_it() -> None:
+    """The venues named in the listing are the venues the card compares.
+
+    Generated, not typed, for the same reason Warden's pools are: a list written
+    beside the code outlives the thing it describes. And the differentiator is
+    asserted because it is the sentence a rewrite would cut — a router that
+    reports only the times it acted is hiding its denominator.
+    """
+    card = {
+        "venues": [
+            {"symbol": "vUSDT", "kind": "lending", "quotable_samples": 251},
+            {"symbol": "vUSDC", "kind": "lending", "quotable_samples": 250},
+            {"symbol": "a venue nobody sampled", "kind": "pool", "quotable_samples": 0},
+        ]
+    }
+    text = listings.router_description(card)
+    assert "vUSDT (lending) — 251 quotable samples" in text
+    assert "a venue nobody sampled" not in text, (
+        "a venue with no samples is offered as comparable"
+    )
+    assert "168" in text and "declined" in text.lower()
 
 
 def test_no_two_specs_point_at_the_same_agent() -> None:
@@ -232,7 +264,11 @@ def test_the_record_names_the_ids_and_no_credential() -> None:
         assert entry["platform_id"] == spec.agent_id
         assert entry["proved_by"] == spec.probe_path
 
-    assert record["refused"].get("router"), "the record drops the one refusal it made"
+    # No refusals left: Router's was mine, not the platform's, and it went when
+    # `/agents/router` turned out to serve the comparison. What the record does
+    # carry are the duplicate skips from re-running, which are not refusals.
+    for slug in listings.SELLABLE:
+        assert slug in record["services_after"], f"{slug} is missing from the read-back"
     assert any(n >= 1 for n in record["services_after"].values()), (
         "the record says listings were created and every read-back shows none"
     )

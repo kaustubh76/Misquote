@@ -56,7 +56,18 @@ export interface Participation {
     checkout_id?: string | null;
     checkout_status?: string | null;
   };
-  not_done?: string | null;
+  /** One sentence per thing still outstanding, derived from the platform's own
+   *  state rather than written down — a hand-kept status stays true until it
+   *  silently does not, which it did for the minutes between the escrow mining
+   *  and somebody rereading the prose. Empty means nothing is outstanding. */
+  not_done?: string[] | null;
+  orders?: {
+    order_id?: string | null;
+    status?: string | null;
+    budget?: string | null;
+    currency?: string | null;
+    chain_order_id?: string | null;
+  }[];
   refused?: Record<string, string>;
   reason?: string | null;
 }
@@ -179,6 +190,20 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
             {!p.bounty.funded_tx && <span className="text-faint"> · unfunded</span>}
           </Row>
         )}
+        {(p.orders ?? []).map((o) => (
+          <Row key={o.order_id} label="Order, escrowed">
+            <span className="tabular font-mono">
+              ${o.budget} {o.currency}
+            </span>{" "}
+            <span className="text-faint">· </span>
+            <span className="font-mono text-dim">{o.status?.toLowerCase()}</span>
+            {o.chain_order_id && (
+              <span className="mt-0.5 block font-mono text-xs break-all text-faint">
+                {o.chain_order_id}
+              </span>
+            )}
+          </Row>
+        ))}
         {p.inbound_offer?.checkout_id && (
           <Row label="Offer made to us">
             <span className="font-mono text-dim">
@@ -189,11 +214,20 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
       </div>
 
       {/* The half that has not happened, at the same weight as the half that
-          has. Without it this block is four completed things and a silence. */}
-      {p.not_done && (
-        <p className="mt-4 mb-0 max-w-[72ch] border-t border-line pt-3 text-sm text-dim">
-          <strong className="text-warn">Not done.</strong> {p.not_done}
-        </p>
+          has. Without it this block is a run of completed things and a silence. */}
+      {p.not_done && p.not_done.length > 0 && (
+        <div className="mt-4 border-t border-line pt-3">
+          <p className="m-0 text-sm">
+            <strong className="text-warn">Not done.</strong>
+          </p>
+          <ul className="mt-1 mb-0 grid list-none gap-1 p-0">
+            {p.not_done.map((why) => (
+              <li key={why} className="min-w-0 max-w-[72ch] text-sm break-words text-dim">
+                {why}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {p.refused && Object.keys(p.refused).length > 0 && (

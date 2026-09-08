@@ -17,8 +17,19 @@ which is exactly the state all five were in: `completedJobs: 0`, `stake: "0"`,
 A marketplace listing is a promise with a price on it. So each spec names the
 route on the running service that produces its deliverable, and
 `scripts/termix_listing.py` reads that route before it will create anything. An
-agent whose route does not answer is **refused, not listed** — which is the
-whole reason `Router` has a spec and no listing.
+agent whose route does not answer is **refused, not listed**.
+
+That guard was right and I fed it a wrong reading. Router carried no listing for
+hours because `/venue`, `/venus` and `/route` all answer 404 — three spellings I
+guessed — while `/agents/router` served the venue comparison the whole time, in
+a `venues` block naming vUSDT, vUSDC and two PancakeSwap v3 ranges with the
+samples behind each. **I searched for a route named after the thing instead of a
+route that provides it.** The same session had already produced the same error
+on bounties: I checked whether a campaign could be *claimed*, found none, and
+called the column unreachable without checking whether one could be *sponsored*.
+
+Twice is a habit. The tell both times was a 404 on a name I had invented,
+recorded as an absence in the world rather than an absence in my guess.
 
 The copy is generated from the reading rather than written beside it, so a pool
 that stops clearing the evidence floor drops out of the sales text instead of
@@ -258,8 +269,61 @@ def sentinel_description(vetting: dict[str, Any]) -> str:
     )
 
 
-def _router_blocked(_: dict[str, Any]) -> str:  # pragma: no cover - never called
-    raise AssertionError("Router has no probe; the script refuses before describing it")
+# ── Router: where the money should sit, and when not to move it ──────────────
+
+
+def _venue_lines(card: dict[str, Any]) -> list[str]:
+    """One line per venue the card actually compares, lending and pool alike."""
+    lines = []
+    for venue in card.get("venues") or []:
+        if not venue.get("quotable_samples"):
+            continue
+        lines.append(
+            f"- {venue.get('symbol')} ({venue.get('kind')}) — "
+            f"{venue.get('quotable_samples'):,} quotable samples"
+        )
+    return lines
+
+
+def router_description(card: dict[str, Any]) -> str:
+    """Generated from Router's own card, which is what the service serves.
+
+    The venues named here are the venues `/agents/router` will compare, for the
+    same reason Warden's copy is generated from `/quote/preflight`: a list typed
+    beside the code outlives the thing it describes.
+    """
+    venues = _venue_lines(card) or ["- (no venue currently has enough samples to compare)"]
+    return "\n".join(
+        [
+            "Where a stablecoin balance should sit, and — more often — why it "
+            "should stay where it is.",
+            "",
+            "**What you get**",
+            "",
+            "- Venus lending markets and PancakeSwap v3 ranges compared on the "
+            "same capital over the same recorded history, so the two kinds of "
+            "venue are answerable against each other rather than separately.",
+            "- The depth each one could actually absorb, not the rate it "
+            "advertises: a headline APY on a market that cannot take your size "
+            "is a number about somebody else's position.",
+            "- **The moves it declined to make.** Of 169 recorded decisions, 168 "
+            "were holds. A rate gap that does not clear gas plus slippage is not "
+            "an opportunity, and an agent that only reports the times it acted "
+            "is hiding its own denominator.",
+            "",
+            "**Venues it compares today**",
+            "",
+            *venues,
+            "",
+            "**What it will not tell you**",
+            "",
+            "That moving is worth it, unless it is. The comparison is over "
+            "recorded chain history and the decision rule is published; if the "
+            "gap is inside the cost of crossing, you get told to stay put and "
+            "shown the arithmetic. `/agents/router` is a public read and carries "
+            "the venues and their sample counts before you order anything.",
+        ]
+    )
 
 
 #: Every agent, listable or not. Router is here **because** it is refused: a
@@ -426,24 +490,60 @@ SPECS: dict[str, Listing] = {
         agent_id="cmthhic0c3aphtr01csjp8qjm",
         token_id="323334",
         name="Router",
-        title="",
+        title="Where a stablecoin balance should sit, and when not to move it",
         category="Market & Protocol Research",
-        price_usdc=Decimal("0"),
-        delivery_days=0,
-        tags=(),
-        skill_tag="",
-        cover_image_alt="",
-        packages=(),
-        probe_path=None,
-        describe=_router_blocked,
-        blocked=(
-            "no route on the deployed service produces a venue comparison — "
-            "/venue, /venus and /route all answer 404, and the Venus rate tape "
-            "lives in artifacts rather than behind an endpoint. Its journal is "
-            "real (169 decisions, 168 of them holds) but a journal is evidence "
-            "of past behaviour, not a thing a buyer can order. Listing it would "
-            "sell work the service cannot perform on demand."
+        # Between Grid and Sentinel: it reads a comparison already computed, but
+        # across four venues of two different kinds rather than one badge.
+        price_usdc=Decimal("0.20"),
+        delivery_days=1,
+        tags=("DeFi", "Lending", "Yield"),
+        skill_tag="On-chain Analytics",
+        cover_image_alt=(
+            "Misquote — Venus lending markets and PancakeSwap v3 ranges compared on one tape"
         ),
+        packages=(
+            {
+                "id": "basic",
+                "name": "The comparison",
+                "price": "0.20",
+                "delivery": "1",
+                "scope": (
+                    "Venus dollar markets and PancakeSwap v3 ranges ranked on the same "
+                    "capital over the same recorded history, each with the depth it could "
+                    "actually absorb rather than the rate it advertises."
+                ),
+            },
+            {
+                "id": "standard",
+                "name": "Comparison and the holds",
+                "price": "0.40",
+                "delivery": "1",
+                "scope": (
+                    "Everything in Basic, plus the decision journal: 169 recorded "
+                    "decisions with the 168 holds included and the rate gap each one "
+                    "declined to cross. An agent that reports only the times it acted is "
+                    "hiding its denominator."
+                ),
+            },
+            {
+                "id": "premium",
+                "name": "Against doing nothing",
+                "price": "0.60",
+                "delivery": "2",
+                "scope": (
+                    "Everything in Standard, plus the paired arm from the advantage "
+                    "report - the same capital left where it started, over the same "
+                    "windows, so the routing is measured against not routing."
+                ),
+            },
+        ),
+        # `/agents/router`, and the correction is the point. This spec was
+        # refused for want of a venue-comparison route after `/venue`, `/venus`
+        # and `/route` all answered 404 — a true reading of three guessed
+        # spellings. The card this route has always served carries the `venues`
+        # block the copy above is generated from.
+        probe_path="/agents/router",
+        describe=router_description,
     ),
 }
 

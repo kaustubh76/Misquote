@@ -1499,6 +1499,10 @@ REGISTRY_FIELDS: dict[str, str] = {
     #: fifth did not, and a page showing only the four reads as a completed
     #: trade. Rendered, and asserted rendered.
     "aacp.participation.not_done": "MarketplaceStanding.tsx",
+    #: The order the escrow produced. A list, so `flatten` stops here — its rows
+    #: are whatever the platform reports and a contract over them would be a
+    #: contract over how many orders we happen to have.
+    "aacp.participation.orders": "MarketplaceStanding.tsx",
     "aacp.participation.reason": "MarketplaceStanding.tsx",
     # The counters, before and after. Both halves rendered: "it is not zero" is
     # a claim about a change, and the baseline is what makes it checkable.

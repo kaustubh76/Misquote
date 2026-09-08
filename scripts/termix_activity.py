@@ -132,6 +132,47 @@ def show(label: str, reply: Any) -> bool:
     return ok
 
 
+def _outstanding(live: dict[str, Any], counters: dict[str, Any]) -> dict[str, Any]:
+    """What has not happened yet, read off the platform rather than asserted.
+
+    Each entry names the thing and the state that proves it. An empty dict means
+    nothing is outstanding, which is a claim this can actually make because it
+    is looking rather than remembering.
+    """
+    out: dict[str, Any] = {}
+
+    checkout = live.get("checkout") or {}
+    order = checkout.get("order") or {}
+    if checkout.get("status") != "CONFIRMED":
+        out["order_escrow"] = f"checkout is {checkout.get('status')}, not CONFIRMED"
+    elif order.get("status") and order["status"] != "COMPLETED":
+        # Escrowed and waiting on the seller. Named, because "an order exists"
+        # and "somebody has done the work" are different claims and the
+        # dashboard's `activeOrders` counts the second.
+        out["order_delivery"] = (
+            f"order is {order['status']}: the money is escrowed and the provider "
+            f"has not accepted or delivered yet"
+        )
+
+    # `GET /campaigns/{id}` nests the campaign under its own key. Reading the
+    # envelope instead gave "campaign is None with no funding transaction",
+    # which is a true sentence about the wrong object.
+    envelope = live.get("campaign") or {}
+    campaign = envelope.get("campaign") or envelope
+    if campaign.get("status") == "DRAFT" or not campaign.get("fundedTxHash"):
+        out["bounty_funding"] = (
+            f"campaign is {campaign.get('status')} with no funding transaction, so "
+            f"no slot can be claimed"
+        )
+
+    if not counters.get("activeOrders"):
+        out["activeOrders"] = (
+            "still zero: it counts orders a provider has accepted, and ours is "
+            "waiting on theirs"
+        )
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--save", action="store_true", help="bookmark the listings we care about")
@@ -397,8 +438,14 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"  escrow   {sent.tx_hash}  gas {sent.gas_used:,}")
+        # `0x`-prefixed. `SentTransaction.tx_hash` is the bare hex — every
+        # explorer URL in this repo interpolates it into a path where the prefix
+        # is optional — and TermiX answers `txHash: must start with 0x`. Found
+        # after the escrow had already mined, which is the expensive half of the
+        # call succeeding and the cheap half failing.
+        tx_hash = sent.tx_hash if sent.tx_hash.startswith("0x") else f"0x{sent.tx_hash}"
         reply = marketplace.confirm_checkout(
-            client, args.pay, {"txIntentId": intent["id"], "txHash": sent.tx_hash}
+            client, args.pay, {"txIntentId": intent["id"], "txHash": tx_hash}
         )
         if show("confirm", reply):
             did["paid"] = {"tx": sent.tx_hash, "intent": intent["id"], "checkout": args.pay}
@@ -417,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
             ("our_bid", f"/api/v1/prepayment-orders/{marketplace.IL_BRIEF_ID}"),
             ("checkout", f"/api/v1/checkout/{marketplace.OUR_CHECKOUT_ID}"),
             ("campaign", f"/api/v1/campaigns/{marketplace.OUR_CAMPAIGN_ID}"),
+            ("orders", "/api/v1/orders"),
         ):
             try:
                 live[label] = client.get(path)
@@ -464,6 +512,21 @@ def main(argv: list[str] | None = None) -> int:
                     "checkout_status": (live.get("checkout") or {}).get("status"),
                     "amount": (live.get("checkout") or {}).get("amount"),
                 },
+                # The order the escrow produced, read from the server. Its
+                # `chainOrderId` is the one thing here anybody can check without
+                # this project's cooperation.
+                "orders": [
+                    {
+                        "order_id": o.get("id"),
+                        "status": o.get("status"),
+                        "budget": o.get("budget"),
+                        "currency": o.get("currency"),
+                        "chain_order_id": o.get("chainOrderId"),
+                        "settlement": o.get("settlementType"),
+                        "proof_method": o.get("proofMethod"),
+                    }
+                    for o in ((live.get("orders") or {}).get("items") or [])
+                ],
                 "bounty": {
                     "id": marketplace.OUR_CAMPAIGN_ID,
                     "status": (live.get("campaign") or {}).get("status"),
@@ -472,18 +535,12 @@ def main(argv: list[str] | None = None) -> int:
                     "escrow": (live.get("campaign") or {}).get("escrowContract"),
                 },
             },
-            # The half that is not done, named rather than left to be inferred
-            # from a zero. A block showing three completed things and omitting
-            # this reads as a completed trade.
-            "not_done": {
-                "activeOrders": 0,
-                "why": (
-                    "the accepted offer's escrow transaction has never been sent, "
-                    "and the sponsored campaign is DRAFT because its reward has "
-                    "not been funded on chain. Both are one transaction away and "
-                    "neither has been made."
-                ),
-            },
+            # What is not done, **derived** rather than written down. The first
+            # version was a sentence saying the escrow had never been sent; it
+            # stayed in the record and on the page for the minutes between that
+            # transaction mining and somebody noticing the prose. A hand-written
+            # status is a claim that keeps being true until it silently is not.
+            "not_done": _outstanding(live, after),
             "usdc_at_read": usdc,
             # Recorded because it is a real absence and the reason is not
             # obvious from the zero: fifteen campaigns are DRAFT and five are
