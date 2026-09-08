@@ -162,12 +162,29 @@ def main(argv: list[str] | None = None) -> int:
         reply = listings.publish(client, args.publish)
         print(f"\npublish -> {json.dumps(reply)[:500]}")
 
-    after = {
-        slug: len(listings.services(client, listings.SPECS[slug].agent_id).get("items") or [])
-        for slug in chosen
-        if listings.SPECS[slug].probe_path
-    }
+    # Read back rather than trusting the create response: the claim is that the
+    # listing is *live*, and only the server can say that. `status` is what
+    # separates a draft nobody can see from a thing a buyer can buy.
+    live: dict[str, list[dict[str, Any]]] = {}
+    for slug in chosen:
+        spec = listings.SPECS[slug]
+        if not spec.probe_path:
+            continue
+        live[slug] = [
+            {
+                "listing_id": item.get("id"),
+                "status": item.get("status"),
+                "base_price": item.get("basePrice"),
+                "currency": item.get("currency"),
+                "published_at": item.get("publishedAt"),
+            }
+            for item in (listings.services(client, spec.agent_id).get("items") or [])
+        ]
+    after = {slug: len(rows) for slug, rows in live.items()}
     print(f"\nafter     {after}")
+    for slug, rows in live.items():
+        for row in rows:
+            print(f"  {slug:9} {row['listing_id']}  {row['status']}  {row['base_price']} {row['currency']}")
 
     if args.out:
         record = {
@@ -190,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
             },
             "refused": dict(refused),
             "services_after": after,
+            "listings": live,
             "created": created,
             "read_at": int(time.time()),
             # The rule `termix-auth.json` sets: the bearer token is a credential

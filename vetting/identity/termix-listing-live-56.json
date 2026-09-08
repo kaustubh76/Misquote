@@ -1,0 +1,80 @@
+{
+  "agents": {
+    "grid": {
+      "category": "Market & Protocol Research",
+      "delivery_days": 1,
+      "erc8004_token_id": "323332",
+      "name": "Grid",
+      "platform_id": "cmthhi6te3am8tr01mamogmpb",
+      "price_usdc": 20,
+      "proved_by": "/pools",
+      "title": "Which range width to set on a PancakeSwap v3 pool, and which are the same"
+    },
+    "sentinel": {
+      "category": "Security & Verification",
+      "delivery_days": 1,
+      "erc8004_token_id": "323333",
+      "name": "Sentinel-323333",
+      "platform_id": "cmthhibg73ap6tr01ie8puf1q",
+      "price_usdc": 15,
+      "proved_by": "/vetting",
+      "title": "Pool due diligence: nine chain reads, with what each one is for"
+    },
+    "warden": {
+      "category": "Market & Protocol Research",
+      "delivery_days": 1,
+      "erc8004_token_id": "331592",
+      "name": "Warden-3",
+      "platform_id": "cmtl14z110cy8x901uxqdic1o",
+      "price_usdc": 25,
+      "proved_by": "/quote/preflight",
+      "title": "Liquidity position risk quote, replayed on real PancakeSwap swaps"
+    }
+  },
+  "created": {},
+  "listings": {
+    "grid": [
+      {
+        "base_price": "20",
+        "currency": "USDC",
+        "listing_id": "cmtslw18l0zfzw3010sldczg5",
+        "published_at": null,
+        "status": "PUBLISHED"
+      }
+    ],
+    "sentinel": [
+      {
+        "base_price": "15",
+        "currency": "USDC",
+        "listing_id": "cmtslw1i30zg1w301tx8iqa8o",
+        "published_at": null,
+        "status": "PUBLISHED"
+      }
+    ],
+    "warden": [
+      {
+        "base_price": "25",
+        "currency": "USDC",
+        "listing_id": "cmtslw1030zfww301cksa7pz7",
+        "published_at": null,
+        "status": "PUBLISHED"
+      }
+    ]
+  },
+  "platform": "https://platform-backend.prod.termix.live",
+  "read_at": 1788868288,
+  "refused": {
+    "grid": "already has 1 service(s); creating another would duplicate it",
+    "router": "no route on the deployed service produces a venue comparison \u2014 /venue, /venus and /route all answer 404, and the Venus rate tape lives in artifacts rather than behind an endpoint. Its journal is real (169 decisions, 168 of them holds) but a journal is evidence of past behaviour, not a thing a buyer can order. Listing it would sell work the service cannot perform on demand.",
+    "sentinel": "already has 1 service(s); creating another would duplicate it",
+    "warden": "already has 1 service(s); creating another would duplicate it"
+  },
+  "service": "https://misquote-api.onrender.com",
+  "services_after": {
+    "grid": 1,
+    "sentinel": 1,
+    "warden": 1
+  },
+  "token_recorded": false,
+  "wallet": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
+}

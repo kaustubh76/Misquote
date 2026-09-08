@@ -198,7 +198,9 @@ def test_the_body_carries_what_the_api_requires() -> None:
     for slug, reading in (("warden", PREFLIGHT), ("grid", POOLS), ("sentinel", VETTING)):
         body = listings.service_body(listings.SPECS[slug], reading)
         assert body["title"] and body["category"] in listings.CATEGORIES
-        assert body["price"] > 0 and body["currency"] == "USDC"
+        # A string, because the API refuses a number here.
+        assert body["basePrice"] == str(listings.SPECS[slug].price_usdc)
+        assert float(body["basePrice"]) > 0 and body["currency"] == "USDC"
         assert body["deliveryDays"] >= 1
         assert len(body["description"]) > 400, f"{slug}'s copy is too thin to be a listing"
 
@@ -233,3 +235,19 @@ def test_the_record_names_the_ids_and_no_credential() -> None:
     assert any(n >= 1 for n in record["services_after"].values()), (
         "the record says listings were created and every read-back shows none"
     )
+
+    # The claim is not "a listing exists" but "a buyer can see it". A DRAFT is
+    # invisible to everyone but us, and recording one as evidence of being open
+    # for business is the shape of misquote this repository is named after.
+    published = [
+        row
+        for rows in record["listings"].values()
+        for row in rows
+        if row.get("status") == "PUBLISHED"
+    ]
+    assert published, (
+        "every recorded listing is a draft; nothing here is visible to a buyer"
+    )
+    for row in published:
+        assert row["listing_id"] and float(row["base_price"]) > 0
+        assert row["currency"] == "USDC"

@@ -54,6 +54,14 @@ CATEGORIES = (
 )
 
 
+#: Required by `POST /agents/{id}/services` (`coverImageUrl: Required`), and it
+#: is the image TermiX already shows as every one of our agents' avatars — the
+#: site's own Open Graph card, live and ours. Per-agent covers do not exist:
+#: `/agent/{slug}/opengraph-image.png` is a 404 on the deployed site, and
+#: pointing a listing at one would be advertising with a broken image.
+COVER_IMAGE = "https://misquote.vercel.app/opengraph-image.png"
+
+
 @dataclass(frozen=True, slots=True)
 class Listing:
     """One agent's offer, and the route that has to answer before it is made.
@@ -320,7 +328,14 @@ def service_body(spec: Listing, reading: dict[str, Any]) -> dict[str, Any]:
         "title": spec.title,
         "category": spec.category,
         "description": spec.describe(reading),
-        "price": spec.price_usdc,
+        # `basePrice`, not `price`, and a **string**, not a number. Both named by
+        # the server one at a time — `basePrice: Required`, then `basePrice:
+        # Expected string, received number` — which is the same validation
+        # `WALLET_FIELDS` was read off. A decimal amount carried as a string is
+        # the ordinary choice for money; sending 25.0 as a float is how a price
+        # becomes 25.000000000000004 somewhere downstream.
+        "basePrice": str(spec.price_usdc),
+        "coverImageUrl": COVER_IMAGE,
         "currency": "USDC",
         "deliveryDays": spec.delivery_days,
         "tags": list(spec.tags),
@@ -354,6 +369,7 @@ def publish(session, listing_id: str) -> Any:
 
 __all__ = [
     "CATEGORIES",
+    "COVER_IMAGE",
     "SELLABLE",
     "SPECS",
     "Listing",
