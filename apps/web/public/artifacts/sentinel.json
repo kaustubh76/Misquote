@@ -5,7 +5,7 @@
     "executed": 1,
     "failed": 0,
     "held_by_gate": {},
-    "hours": 0.15,
+    "hours": 0.16,
     "mints": 1,
     "pulls": 0,
     "read_errors": 0,
@@ -22,6 +22,14 @@
       "p50": 13.2582,
       "p75": 16.3528
     },
+    "beat_rate": {
+      "comparable": true,
+      "label": "beat doing it yourself on 0 of 60 windows (0%)",
+      "losses": 60,
+      "ties": 0,
+      "windows": 60,
+      "wins": 0
+    },
     "delta_pp": -67.714,
     "material": true,
     "quotable": true,
@@ -34,11 +42,12 @@
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "build": {
     "command": "python scripts/showcase.py",
-    "generated_at": "2026-09-03T06:49:53+00:00",
-    "git_dirty": false,
-    "git_sha": "de2ad8c",
+    "generated_at": "2026-09-08T19:32:58+00:00",
+    "git_dirty": true,
+    "git_sha": "135c38f",
     "source": "chain"
   },
+  "capital_quote": 1.0,
   "caveats": [
     "This is a replay, not a record. The policy was run over this pool's real trade history; no capital was deployed and no position existed. Published as assumption A6.",
     "Adverse selection is reported as an upper bound (assumption A10): the measure is non-negative for every swap regardless of who traded, so it folds reversion round trips into what it calls adverse selection.",
@@ -69,7 +78,7 @@
   "pool": "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050",
   "provenance": {
     "every_number_derived": true,
-    "hours_covered": 0.15,
+    "hours_covered": 0.16,
     "journal": "data/journal/sentinel.jsonl",
     "journal_rows": 132
   },
@@ -77,6 +86,8 @@
   "quote_detail": {
     "annualised": true,
     "basis": "annualised",
+    "best_return": -48.652074005981895,
+    "distinct_returns": 60,
     "hours_per_window": 362.85416666666663,
     "in_range_p50": 0.8420734174313556,
     "net_positive": 0,
@@ -151,15 +162,18 @@
     ],
     "samples": 60,
     "sufficient": true,
-    "windows": 20
+    "windows": 20,
+    "worst_return": -67.55621655277345
   },
   "quote_sufficient": true,
   "quote_symbol": "WBNB",
   "replay": {
     "costs_quote": 0.05366421,
     "fees_quote": 0.01662633,
+    "first_ts": 1784282410,
     "hours": 725.72,
     "in_range_fraction": 0.8696,
+    "last_ts": 1786895006,
     "lvr_quote_upper_bound": 0.00479899,
     "mints": 596,
     "net_quote": -0.04183688,

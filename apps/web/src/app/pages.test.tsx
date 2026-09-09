@@ -14,7 +14,7 @@ import type {
   AgentArtifact,
   IndexArtifact,
 } from "@/lib/artifacts";
-import { amount, money } from "@/lib/format";
+import { amount, count, money } from "@/lib/format";
 
 /**
  * `/registry` mounts an on-chain console, and wagmi's hooks throw outside a
@@ -417,8 +417,14 @@ describe("Agent detail", () => {
     // replay's — the two differ by three orders of magnitude.
     const gates = Object.values(warden.activity.held_by_gate);
     if (gates.length > 0 && warden.activity.decisions > 0) {
+      // Through `count()`, the same formatter the component renders with. The
+      // raw number was interpolated here until `activity.decisions` grew past
+      // a thousand (175 -> 33,513 on the rebuild) and `toLocaleString` started
+      // inserting a separator. A test that hardcodes the unformatted value is
+      // only correct while the value stays under 1,000, and says nothing about
+      // the rendering the rest of the time.
       expect(
-        screen.getAllByText(new RegExp(`of ${warden.activity.decisions}\\b`))
+        screen.getAllByText(new RegExp(`of ${count(warden.activity.decisions)}\\b`))
           .length
       ).toBeGreaterThan(0);
     }
@@ -474,7 +480,7 @@ describe("Agent detail", () => {
 
     expect(screen.getByText("Live loop")).toBeInTheDocument();
     expect(
-      screen.getByText(new RegExp(`${warden.activity.decisions} decisions`))
+      screen.getByText(new RegExp(`${count(warden.activity.decisions)} decisions`))
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /No live loop was attached when this card was built/i })

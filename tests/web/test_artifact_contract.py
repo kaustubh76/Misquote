@@ -136,6 +136,17 @@ AGENT_FIELDS: dict[str, str] = {
     # direction was satisfied by both sides being silent. The first
     # regeneration would have failed for a reason unrelated to whoever ran it.
     "quote_symbol": "AgentCard.tsx",
+    #: What the headline rate applies to. `afd3ce8` added it to the three LP
+    #: cards — router.json had carried it since it was written — on the grounds
+    #: that "the one number a reader needs to know what the headline rate
+    #: applies to was the one number absent from it". `AgentCard.tsx` has
+    #: rendered it since that commit; only this declaration was outstanding,
+    #: because declaring it before `make showcase` rewrote the cards would have
+    #: left the suite red for everyone until somebody found the hours.
+    #:
+    #: ROUTER_FIELDS declares its own `capital_quote` unrendered, which is a
+    #: different card and a separate decision — not a contradiction of this one.
+    "capital_quote": "AgentCard.tsx",
     "counterfactual": "",  # carried for machine readers; no view renders it
     "caveats": "AgentDetail.tsx",
     "quote": "",  # the rendered string; views use quote_detail instead
@@ -260,6 +271,15 @@ AGENT_FIELDS: dict[str, str] = {
     #: breakdown rows. The declaration would have passed on a spurious match
     #: and been certified as true. A leaf name is only as specific as the file
     #: it is grepped in.
+    #:
+    #: And do not read "two guards" as two chances. The named-view check and
+    #: `test_a_field_declared_unrendered_is_not_rendered` are the same
+    #: assumption pointed in opposite directions — *a leaf name appearing in a
+    #: file means the leaf is read there*. One idea, so one blind spot: the
+    #: positive direction passes this on a spurious match, and the negative
+    #: direction never sees it at all, because it skips multi-path leaves by
+    #: construction and `label` is one. Both were satisfied by a declaration
+    #: that was false.
     "advantage.beat_rate.label": "",
     "advantage.beat_rate.ties": "",
     "advantage.delta_pp": "AgentCard.tsx",

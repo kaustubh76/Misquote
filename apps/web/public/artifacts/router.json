@@ -62,9 +62,9 @@
   "badge": "COUNTERFACTUAL \u2014 this position was not held",
   "build": {
     "command": "python scripts/router_showcase.py",
-    "generated_at": "2026-09-05T21:31:22+00:00",
-    "git_dirty": false,
-    "git_sha": "eb6c4d6",
+    "generated_at": "2026-09-08T21:03:28+00:00",
+    "git_dirty": true,
+    "git_sha": "2d29f96",
     "source": "chain"
   },
   "capital_quote": 10000.0,
@@ -101,7 +101,7 @@
   "pool_finding": "Router measured 2 PancakeSwap range(s) and entered none \u2014 size, not yield. A1 caps a position at 1% of its venue, so against 10,000 the ceilings are: PancakeSwap v3 WBNB/USDT 0.05% at +/-80 ticks tops out at 1,752; PancakeSwap v3 WBNB/USDT 0.25% at +/-400 ticks tops out at 92.",
   "provenance": {
     "every_number_derived": true,
-    "hours_covered": 168.0,
+    "hours_covered": 0.0,
     "journal": "data/journal/router.jsonl",
     "journal_rows": 169
   },

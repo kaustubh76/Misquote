@@ -205,6 +205,30 @@ for (const [colorScheme, width] of VIEWPORTS) {
   // zero. A fresh context per load produced zero in 24. `next dev` reports no
   // hydration warning on any route.
   //
+  // A later pass added 104 more, chosen to kill two specific hypotheses rather
+  // than to raise a count: 60 cold loads (6 routes x 2 themes x 5 rounds), 28
+  // soft navigations clicking the whole nav inside one context, and 16
+  // `?scenario=` URLs. Zero.
+  //
+  // Both hypotheses were real. Soft navigation, because the server log shows
+  // `index.txt?_rsc=` prefetches and hydrating a prefetched route is a
+  // different path from a cold `goto` — it would have explained the
+  // intermittency and the wandering route at once. Scenario URLs, because
+  // `lib/scenario.ts` says the name is read from `location.search` *in an
+  // effect*, so "a simulated page cannot prerender" — a page whose server and
+  // client renders differ by construction, which is the definition of this
+  // error. Neither fired.
+  //
+  // Read that as narrowing, not as an acquittal. Three sightings across ~15
+  // runs of 20 routes is on the order of 1 in 100 loads, and 150 targeted
+  // loads missing a 1-in-100 event is unremarkable. The honest sentence is
+  // **not reproduced in 150 attempts across five mechanisms; the trigger
+  // remains unidentified** — an absence in the instrument is not an absence in
+  // the world, and this note has been wrong in that exact direction before.
+  // What it does buy: the trigger is not the route, not the theme, not
+  // concurrency, not prefetch, and not the one code path that mismatches on
+  // purpose.
+  //
   // **It tracks machine load, and that is the first thing found that predicts
   // it.** Every zero above was measured on an idle machine. On the same tree
   // with an unrelated build saturating the box — load average 30 to 50 against
