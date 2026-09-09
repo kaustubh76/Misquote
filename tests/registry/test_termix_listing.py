@@ -131,9 +131,7 @@ def test_routers_copy_comes_from_the_route_that_serves_it() -> None:
     }
     text = listings.router_description(card)
     assert "vUSDT (lending) — 251 quotable samples" in text
-    assert "a venue nobody sampled" not in text, (
-        "a venue with no samples is offered as comparable"
-    )
+    assert "a venue nobody sampled" not in text, "a venue with no samples is offered as comparable"
     assert "168" in text and "declined" in text.lower()
 
 
@@ -282,9 +280,7 @@ def test_the_record_names_the_ids_and_no_credential() -> None:
         for row in rows
         if row.get("status") == "PUBLISHED"
     ]
-    assert published, (
-        "every recorded listing is a draft; nothing here is visible to a buyer"
-    )
+    assert published, "every recorded listing is a draft; nothing here is visible to a buyer"
     for row in published:
         assert row["listing_id"] and Decimal(row["base_price"]) > 0
         assert row["currency"] == "USDC"

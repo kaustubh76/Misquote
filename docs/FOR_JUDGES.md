@@ -13,7 +13,7 @@ first thing it does is tell you what has **not** been proven.
 
 ```bash
 make setup                    # uv sync
-make test                     # 2,643 tests, no network, ~13 min
+make test                     # 2,647 tests, no network, ~13 min
 make showcase-demo            # replay the three LP agents, write their cards
 make router-card              # and the fourth — Router reads a different tape
 make web                      # http://localhost:3000
@@ -69,7 +69,7 @@ Each of these is a test you can run, not a claim.
 | We price a tokenized equity with no code changes | TSLAx/USDT — different fee tier, different spacing, different protocol fee | `tests/chain/test_equity_pool.py` |
 | The agent can actually mint, recentre and withdraw | Real transactions on a forked BSC, including that a half-failed recentre leaves the wallet flat rather than stranded | `tests/chain/test_executor.py` |
 
-**2696 tests: 2643 offline, 53 against a live chain or a fork.**
+**2700 tests: 2647 offline, 53 against a live chain or a fork.**
 
 ---
 
@@ -167,6 +167,7 @@ drift from the artifact it describes:
 | Market-make | `chain` | 1 | 8.94 – 16.35% | 19.50 – 31.90% | **+12.71pp** |
 | Protect | `chain` | 1 | 9.39 – 14.94% | -55.19 – -52.84% | **-68.55pp** |
 | Choose | `chain` | 0.03181 | 5.84 – 16.52% | 5.84 – 16.52% | **+0.00pp** |
+| Equities | `chain` | 1 | — | — | **withheld** |
 | Route | `chain` | 1e+04 | 1.90 – 1.92% | 1.71 – 1.92% | **-0.01pp** |
 <!-- /derived:advantage -->
 

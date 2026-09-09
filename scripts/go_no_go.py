@@ -836,14 +836,32 @@ def check_agent_advantage_report() -> Check:
     # would burn an hour and a half to produce two identical columns and would
     # satisfy this check by doing it.
     #
-    # So the pair. Two tasks sharing a baseline *and* an agent are one task
-    # written twice, and that is still refused.
-    pairs = {(t.get("without_agent", ""), t.get("with_agent", "")) for t in tasks}
-    if len(pairs) < len(tasks):
+    # So the pair — and then the pair stopped being enough, for the same reason
+    # the baseline alone had. The report grew an `Equities` task that runs the
+    # *same strategy pair* on a different pool: `passive_policy` against Warden
+    # on TSLAx/USDT 0.25%, where `Earn` is that pair on WBNB/USDT 0.05%. Both
+    # labels match exactly, so the pair called it one task written twice. It is
+    # not: different venue, different tape, different category, and different
+    # answers — `Earn` beats DIY on 60 of 60 windows while `Equities` is
+    # withheld for want of observations.
+    #
+    # The venue is what actually distinguishes them, so it is in the identity.
+    # Note this does not weaken the original refusal: `Earn`, `Market-make` and
+    # `Protect` still share one venue *and* one baseline, and stay distinct on
+    # the agent, which is the axis they were always meant to differ on.
+    #
+    # The through-line, worth naming because this is the third revision: each
+    # version of this check took the fields that happened to be unique in the
+    # report in front of it and treated them as identity. That is a fact about
+    # the data, not about what makes two comparisons the same.
+    triples = {
+        (t.get("without_agent", ""), t.get("with_agent", ""), t.get("venue", "")) for t in tasks
+    }
+    if len(triples) < len(tasks):
         return Check(
             "agent advantage report",
             FAIL,
-            "two tasks share both a baseline and an agent",
+            "two tasks share a baseline, an agent and a venue",
             "the same comparison twice is one task relabelled",
         )
 
@@ -1445,7 +1463,9 @@ def _parties(proof: dict[str, Any]) -> str:
     if not client or not provider:
         return ""
     if client.lower() == provider.lower():
-        return " One wallet was both client and provider, so this proves the escrow and hires nobody."
+        return (
+            " One wallet was both client and provider, so this proves the escrow and hires nobody."
+        )
     return f" Two parties: {client[:10]} paid, {provider[:10]} delivered."
 
 

@@ -348,7 +348,12 @@ CAMPAIGN_INSTRUCTIONS = (
 #: refusal on this project's own pages names its threshold instead of saying
 #: "insufficient evidence".
 CAMPAIGN_PROOF = (
-    {"ordinal": 1, "kind": "TEXT", "label": "The file's size in bytes, as served", "required": True},
+    {
+        "ordinal": 1,
+        "kind": "TEXT",
+        "label": "The file's size in bytes, as served",
+        "required": True,
+    },
     {
         "ordinal": 2,
         "kind": "TEXT",

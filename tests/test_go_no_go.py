@@ -1071,8 +1071,7 @@ def test_the_parties_clause_changes_the_words_and_not_the_verdict(monkeypatch) -
     assert before.status == after.status, "naming the parties changed the verdict"
     assert before.detail != after.detail, "the gate computes the clause and never prints it"
     assert before.detail.startswith(after.detail), (
-        "the parties clause is spliced into the middle of the sentence rather "
-        "than appended to it"
+        "the parties clause is spliced into the middle of the sentence rather than appended to it"
     )
 
 

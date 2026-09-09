@@ -77,7 +77,9 @@ def probe(spec: listings.Listing) -> dict[str, Any] | None:
 
 def connect() -> Web3:
     """A chain connection, only because `BscSigner` requires one to exist."""
-    w3 = Web3(Web3.HTTPProvider("https://bsc-dataseed.bnbchain.org", request_kwargs={"timeout": 25}))
+    w3 = Web3(
+        Web3.HTTPProvider("https://bsc-dataseed.bnbchain.org", request_kwargs={"timeout": 25})
+    )
     w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     return w3
 
@@ -210,7 +212,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nafter     {after}")
     for slug, rows in live.items():
         for row in rows:
-            print(f"  {slug:9} {row['listing_id']}  {row['status']}  {row['base_price']} {row['currency']}")
+            print(
+                f"  {slug:9} {row['listing_id']}  {row['status']}  {row['base_price']} {row['currency']}"
+            )
 
     if args.out:
         record = {

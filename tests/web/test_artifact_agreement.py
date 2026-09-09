@@ -112,6 +112,24 @@ def test_every_advantage_task_agrees_with_the_agents_own_card(report: dict) -> N
         if not card:
             continue
 
+        # The same agent can answer more than one task, on different pools.
+        # Warden answers both `Earn` (WBNB/USDT 0.05%) and `Equities`
+        # (TSLAx/USDT 0.25%), and only the first is the replay `warden.json`
+        # publishes. Joining on the agent name alone compared the withheld
+        # equities replay — all zeros, for want of observations — against the
+        # card's real figures and reported six disagreements in artifacts that
+        # agree exactly.
+        #
+        # So the pool is part of the join. `card["pool"]` and `task["venue"]`
+        # are the same string when they are the same replay. A card that
+        # publishes no pool at all (Router's does not) cannot be placed either
+        # way, so it is compared as before rather than silently dropped —
+        # skipping on "cannot tell" is how a join quietly stops checking.
+        venue = str(task.get("venue") or "")
+        pool = str(card.get("pool") or "")
+        if venue and pool and venue != pool:
+            continue
+
         replay = card.get("replay") or {}
         scored = task.get("agent") or {}
         compared += 1

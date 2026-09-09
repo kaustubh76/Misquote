@@ -1,62 +1,62 @@
 {
-  "generated_at": "2026-09-07T13:33:10+00:00",
+  "generated_at": "2026-09-09T05:09:52+00:00",
   "build": {
-    "command": "python scripts/go_no_go.py --mainnet --json",
-    "source": "mainnet",
-    "generated_at": "2026-09-07T13:33:10+00:00",
-    "git_sha": "3882fcc",
+    "command": "python scripts/go_no_go.py --json",
+    "source": "local checks",
+    "generated_at": "2026-09-09T05:09:52+00:00",
+    "git_sha": "a8ae534",
     "git_dirty": true
   },
-  "mainnet": true,
+  "mainnet": false,
   "fast": false,
   "skipped": [],
   "checks": [
     {
       "name": "offline test suite",
       "status": "PASS",
-      "detail": "2433 passed, 26 skipped, 53 deselected, 26 warnings in 446.50s (0:07:26)",
+      "detail": "2612 passed, 35 skipped, 53 deselected, 26 warnings in 687.63s (0:11:27)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "T1-T4 and L1",
       "status": "PASS",
-      "detail": "14 passed, 9 deselected, 1 warning in 10.66s",
+      "detail": "14 passed, 9 deselected, 1 warning in 10.11s",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "lint",
       "status": "PASS",
-      "detail": "273 files already formatted",
+      "detail": "290 files already formatted",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "web component suite",
-      "status": "PASS",
-      "detail": "Tests  498 passed (498)",
-      "remedy": "",
-      "blocking": false
+      "status": "FAIL",
+      "detail": "FAIL  src/app/pages.test.tsx > Assumptions > renders every entry, addressable by its id; FAIL  src/app/assumptions/view.test.tsx > the index reaches everything on the page > anchors a section on its own heading, not below it; FAIL  src/app/assumptions/view.test.tsx > the filter > narrows to one kind and says how many are left",
+      "remedy": "make web-test",
+      "blocking": true
     },
     {
       "name": "web browser suite",
       "status": "PASS",
-      "detail": "every route clean in both themes and at 390px, with 18 distinct titles.",
+      "detail": "every route clean in both themes and at 390px, with 20 distinct titles.",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "chain and fork suite",
       "status": "PASS",
-      "detail": "53 passed, 2459 deselected, 2 warnings in 223.63s (0:03:43)",
+      "detail": "48 passed, 5 skipped, 2647 deselected, 2 warnings in 208.68s (0:03:28)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 210 deselected, 1 warning in 2.89s",
+      "detail": "7 passed, 214 deselected, 1 warning in 2.97s",
       "remedy": "",
       "blocking": false
     },
@@ -70,7 +70,7 @@
     {
       "name": "dry run",
       "status": "PASS",
-      "detail": "MISQUOTE_DRY_RUN=1",
+      "detail": "MISQUOTE_DRY_RUN=(unset \u2014 defaults to dry)",
       "remedy": "",
       "blocking": false
     },
@@ -119,14 +119,14 @@
     {
       "name": "agent advantage report",
       "status": "PASS",
-      "detail": "5 tasks on a chain tape, all quotable",
+      "detail": "5 of 6 tasks quotable on a chain tape \u00b7 withheld and said so: Equities",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "erc-8183 escrow",
       "status": "UNVERIFIED",
-      "detail": "job 56681 escrowed 100000000000000000 on chain 56 and was reclaimed; settle has run on a fork only, and opens 2026-09-13 08:01 UTC",
+      "detail": "job 56681 escrowed 100000000000000000 on chain 56 and was reclaimed; settle has run on a fork only, and opens 2026-09-13 08:01 UTC. One wallet was both client and provider, so this proves the escrow and hires nobody.",
       "remedy": "make hire-mainnet ARGS='--settle 56718'",
       "blocking": true
     },
@@ -221,40 +221,32 @@
     },
     {
       "name": "24h unattended burn-in",
-      "status": "UNVERIFIED",
-      "detail": "warden longest unbroken run 21.5h on BSC mainnet, signing refused \u2014 across 2 run(s), 16,179 rows (file spans 557.3h \u2014 the gate is the run, not the span). Also: warden 21.5h, sentinel 0.2h, grid 0.1h",
-      "remedy": "the gate is 24h unattended",
-      "blocking": true
+      "status": "PASS",
+      "detail": "warden longest unbroken run 38.3h on BSC mainnet, signing refused \u2014 across 3 run(s), 43,263 rows (file spans 596.9h \u2014 the gate is the run, not the span). Also: warden 38.3h, sentinel 0.2h, grid 0.1h, 0 read errors",
+      "remedy": "",
+      "blocking": false
     },
     {
       "name": "signer",
-      "status": "PASS",
-      "detail": "the key signs for the declared operator 0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
-      "remedy": "",
-      "blocking": false,
-      "data": {
-        "signing_for": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE",
-        "role": "operator",
-        "declared": {
-          "operator": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
-        },
-        "operator": "0x0c501EE1924bfb91a028DB4BcD68f4861B0Ff6eE"
-      }
+      "status": "UNVERIFIED",
+      "detail": "not checked \u2014 this run is not --mainnet",
+      "remedy": "re-run with --mainnet to check the signing key",
+      "blocking": true
     },
     {
       "name": "position cap",
-      "status": "PASS",
-      "detail": "1 in quote units",
-      "remedy": "",
-      "blocking": false
+      "status": "UNVERIFIED",
+      "detail": "not checked \u2014 this run is not --mainnet",
+      "remedy": "re-run with --mainnet to check the position cap",
+      "blocking": true
     }
   ],
   "summary": {
-    "pass": 20,
-    "fail": 0,
-    "unverified": 2,
+    "pass": 18,
+    "fail": 1,
+    "unverified": 3,
     "total": 22
   },
-  "outcome": "NOT YET",
-  "exit_code": 2
+  "outcome": "NO GO",
+  "exit_code": 1
 }

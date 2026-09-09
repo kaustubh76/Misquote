@@ -7,8 +7,8 @@
 
 - **Tape:** `chain`
 - **Capital per task:** 1 (quote token)
-- **Tasks:** 5 · quotable 5 · withheld 0
-- **Categories:** security, trading
+- **Tasks:** 6 · quotable 5 · withheld 1
+- **Categories:** equities, security, trading
 
 ## The claim this report is allowed to make
 
@@ -27,6 +27,7 @@ agent, by charging its baseline differently, is not available here.
 | Market-make — quote both sides of a range | trading | 8.94 – 16.35% | 19.50 – 31.90% | **+12.71pp** | agent beats DIY by 12.71pp, bands do not overlap |
 | Protect — avoid being picked off by one-way flow | security | 9.39 – 14.94% | -55.19 – -52.84% | **-68.55pp** | agent loses to DIY by 68.55pp, bands do not overlap |
 | Choose — which pool to provide liquidity to | security | 5.84 – 16.52% | 5.84 – 16.52% | **+0.00pp** | indistinguishable: +0.00pp is below the 0.10pp materiality floor |
+| Equities — provide liquidity to a tokenized stock | equities | withheld | withheld | withheld | no verdict — 85 swaps spanning 4.1 days on PancakeSwap v3 TSLAx/USDT 0.25%. Assumption A5 requires 20 replay windows of at least 24h; this tape yields at most 4. It is the only tokenized-equity pool on BNB Chain with any liquidity — NVDAx and AAPLx have no v3 pool at any fee tier, and the 1.00% TSLAx pool has none. So the venue is real, our engine prices it, and there is not enough flow through it to quote. Withheld rather than estimated. |
 | Route — which lending venue to supply to | trading | 1.90 – 1.92% | 1.71 – 1.92% | **-0.01pp** | indistinguishable: -0.01pp is below the 0.10pp materiality floor |
 
 **Across all tasks:** no verdict (5 observations, need 30)
@@ -51,8 +52,10 @@ sample is 20 sub-windows × 3 parameter perturbations rather than one run.
 |---|---|---|
 | Net return P25–P75 | 8.94 – 16.35% | 20.70 – 36.15% |
 | Median | 13.26% | 30.47% |
-| Time taken | 7,723s | 4,704s |
-| Cost to hire | — | 0.000755 BNB |
+| Decisions somebody had to make | 1 | 0 |
+| Decisions made for you | 0 | 20 |
+| Replay compute (ours, not yours) | 1,630s | 4,500s |
+| Fee to hire | none | 0.000755 BNB |
 | In range | 36.6% | 93.9% |
 | Fees | 0.0157 | 0.0578 |
 | Realized convexity cost (upper bound on LVR) | 0.0108 | 0.0231 |
@@ -77,8 +80,10 @@ Bands overlap: **no**. Non-overlapping bands are what lets the difference be sta
 |---|---|---|
 | Net return P25–P75 | 8.94 – 16.35% | 19.50 – 31.90% |
 | Median | 13.26% | 25.97% |
-| Time taken | 7,723s | 4,411s |
-| Cost to hire | — | 0.000755 BNB |
+| Decisions somebody had to make | 1 | 0 |
+| Decisions made for you | 0 | 13 |
+| Replay compute (ours, not yours) | 1,630s | 5,437s |
+| Fee to hire | none | 0.000755 BNB |
 | In range | 36.6% | 100.0% |
 | Fees | 0.0157 | 0.0484 |
 | Realized convexity cost (upper bound on LVR) | 0.0108 | 0.0202 |
@@ -103,8 +108,10 @@ Bands overlap: **no**. Non-overlapping bands are what lets the difference be sta
 |---|---|---|
 | Net return P25–P75 | 9.39 – 14.94% | -55.19 – -52.84% |
 | Median | 14.10% | -54.45% |
-| Time taken | 5,632s | 6,499s |
-| Cost to hire | — | 0.000755 BNB |
+| Decisions somebody had to make | 2 | 0 |
+| Decisions made for you | 0 | 1191 |
+| Replay compute (ours, not yours) | 5,709s | 5,902s |
+| Fee to hire | none | 0.000755 BNB |
 | In range | 100.0% | 87.0% |
 | Fees | 0.0195 | 0.0166 |
 | Realized convexity cost (upper bound on LVR) | 0.0085 | 0.0048 |
@@ -141,8 +148,10 @@ The cost of that is **5.4% of deployed capital** over the window, and fees cover
 |---|---|---|
 | Net return P25–P75 | 5.84 – 16.52% | 5.84 – 16.52% |
 | Median | 7.22% | 7.22% |
-| Time taken | 5,884s | 5,884s |
-| Cost to hire | — | 0.000755 BNB |
+| Decisions somebody had to make | 15 | 0 |
+| Decisions made for you | 0 | 15 |
+| Replay compute (ours, not yours) | 5,551s | 5,551s |
+| Fee to hire | none | 0.000755 BNB |
 | In range | 98.4% | 98.4% |
 | Fees | 0.0017 | 0.0017 |
 | Realized convexity cost (upper bound on LVR) | 0.0007 | 0.0007 |
@@ -153,6 +162,15 @@ The cost of that is **5.4% of deployed capital** over the window, and fees cover
 **indistinguishable: +0.00pp is below the 0.10pp materiality floor**
 
 Bands overlap: **yes**. Overlapping bands mean the two are not distinguishable at this sample size, however far apart the medians sit — which is precisely why this product publishes ranges rather than a single number.
+
+### Equities — provide liquidity to a tokenized stock
+
+- **Category:** equities · **Venue:** PancakeSwap v3 TSLAx/USDT 0.25% · 0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492
+- **Without an agent:** mint once at the same width, never touch it (passive_policy)
+- **With an agent:** Warden — Avellaneda–Stoikov recentring
+- **Metric:** net return on capital (fees − realized convexity cost − costs), P25–P75
+
+**No verdict.** 85 swaps spanning 4.1 days on PancakeSwap v3 TSLAx/USDT 0.25%. Assumption A5 requires 20 replay windows of at least 24h; this tape yields at most 4. It is the only tokenized-equity pool on BNB Chain with any liquidity — NVDAx and AAPLx have no v3 pool at any fee tier, and the 1.00% TSLAx pool has none. So the venue is real, our engine prices it, and there is not enough flow through it to quote. Withheld rather than estimated.
 
 ### Route — which lending venue to supply to
 
@@ -167,8 +185,10 @@ Bands overlap: **yes**. Overlapping bands mean the two are not distinguishable a
 |---|---|---|
 | Net return P25–P75 | 1.90 – 1.92% | 1.71 – 1.92% |
 | Median | 1.91% | 1.90% |
-| Time taken | 3s | 3s |
-| Cost to hire | — | 0.000755 BNB |
+| Decisions somebody had to make | 1 | 0 |
+| Decisions made for you | 0 | 2 |
+| Replay compute (ours, not yours) | 3s | 3s |
+| Fee to hire | none | 0.000755 BNB |
 | Costs charged | 0.02 | 1.03 |
 
 **indistinguishable: -0.01pp is below the 0.10pp materiality floor**

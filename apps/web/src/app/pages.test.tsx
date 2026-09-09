@@ -2279,9 +2279,19 @@ describe("The tasks on /advantage", () => {
       );
 
       if (agent) {
-        expect(
-          screen.getByRole("link", { name: task.with_agent })
-        ).toHaveAttribute("href", `/agent/${agent.slug}`);
+        // `getAllByRole`, not `getByRole`. One agent can answer more than one
+        // task — Warden answers both `Earn` and `Equities` — and the page
+        // correctly renders a link per task, so the unique-match query threw
+        // `Found multiple elements` the first time the report carried two.
+        // Asserting uniqueness made "how many tasks does this agent answer" a
+        // property of this test, which is a fact about the report and none of
+        // its business. Every matching link is checked instead, which is the
+        // claim the name makes.
+        const links = screen.getAllByRole("link", { name: task.with_agent });
+        expect(links.length).toBeGreaterThan(0);
+        for (const link of links) {
+          expect(link).toHaveAttribute("href", `/agent/${agent.slug}`);
+        }
       } else {
         // Still named, just not linked. A slug guessed from the name would
         // resolve in dev and 404 on the static export, where only the slugs

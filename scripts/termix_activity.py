@@ -87,7 +87,9 @@ INTEREST = (
 
 
 def connect() -> Web3:
-    w3 = Web3(Web3.HTTPProvider("https://bsc-dataseed.bnbchain.org", request_kwargs={"timeout": 25}))
+    w3 = Web3(
+        Web3.HTTPProvider("https://bsc-dataseed.bnbchain.org", request_kwargs={"timeout": 25})
+    )
     w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     return w3
 
@@ -167,8 +169,7 @@ def _outstanding(live: dict[str, Any], counters: dict[str, Any]) -> dict[str, An
 
     if not counters.get("activeOrders"):
         out["activeOrders"] = (
-            "still zero: it counts orders a provider has accepted, and ours is "
-            "waiting on theirs"
+            "still zero: it counts orders a provider has accepted, and ours is waiting on theirs"
         )
     return out
 
@@ -217,11 +218,19 @@ def main(argv: list[str] | None = None) -> int:
     picks = interesting()
     print(f"\nlistings worth bookmarking ({len(picks)}):")
     for item in picks:
-        print(f"  {str(item.get('basePrice')):>7} {item.get('currency')}  {str(item.get('title'))[:58]}")
+        print(
+            f"  {str(item.get('basePrice')):>7} {item.get('currency')}  {str(item.get('title'))[:58]}"
+        )
 
     if not (
-        args.save or args.quote or args.brief or args.buy or args.accept or args.pay
-        or args.bounty or args.out
+        args.save
+        or args.quote
+        or args.brief
+        or args.buy
+        or args.accept
+        or args.pay
+        or args.bounty
+        or args.out
     ):
         print("\nNothing was sent. Each action has its own flag; three of them commit money.")
         return 0
@@ -312,8 +321,10 @@ def main(argv: list[str] | None = None) -> int:
                 "the dashboard and puts demand on the public feed that does not exist."
             )
         print(f"\nbuying  {str(listing.get('title'))[:60]}")
-        print(f"        {listing.get('basePrice')} {listing.get('currency')} from "
-              f"{(listing.get('seller') or {}).get('displayName')}")
+        print(
+            f"        {listing.get('basePrice')} {listing.get('currency')} from "
+            f"{(listing.get('seller') or {}).get('displayName')}"
+        )
         # `checkout/sessions` wants an `offerId`, not a `listingId`: on this
         # marketplace a purchase is always the acceptance of an *offer*, and a
         # listing is what gets a seller to make one. Buying a listing outright
@@ -335,8 +346,10 @@ def main(argv: list[str] | None = None) -> int:
                 "project took part in."
             )
         current = offer.get("current") or {}
-        print(f"\naccepting  {current.get('price')} {current.get('currency')} "
-              f"· {current.get('deliveryDays')}d · valid until {current.get('validUntil')}")
+        print(
+            f"\naccepting  {current.get('price')} {current.get('currency')} "
+            f"· {current.get('deliveryDays')}d · valid until {current.get('validUntil')}"
+        )
         print(f"           {str(current.get('scope'))[:90]}")
         # `revisionId` is required, and taken from the offer we just read rather
         # than from a flag. Offers are versioned; accepting by id alone would
@@ -458,9 +471,7 @@ def main(argv: list[str] | None = None) -> int:
         # would be a valid transaction doing something we never read — the same
         # reason `authenticate.py` signs their SIWE message verbatim.
         sent = signer.send(
-            signer.build(
-                {"to": escrow, "data": intent["callData"], "value": int(intent["value"])}
-            )
+            signer.build({"to": escrow, "data": intent["callData"], "value": int(intent["value"])})
         )
         print(f"  escrow   {sent.tx_hash}  gas {sent.gas_used:,}")
         # `0x`-prefixed. `SentTransaction.tx_hash` is the bare hex — every

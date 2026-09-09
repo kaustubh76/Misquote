@@ -213,8 +213,7 @@ def test_the_page_cannot_publish_the_good_news_without_the_bad() -> None:
     # minutes between that transaction mining and somebody rereading the prose.
     # A status that cannot go stale is one nobody has to remember to update.
     assert any("PENDING_ACCEPT" in why or "DRAFT" in why for why in outstanding), (
-        "the outstanding list quotes no platform state, so it is a sentence "
-        "rather than a reading"
+        "the outstanding list quotes no platform state, so it is a sentence rather than a reading"
     )
 
     # The claim is a change, so both readings have to be there. A block showing

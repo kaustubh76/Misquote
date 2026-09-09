@@ -3,8 +3,8 @@
   "build": {
     "command": "python scripts/advantage.py",
     "source": "chain",
-    "generated_at": "2026-09-05T16:43:25+00:00",
-    "git_sha": "af97424",
+    "generated_at": "2026-09-09T04:10:58+00:00",
+    "git_sha": "a8ae534",
     "git_dirty": true
   },
   "question": "Does hiring an agent on your marketplace beat doing the job yourself, and can you prove it?",
@@ -14,19 +14,21 @@
   "capital_quote": "per task \u2014 see tasks[].capital_quote",
   "quote_symbol": "WBNB",
   "summary": {
-    "tasks": 5,
+    "tasks": 6,
     "quotable": 5,
-    "withheld": 0,
+    "withheld": 1,
     "agent_ahead": 2,
     "diy_ahead": 1,
     "indistinguishable": 2,
     "bands_overlap": 2,
     "separated": 3,
     "categories": [
+      "equities",
       "security",
       "trading"
     ],
     "venues": [
+      "PancakeSwap v3 TSLAx/USDT 0.25% \u00b7 0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
       "PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050",
       "Venus Core Pool (BSC) \u2014 vUSDT and vUSDC, verified three ways",
       "two venues: PancakeSwap v3 WBNB/USDT 0.05% \u00b7 0x36696169C63e42cd08ce11f5deeBbCeBae652050 vs PancakeSwap v3 WBNB/USDT 0.25% \u00b7 0x1401ff943D08a7E098328C1d3a9d388923B115D2 \u2014 depth and the flow screen chose the same one"
@@ -211,13 +213,34 @@
       },
       "replay_days": 31.0,
       "seconds": {
-        "without_agent": 7722.8,
-        "with_agent": 4704.1
+        "without_agent": 1630.2,
+        "with_agent": 4500.2
+      },
+      "attention": {
+        "decisions_you_make": 1,
+        "decisions_made_for_you": 20,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
       },
       "hire_cost": {
         "amount": 0.0007550069999999999,
         "unit": "BNB",
-        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry."
+        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry.",
+        "you_also_pay": {
+          "without_agent": 0.0007800000000000001,
+          "with_agent": 0.01551322258835296,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": {
+        "wins": 60,
+        "ties": 0,
+        "losses": 0,
+        "windows": 60,
+        "comparable": true,
+        "label": "beat doing it yourself on 60 of 60 windows (100%)",
+        "rate": 1.0
       },
       "delta_pp": 17.21289,
       "ranges_overlap": false,
@@ -400,13 +423,34 @@
       },
       "replay_days": 31.0,
       "seconds": {
-        "without_agent": 7722.8,
-        "with_agent": 4411.0
+        "without_agent": 1630.2,
+        "with_agent": 5436.8
+      },
+      "attention": {
+        "decisions_you_make": 1,
+        "decisions_made_for_you": 13,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
       },
       "hire_cost": {
         "amount": 0.0007550069999999999,
         "unit": "BNB",
-        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry."
+        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry.",
+        "you_also_pay": {
+          "without_agent": 0.0007800000000000001,
+          "with_agent": 0.010064210362536224,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": {
+        "wins": 56,
+        "ties": 0,
+        "losses": 4,
+        "windows": 60,
+        "comparable": true,
+        "label": "beat doing it yourself on 56 of 60 windows (93%)",
+        "rate": 0.933333
       },
       "delta_pp": 12.712271,
       "ranges_overlap": false,
@@ -589,13 +633,34 @@
       },
       "replay_days": 31.0,
       "seconds": {
-        "without_agent": 5631.8,
-        "with_agent": 6498.9
+        "without_agent": 5709.4,
+        "with_agent": 5902.3
+      },
+      "attention": {
+        "decisions_you_make": 2,
+        "decisions_made_for_you": 1191,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
       },
       "hire_cost": {
         "amount": 0.0007550069999999999,
         "unit": "BNB",
-        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry."
+        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry.",
+        "you_also_pay": {
+          "without_agent": 0.0015321841421217577,
+          "with_agent": 0.05366420901679693,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": {
+        "wins": 0,
+        "ties": 0,
+        "losses": 60,
+        "windows": 60,
+        "comparable": true,
+        "label": "beat doing it yourself on 0 of 60 windows (0%)",
+        "rate": 0.0
       },
       "delta_pp": -68.55048,
       "ranges_overlap": false,
@@ -770,13 +835,34 @@
       },
       "replay_days": 31.0,
       "seconds": {
-        "without_agent": 5884.3,
-        "with_agent": 5884.3
+        "without_agent": 5551.2,
+        "with_agent": 5551.2
+      },
+      "attention": {
+        "decisions_you_make": 15,
+        "decisions_made_for_you": 15,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
       },
       "hire_cost": {
         "amount": 0.0007550069999999999,
         "unit": "BNB",
-        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry."
+        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry.",
+        "you_also_pay": {
+          "without_agent": 0.0008054096717415132,
+          "with_agent": 0.0008054096717415132,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": {
+        "wins": 0,
+        "ties": 60,
+        "losses": 0,
+        "windows": 60,
+        "comparable": false,
+        "label": "one replay printed in both columns, so every window ties by construction",
+        "why": "one replay printed in both columns, so every window ties by construction"
       },
       "delta_pp": 0.0,
       "ranges_overlap": true,
@@ -784,6 +870,76 @@
       "material": false,
       "separated": false,
       "verdict": "indistinguishable: +0.00pp is below the 0.10pp materiality floor"
+    },
+    {
+      "task": "Equities \u2014 provide liquidity to a tokenized stock",
+      "category": "equities",
+      "venue": "PancakeSwap v3 TSLAx/USDT 0.25% \u00b7 0x5E12d6EdB2b7D5330e474ea2D2694A3b3E35d492",
+      "source": "chain",
+      "capital_quote": 1.0,
+      "metric": "net return on capital (fees \u2212 realized convexity cost \u2212 costs), P25\u2013P75",
+      "primary_metric": null,
+      "without_agent": "mint once at the same width, never touch it (passive_policy)",
+      "with_agent": "Warden \u2014 Avellaneda\u2013Stoikov recentring",
+      "quotable": false,
+      "note": "85 swaps spanning 4.1 days on PancakeSwap v3 TSLAx/USDT 0.25%. Assumption A5 requires 20 replay windows of at least 24h; this tape yields at most 4. It is the only tokenized-equity pool on BNB Chain with any liquidity \u2014 NVDAx and AAPLx have no v3 pool at any fee tier, and the 1.00% TSLAx pool has none. So the venue is real, our engine prices it, and there is not enough flow through it to quote. Withheld rather than estimated.",
+      "baseline": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.0,
+        "fees": 0.0,
+        "lvr_upper_bound": 0.0,
+        "costs": 0.0,
+        "moves": 0,
+        "mints": 0,
+        "pulls": 0,
+        "recentres": 0,
+        "distinct_returns": 0
+      },
+      "agent": {
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "in_range": 0.0,
+        "fees": 0.0,
+        "lvr_upper_bound": 0.0,
+        "costs": 0.0,
+        "moves": 0,
+        "mints": 0,
+        "pulls": 0,
+        "recentres": 0,
+        "distinct_returns": 0
+      },
+      "replay_days": 4.128,
+      "seconds": {
+        "without_agent": 0.0,
+        "with_agent": 0.0
+      },
+      "attention": {
+        "decisions_you_make": 0,
+        "decisions_made_for_you": 0,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
+      },
+      "hire_cost": {
+        "amount": 0.0,
+        "unit": "BNB",
+        "note": "",
+        "you_also_pay": {
+          "without_agent": 0.0,
+          "with_agent": 0.0,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": null,
+      "delta_pp": 0.0,
+      "ranges_overlap": true,
+      "same_run": false,
+      "material": false,
+      "separated": false,
+      "verdict": "no verdict \u2014 85 swaps spanning 4.1 days on PancakeSwap v3 TSLAx/USDT 0.25%. Assumption A5 requires 20 replay windows of at least 24h; this tape yields at most 4. It is the only tokenized-equity pool on BNB Chain with any liquidity \u2014 NVDAx and AAPLx have no v3 pool at any fee tier, and the 1.00% TSLAx pool has none. So the venue is real, our engine prices it, and there is not enough flow through it to quote. Withheld rather than estimated."
     },
     {
       "task": "Route \u2014 which lending venue to supply to",
@@ -866,12 +1022,33 @@
       "replay_days": 17.0,
       "seconds": {
         "without_agent": 2.9,
-        "with_agent": 3.3
+        "with_agent": 3.2
+      },
+      "attention": {
+        "decisions_you_make": 1,
+        "decisions_made_for_you": 2,
+        "unattended": true,
+        "note": "Counted, not timed. The DIY column's moves are decisions somebody had to make; the agent's are decisions it made instead, at times its policy chose rather than times anyone was watching. Turning either into hours would need a minutes-per-decision assumption this report does not have."
       },
       "hire_cost": {
         "amount": 0.0007550069999999999,
         "unit": "BNB",
-        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry."
+        "note": "0.000755 BNB \u2014 the keystore's own registration fee (0.000724, read from getRegistrationFeeInWei on chain 56) plus 0.000031 of gas for the grant and revoke, measured from the recorded round trip. One hire, one expiry.",
+        "you_also_pay": {
+          "without_agent": 0.015182742841756216,
+          "with_agent": 1.0303639674092282,
+          "unit": "quote token",
+          "note": "The strategy's own gas and slippage while the task runs, which is a different quantity from the fee to hire and is charged to both columns by the same cost model."
+        }
+      },
+      "beat_rate": {
+        "wins": 0,
+        "ties": 13,
+        "losses": 7,
+        "windows": 20,
+        "comparable": true,
+        "label": "beat doing it yourself on 0 of 20 windows (0%), 13 tied",
+        "rate": 0.0
       },
       "delta_pp": -0.013444,
       "ranges_overlap": true,
