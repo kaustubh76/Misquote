@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: studio studio-negotiate probe-studio claim-refund claim-refund-fork hire-mainnet prove-escrow termix-login ledger vet-prove grid sentinel find-equity-pool serve hire session-keys session-keys-verify registry-census journal
-.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools simulate
+.PHONY: help setup lint fmt test test-all vectors vectors-check vectors-verify vectors-report vet-addresses addresses fork-diff replay-tests showcase-demo go-no-go-fast indexer indexer-follow tape-slice warden showcase advantage advantage-demo advantage-auto advantage-short assumptions artifacts status registry vet tearsheet web web-build web-static web-test web-types web-check clean go-no-go judges vetting venue fork-parity diagram api api-config api-worker showcase-auto registry-survey registry-scan venus venus-verify erc8183-verify identity-register identity-verify router router-card og pools simulate
 
 UV     ?= uv
 POOL   ?= $(TARGET_POOL)
@@ -655,6 +655,15 @@ web-static:  ## serve the export the way a judge with no toolchain would
 
 web-test:  ## vitest: the component layer
 	cd apps/web && pnpm test
+
+web-types:  ## tsc --noEmit over apps/web
+	# `pnpm typecheck` has existed in apps/web/package.json throughout and was
+	# wired to nothing — no target, no gate, no CI — so `tsc` passed nowhere and
+	# the tree carried five TS18048s into a submission-eve commit. vitest does
+	# not substitute: it transpiles per file and never checks types across
+	# them, so a component and the view rendering it can disagree and both
+	# suites stay green.
+	cd apps/web && pnpm exec tsc --noEmit
 
 web-check:  ## load the built site in a real browser: console errors + 390px overflow
 	# Needs a browser: `cd apps/web && pnpm exec playwright install chromium`.

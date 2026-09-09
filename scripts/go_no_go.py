@@ -202,6 +202,49 @@ def check_web_component_suite() -> Check:
     return Check("web component suite", PASS, _summary_line(lines, "Tests ", last))
 
 
+def check_web_types() -> Check:
+    """`make web-types`: tsc over the front end.
+
+    The third web check, and the one that was missing. `pnpm typecheck` sat in
+    `apps/web/package.json` from the beginning, reachable by hand and reached
+    by nothing — not a make target, not this gate, not a CI file, because there
+    is no CI file. So it passed nowhere, and a change that failed it with five
+    `TS18048`s went to the edge of a submission with both other web checks
+    green.
+
+    They cannot cover it. vitest transpiles each file and discards the types;
+    the browser pass loads a build that Next produces with type errors ignored
+    at its own default. A component and the view that renders it can disagree
+    about a field's type — `string` against `number`, which is exactly what
+    happened — and every runtime assertion still passes, because the value is
+    right and only the declaration is wrong. Until it is not.
+
+    FAIL rather than UNVERIFIED when it fails: a type error is an answer, not a
+    step nobody ran.
+    """
+    code, output = _run(["make", "web-types"], timeout=SUITE_TIMEOUT)
+    lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
+
+    if "command not found" in output or "ENOENT" in output:
+        return Check(
+            "web types",
+            UNVERIFIED,
+            "node or pnpm is not installed, so tsc did not run",
+            "install the node toolchain, then make web-types",
+        )
+    if code != 0:
+        errors = [line for line in lines if ": error TS" in line]
+        return Check(
+            "web types",
+            FAIL,
+            f"{len(errors)} type error(s): " + "; ".join(errors[:2])
+            if errors
+            else (lines[-1] if lines else "tsc failed with no output"),
+            "make web-types",
+        )
+    return Check("web types", PASS, "tsc --noEmit clean over apps/web")
+
+
 #: Where the published API base lives, and how long a cold instance takes.
 #:
 #: The browser check loads routes that read the live API. The API is on a free
@@ -1364,6 +1407,7 @@ def run_checks(*, mainnet: bool, fast: bool) -> list[Check]:
             check_replay_invariants(),
             check_lint(),
             check_web_component_suite(),
+            check_web_types(),
             check_web_browser_suite(),
             check_chain_suite(),
         ]
