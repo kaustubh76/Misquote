@@ -1,0 +1,19 @@
+{
+  "byte_identical_to_repo_at": "356cba8da8b229cb32c248157d4ce81377a8ac71",
+  "bytes": 5729,
+  "content": {
+    "activity_decisions": 33513,
+    "build_git_dirty": true,
+    "build_git_sha": "135c38f",
+    "generated_at": "2026-09-08T19:32:58+00:00",
+    "source": "chain"
+  },
+  "fetched_with_cache_buster": true,
+  "keccak256": "0x6f05799f8c84d835747feb061109f6460b95dedbdec15b19718f5d95b4100d58",
+  "not_a_term": "A reading, not a change to what the bounty promises. The campaign's own text is unchanged and no hash has ever been published in it \u2014 nothing the 2026-09-08 rebuild could have falsified. Recorded independently of misquote-c2, which took the same reading; both agree on all four values.",
+  "open_question_for_a_human": "Whether a claimant who hashed before the 2026-09-08 rebuild and reports a mismatch should be paid. The honest reading is that they found something true and the bounty is working. Not decided here.",
+  "read_at": "2026-09-09T06:47:00+00:00",
+  "sha256": "ea0c6134f3fe2bf43f2397f66f7af46919ae07c736dd21418f27de6e8965923b",
+  "url": "https://misquote.vercel.app/artifacts/warden.json",
+  "why": "The bounty in packages/misquote/registry/marketplace.py pays a claimant to hash this URL and report what it says. The file is not frozen: a claimant hashes at T and we judge at T+n, and `make showcase` in between makes their hash legitimately right and no longer equal to ours. It moved twice on 2026-09-08 alone. This is the reading a claim can be adjudicated against, so a mismatch can be resolved by asking which reading they took rather than by assuming they are wrong."
+}
