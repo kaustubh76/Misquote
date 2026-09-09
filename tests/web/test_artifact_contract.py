@@ -110,11 +110,26 @@ def flatten(obj: object, prefix: str = "") -> set[str]:
     return out
 
 
-@pytest.fixture(scope="module")
-def agent_artifact() -> dict:
-    path = ARTIFACTS / "warden.json"
+#: The three cards `showcase.py` writes from one emitter.
+#:
+#: All three, not `warden.json` alone. The fixture loaded one card for as long
+#: as it existed, so `AGENT_FIELDS` — 105 leaves, both directions — had never
+#: been checked against two of the four agents this project is judged on. One
+#: emitter is a good reason to *expect* one shape; it is not a check that there
+#: is one, and the difference is the whole point of this file.
+#:
+#: They agree today, so this costs nothing and closes the hole. `held_by_gate`
+#: is the one place they could have differed — warden's journal has R1/R2/R3
+#: holds and the other two have none — and `OPAQUE` already stops `flatten`
+#: at that dict, because its keys are data and not schema.
+AGENT_CARDS = ("warden.json", "grid.json", "sentinel.json")
+
+
+@pytest.fixture(scope="module", params=AGENT_CARDS)
+def agent_artifact(request: pytest.FixtureRequest) -> dict:
+    path = ARTIFACTS / request.param
     if not path.exists():
-        pytest.skip("no artifacts; run `make showcase-demo`")
+        pytest.skip(f"no {request.param}; run `make showcase-demo`")
     return json.loads(path.read_text())
 
 
@@ -1600,16 +1615,29 @@ REGISTRY_FIELDS: dict[str, str] = {
     "aacp.participation.counters.now.openBriefs": "MarketplaceStanding.tsx",
     "aacp.participation.counters.now.savedListings": "MarketplaceStanding.tsx",
     "aacp.participation.counters.now.campaignsTotal": "MarketplaceStanding.tsx",
-    # `orders` and `briefs` are the lengths of the dashboard's own two arrays
-    # and say the same thing as `activeOrders` and `openBriefs`; `spending` is
-    # empty until an escrow is actually paid. Carried so a change in any of them
-    # is visible in the record, rendered nowhere because the page would be
-    # showing one number twice.
-    "aacp.participation.counters.baseline.orders": "",
-    "aacp.participation.counters.baseline.briefs": "",
+    # These were held back as "the same thing as `activeOrders` and
+    # `openBriefs`" — the page would be "showing one number twice". They are
+    # not the same thing, and the day that comment was written was the last day
+    # it was harmless:
+    #
+    #     activeOrders 0    orders 1     <- placed, paid, escrowed on chain
+    #     openBriefs   0    briefs 1     <- posted, and quoted by an agent
+    #
+    # Both zeros are correct. `termix_activity.py` says why in as many words —
+    # `activeOrders` counts orders *a provider has accepted*, and "an order
+    # exists" and "somebody has done the work" are different claims — while
+    # `openBriefs` drops ours the moment it is quoted, which is what happened.
+    #
+    # So the strict reading was published and the fuller one withheld, and the
+    # page read as though nothing had been bought or asked for. Both are shown
+    # now, with `not_done` underneath saying why each second half is still 0.
+    "aacp.participation.counters.baseline.orders": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.baseline.briefs": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.orders": "MarketplaceStanding.tsx",
+    "aacp.participation.counters.now.briefs": "MarketplaceStanding.tsx",
+    #: Still empty, and empty is not a row worth drawing. The platform fills it
+    #: from its own settlement, not from our escrow.
     "aacp.participation.counters.baseline.spendingByCurrency": "",
-    "aacp.participation.counters.now.orders": "",
-    "aacp.participation.counters.now.briefs": "",
     "aacp.participation.counters.now.spendingByCurrency": "",
     "aacp.available": "registry/view.tsx",
     "aacp.contracts": "registry/view.tsx",
@@ -2643,4 +2671,220 @@ def test_no_artifact_integer_loses_precision_in_a_browser() -> None:
         "artifact integers a browser silently changes: "
         + "; ".join(offenders)
         + ". Emit them as strings and read them with BigInt."
+    )
+
+
+# ── advantage.json, the TermiX track deliverable ─────────────────────────────
+#
+# The report a marketplace is judged on, and it had no contract at all. Eight of
+# the twenty artifacts were mapped and this was not one of them, so every field
+# it publishes could have been emitted and rendered nowhere with no suite able
+# to say so. That is not hypothetical: building this map found `question`
+# hardcoded as a shortened paraphrase in `app/advantage/view.tsx`, dropping "on
+# your marketplace" and "and can you prove it?" — the half the track is asking
+# about — and `summary.categories`/`summary.venues` emitted and shown nowhere,
+# so the breadth claim in `docs/SUBMISSION.md` rested on prose no page could
+# contradict.
+#
+# Declarations here are verified with `reads_the_path`, not the bare leaf grep:
+# this file's leaf names include `label`, `name`, `note`, `source` and `unit`,
+# every one of which matches something unrelated in a view.
+ADVANTAGE_FIELDS: dict[str, str] = {
+    "badge": "advantage/view.tsx",
+    "capital_quote": "advantage/view.tsx",
+    "overall.called": "advantage/view.tsx",
+    "overall.label": "advantage/view.tsx",
+    "question": "advantage/view.tsx",
+    "quote_symbol": "advantage/view.tsx",
+    "source": "advantage/view.tsx",
+    "summary.agent_ahead": "advantage/view.tsx",
+    "summary.categories": "advantage/view.tsx",
+    "summary.diy_ahead": "advantage/view.tsx",
+    "summary.indistinguishable": "advantage/view.tsx",
+    "summary.quotable": "advantage/view.tsx",
+    "summary.separated": "advantage/view.tsx",
+    "summary.tasks": "advantage/view.tsx",
+    "summary.venues": "advantage/view.tsx",
+    "summary.withheld": "advantage/view.tsx",
+    #: The run stamp. `BUILD_FIELDS` declares the same five unrendered on
+    #: `build.json` for the same reason: the landing page stamps the whole
+    #: artifact set once, and repeating it per report is noise.
+    "build.command": "",
+    "build.generated_at": "",
+    "build.git_dirty": "",
+    "build.git_sha": "",
+    "build.source": "",
+    #: `counterfactual` is the boolean behind the badge, and `badge` is what a
+    #: reader sees; `report` is the document's own title, which the page states
+    #: as its heading; `summary.bands_overlap` is the count `ranges_overlap`
+    #: already shows per task.
+    "counterfactual": "",
+    "report": "",
+    "summary.bands_overlap": "",
+    # ── per task ──
+    "tasks.task": "advantage/view.tsx",
+    "tasks.category": "advantage/view.tsx",
+    "tasks.venue": "advantage/view.tsx",
+    "tasks.metric": "advantage/view.tsx",
+    "tasks.note": "advantage/view.tsx",
+    "tasks.source": "advantage/view.tsx",
+    "tasks.verdict": "advantage/view.tsx",
+    "tasks.quotable": "advantage/view.tsx",
+    "tasks.material": "advantage/view.tsx",
+    "tasks.separated": "advantage/view.tsx",
+    "tasks.ranges_overlap": "advantage/view.tsx",
+    "tasks.same_run": "advantage/view.tsx",
+    "tasks.replay_days": "advantage/view.tsx",
+    "tasks.delta_pp": "advantage/view.tsx",
+    "tasks.capital_quote": "advantage/view.tsx",
+    "tasks.with_agent": "advantage/view.tsx",
+    "tasks.without_agent": "advantage/view.tsx",
+    "tasks.agent.costs": "advantage/view.tsx",
+    "tasks.agent.fees": "advantage/view.tsx",
+    "tasks.agent.in_range": "advantage/view.tsx",
+    "tasks.agent.lvr_upper_bound": "advantage/view.tsx",
+    "tasks.agent.moves": "advantage/view.tsx",
+    "tasks.agent.p25": "advantage/view.tsx",
+    "tasks.agent.p50": "advantage/view.tsx",
+    "tasks.agent.p75": "advantage/view.tsx",
+    "tasks.agent.returns": "advantage/view.tsx",
+    "tasks.baseline.costs": "advantage/view.tsx",
+    "tasks.baseline.fees": "advantage/view.tsx",
+    "tasks.baseline.in_range": "advantage/view.tsx",
+    "tasks.baseline.lvr_upper_bound": "advantage/view.tsx",
+    "tasks.baseline.moves": "advantage/view.tsx",
+    "tasks.baseline.p25": "advantage/view.tsx",
+    "tasks.baseline.p50": "advantage/view.tsx",
+    "tasks.baseline.p75": "advantage/view.tsx",
+    "tasks.baseline.returns": "components/TaskOutputs.tsx",
+    "tasks.attention.decisions_made_for_you": "advantage/view.tsx",
+    "tasks.attention.decisions_you_make": "advantage/view.tsx",
+    #: Null on the withheld task, so the path itself is a leaf there. Declared
+    #: because collapsing over *every* task rather than the first is what makes
+    #: this contract a statement about the report instead of about `tasks[0]` —
+    #: and it caught these three on the first run.
+    "tasks.beat_rate": "advantage/view.tsx",
+    "tasks.primary_metric": "advantage/view.tsx",
+    #: Present only where the pairing means nothing — `task_choose` prints one
+    #: replay in both columns — and the page prefers it over `label` when it is
+    #: there: `task.beat_rate.why ?? task.beat_rate.label`.
+    "tasks.beat_rate.why": "advantage/view.tsx",
+    "tasks.beat_rate.comparable": "advantage/view.tsx",
+    "tasks.beat_rate.label": "advantage/view.tsx",
+    "tasks.beat_rate.ties": "advantage/view.tsx",
+    "tasks.beat_rate.windows": "advantage/view.tsx",
+    "tasks.beat_rate.wins": "advantage/view.tsx",
+    "tasks.hire_cost.amount": "advantage/view.tsx",
+    "tasks.hire_cost.unit": "advantage/view.tsx",
+    "tasks.hire_cost.you_also_pay.with_agent": "advantage/view.tsx",
+    "tasks.hire_cost.you_also_pay.without_agent": "advantage/view.tsx",
+    "tasks.primary_metric.improved": "advantage/view.tsx",
+    "tasks.primary_metric.name": "advantage/view.tsx",
+    "tasks.primary_metric.summary": "advantage/view.tsx",
+    #: The card's own columns. `AgentCard.tsx` and `AgentDetail.tsx` render
+    #: mints, pulls, recentres and the return spread from `warden.json` and its
+    #: siblings, against the same replay; the report's job is the comparison,
+    #: and repeating the card's breakdown under it would be the same numbers in
+    #: two places with two chances to disagree.
+    "tasks.agent.distinct_returns": "",
+    "tasks.agent.mints": "",
+    "tasks.agent.pulls": "",
+    "tasks.agent.recentres": "",
+    "tasks.baseline.distinct_returns": "",
+    "tasks.baseline.mints": "",
+    "tasks.baseline.pulls": "",
+    "tasks.baseline.recentres": "",
+    #: `summary` is the sentence a reader gets — "fee APR: 30.5% vs 28.1%" —
+    #: and these are the same three values machine-readable. The page renders
+    #: the sentence and `improved`, which is the verdict on them.
+    "tasks.primary_metric.agent": "",
+    "tasks.primary_metric.baseline": "",
+    "tasks.primary_metric.lower_is_better": "",
+    "tasks.primary_metric.unit": "",
+    #: Derivable from what is shown: `rate` is `wins / windows`, and `losses`
+    #: is what `windows` less `wins` and `ties` leaves.
+    "tasks.beat_rate.losses": "",
+    "tasks.beat_rate.rate": "",
+    #: Prose the page states in its own words where it states it at all. The
+    #: gas note in particular — "charged to both columns by the same cost
+    #: model" — is what the rendered "gas either way: X DIY · Y agent" *is*.
+    "tasks.attention.note": "",
+    "tasks.attention.unattended": "",
+    "tasks.hire_cost.note": "",
+    "tasks.hire_cost.you_also_pay.note": "",
+    "tasks.hire_cost.you_also_pay.unit": "",
+    #: **Deliberately not rendered.** `tearsheet/advantage.py` is explicit that
+    #: this is how long *our replay* took on the author's laptop and is not an
+    #: answer to "how long does this job take". Publishing it beside a hire
+    #: price would read as the second, which is a claim the number cannot make.
+    "tasks.seconds.with_agent": "",
+    "tasks.seconds.without_agent": "",
+}
+
+
+@pytest.fixture(scope="module")
+def advantage_artifact() -> dict:
+    path = ARTIFACTS / "advantage.json"
+    if not path.exists():
+        pytest.skip("no advantage report; run `make advantage`")
+    return json.loads(path.read_text())
+
+
+def advantage_paths(payload: dict) -> set[str]:
+    """Every leaf, with the task list collapsed onto one `tasks.` prefix.
+
+    Six tasks share one shape, so a per-index path would make the contract a
+    function of how many tasks the report happens to carry — and the report
+    grew from five to six the day `Equities` was added.
+    """
+    paths = flatten({k: v for k, v in payload.items() if k != "tasks"})
+    for task in payload.get("tasks") or []:
+        paths |= {f"tasks.{p}" for p in flatten(task)}
+    return paths
+
+
+def test_the_advantage_emitter_writes_exactly_the_contracted_fields(
+    advantage_artifact: dict,
+) -> None:
+    """Both directions, over every task rather than the first one."""
+    actual = advantage_paths(advantage_artifact)
+    declared = set(ADVANTAGE_FIELDS)
+
+    undeclared = actual - declared
+    undelivered = declared - actual
+
+    assert not undeclared, (
+        "the advantage emitter writes fields the contract does not declare — add "
+        f"them to ADVANTAGE_FIELDS and render them, or stop emitting them: {sorted(undeclared)}"
+    )
+    assert not undelivered, (
+        f"the contract declares advantage fields the emitter does not write: {sorted(undelivered)}"
+    )
+
+
+def test_every_contracted_advantage_field_is_read_by_the_named_view() -> None:
+    """`reads_the_path`, not the leaf grep, and the reason is in this file.
+
+    `label`, `name`, `note`, `source` and `unit` are all leaf names here and all
+    of them match something unrelated in a view — `AgentCard.tsx` alone has ten
+    `label`s. A bare-word check would have passed declarations that are false,
+    which is exactly how `advantage.beat_rate.label` nearly shipped named
+    against a file that never reads it.
+    """
+    sources = _sources()
+    missing: list[str] = []
+
+    for path, renderer in ADVANTAGE_FIELDS.items():
+        if not renderer:
+            continue
+        source = sources.get(renderer)
+        assert source is not None, f"{renderer} does not exist"
+        # `tasks.` is this contract's own collapse, not a path in the source:
+        # the view holds one `task` and reads `task.agent.costs`. Strip it, so
+        # `reads_the_path` compares the shape the renderer actually writes.
+        if not reads_the_path(source, path.removeprefix("tasks.")):
+            missing.append(f"{path} -> {renderer}")
+
+    assert not missing, (
+        f"these advantage fields are contracted to a view that never reads them: {sorted(missing)}"
     )

@@ -84,12 +84,36 @@ interface Counters {
   openBriefs?: number | null;
   savedListings?: number | null;
   campaignsTotal?: number | null;
+  /** Orders we placed, however far they got. See `also` on `SHOWN`. */
+  orders?: number | null;
+  /** Briefs we posted, open or not. */
+  briefs?: number | null;
 }
 
-/** The four the dashboard leads with, in the order it shows them. */
-const SHOWN: { key: keyof Counters; label: string }[] = [
-  { key: "activeOrders", label: "Orders" },
-  { key: "openBriefs", label: "Requests" },
+/**
+ * The four the dashboard leads with, in the order it shows them — and, for the
+ * two that have one, the fuller count beside it.
+ *
+ * `activeOrders` and `openBriefs` are the platform's own metrics and they are
+ * both **0**, which read as "nothing happened" while `registry.json` carried
+ * `orders: 1` and `briefs: 1` two keys away. Neither zero is wrong:
+ * `termix_activity.py` is explicit that `activeOrders` counts orders *a
+ * provider has accepted* — "an order exists" and "somebody has done the work"
+ * are different claims — and `openBriefs` drops ours the moment it is quoted,
+ * which is what happened.
+ *
+ * So both readings, rather than a choice between them. Showing only the strict
+ * one understated a paid, on-chain-escrowed order and a brief an autonomous
+ * agent answered; showing only the fuller one would claim delivery nobody has
+ * made. The `not_done` list underneath says why each second half is still zero.
+ */
+const SHOWN: {
+  key: keyof Counters;
+  label: string;
+  also?: { key: keyof Counters; verb: string };
+}[] = [
+  { key: "activeOrders", label: "Orders", also: { key: "orders", verb: "placed" } },
+  { key: "openBriefs", label: "Requests", also: { key: "briefs", verb: "posted" } },
   { key: "campaignsTotal", label: "Bounties" },
   { key: "savedListings", label: "Saved" },
 ];
@@ -134,12 +158,25 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
 
       {/* The dashboard's own four, each against where it started. */}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {SHOWN.map(({ key, label }) => (
-          <div key={key} className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-dim">{label}</span>
-            <Delta from={base[key]} to={now[key]} />
-          </div>
-        ))}
+        {SHOWN.map(({ key, label, also }) => {
+          // Only when it says something the delta does not. A qualifier reading
+          // "0 placed" beside "0 → 0" is noise.
+          const fuller = also ? (now[also.key] ?? 0) : 0;
+          const shown = now[key] ?? 0;
+          return (
+            <div key={key} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-dim">{label}</span>
+              <span className="flex items-baseline gap-2">
+                <Delta from={base[key]} to={now[key]} />
+                {also && fuller > shown && (
+                  <span className="text-xs text-faint">
+                    · {count(fuller)} {also.verb}
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {listings.length > 0 && (

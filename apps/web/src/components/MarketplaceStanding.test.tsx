@@ -128,3 +128,36 @@ describe("what it refuses to imply", () => {
     expect(screen.queryByText("Orders")).not.toBeInTheDocument();
   });
 });
+
+describe("the two counters whose strict reading is zero", () => {
+  it("shows what was placed and posted beside the platform's own zeros", () => {
+    // `activeOrders` and `openBriefs` are both 0 and both correct, and the page
+    // read as though nothing had been bought or asked for while `orders: 1` and
+    // `briefs: 1` sat two keys away in the same artifact.
+    const p = registry.aacp.participation;
+    if (!p?.counters) return;
+    const now = p.counters.now ?? {};
+    if ((now.orders ?? 0) <= (now.activeOrders ?? 0)) return;
+
+    render(<MarketplaceStanding p={p} />);
+    expect(screen.getByText(new RegExp(`${now.orders} placed`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${now.briefs} posted`))).toBeInTheDocument();
+  });
+
+  it("does not add a qualifier that repeats the number beside it", () => {
+    // "0 placed" next to "0 → 0" is noise, and a qualifier that always renders
+    // would be decoration rather than a reading.
+    render(
+      <MarketplaceStanding
+        p={{
+          counters: {
+            baseline: { activeOrders: 0, openBriefs: 0, orders: 0, briefs: 0 },
+            now: { activeOrders: 0, openBriefs: 0, orders: 0, briefs: 0 },
+          },
+        }}
+      />
+    );
+    expect(screen.queryByText(/placed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/posted/)).not.toBeInTheDocument();
+  });
+});

@@ -95,8 +95,15 @@ export function AdvantageView({
 
   return (
     <Loadable loading={main === null} what="the advantage report">
+      {/* Read, not typed. The emitter writes the track's question in full —
+          "Does hiring an agent **on your marketplace** beat doing the job
+          yourself, **and can you prove it?**" — and this heading was a
+          shortened paraphrase of it that dropped both halves that matter. The
+          paragraph below already learned this lesson about the task count:
+          "it was typed in five places against one field". The literal survives
+          only as the pre-load frame, where there is no artifact to read. */}
       <h1 className="text-3xl leading-[1.15] font-semibold text-balance">
-        Does hiring an agent beat doing the job yourself?
+        {d?.question ?? "Does hiring an agent beat doing the job yourself?"}
       </h1>
       <p className="mt-3 max-w-[68ch] text-dim">
         {/* 58 words making one claim twice — "same driver, tape, cost model,
@@ -107,6 +114,22 @@ export function AdvantageView({
         the columns — same driver, same tape, same cost model,{" "}
         <strong className="text-ink">held fixed by construction</strong>.
       </p>
+
+      {/* The breadth, from the report rather than from a sentence about it.
+          `summary.categories` and `summary.venues` were both emitted and shown
+          nowhere, so a reader had to count the task cards to learn how wide the
+          report reaches — and the submission's claim of depth across categories
+          rested on prose no page could contradict. */}
+      {d && (d.summary.categories?.length || d.summary.venues?.length) ? (
+        <p className="mt-2 mb-0 max-w-[68ch] text-sm text-faint">
+          Across{" "}
+          <strong className="text-ink">
+            {(d.summary.categories ?? []).join(", ")}
+          </strong>
+          , on {count(d.summary.venues?.length ?? 0)}{" "}
+          {(d.summary.venues?.length ?? 0) === 1 ? "venue" : "venues"}.
+        </p>
+      ) : null}
 
       {main === null && (
         <div className="mt-10 grid gap-5">
