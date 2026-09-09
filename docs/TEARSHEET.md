@@ -6,13 +6,16 @@
   Warden
   PancakeSwap v3 WBNB/USDT 0.05% · 0x36696169C63e42cd08ce11f5deeBbCeBae652050
 
-  QUOTE            36.88% to 38.72% (median 37.74%, over 31h — too short to annualise honestly)
+  BASIS            this agent's live journal, 40,490 decisions over 39.1h
+                   not the published card, which replays 20 windows of the full tape
+
+  QUOTE            20.70% to 36.15% (median 30.47%, annualised)
   in range         no verdict (0 observations, need 30)
   beats holding    no verdict (0 observations, need 30)
 
-  decisions        139 over 0.2h
-  moves            1 mint, 0 rebalance, 1 pull
-  held back by     R1 115, R2 115, R3 115
+  decisions        40,490 over 39.1h
+  moves            2 mint, 0 rebalance, 1 pull
+  held back by     R1 27,790, R2 35,961, R3 1,404
 
   THINGS THIS NUMBER DOES NOT KNOW
     - Adverse selection is reported as an upper bound (assumption A10): the measure is non-negative for every swap regardless of who traded, so it folds reversion round trips into what it calls adverse selection.

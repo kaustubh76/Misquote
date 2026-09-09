@@ -596,10 +596,16 @@ simulate:  ## what a position of a given size would have earned. reads the tape.
 # were still on disk — on a clean checkout the citations would have been built
 # from whatever happened to exist. `addresses` citing A1/P-6/P-8/V-10 is what
 # surfaced it: the projection guard went red the moment that artifact appeared.
-artifacts: showcase-auto router-card ledger advantage-auto advantage-short registry studio venue vetting addresses vectors-report api-config journal assumptions judges status  ## every artifact the site reads
+artifacts: showcase-auto router-card ledger advantage-auto advantage-short registry studio venue vetting addresses vectors-report api-config journal assumptions tearsheet judges status  ## every artifact the site reads
 	# `judges` sits second-to-last on purpose: it derives its blocks from the
 	# artifacts above it, and `status` runs the go/no-go gate — which now
 	# checks the document is current, so it has to see the synced version.
+	#
+	# `tearsheet` is in this list because it was not, and rotted for 25 days
+	# behind a banner reading "every number is derived; do not edit" — 139
+	# decisions over 0.2h against a journal of 43,736 rows. A generated file
+	# outside the target that generates everything else is a file nobody
+	# regenerates, and the banner makes it read as fresh.
 
 api-config:  ## publish where the live API is, as apps/web/public/artifacts/api.json
 	# Reads MISQUOTE_API_BASE. Unset KEEPS whatever base is already published and
