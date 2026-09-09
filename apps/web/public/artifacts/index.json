@@ -72,7 +72,7 @@
       "evidence": "packages/misquote/registry/hire.py \u2014 no escrow.py",
       "name": "ERC-8183 escrow",
       "what": "A Hire button that **escrows** a job and releases it. Escrowing is done, on mainnet, with real money; releasing is not.",
-      "why": "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet and `claimRefund` moved it back, both mined. `submit` has since mined too, on job 56718 \u2014 the same flow with a 192-hour expiry instead of twelve, which is the whole difference. What is left is `settle`, which reverts `NotDecided()` until the 7-day dispute window runs and is due 13 Sep: a wait rather than a gap, and the only part still unproven on chain."
+      "why": "`fund` moved 0.1 of the payment token into job 56681 on BSC mainnet and `claimRefund` moved it back, both mined. `submit` has since mined too, on job 56718 \u2014 the same flow with a 192-hour expiry instead of twelve, which is the whole difference. What is left is `settle`, which reverts `NotDecided()` until the 7-day dispute window runs and is due 13 Sep: a wait rather than a gap, and the only part still unproven on chain.\n\nThe larger caveat is not the missing call. **One wallet was both client and provider on both jobs**, so what is proven is the escrow mechanics \u2014 money in, money back, a delivery recorded \u2014 and not a hire. Nobody was paid by anybody. `go_no_go` has said so in its own detail line for as long as it has been true; this ledger, which is the thing the site renders, did not, and a caveat that lives only in the gate output is a caveat the reader finds after the claim."
     }
   ],
   "pool": "PancakeSwap v3 WBNB/USDT 0.05%",

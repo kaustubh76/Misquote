@@ -176,7 +176,14 @@ NOT_BUILT: tuple[NotBuilt, ...] = (
             "job 56718 — the same flow with a 192-hour expiry instead of twelve, which "
             "is the whole difference. What is left is `settle`, which reverts "
             "`NotDecided()` until the 7-day dispute window runs and is due 13 Sep: a "
-            "wait rather than a gap, and the only part still unproven on chain."
+            "wait rather than a gap, and the only part still unproven on chain.\n\n"
+            "The larger caveat is not the missing call. **One wallet was both client "
+            "and provider on both jobs**, so what is proven is the escrow mechanics — "
+            "money in, money back, a delivery recorded — and not a hire. Nobody was "
+            "paid by anybody. `go_no_go` has said so in its own detail line for as "
+            "long as it has been true; this ledger, which is the thing the site "
+            "renders, did not, and a caveat that lives only in the gate output is a "
+            "caveat the reader finds after the claim."
         ),
         evidence="packages/misquote/registry/hire.py — no escrow.py",
     ),
