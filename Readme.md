@@ -332,8 +332,12 @@ caps · the tearsheet.
       key at all. The agent runs at `misquote-agent.onrender.com` with ERC-8004
       identity 2102 registered by the CLI; what has not happened is the CLI
       deploying it.
-- [ ] Mission Control micropayment discrepancy (49 vs 75) resolved; correct
+- [x] Mission Control micropayment discrepancy (49 vs 75) resolved; correct
       number recorded in `docs/REQUIREMENTS_MATRIX.md` before any card renders.
+      It is **75**, against 242 logged — `REQUIREMENTS_MATRIX.md` has said
+      RESOLVED for weeks while this box stayed empty, which is the failure the
+      matrix's own entry beside it warns about: a checklist kept in a second
+      place goes stale in the second place.
 
 ## 9. Environment
 
