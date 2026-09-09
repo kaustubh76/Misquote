@@ -79,10 +79,11 @@ went with it.
 > "Here's the question the whole thing turns on: does hiring an agent beat
 > doing it yourself?
 >
-> Five tasks, same replay driver, same tape, same cost model on both sides —
+> Six tasks, same replay driver, same tape, same cost model on both sides —
 > the only difference is the policy. Two of them the agent wins, with bands
 > that don't overlap. One it loses badly, and we say so and explain why. Two are
 > indistinguishable, and we call them that instead of rounding them into a win.
+> The sixth we withhold, because the tape is too short to quote honestly.
 >
 > The report refuses to declare an overall winner: five observations, and it
 > won't call a rate on fewer than thirty."
@@ -97,7 +98,9 @@ reclaimed"** → `/registry#escrow`.
 > "This isn't only replays. We escrowed a tenth of a token into a live ERC-8183
 > job on BNB Smart Chain mainnet and reclaimed it — both mined, both linked to
 > BscScan here. Then we did it again and got further: job 56718 is funded and
-> delivered into, with `submit` mined on mainnet.
+> delivered into, with `submit` mined on mainnet. One wallet was on both sides
+> of both jobs, so this proves the escrow works and it hires nobody — that's on
+> the ledger too.
 >
 > The first one couldn't reach submit, and the reason is the interesting part.
 > It needs an expiry beyond the seven-day dispute window and we asked for
@@ -130,8 +133,8 @@ rehearsed — `make prove-escrow` is the fork rehearsal.*
 **Screen:** `/status`.
 
 > "And this is why I'd trust it. A go/no-go checklist that executes — not a
-> document, a program. Twenty-one gates, run against mainnet, and it refuses to
-> go green on anything nobody has checked.
+> document, a program. Twenty-two gates, and it refuses to go green on anything
+> nobody has checked.
 >
 > Below it is a ledger of everything this project advertises and does not have —
 > including the one that matters most here: this has never signed a trade with
@@ -140,12 +143,16 @@ rehearsed — `make prove-escrow` is the fork rehearsal.*
 > The only thing misquoted here is the name. Audit me."
 
 **Read the verdict off the page rather than from this script.** It has been
-NOT YET for the whole of this project's life and the number of ambers has been
-falling: three, then one — a 24h unattended burn-in on BSC mainnet that was
-still counting when this was written. Say what the page says when you record.
-If every gate is green, the sentence is *"twenty-one of twenty-one, and the
-not-built ledger is still five items long"* — the ledger is the honest part
-either way, and it is what the shot ends on.
+NOT YET for the whole of this project's life, and the amber count moves in both
+directions — it was three, then one, and the published run is four. Two of those
+four are only "not checked — this run is not `--mainnet`". Say what the page
+says when you record. If every gate is green, the sentence is *"twenty-two of
+twenty-two, and the not-built ledger is still six items long"* — the ledger is
+the honest part either way, and it is what the shot ends on.
+
+Every count in this script is typed and every one of them has drifted at least
+once. Before recording, read them off `/status` and `/advantage` rather than off
+this page.
 
 *End on the not-built ledger, not on a logo.*
 
