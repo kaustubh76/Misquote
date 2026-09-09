@@ -147,13 +147,18 @@ this tree did not mention at all, and the runbook now exists. Deploy is
 - **Agents/backend:** Python 3.12 (ports from PolyLambda + Mission Control),
   `web3.py`, asyncio loops; SQLite for hackathon persistence (Postgres only if
   it hurts).
-- **Front-end:** Next.js + Tailwind ✅ (`apps/web`, React + TypeScript, vitest).
-  ~~wagmi/viem, RainbowKit connect~~ — **not built, and not currently needed.**
-  The page reads precomputed JSON artifacts and never imports a wallet library,
-  which is what lets `make web-static` serve the whole thing from
-  `python3 -m http.server` with every backend process down — the state a demo is
-  most likely to find them in. A wallet connect returns only when there is a
-  personalised quote to connect *for*. Corrected 15 Aug 2026.
+- **Front-end:** Next.js + Tailwind ✅ (`apps/web`, React + TypeScript, vitest),
+  **with wagmi/viem** — `wagmi ^3.7.7` and `viem ^2.56.1` are declared and
+  imported across twelve files, `WalletProvider` wraps every page
+  (`app/layout.tsx`), and `HireEscrow` and `EscrowConsole` send real transactions
+  from the reader's own wallet. Every page still renders its numbers from
+  precomputed JSON artifacts, which is what lets `make web-static` serve the
+  whole thing from `python3 -m http.server` with every backend process down —
+  the state a demo is most likely to find them in; the wallet is additive, and a
+  visitor who never connects one loses nothing but the ability to sign. This
+  bullet read "not built, and not currently needed … never imports a wallet
+  library" until 9 Sep 2026, having been written on 15 Aug when it was true and
+  never revisited when the connect landed.
 - **Chain:** BSC mainnet + testnet; PancakeSwap v3 (Uniswap v3 math),
   Venus/Lista reads; NonfungiblePositionManager for LP ops.
 - **Fork lab:** Foundry (anvil mainnet forks) for vetting PoCs.
@@ -223,11 +228,17 @@ hardening, README-for-judges. Submit by Sep 9.
   revoke; the allowlist and the spend cap belong to a `validator` module nobody
   here has read, and every grant on this deployment carries `validator = 0x0`.
   So `VALIDATOR_MODULE` is empty for the reason `SESSION_KEY_MODULE` used to be,
-  there is still no Hire button, and `/activate` says which two of the four caps
-  are real.
+  and `/activate` says which two of the four caps are real. It also carries a
+  Hire button that escrows through the kernel — this sentence said there was
+  none long after `HireEscrow` shipped.
 - **registry:** our 4 agents resolvable via ERC-8004 read; hire callable via
-  ERC-8183 from the web app. **Not met** — see above. The registry *read* path
-  is built and surveys 280,287 agent ids; the write path has never been run.
+  ERC-8183 from the web app. **Met, with one call outstanding.** The read path
+  surveys a registry whose population is now 285,599 on chain 56. The write path
+  has run on mainnet: five client transactions across jobs 56681 and 56718 —
+  `approve`, `createJob`, `setBudget`, `fund`, `claimRefund` — and `submit`
+  after them. Only `settle` is unproven outside a fork. This bullet said "the
+  write path has never been run" while a paragraph 150 lines above it described
+  the transactions that ran it.
 - **tearsheet:** report generated from ledger with zero hand-entered numbers.
 - **web:** an external tester completes land → quote → activate → revoke with
   no dead end and no instruction. **Partly met, and it is the only bullet here
@@ -296,9 +307,12 @@ caps · the tearsheet.
       mainnet** — job 56681, 0.1 of the payment token in, and `claimRefund`
       brought it back out. This entry said the token was owner-minted and the
       signer held none; it trades on PancakeSwap, and
-      `scripts/buy_payment_token.py` is the code that closed it. What is still
-      open is release: `submit` needs an expiry beyond the seven-day dispute
-      window and the run asked for twelve hours. See **P-28** and
+      `scripts/buy_payment_token.py` is the code that closed it. `submit` has
+      since mined too, on job 56718 — the same flow with a 192-hour expiry
+      instead of twelve, which was the whole obstacle. What is still open is
+      `settle`, which reverts `NotDecided()` until the seven-day dispute window
+      runs and is due 13 Sep. One wallet was both client and provider on both
+      jobs, so all of this proves the escrow and hires nobody. See **P-28** and
       `registry/hire.py`.
 - [ ] Agent Studio CLI hello-world deployed. More than a hello-world exists and
       the box is still unticked, which is the honest state. The scaffold at

@@ -793,13 +793,20 @@ project exists to argue against.
   So two of the four caps are enforced and two are enforced by nothing.
   `VALIDATOR_MODULE` is empty for exactly the reason `SESSION_KEY_MODULE` used to
   be, `SessionKeyWriter.grant` refuses to send a capped-looking grant without an
-  explicit `allow_unenforced_caps=True`, and there is still no Hire button. A
-  page offering four caps over a key the chain bounds by one would be this
-  project's own name, on the page about bounded authority.
+  explicit `allow_unenforced_caps=True`. A page offering four caps over a key
+  the chain bounds by one would be this project's own name, on the page about
+  bounded authority — so `/activate` names the two that are real beside the Hire
+  button rather than instead of it. That sentence read "and there is still no
+  Hire button" long after `HireEscrow` shipped and began escrowing through the
+  kernel.
 
-- **The ERC-8183 hire flow** is not built. **Router now is** —
-  the fourth category, and with it all four the main track asks for at equal
-  depth.
+- **The ERC-8183 hire flow** is built and has moved real money on mainnet —
+  five client transactions across jobs 56681 and 56718, with only `settle`
+  outstanding, and one wallet on both sides of both so it proves the escrow and
+  hires nobody. This line said "is not built" while the escrow section of this
+  same document, three hundred lines above, listed the transactions that built
+  it. **Router now is built too** — the fourth category, and with it all four
+  the main track asks for at equal depth.
 
   Router is worth a sentence about *why* it was cut and what building it cost,
   because the ledger entry naming it said the reason plainly: it was the only
