@@ -1175,7 +1175,7 @@
       ],
       "id": "G-1",
       "kind": "gap",
-      "line": 2089,
+      "line": 2094,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "M"
     },
@@ -1210,7 +1210,7 @@
       "cited_by": [],
       "id": "G-2",
       "kind": "gap",
-      "line": 2090,
+      "line": 2095,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "arb_cost_bps"
     },
@@ -1248,7 +1248,7 @@
       ],
       "id": "G-3",
       "kind": "gap",
-      "line": 2091,
+      "line": 2096,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "N"
     },
@@ -1283,7 +1283,7 @@
       "cited_by": [],
       "id": "G-4",
       "kind": "gap",
-      "line": 2092,
+      "line": 2097,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "\u03ba_default"
     },
@@ -1402,7 +1402,7 @@
       ],
       "id": "P-6",
       "kind": "correction",
-      "line": 2040,
+      "line": 2045,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Confirmed correct \u2014 worth recording, since Week 2 rests on it"
     },
@@ -1469,7 +1469,7 @@
       "cited_by": [],
       "id": "P-7",
       "kind": "correction",
-      "line": 1995,
+      "line": 2000,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity rule's false-positive rate is measurable, and it is not zero"
     },
@@ -1583,7 +1583,7 @@
       ],
       "id": "P-8",
       "kind": "correction",
-      "line": 1929,
+      "line": 1934,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two pools on the same DEX, two different protocol fees \u2014 **corrected 15 Aug 2026**"
     },
@@ -1654,7 +1654,7 @@
       "cited_by": [],
       "id": "P-9",
       "kind": "correction",
-      "line": 1868,
+      "line": 1873,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The live loop had two execution paths \u2014 **fixed 16 Aug 2026**"
     },
@@ -1696,7 +1696,7 @@
       "cited_by": [],
       "id": "P-10",
       "kind": "correction",
-      "line": 1827,
+      "line": 1832,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The tail could not tell you it was failing, and the endpoints are shared"
     },
@@ -1865,7 +1865,7 @@
       "cited_by": [],
       "id": "P-11",
       "kind": "correction",
-      "line": 1722,
+      "line": 1727,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Two of our three endpoints could never serve logs, and the health check said they were fine \u2014 **fixed 16 Aug 2026**"
     },
@@ -1956,7 +1956,7 @@
       "cited_by": [],
       "id": "P-12",
       "kind": "correction",
-      "line": 1668,
+      "line": 1673,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent left and came back 2,585 times, and nothing counted \u2014 **fixed 17 Aug 2026**"
     },
@@ -2027,7 +2027,7 @@
       "cited_by": [],
       "id": "P-13",
       "kind": "correction",
-      "line": 1617,
+      "line": 1622,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The published quote was a statement about a constant \u2014 **fixed 17 Aug 2026**"
     },
@@ -2086,7 +2086,7 @@
       "cited_by": [],
       "id": "P-14",
       "kind": "correction",
-      "line": 1577,
+      "line": 1582,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The position was never the size we divided by, and A1 was a clamp \u2014 **fixed 18 Aug 2026**"
     },
@@ -2161,7 +2161,7 @@
       "cited_by": [],
       "id": "P-15",
       "kind": "correction",
-      "line": 1533,
+      "line": 1538,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The volatility estimator threw away three quarters of the variance \u2014 **fixed 18 Aug 2026**"
     },
@@ -2247,7 +2247,7 @@
       "cited_by": [],
       "id": "P-16",
       "kind": "correction",
-      "line": 1485,
+      "line": 1490,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Equation (3) clamps the holdings *and* the price; only one of those is right \u2014 **fixed 18 Aug 2026**"
     },
@@ -2349,7 +2349,7 @@
       "cited_by": [],
       "id": "P-17",
       "kind": "correction",
-      "line": 1433,
+      "line": 1438,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The Avellaneda\u2013Stoikov half-width never reaches the anti-dust floor \u2014 **18 Aug 2026**"
     },
@@ -2430,7 +2430,7 @@
       ],
       "id": "P-18",
       "kind": "correction",
-      "line": 1361,
+      "line": 1366,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The one ERC-8183 escrow we had verified does not implement ERC-8183 \u2014 **19 Aug 2026**"
     },
@@ -2495,7 +2495,7 @@
       "cited_by": [],
       "id": "P-19",
       "kind": "correction",
-      "line": 1311,
+      "line": 1316,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "On real flow, \u00a73.4's imbalance screen does not separate two venues \u2014 **19 Aug 2026**"
     },
@@ -2616,7 +2616,7 @@
       "cited_by": [],
       "id": "P-20",
       "kind": "correction",
-      "line": 1234,
+      "line": 1239,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The agent spends its whole daily budget leaving, and cannot afford to come back \u2014 **20 Aug 2026**"
     },
@@ -2726,7 +2726,7 @@
       "cited_by": [],
       "id": "P-21",
       "kind": "correction",
-      "line": 1163,
+      "line": 1168,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "D1 was decided against a number nobody had read, and the survey that would have read it was gated on a key it did not need \u2014 **20 Aug 2026**"
     },
@@ -2794,7 +2794,7 @@
       ],
       "id": "P-22",
       "kind": "correction",
-      "line": 1120,
+      "line": 1125,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The yield number every lending frontend quotes depends on a constant that is not on chain \u2014 **21 Aug 2026**"
     },
@@ -2920,7 +2920,7 @@
       "cited_by": [],
       "id": "P-23",
       "kind": "correction",
-      "line": 1058,
+      "line": 1063,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The toxicity threshold was calibrated against a null that real flow violates, and it is why the agent loses \u2014 **21 Aug 2026**"
     },
@@ -3013,7 +3013,7 @@
       ],
       "id": "P-24",
       "kind": "correction",
-      "line": 1005,
+      "line": 1010,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "There was a verified ERC-8183 deployment the whole time, and nobody had looked \u2014 **21 Aug 2026**"
     },
@@ -3101,7 +3101,7 @@
       "cited_by": [],
       "id": "P-25",
       "kind": "correction",
-      "line": 937,
+      "line": 942,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Router's entire published behaviour was a statement about two constants nobody measured \u2014 **22 Aug 2026**"
     },
@@ -3157,7 +3157,7 @@
       ],
       "id": "P-26",
       "kind": "correction",
-      "line": 878,
+      "line": 883,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "Three thresholds were numbers correct for quantities they were not applied to \u2014 **25 Aug 2026**"
     },
@@ -3256,7 +3256,7 @@
       ],
       "id": "P-27",
       "kind": "correction",
-      "line": 799,
+      "line": 804,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The session-key refusal was a search of our own output directory, reported as a search of the world \u2014 **29 Aug 2026**"
     },
@@ -3370,7 +3370,7 @@
       "cited_by": [],
       "id": "P-28",
       "kind": "correction",
-      "line": 725,
+      "line": 730,
       "source": "docs/REQUIREMENTS_MATRIX.md",
       "title": "The hire flow was blocked on an ABI, and the ledger said it was blocked on signing \u2014 **29 Aug 2026**"
     },
@@ -3464,6 +3464,10 @@
         },
         {
           "text": "It returned **`0 items`** while the four agents existed only on chapel, and that is what this paragraph recorded. They were then minted on mainnet and it returns **`3`** \u2014 grid `323332`, sentinel `323333`, router `323334`. Warden `323262` is registered, owned by the same wallet, and still absent, because TermiX attributes an agent to the wallet that **minted** it and warden was minted by a delegate and transferred afterwards. The indexing-lag explanation was tested and falsified: their index passed 323,517, beyond every id we hold, and the absence survived it. `vetting/identity/termix-listing-56.json` carries both readings and the falsification.",
+          "type": "p"
+        },
+        {
+          "text": "That record's `remint` key carries a third reading this paragraph stopped short of: re-minting warden from the authenticating wallet **did** list it, taking the answer to `5`, and leaving `323262` and `331590` behind as orphans \u2014 the transferred original and one mint nobody wanted. The finding is unchanged and now has its confirming experiment rather than only its falsification.",
           "type": "p"
         },
         {
