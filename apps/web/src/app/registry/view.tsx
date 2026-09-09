@@ -18,6 +18,7 @@ import { TallyStrip } from "@/components/TallyStrip";
 import { ErrorNotice, Refusal } from "@/components/Refusal";
 import { EscrowConsole } from "@/components/EscrowConsole";
 import { HireParties, type HireProofParties } from "@/components/HireParties";
+import { RefundTrail } from "@/components/RefundTrail";
 import { MarketplaceStanding, type Participation } from "@/components/MarketplaceStanding";
 import { CheckList, type CheckRow } from "@/components/CheckList";
 import { CardSkeleton } from "@/components/Skeleton";
@@ -311,9 +312,15 @@ export interface RegistryArtifact {
       ran: boolean;
       reason?: string;
       network?: string;
+      chain_id?: number;
       job_id?: number;
       refunded?: boolean;
       recovered?: number;
+      client?: string;
+      budget?: number;
+      balance_before?: string;
+      balance_after?: string;
+      gas_spent_wei?: number;
       expires_at_utc?: string;
       status_before?: number;
       status_after?: number;
@@ -1311,6 +1318,10 @@ export function RegistryView({
                         {d.hire_flow.refund_proof.expires_at_utc}
                       </span>
                     </div>
+                    <RefundTrail
+                      proof={d.hire_flow.refund_proof}
+                      {...chainMeta(d.hire_flow.refund_proof.chain_id)}
+                    />
                     {d.hire_flow.refund_proof.network !== "fork" &&
                       (d.hire_flow.refund_proof.transactions ?? [])
                         .filter((sent) => sent.ok && sent.tx)
@@ -1318,7 +1329,7 @@ export function RegistryView({
                           <p key={sent.tx} className="mt-3 mb-0 text-xs">
                             <a
                               className="font-mono break-all text-dim underline"
-                              href={`https://bscscan.com/tx/${sent.tx}`}
+                              href={`${chainMeta(d.hire_flow.refund_proof!.chain_id).explorer}/tx/${sent.tx}`}
                               target="_blank"
                               rel="noreferrer"
                             >

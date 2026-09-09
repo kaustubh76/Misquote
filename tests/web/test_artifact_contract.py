@@ -1463,14 +1463,39 @@ REGISTRY_FIELDS: dict[str, str] = {
     "hire_flow.refund_proof.status_before": "registry/view.tsx",
     "hire_flow.refund_proof.status_after": "registry/view.tsx",
     "hire_flow.refund_proof.transactions": "registry/view.tsx",
-    # Its own bookkeeping, carried for the same reason the other three records
-    # carry theirs: a reader who opens the JSON can check the arithmetic.
-    "hire_flow.refund_proof.balance_after": "",
-    "hire_flow.refund_proof.balance_before": "",
-    "hire_flow.refund_proof.budget": "",
-    "hire_flow.refund_proof.client": "",
+    # The money coming back, and the arithmetic that proves it did.
+    #
+    # This block said "a reader who opens the JSON can check the arithmetic",
+    # which was true and was also the whole problem: the only record in
+    # `hire_flow` about money *returning* published its party and its figures
+    # to no view, while its four sibling proof blocks rendered the same fields
+    # through `HireParties.tsx`. The page showed `refunded: true`, a job id and
+    # a status transition, and the numbers behind the claim were one level down
+    # in the same file:
+    #
+    #     balance_before  105790336763253403
+    #     balance_after   205790336763253403
+    #     budget          100000000000000000
+    #
+    # `balance_after - balance_before == budget`, exactly. `RefundTrail.tsx`
+    # renders that comparison and computes its own verdict from the three
+    # integers rather than reading the record's `refunded` flag — the same
+    # discipline `partiesDiffer` applies to `two_party`, and for the same
+    # reason: the numbers are the fact, the flag is a claim about them.
+    "hire_flow.refund_proof.balance_after": "RefundTrail.tsx",
+    "hire_flow.refund_proof.balance_before": "RefundTrail.tsx",
+    "hire_flow.refund_proof.budget": "RefundTrail.tsx",
+    "hire_flow.refund_proof.client": "RefundTrail.tsx",
+    "hire_flow.refund_proof.gas_spent_wei": "RefundTrail.tsx",
+    #: The chain this refund is on, which every sibling proof block has carried
+    #: since it existed and this one did not. Not cosmetic: `registry/view.tsx`
+    #: resolves decimals and the explorer through `chainMeta(chain_id)`, so with
+    #: nothing to resolve the refund block had to type `https://bscscan.com` as
+    #: a literal and could not render an amount in the token's own units at all.
+    #: `registry_report.py` stamps it now.
+    "hire_flow.refund_proof.chain_id": "registry/view.tsx",
+    #: The unix duplicate of `expires_at_utc`, which is the one rendered.
     "hire_flow.refund_proof.expires_at": "",
-    "hire_flow.refund_proof.gas_spent_wei": "",
     "hire_flow.refund_proof.record": "",
     # The addresses a browser needs to send any of this itself. Emitted rather
     # than typed into TypeScript because `erc8183.py` is where a deployment is
@@ -2576,3 +2601,46 @@ def test_the_band_keys_are_read_where_the_ladder_is_drawn() -> None:
     unread = sorted(f for f in POOLS_BAND_FIELDS | {"indistinguishable_from"} if f not in source)
 
     assert not unread, f"band fields WidthLadder.tsx does not read: {unread}"
+
+
+def test_no_artifact_integer_loses_precision_in_a_browser() -> None:
+    """A number the page prints must be the number this file records.
+
+    JSON has one numeric type and a browser parses it as a double, so an
+    integer above 2**53 arrives changed and nothing reports it. Two fields hit
+    this the day `RefundTrail` first put them on screen:
+
+        recorded  105790336763253403
+        rendered  105790336763253408
+
+    Both rounded by +5, so the delta proving the refund was exact stayed exact
+    and the bug was invisible in the one place it would have shown. The
+    emitter now writes those two as text (`registry_report._wei_as_text`).
+
+    This is the general guard, because the next uint256 to reach a view will
+    not announce itself either. Integers that round-trip exactly are allowed
+    through — `budget` is 1e17 and survives — so this fails only on values a
+    reader would actually be misinformed about.
+    """
+    offenders: list[str] = []
+
+    def walk(node: object, path: str, artifact: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}", artifact)
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                walk(value, f"{path}[{index}]", artifact)
+        elif isinstance(node, bool):
+            return
+        elif isinstance(node, int) and int(float(node)) != node:
+            offenders.append(f"{artifact}{path}: {node} parses as {int(float(node))}")
+
+    for artifact in sorted(ARTIFACTS.glob("*.json")):
+        walk(json.loads(artifact.read_text()), "", artifact.name)
+
+    assert not offenders, (
+        "artifact integers a browser silently changes: "
+        + "; ".join(offenders)
+        + ". Emit them as strings and read them with BigInt."
+    )

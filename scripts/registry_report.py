@@ -406,6 +406,7 @@ ABSENT_REFUND = {
     "balance_after": None,
     "balance_before": None,
     "budget": None,
+    "chain_id": None,
     "client": None,
     "expires_at": None,
     "expires_at_utc": None,
@@ -568,13 +569,63 @@ def _submit_proof() -> dict[str, Any]:
     )
 
 
+#: The chain both refund records are of.
+#:
+#: `refund-56.json` is the mainnet reclaim and `refund-fork-56.json` is that
+#: same reclaim rehearsed on a **fork of 56**, so the escrow, the token and the
+#: explorer are chain 56's in both cases. Named rather than inlined because it
+#: is a constant describing the deployment, and the day a refund is claimed on
+#: another chain this is the line that has to move — with the record carrying
+#: its own `chain_id` being the better fix at that point.
+REFUND_CHAIN = 56
+
+
 def _refund_proof() -> dict[str, Any]:
-    """The recovery, mainnet if it has happened and the rehearsal if not."""
-    return _published_record(
+    """The recovery, mainnet if it has happened and the rehearsal if not.
+
+    Stamped with `chain_id`, which its four sibling proof blocks have always
+    carried and this one never did. The consequence was on the page rather than
+    in the data: `registry/view.tsx` looks up decimals and the explorer through
+    `chainMeta(chain_id)`, so with nothing to look up the refund block had to
+    type `https://bscscan.com/tx/` as a literal and could not render an amount
+    in the token's own units at all. The record's writer does not record it, so
+    the emitter supplies it and prefers the record's own value if one ever
+    appears.
+    """
+    record = _published_record(
         (REFUND_MAINNET_PATH, REFUND_FORK_PATH),
         ABSENT_REFUND,
         "no refund has been claimed — `make claim-refund-fork` rehearses it",
     )
+    if record.get("ran") and record.get("chain_id") is None:
+        record["chain_id"] = REFUND_CHAIN
+    return _wei_as_text(record, "balance_before", "balance_after")
+
+
+#: uint256 balances, emitted as text for the reason the indexer stores them as
+#: text (`indexer/schema.sql`): a browser parses JSON numbers as doubles, and
+#: these two are the only values in any published artifact that *change* on the
+#: way in —
+#:
+#:     recorded  105790336763253403
+#:     rendered  105790336763253408
+#:
+#: Both round by +5, so the delta the page proves the refund with survives by
+#: coincidence; had they rounded apart, `RefundTrail` would have printed a red
+#: "returned 99999999999999995 of 100000000000000000 wei" over a refund that
+#: was exact. A page whose argument is that the reader can check the arithmetic
+#: against this file must not print a number this file does not contain.
+#:
+#: `budget` and `gas_spent_wei` are left as integers: both exceed
+#: MAX_SAFE_INTEGER or approach it, and both round-trip exactly today because
+#: they are round. `test_no_artifact_integer_loses_precision` is what notices
+#: when that stops being true, for these fields and every other.
+def _wei_as_text(record: dict[str, Any], *fields: str) -> dict[str, Any]:
+    for field in fields:
+        value = record.get(field)
+        if isinstance(value, int) and not isinstance(value, bool):
+            record[field] = str(value)
+    return record
 
 
 def _hire_mainnet_proof() -> dict[str, Any]:

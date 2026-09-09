@@ -157,6 +157,19 @@ export function readArtifact<T>(name: string): T {
 }
 
 /**
+ * The artifact's bytes, unparsed.
+ *
+ * `JSON.parse` is lossy on integers past 2**53 — `105790336763253403` comes
+ * back as `105790336763253408` — so a test that asks whether the page prints
+ * what the file says cannot ask a parsed object, which has already lost it.
+ * `RefundTrail.test.tsx` is the caller, and the general guard is
+ * `test_no_artifact_integer_loses_precision_in_a_browser`.
+ */
+export function readArtifactText(name: string): string {
+  return artifactBody(name);
+}
+
+/**
  * A matcher for text taken verbatim out of an artifact.
  *
  * Artifact strings are prose, and prose contains regex metacharacters — the
