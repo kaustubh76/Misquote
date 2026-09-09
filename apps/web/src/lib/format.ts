@@ -160,6 +160,42 @@ export function hours(v: unknown, decimals = 1): string {
 }
 
 /**
+ * How long ago an instant was, in words, against the reader's own clock.
+ *
+ * ## Why not the `age_hours` the emitter already writes
+ *
+ * Because that one freezes. `registry_report.py` computes it when the artifact
+ * is built, so `ours.age_hours` said 41.7 on the day of the build and would
+ * still say 41.7 a fortnight later, about a chain read taken on 7 September.
+ * `registry/view.tsx` states the rule it breaks, in a comment sitting directly
+ * above the line that printed it: a reading of unknown age presented as current
+ * is "the one thing a record of a chain read must not do". A real number that
+ * silently becomes wrong is that same defect one level down, and judging runs
+ * for a fortnight.
+ *
+ * The artifact publishes the absolute instant beside every one of those ages.
+ * That is the fact; this turns it into an age at the moment somebody looks.
+ *
+ * **Never call this during render.** The server prerenders this page at build
+ * time and the browser hydrates it later, so a value derived from `Date.now()`
+ * differs between the two renders — a hydration mismatch, React error #418,
+ * which `apps/web/scripts/check-pages.mjs` documents at length as the flake
+ * nobody could reproduce. `useAgeOf` below is the safe way in.
+ */
+export function ago(iso: unknown, now: number = Date.now()): string | null {
+  if (typeof iso !== "string") return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+
+  const mins = Math.max(0, Math.round((now - then) / 60_000));
+  if (mins < 60) return mins <= 1 ? "just now" : `${mins} minutes ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return hrs === 1 ? "an hour ago" : `${hrs} hours ago`;
+  const days = Math.round(hrs / 24);
+  return `${days} days ago`;
+}
+
+/**
  * Which judgement class a signed value earns.
  *
  * Returns `"none"` — not `"neg"` — when the value is missing or not finite.

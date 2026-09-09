@@ -136,6 +136,30 @@ with only the clock moved: the claim is **refused** before expiry, and after it
 the job goes 2 → 5 and the full 0.1 comes back.
 
 
+## Keeping the marketplace evidence current during judging
+
+Judging runs to **23 Sep**, and the TermiX block on `/registry` is counters read
+off somebody else's server. Nothing expires on our side — the site is a static
+export — but the reading ages, so the page now prints **when** it was taken and
+computes "N ago" against the reader's own clock rather than publishing an age
+that freezes at build time.
+
+To re-date it, at any point, without committing anything:
+
+```
+uv run python scripts/termix_activity.py --out    # re-reads, sends nothing
+make registry                                     # republishes the block
+```
+
+The bare script with no action flag is read-only by construction — `--save`,
+`--quote`, `--brief` and `--buy` each have their own flag precisely so that
+none of the three that commit money can be reached by accident.
+
+Two things a judge will find unfinished, both deliberate and both stated on the
+page: `activeOrders` is 0 because it counts orders a **provider has accepted**
+and ours is waiting on the seller, and the sponsored bounty is `DRAFT` because
+funding it is a spend nobody has authorised.
+
 ## Open before submission
 
 - [ ] **Demo video.** Not recorded. The script is written —

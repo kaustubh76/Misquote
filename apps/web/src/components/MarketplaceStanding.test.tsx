@@ -161,3 +161,37 @@ describe("the two counters whose strict reading is zero", () => {
     expect(screen.queryByText(/posted/)).not.toBeInTheDocument();
   });
 });
+
+describe("the age of the reading", () => {
+  it("dates the counters against the reader's clock, not the build's", async () => {
+    // The defect this exists to prevent. `ours.age_hours` was computed by the
+    // emitter and printed as "read 41.7h ago"; it would still have said 41.7h
+    // a fortnight later, and judging runs for a fortnight. So the artifact
+    // publishes the instant and the page does the subtraction on load.
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+    render(
+      <MarketplaceStanding
+        p={{
+          read_at: twoWeeksAgo,
+          counters: { baseline: { savedListings: 0 }, now: { savedListings: 4 } },
+        }}
+      />
+    );
+    // `useAgeOf` fills in after mount, which is what keeps the prerendered
+    // HTML and the hydrated render identical — see lib/useAgeOf.ts.
+    expect(await screen.findByText(/14 days ago/)).toBeInTheDocument();
+  });
+
+  it("still dates the block when the browser has not run the effect", () => {
+    // The absolute stamp is rendered directly, so the page is correct with
+    // JavaScript off and correct in the prerendered HTML.
+    render(<MarketplaceStanding p={{ read_at: "2026-09-08T19:09:23+00:00" }} />);
+    expect(screen.getByText(/Read/)).toBeInTheDocument();
+  });
+
+  it("says nothing about age when the record carries no instant", () => {
+    render(<MarketplaceStanding p={{ counters: { baseline: {}, now: {} } }} />);
+    expect(screen.queryByText(/Read/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
+  });
+});

@@ -918,6 +918,8 @@ ACTIVITY_PATH = REPO / "vetting" / "identity" / "termix-activity-56.json"
 #: gives at length: a two-key stub on a machine without the files fails the
 #: contract in both directions at once.
 ABSENT_PARTICIPATION: dict[str, Any] = {
+    "read_at": None,
+    "baseline_at": None,
     "listings": [],
     "counters": {"baseline": None, "now": None},
     "brief": {"id": None, "status": None, "quotes": None, "budget_usdc": None},
@@ -1027,8 +1029,31 @@ def participation() -> dict[str, Any]:
             for slug, why in ((listing or {}).get("refused") or {}).items()
             if slug not in {row["agent"] for row in rows}
         },
+        # When this was read, and when the "0 →" column was taken.
+        #
+        # The record has carried both since it was written and this dropped
+        # them, so the newest block on the site showed "Orders 0 → 0 · 1 placed,
+        # Saved 0 → 4" with nothing saying when. `registry/view.tsx` says what
+        # is wrong with that in as many words, about `ours`: a reading of
+        # unknown age presented as current is "the one thing a record of a
+        # chain read must not do".
+        #
+        # ISO, not the record's unix seconds, and no `age_hours` beside it on
+        # purpose. An age computed here is the age at **build** time and freezes
+        # — `ours.age_hours` says 41.7 and will still say 41.7 in a fortnight.
+        # The absolute instant is the fact; the page turns it into "N ago"
+        # against the reader's own clock.
+        "read_at": _iso_utc((activity or {}).get("read_at")),
+        "baseline_at": _iso_utc((activity or {}).get("baseline_at")),
         "reason": None,
     }
+
+
+def _iso_utc(epoch: Any) -> str | None:
+    """Unix seconds as an ISO instant, or None for anything else."""
+    if not isinstance(epoch, (int, float)):
+        return None
+    return datetime.fromtimestamp(epoch, UTC).isoformat()
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

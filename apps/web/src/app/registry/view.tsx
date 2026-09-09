@@ -26,7 +26,8 @@ import Link from "next/link";
 import { Pill, statusTone } from "@/components/Pill";
 import { RegistrySearch } from "@/components/RegistrySearch";
 import { load, type Loaded } from "@/lib/artifacts";
-import { count, fixed, hours, isNum, pct, shortAddress } from "@/lib/format";
+import { count, fixed, isNum, pct, shortAddress, timestamp } from "@/lib/format";
+import { useAgeOf } from "@/lib/useAgeOf";
 
 interface Step {
   call: string;
@@ -187,6 +188,7 @@ export interface OwnIdentities {
    * nowhere, so the page presented a reading of unknown age as current.
    */
   age_hours?: number;
+  read_at?: string | null;
   /**
    * The check tally. All four, including the two that are zero — see the note
    * at the render site for why the failing halves are not optional.
@@ -2293,6 +2295,11 @@ function Census({ census }: { census?: NonNullable<RegistryArtifact["third_party
 }
 
 function OurAgents({ ours }: { ours?: OwnIdentities }) {
+  // Filled after mount, so the prerendered HTML and the first client render
+  // agree. See `lib/useAgeOf.ts` — this is the read that used to print a
+  // build-time `age_hours` and go on printing it for a fortnight.
+  const oursAge = useAgeOf(ours?.read_at);
+
   // Not an empty table. An artifact from a checkout that never registered
   // anything and an artifact from a run that registered nothing must not look
   // alike — the distinction `/vetting`'s two 404s exist to preserve.
@@ -2332,7 +2339,13 @@ function OurAgents({ ours }: { ours?: OwnIdentities }) {
                   it prints was named here and went stale on the next survey,
                   which is a smaller version of the same defect; what matters is
                   that it is a real age and not a placeholder. */}
-              {ours.age_hours != null && ` · read ${hours(ours.age_hours)} ago`}
+              {ours.read_at && (
+                <>
+                  {" · read "}
+                  <span className="tabular">{timestamp(ours.read_at)}</span>
+                  {oursAge && ` · ${oursAge}`}
+                </>
+              )}
             </span>
           }
           aside={<Pill tone={statusTone(ours.verdict || "UNKNOWN")}>{ours.verdict || "UNKNOWN"}</Pill>}

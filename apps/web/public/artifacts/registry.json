@@ -23,16 +23,16 @@
       "total": 65
     },
     "explorer_agents": {
-      "gap": 137,
+      "gap": 138,
       "gap_note": "Both read in the same build. A positive gap is their indexing lag behind the registry; the registry grows by roughly a thousand registrations an hour, so a gap measured across two read times would be that delay rather than a property of their index.",
-      "ours": 341899,
-      "ours_at_block": 120827198,
+      "ours": 342073,
+      "ours_at_block": 120854448,
       "page_size": 20,
       "path": "/api/v1/explorer/agents",
       "read": true,
       "sort_order": "reputation_desc",
-      "total": 341762,
-      "total_pages": 17089,
+      "total": 341935,
+      "total_pages": 17097,
       "withheld_fields": [
         "onTimeRate",
         "passRate",
@@ -44,6 +44,7 @@
     "note": "A snapshot of TermiX's published table, recorded to be checked against \u2014 never a source of truth for signing. Their own docs say to fetch live addresses before signing.",
     "order_decode": "orders(bytes32) returns 13 words. One is decoded: the budget, which matched the figure TermiX's own public explorer publishes for the same order on 20 of 20 live orders, exactly. The order's state is NOT decoded \u2014 no word separates their SETTLED orders from their PENDING_ACCEPT ones.",
     "participation": {
+      "baseline_at": "2026-09-08T14:16:40+00:00",
       "bids": [
         {
           "agent": "warden",
@@ -178,6 +179,7 @@
         }
       ],
       "orders_unreadable": null,
+      "read_at": "2026-09-08T19:09:23+00:00",
       "reason": null,
       "refused": {}
     },
@@ -185,9 +187,9 @@
   },
   "build": {
     "command": "python scripts/registry_report.py",
-    "generated_at": "2026-09-09T06:05:23+00:00",
+    "generated_at": "2026-09-09T09:29:49+00:00",
     "git_dirty": true,
-    "git_sha": "e55bcc1",
+    "git_sha": "ca32389",
     "source": "recorded survey"
   },
   "hire_flow": {
@@ -1616,7 +1618,7 @@
     "with_endpoint": 143
   },
   "ours": {
-    "age_hours": 41.7,
+    "age_hours": 45.1,
     "agents": [
       {
         "agent": "warden",

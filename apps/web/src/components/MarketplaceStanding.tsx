@@ -1,5 +1,6 @@
 import { Pill } from "@/components/Pill";
-import { count } from "@/lib/format";
+import { count, timestamp } from "@/lib/format";
+import { useAgeOf } from "@/lib/useAgeOf";
 
 /**
  * What this project is on TermiX, as opposed to what it has read about TermiX.
@@ -34,6 +35,9 @@ export interface Participation {
     title?: string | null;
     proved_by?: string | null;
   }[];
+  /** When the platform was read, and when the "0 →" column was taken. */
+  read_at?: string | null;
+  baseline_at?: string | null;
   counters?: {
     baseline?: Counters | null;
     now?: Counters | null;
@@ -146,6 +150,7 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
   if (p.reason) {
     return <p className="mt-5 mb-0 border-t border-line pt-4 text-xs text-faint">{p.reason}</p>;
   }
+  const age = useAgeOf(p.read_at);
   const listings = p.listings ?? [];
   const base = p.counters?.baseline ?? {};
   const now = p.counters?.now ?? {};
@@ -155,6 +160,28 @@ export function MarketplaceStanding({ p }: { p: Participation }) {
       <p className="m-0 text-sm text-dim">
         And what we are <em>on</em> it, rather than what we have read about it.
       </p>
+
+      {/* When, because judging runs for a fortnight and these are counters read
+          off somebody else's server. The block carried none: the record has
+          held `read_at` since it was written and `participation()` dropped it,
+          so this said "Saved 0 → 4" with nothing dating it.
+
+          The age is computed against the reader's clock rather than published
+          as a number — `ours.age_hours` is the cautionary case, frozen at 41.7
+          from the build that wrote it. `useAgeOf` fills it after mount so the
+          prerendered HTML and the hydrated one agree. */}
+      {p.read_at && (
+        <p className="mt-1 mb-0 text-xs text-faint">
+          Read <span className="tabular">{timestamp(p.read_at)}</span>
+          {age && ` · ${age}`}
+          {p.baseline_at && (
+            <>
+              {" · baseline "}
+              <span className="tabular">{timestamp(p.baseline_at)}</span>
+            </>
+          )}
+        </p>
+      )}
 
       {/* The dashboard's own four, each against where it started. */}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">

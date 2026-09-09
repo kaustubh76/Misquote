@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-09T06:33:31+00:00",
+  "generated_at": "2026-09-09T10:03:50+00:00",
   "build": {
     "command": "python scripts/go_no_go.py --json",
     "source": "local checks",
-    "generated_at": "2026-09-09T06:33:31+00:00",
-    "git_sha": "00afc03",
+    "generated_at": "2026-09-09T10:03:50+00:00",
+    "git_sha": "ca32389",
     "git_dirty": true
   },
   "mainnet": false,
@@ -14,28 +14,35 @@
     {
       "name": "offline test suite",
       "status": "FAIL",
-      "detail": "1 failed, 2615 passed, 35 skipped, 53 deselected, 26 warnings in 537.25s (0:08:57)",
+      "detail": "2 failed, 2621 passed, 35 skipped, 53 deselected, 26 warnings in 665.60s (0:11:05)",
       "remedy": "make test \u2014 fix before anything else",
       "blocking": true
     },
     {
       "name": "T1-T4 and L1",
       "status": "PASS",
-      "detail": "14 passed, 9 deselected, 1 warning in 17.07s",
+      "detail": "14 passed, 9 deselected, 1 warning in 12.91s",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "lint",
       "status": "PASS",
-      "detail": "291 files already formatted",
+      "detail": "292 files already formatted",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "web component suite",
       "status": "PASS",
-      "detail": "Tests  589 passed (589)",
+      "detail": "Tests  592 passed (592)",
+      "remedy": "",
+      "blocking": false
+    },
+    {
+      "name": "web types",
+      "status": "PASS",
+      "detail": "tsc --noEmit clean over apps/web",
       "remedy": "",
       "blocking": false
     },
@@ -49,14 +56,14 @@
     {
       "name": "chain and fork suite",
       "status": "PASS",
-      "detail": "48 passed, 5 skipped, 2651 deselected, 2 warnings in 237.82s (0:03:57)",
+      "detail": "44 passed, 9 skipped, 2658 deselected, 2 warnings in 244.14s (0:04:04)",
       "remedy": "",
       "blocking": false
     },
     {
       "name": "kill switch",
       "status": "PASS",
-      "detail": "7 passed, 214 deselected, 1 warning in 2.15s",
+      "detail": "7 passed, 214 deselected, 1 warning in 3.60s",
       "remedy": "",
       "blocking": false
     },
@@ -111,10 +118,10 @@
     },
     {
       "name": "judge document current",
-      "status": "PASS",
-      "detail": "every derived figure matches its artifact",
-      "remedy": "",
-      "blocking": false
+      "status": "UNVERIFIED",
+      "detail": "quickstart test count -> 2658; headline counts -> 2711: 2658 offline, 53 chain; explorer block -> 5 row(s)",
+      "remedy": "make judges \u2014 the numbers a judge reads must be the numbers we published",
+      "blocking": true
     },
     {
       "name": "agent advantage report",
@@ -222,7 +229,7 @@
     {
       "name": "24h unattended burn-in",
       "status": "PASS",
-      "detail": "warden longest unbroken run 39.7h on BSC mainnet, signing refused \u2014 across 3 run(s), 44,299 rows (file spans 598.3h \u2014 the gate is the run, not the span). Also: warden 39.7h, sentinel 0.2h, grid 0.1h, 0 read errors",
+      "detail": "warden longest unbroken run 43.1h on BSC mainnet, signing refused \u2014 across 3 run(s), 46,798 rows (file spans 601.8h \u2014 the gate is the run, not the span). Also: warden 43.1h, sentinel 0.2h, grid 0.1h, 0 read errors",
       "remedy": "",
       "blocking": false
     },
@@ -244,8 +251,8 @@
   "summary": {
     "pass": 18,
     "fail": 1,
-    "unverified": 3,
-    "total": 22
+    "unverified": 4,
+    "total": 23
   },
   "outcome": "NO GO",
   "exit_code": 1

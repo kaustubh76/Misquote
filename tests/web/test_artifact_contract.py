@@ -1631,6 +1631,14 @@ REGISTRY_FIELDS: dict[str, str] = {
     # So the strict reading was published and the fuller one withheld, and the
     # page read as though nothing had been bought or asked for. Both are shown
     # now, with `not_done` underneath saying why each second half is still 0.
+    #: When the platform was read, and when the "0 →" column was taken. The
+    #: record has carried both since it was written and `participation()`
+    #: dropped them, so the newest block on the site showed four counters with
+    #: nothing dating them. ISO instants, no `age_hours` beside them — see the
+    #: note on `ours.age_hours` for why an age computed by the emitter is the
+    #: wrong shape for a page somebody reads two weeks later.
+    "aacp.participation.read_at": "MarketplaceStanding.tsx",
+    "aacp.participation.baseline_at": "MarketplaceStanding.tsx",
     "aacp.participation.counters.baseline.orders": "MarketplaceStanding.tsx",
     "aacp.participation.counters.baseline.briefs": "MarketplaceStanding.tsx",
     "aacp.participation.counters.now.orders": "MarketplaceStanding.tsx",
@@ -1716,7 +1724,20 @@ REGISTRY_FIELDS: dict[str, str] = {
     # and for several releases drawn nowhere, so the page presented a reading of
     # unknown age as current. It has never been zero on any recorded run, and
     # the card now says how old the reading is beside the verdict.
-    "ours.age_hours": "registry/view.tsx",
+    #: **Superseded, deliberately.** The page used to print
+    #: `read {hours(ours.age_hours)} ago`, and this number is computed when the
+    #: artifact is built — it said 41.7 on the build that wrote it and would
+    #: have said 41.7 a fortnight later, about a chain read taken on 7 Sep.
+    #: The comment above that line already stated the rule it broke: a reading
+    #: of unknown age presented as current is "the one thing a record of a
+    #: chain read must not do". A real number that silently goes wrong is that
+    #: same defect one level down, and judging runs for two weeks.
+    #:
+    #: `read_at` is rendered instead and the age is computed against the
+    #: reader's own clock. This is kept because the age *at build time* is a
+    #: fact worth having in the JSON — it just is not one a page may print as
+    #: though it were now.
+    "ours.age_hours": "",
     "ours.record": "registry/view.tsx",
     # The funding transaction that made the registrations possible, and the
     # block they landed in. Recorded so the record is checkable rather than
@@ -1731,7 +1752,7 @@ REGISTRY_FIELDS: dict[str, str] = {
     # signer whenever it differs from the owner, which is the case worth seeing.
     "ours.block": "registry/view.tsx",
     "ours.signer": "registry/view.tsx",
-    "ours.read_at": "",
+    "ours.read_at": "registry/view.tsx",
     "ours.reason": "",
     # Per-artifact provenance. Read by `go_no_go.check_artifact_freshness` in
     # the terminal, and by nothing on this page — no view in `apps/web/src`
