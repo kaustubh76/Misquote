@@ -124,11 +124,14 @@ no grant on that keystore carries. The site says so on the activation page.
 **Stack.** Python 3.12 replay engine and indexer; Next.js 15 exported statically
 to Vercel, so the whole site renders with every backend down; FastAPI plus a
 queue worker on Render; a Node 22 A2A seller agent that returns wallet-signed
-ERC-8183 quotes. 2,702 tests, of which 53 need a live chain or a fork.
+ERC-8183 quotes. 2,704 tests, of which 53 need a live chain or a fork.
 
 **What is not done** is published as a ledger of six entries on the site itself,
-and the readiness gate currently reads 18 pass, 0 fail, 4 unverified — verdict
-**NOT YET**. Nothing has traded with real money; the flagship agent refuses to
+and the readiness gate — 23 checks that run rather than a checklist that is
+read — returns **NOT YET**, its live tally published at `/status`. It is built
+so that it cannot return GO at all without being pointed at mainnet, because
+two of its checks report "not checked" rather than passing when they have not
+run. Nothing has traded with real money; the flagship agent refuses to
 sign on mainnet in code, not by convention. Under-claiming is the point: a
 marketplace that cannot show you its own failures is the thing this project was
 built to argue against.
