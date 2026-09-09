@@ -718,6 +718,11 @@ minted by a delegate and transferred afterwards. The indexing-lag explanation wa
 falsified: their index passed 323,517, beyond every id we hold, and the absence survived it.
 `vetting/identity/termix-listing-56.json` carries both readings and the falsification.
 
+That record's `remint` key carries a third reading this paragraph stopped short of: re-minting
+warden from the authenticating wallet **did** list it, taking the answer to `5`, and leaving
+`323262` and `331590` behind as orphans — the transferred original and one mint nobody wanted.
+The finding is unchanged and now has its confirming experiment rather than only its falsification.
+
 *The lesson worth keeping:* a uniform error is not evidence. When every path in a namespace answers
 identically, the answer is about the namespace's middleware and not about the path — and the way to
 find out is to change the *method*, not the path.

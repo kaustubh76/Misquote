@@ -313,6 +313,22 @@ def termix_listing_block() -> list[str] | None:
             f"{lag['explorer_total_now']:,}, past our highest id "
             f"{lag.get('our_highest_id', 0):,}, and the absence survived |"
         )
+    remint = record.get("remint") or {}
+    if remint.get("listed_now"):
+        # The experiment that followed, and the reason this block rendered a
+        # superseded result for as long as it did: `remint` was added to the
+        # record and never to the renderer, so the table went on saying warden
+        # is absent after a re-mint had listed it. It under-claimed the
+        # project's own finding, which is the direction that looks like
+        # modesty and reads like staleness.
+        rows.append(f"| then re-minted | `/api/v1/agents` answers {remint['listed_now']} |")
+        orphans = remint.get("orphans") or []
+        if orphans:
+            rows.append(
+                "| left behind | "
+                + ", ".join(f"`{agent_id}`" for agent_id in orphans)
+                + " — the transferred original, and one mint nobody wanted |"
+            )
     rows.append(
         "| what it means | sufficient for an identity **minted** to the wallet that "
         "authenticates; not for one transferred to it |"

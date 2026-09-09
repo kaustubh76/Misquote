@@ -668,6 +668,8 @@ project exists to argue against.
 | listed | grid `323332`, router `323334`, sentinel `323333` |
 | not listed | warden `323262` — minted by a delegate, then transferred |
 | indexing lag ruled out | their index reached 323,517, past our highest id 323,334, and the absence survived |
+| then re-minted | `/api/v1/agents` answers 5 |
+| left behind | `323262`, `331590` — the transferred original, and one mint nobody wanted |
 | what it means | sufficient for an identity **minted** to the wallet that authenticates; not for one transferred to it |
 <!-- /derived:termix_listing -->
   3. **"Orders" is not downstream of registration at all.** TermiX's orders are

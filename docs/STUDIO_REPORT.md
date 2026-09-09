@@ -100,8 +100,9 @@ endpoint resolves to the running agent. The CLI's own `.studio/audit-log.jsonl`
 carries the submitted/confirmed pair, and that log is the one artifact in this
 story written by the vendor's tool rather than by us.
 
-This is a **fifth** identity, distinct from the four `register_identity.py`
-minted on mainnet (323262, 323332-4, 331592). `/registry` says so rather than
+This is a further identity, distinct from the four agents `register_identity.py`
+minted on mainnet — five registrations, because warden was minted twice
+(323262, 323332-4, and the re-mint 331592). `/registry` says so rather than
 folding it into that table, which would have been the neatest available lie.
 
 ### 2.3 The commerce configuration
